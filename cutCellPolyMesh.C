@@ -248,11 +248,11 @@ void Foam::cutCellPolyMesh::cellsToSide
     const pointField& points = this->points();
     const faceList& faces = this->faces();
     const cellList& cells = this->cells();
-    labelList cellsToSide(faces.size());
+    labelList cellsToSide(cells.size());
     
     for(int i=0;i<cells.size();i++)
     {
-        pointField cellPoints = cells[i].points(faces,cells);
+        pointField cellPoints = cells[i].points(faces,points);
         
         bool nullExist = false;
         bool posExist = false;
@@ -305,11 +305,12 @@ void Foam::cutCellPolyMesh::cellsToSide
 )
 {
     const pointField& points = this->points();
-    labelList cellsToSide(faces.size());
+    const faceList& faces = this->faces();
+    labelList cellsToSide(cells.size());
     
     for(int i=0;i<cells.size();i++)
     {
-        pointField cellPoints = cells[i].points(faces,cells);
+        pointField cellPoints = cells[i].points(faces,points);
         
         bool nullExist = false;
         bool posExist = false;
@@ -806,9 +807,9 @@ void Foam::cutCellPolyMesh::newMeshFaces
 {
     Info<<"Starting adding Faces"<<endl;
     const cellList& meshCells = this->cells();
-    const pointField& basisPoints = this->points();
+    //const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
-    const edgeList& basisEdges = this->edges();
+    //const edgeList& basisEdges = this->edges();
     
     nbrOfPrevFaces = basisFaces.size();
     
@@ -871,7 +872,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
         
         bool allCutEdgesOld = true;
         //label oldCutEdgeFace = ;
-        for(int k=0;k<cellCutEdgeList;k++)
+        for(int k=0;k<cellCutEdgeList.size();k++)
         {
             if(cellCutEdgeList[k] >= nbrOfPrevEdges)
             {
@@ -887,7 +888,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
                 for(int b=0;b<cellCutEdgeFacesList[1].size();b++)
                 {
                     if(cellCutEdgeFacesList[0][a] == cellCutEdgeFacesList[1][b])
-                        equalFace.appen(cellCutEdgeFacesList[0][a]);
+                        equalFace.append(cellCutEdgeFacesList[0][a]);
                 }
             }
             if(equalFace.size() >= 2)
@@ -925,7 +926,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
                 << abort(FatalError);
             }
             
-            celltoFace_[i] = equalFace[0];
+            cellToFace_[i] = equalFace[0];
         }
         
         /*
@@ -1032,10 +1033,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
         
         labelList newFaceCell(0);
         newFaceCell.append(i);
-        faceToCells_.append(newFaceCell)
-        
-        //add to addedFaceToOldCells
-        addedFaceToOldCells.append(i);
+        faceToCells_.append(newFaceCell);
         
         //input to oldCellsToAddedFace
         cellToFace_[i] = newMeshFaces_.size()-1;
@@ -1046,10 +1044,10 @@ void Foam::cutCellPolyMesh::cutOldFaces
 (
 )
 {
-    const cellList& meshCells = mesh.cells();
-    const faceList& meshFaces = mesh.faces();
-    const edgeList& meshEdges = mesh.edges();
-    const pointField& meshPoints = mesh.points();
+    //const cellList& meshCells = this->cells();
+    const faceList& meshFaces = this->faces();
+    //const edgeList& meshEdges = this->edges();
+    //const pointField& meshPoints = this->points();
     
     cellsToSide();  
     
@@ -1145,8 +1143,8 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 */
             }
             label nextPoint = currFace[faceInd+1];
-            labelList currPointEdges = mesh.pointEdges()[currPoint];
-            labelList nextPointEdges = mesh.pointEdges()[nextPoint];
+            labelList currPointEdges = this->pointEdges()[currPoint];
+            labelList nextPointEdges = this->pointEdges()[nextPoint];
 
             /*
 // Zusatzinformation Anfang
@@ -1307,10 +1305,10 @@ void Foam::cutCellPolyMesh::cutOldFaces
             
             cutFaces_.append(face(newFace1));
             cutFacesToSide_.append(newFace1Sign);
-            oldFacesToCutFaces_[i].append(cutFaces.size()-1);
+            oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
             cutFaces_.append(face(newFace2));
             cutFacesToSide_.append(newFace2Sign);
-            oldFacesToCutFaces_[i].append(cutFaces.size()-1);
+            oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
             
             Info<<"6 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
@@ -1398,7 +1396,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
 {
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
-    const edgeList& meshEdges = this->edges();
+    //const edgeList& meshEdges = this->edges();
     const pointField& meshPoints = this->points();
     const labelList owner   = this->faceOwner();
     const labelList neighbour = this->faceNeighbour();    
@@ -1477,7 +1475,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
     {
         if(cellToFace_[i].size() == 1 && cellToFace_[i][0] >= nbrOfPrevFaces)
         {
-            face addedFace = clone(newMeshFaces_[celltoFace_[i][0]]);
+            face addedFace = newMeshFaces_[cellToFace_[i][0]];
             addedCutFaces.append(addedFace);
             addedCutFaceNeighbor.append(oldCellsToAddedMinusSideCellIndex[i]);
             addedCutFaceOwner.append(i);
@@ -1522,10 +1520,10 @@ void Foam::cutCellPolyMesh::createNewMeshData
                 << " faces instead of the expected 2."
                 << abort(FatalError);
             }
-            face face1 = clone(cutFaces_[oldFacesToCutFaces_[i][0]]);
+            face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
-            face face2 = clone(cutFaces_[oldFacesToCutFaces_[i][1]]);
-            label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
+            face face2      = cutFaces_[oldFacesToCutFaces_[i][1]];
+            //label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
             
             face sameCellFace;
             face addedCellFace;
@@ -1570,15 +1568,15 @@ void Foam::cutCellPolyMesh::createNewMeshData
         }
         else
         {
-            if(addedStruc.oldFaceToCutSide[i] == 1)
+            if(facesToSide_[i] == 1)
             {
-                splitAndUnsplitFacesInterior.append(clone(meshFaces[i]));
+                splitAndUnsplitFacesInterior.append(meshFaces[i]);
                 splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
                 splitAndUnsplitFaceInteriorOwner.append(owner[i]);
             }
             else
             {
-                splitAndUnsplitFacesInterior.append(clone(meshFaces[i]));
+                splitAndUnsplitFacesInterior.append(meshFaces[i]);
                 
                 if(cellsToSide_[neighbour[i]] == 0)
                     splitAndUnsplitFaceInteriorNeighbor.append(oldCellsToAddedMinusSideCellIndex[neighbour[i]]);
@@ -1637,10 +1635,10 @@ void Foam::cutCellPolyMesh::createNewMeshData
         
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
-            face face1 = clone(cutFaces_[oldFacesToCutFaces_[i][0]]);
+            face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
-            face face2 = clone(cutFaces_[oldFacesToCutFaces_[i][1]]);
-            label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
+            face face2      = cutFaces_[oldFacesToCutFaces_[i][1]];
+            //label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
             
             face sameCellFace;
             face addedCellFace;
@@ -1686,13 +1684,13 @@ void Foam::cutCellPolyMesh::createNewMeshData
         {
             if(cellsToSide_[i] == 1)
             {
-                splitAndUnsplitFacesBoundary.append(clone(meshFaces[i]));
+                splitAndUnsplitFacesBoundary.append(meshFaces[i]);
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
             }
             else
             {
-                splitAndUnsplitFacesBoundary.append(clone(meshFaces[i]));
+                splitAndUnsplitFacesBoundary.append(meshFaces[i]);
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 
                             
@@ -1731,6 +1729,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
     }
     
 
+    /*
     Info<<"---------------------------------------Faces------------------------------------"<<endl;
     Info<<"NbrFaces:"<<combinedFaces.size()<<endl;
     Info<<"NbrOwner:"<<combinedOwner.size()<<endl;
@@ -1745,13 +1744,10 @@ void Foam::cutCellPolyMesh::createNewMeshData
         Info<<" neighbour:"<<combinedNeighbor[k];
         Info<<endl;
     }
+    */
     
     for(int i=0;i<boundMesh.size();i++)
     {
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
-    
-    mesh.resetPrimitives(clone(combinedPoints),clone(combinedFaces),clone(combinedOwner),
-                         clone(combinedNeighbor),clone(patchSizes),clone(patchStarts));
-    
 }
