@@ -9,7 +9,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 {
     this->levelSet = levelSet;
     newMeshPoints();
-    pointsToSide();
+    printAddedPoints();
     newMeshEdges();
     edgesToSide();
 }
@@ -466,18 +466,18 @@ void Foam::cutCellPolyMesh::newMeshPoints
         
         if(pos == +1 && neg == -1)
         {
-            //Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
-            //Info<<phiStart<<" -> "<<phiEnd<<endl;
+            Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
+            Info<<phiStart<<" -> "<<phiEnd<<endl;
             vector startToEnd = basisEdges[i].vec(basisPoints);
-            //Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
+            Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
             scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
-            //Info<<"norm_endToStart: "<<norm_startToEnd<<endl;;
+            Info<<"norm_startToEnd: "<<norm_startToEnd<<endl;;
             scalar distPhi = std::abs(phiEnd-phiStart);
-            //Info<<"distPhi: "<<distPhi<<endl;;
-            scalar norm_phiEnd = std::abs(phiEnd);
-            //Info<<"norm_phiEnd: "<<norm_phiEnd<<endl;;
-            scalar scalePoint = norm_phiEnd * distPhi / norm_startToEnd;
-            //Info<<"scalePoint: "<<scalePoint<<endl;;
+            Info<<"distPhi: "<<distPhi<<endl;;
+            scalar norm_phiStart = std::abs(phiStart);
+            Info<<"norm_phiStart: "<<norm_phiStart<<endl;;
+            scalar scalePoint = phiStart / (phiStart - phiEnd);
+            Info<<"scalePoint: "<<scalePoint<<endl;;
             vector newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
             
             Info<<"Added: "<<newPoint<<endl<<endl;
@@ -664,6 +664,11 @@ void Foam::cutCellPolyMesh::newMeshEdges
 
     edgesToSide(newMeshEdges_);
     
+    for(int i=0;i<newMeshEdges_.size();i++)
+    {
+        Info<<"Edge:"<<i<<" Side:"<<edgesToSide_[i]<<endl;
+    }
+    
     Info<<"Put edges to side"<<endl;
     
     edgeToFaces_ = labelListList(basisEdges.size());
@@ -677,6 +682,17 @@ void Foam::cutCellPolyMesh::newMeshEdges
         {
             edgeToFaces_[i] = edgeFaces[i];
         }
+    }
+    for(int i=0;i<newMeshEdges_.size();i++)
+    {
+        Info<<"Edge:"<<i;
+        Info<<" from "<<newMeshEdges_[i].start()<<newMeshPoints_[newMeshEdges_[i].start()]<<"->";
+        Info<<newMeshEdges_[i].end()<<newMeshPoints_[newMeshEdges_[i].end()];
+        for(int k=0;k<edgeToFaces_[i].size();k++)
+        {
+            Info<<" face:"<<edgeToFaces_[i][k];
+        }
+        Info<<endl;
     }
     labelList thisFacePoints;
     for(int i=0;i<basisFaces.size();i++)
@@ -749,9 +765,11 @@ void Foam::cutCellPolyMesh::newMeshEdges
             }
         }
     }
-    for(int i=0;i<edgeToFaces_.size();i++)
+    for(int i=0;i<newMeshEdges_.size();i++)
     {
-        Info<<"Edge "<<i; 
+        Info<<"Edge:"<<i;
+        Info<<" from "<<newMeshEdges_[i].start()<<newMeshPoints_[newMeshEdges_[i].start()]<<"->";
+        Info<<newMeshEdges_[i].end()<<newMeshPoints_[newMeshEdges_[i].end()];
         for(int k=0;k<edgeToFaces_[i].size();k++)
         {
             Info<<" face:"<<edgeToFaces_[i][k];
