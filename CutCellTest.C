@@ -66,9 +66,9 @@ int main(int argc, char *argv[])
         ),
         [](const vector coord)->scalar
         {
-            scalar center_x = 1.5;
-            scalar center_y = 2;
-            scalar radius = 1.5;
+            scalar center_x = 0;
+            scalar center_y = 0;
+            scalar radius = 0.5;
     
             scalar x = coord.x();
             scalar y = coord.y();
@@ -77,6 +77,9 @@ int main(int argc, char *argv[])
             return std::sqrt(x_c*x_c+y_c*y_c)-radius;
         }
     );
+    
+    basisMesh.printAddedPoints();
+    basisMesh.printAddedEdges();
 
     // ---
     // Write the grid
@@ -87,6 +90,7 @@ int main(int argc, char *argv[])
     Info<< "nCells: "<<basisMesh.nCells()<<endl;
     
     
+    /*
     labelList Hello = basisMesh.faces()[0];
     for(int i=0;i<Hello.size();i++)
     {
@@ -98,6 +102,7 @@ int main(int argc, char *argv[])
     {
         Info<<"|"<<thisFace.prevLabel(i)<<"|"<<endl;
     }
+    */
     /*
     labelList CutCells = getCutCells(basisMesh);
     pointField newPoints = addedPoints(basisMesh);

@@ -135,7 +135,9 @@ class cutCellPolyMesh   :   public polyMesh
         //Constructor
         explicit cutCellPolyMesh(const IOobject& io, std::function<scalar(const vector)> levelSet);
         
-        void printAddedElements();
+        // Print Functions for debugg purposes
+        void printAddedPoints();
+        void printAddedEdges();
     
 
     //Private Memberfunctions
