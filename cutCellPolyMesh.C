@@ -13,6 +13,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     newMeshEdges();
     //edgesToSide();
     newMeshFaces();
+    cutOldFaces();
 }
 
 void Foam::cutCellPolyMesh::pointsToSide()
@@ -1331,7 +1332,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
     
     for(int i=0;i<meshFaces.size();i++)
     {
-        if(faceToEdges_[i].size() == 1)
+        if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             edge        addedEdge = newMeshEdges_[faceToEdges_[i][0]];
             face currFace = meshFaces[i];
@@ -1344,11 +1345,11 @@ void Foam::cutCellPolyMesh::cutOldFaces
             label       currPoint = firstFacePoint;
             
             
-            Info<<endl<<"OrigFace  size:"<<currFace.size()<<"| ";
+            Info<<endl<<"OrigFace "<<i<<" size:"<<currFace.size()<<"| ";
             for(int l=0;l<currFace.size();l++)
             {                
                 label point = currFace[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
             
@@ -1356,15 +1357,15 @@ void Foam::cutCellPolyMesh::cutOldFaces
             newFace1.append(firstFacePoint);
             newFace1Sign = pointsToSide_[firstFacePoint];
             
-            /*
+            
             Info<<"1 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
                 label point = newFace1[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
-            */
+            
             
             //Info<<"First part of face 1"<<endl;
             while(pointsToSide_[currPoint] ==
@@ -1374,16 +1375,19 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 newFace1.append(currPoint);
                 faceInd++;
                 
-                /*
                 Info<<"2 Face 1 size:"<<newFace1.size()<<"| ";
                 for(int l=0;l<newFace1.size();l++)
                 {                
                     label point = newFace1[l];
-                    Info<<point<<" "; //<<meshPoints[point];
+                    Info<<point<<newMeshPoints_[point]<<" ";
                 }
                 Info<<endl;
-                */
+                
             }
+//////////////////////////////////////////////////////////////////////////////////
+//      Fallunterscheidung jump point old or addedCutFaceNeighbor
+//////////////////////////////////////////////////////////////////////////////////
+            
             label nextPoint = currFace[faceInd+1];
             labelList currPointEdges = this->pointEdges()[currPoint];
             labelList nextPointEdges = this->pointEdges()[nextPoint];
@@ -1630,6 +1634,43 @@ void Foam::cutCellPolyMesh::cutOldFaces
     }
     */
     
+}
+
+void Foam::cutCellPolyMesh::printCutFaces
+(
+)
+{
+    Info<<"------------------------------------OldFacetoCutFace---------------------------------"<<endl;
+    for(int k=0;k<oldFacesToCutFaces_.size();k++)
+    {
+        Info<<"Face "<<k;
+        labelList cutFaces = oldFacesToCutFaces_[k];
+        if(cutFaces.size() == 2)
+        {
+            Info<<" is cut into"<<endl;
+            Info<<cutFacesToSide_[cutFaces[0]]<<"\t";
+            for(int j=0;j<cutFaces_[cutFaces[0]].size();j++)
+            {
+                Info<<newMeshPoints_[cutFaces[0]][j]<<"-";
+            }
+            Info<<cutFacesToSide_[cutFaces[1]]<<"\t";
+            for(int j=0;j<cutFaces_[cutFaces[1]].size();j++)
+            {
+                Info<<newMeshPoints_[cutFaces[1]][j]<<"-";
+            }
+        }
+        else
+        {
+            Info<<" is not splitted"<<endl;
+        }
+    }
+    
+    Info<<"-------------------------------------CellsToSide-----------------------------------"<<endl;
+    for(int k=0;k<cellsToSide_.size();k++)
+    {
+        Info<<"Cell "<<k<<" "<<" Side: "<<cellsToSide_[k];
+        Info<<endl;
+    } 
 }
 
 void Foam::cutCellPolyMesh::createNewMeshData

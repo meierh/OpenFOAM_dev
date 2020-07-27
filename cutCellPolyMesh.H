@@ -139,6 +139,7 @@ class cutCellPolyMesh   :   public polyMesh
         void printAddedPoints();
         void printAddedEdges();
         void printAddedFaces();
+        void printCutFaces();
     
 
     //Private Memberfunctions
