@@ -81,7 +81,7 @@ class cutCellPolyMesh   :   public polyMesh
             //label of cells for every added face or zero side edge and null for every intersection point
             labelListList faceToCells_;
             //label of added point for every cell or null if no added Points
-            labelListList cellToFace_;
+            labelListList cellToFaces_;
       //End
             
       //Split faces and data added by cutOldFaces
@@ -138,6 +138,7 @@ class cutCellPolyMesh   :   public polyMesh
         // Print Functions for debugg purposes
         void printAddedPoints();
         void printAddedEdges();
+        void printAddedFaces();
     
 
     //Private Memberfunctions
