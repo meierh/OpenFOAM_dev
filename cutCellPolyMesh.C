@@ -14,9 +14,36 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     //edgesToSide();
     newMeshFaces();
     cutOldFaces();
+    createNewMeshData();
+    
+    faceList faces(0);
+    faces.append(addedCutFaces);
+    faces.append(splitAndUnsplitFacesInterior);
+    faces.append(splitAndUnsplitFacesBoundary);
+    
+    labelList owner(0);
+    owner.append(addedCutFaceOwner);
+    owner.append(splitAndUnsplitFaceInteriorOwner);
+    owner.append(splitAndUnsplitFaceBoundaryOwner);
+    
+    labelList neighbour(0);
+    neighbour.append(addedCutFaceNeighbor);
+    neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
+    neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
+    
+    resetPrimitives(Foam::clone(newMeshPoints_),
+                    Foam::clone(faces),
+                    Foam::clone(owner),
+                    Foam::clone(neighbour),
+                    patchSizes,
+                    patchStarts,
+                    true);
+    this->write();
 }
 
-void Foam::cutCellPolyMesh::pointsToSide()
+void Foam::cutCellPolyMesh::pointsToSide
+(
+)
 {
     labelList pointsToSide(newMeshPoints_.size());
     scalar lvlSet;
@@ -135,7 +162,9 @@ void Foam::cutCellPolyMesh::edgesToSide
     this->edgesToSide_ = edgesToSide;
 }
 
-void Foam::cutCellPolyMesh::facesToSide()
+void Foam::cutCellPolyMesh::facesToSide
+(
+)
 {
     const pointField& points = this->points();
     const faceList& faces = this->faces();
@@ -1351,6 +1380,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 label point = currFace[l];
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
+            Info<<"Added Edge: "<<newMeshPoints_[addedEdge.start()]<<"->"<<newMeshPoints_[addedEdge.end()];
             Info<<endl;
             
             
@@ -1387,81 +1417,125 @@ void Foam::cutCellPolyMesh::cutOldFaces
 //////////////////////////////////////////////////////////////////////////////////
 //      Fallunterscheidung jump point old or addedCutFaceNeighbor
 //////////////////////////////////////////////////////////////////////////////////
-            
-            label nextPoint = currFace[faceInd+1];
-            labelList currPointEdges = this->pointEdges()[currPoint];
-            labelList nextPointEdges = this->pointEdges()[nextPoint];
-
-            /*
+            label firstCutPoint;
+            label secondCutPoint;
+            label nextPoint = -1;
+            if(pointsToSide_[currFace[faceInd+1]] == 0)
+            {
+                //Info<<newMeshPoints_[currFace[faceInd+1]];
+                firstCutPoint = currFace[faceInd+1];
+                if(faceInd+2 >= currFace.size())
+                {
+                    FatalErrorInFunction
+                    << "First cut point is the last point of face. "
+                    << "THis can not happen"
+                    << abort(FatalError);
+                }
+                nextPoint = currFace[faceInd+2];
+                firstCutPoint = currFace[faceInd+1];
+                faceInd++;
+                
+                secondCutPoint = -1;
+                if(addedEdge.start() == firstCutPoint)
+                    secondCutPoint = addedEdge.end();
+                else if(addedEdge.end() == firstCutPoint)
+                    secondCutPoint = addedEdge.start();
+                else
+                {
+                    FatalErrorInFunction
+                    << "Error: No Point matches in CutFace"
+                    << abort(FatalError);
+                }                
+            }
+            else if(pointsToSide_[currFace[faceInd+1]]
+                    * pointsToSide_[currFace[faceInd]] < 0)
+            {
+                nextPoint = currFace[faceInd+1];
+                labelList currPointEdges = this->pointEdges()[currPoint];
+                labelList nextPointEdges = this->pointEdges()[nextPoint];
+                /*
 // Zusatzinformation Anfang
-            for(int l=0;l<4;l++)
-            {                
-                label point = currFace[l];
-                Info<<"Point "<<point<<"-"<<meshPoints[point];
-            }
-            Info<<endl;
+                for(int l=0;l<4;l++)
+                {                
+                    label point = currFace[l];
+                    Info<<"Point "<<point<<"-"<<meshPoints[point];
+                }
+                Info<<endl;
             
-            Info<<"currPoint "<<currPoint<<"-"<<meshPoints[currPoint]<<endl;
-            Info<<"nextPoint "<<nextPoint<<"-"<<meshPoints[nextPoint]<<endl;
-            
-            Info<<"currPointEdges:";
-            for(int k=0;k<currPointEdges.size();k++)
-            {
-                Info<<currPointEdges[k]<<" ";
-            }
-            Info<<endl;
-            Info<<"nextPointEdges:";
-            for(int j=0;j<nextPointEdges.size();j++)
-            {
-                Info<<nextPointEdges[j]<<" ";
-            }
-            Info<<endl;
-//Zusatzinformation Ende
-            */
-
-            label sharedEdge = -1;
-            for(int k=0;k<currPointEdges.size();k++)
-            {
+                Info<<"currPoint "<<currPoint<<"-"<<meshPoints[currPoint]<<endl;
+                Info<<"nextPoint "<<nextPoint<<"-"<<meshPoints[nextPoint]<<endl;
+                
+                Info<<"currPointEdges:";
+                for(int k=0;k<currPointEdges.size();k++)
+                {
+                    Info<<currPointEdges[k]<<" ";
+                }
+                Info<<endl;
+                Info<<"nextPointEdges:";
                 for(int j=0;j<nextPointEdges.size();j++)
                 {
-                    if(currPointEdges[k] == nextPointEdges[j])
-                    sharedEdge = currPointEdges[k];
+                    Info<<nextPointEdges[j]<<" ";
                 }
-            }
-            //Info<<"SharedEdge: "<<sharedEdge<<endl;
+                Info<<endl;
+//Zusatzinformation Ende
+                */
+                
+                label sharedEdge = -1;
+                for(int k=0;k<currPointEdges.size();k++)
+                {
+                    for(int j=0;j<nextPointEdges.size();j++)
+                    {
+                        if(currPointEdges[k] == nextPointEdges[j])
+                            sharedEdge = currPointEdges[k];
+                    }
+                }
+                //Info<<"SharedEdge: "<<sharedEdge<<endl;
             
-            if(sharedEdge == -1)
-            {
-                FatalErrorInFunction
-                << "Error: No shared Edge found in Cut Cell Method"
-                << abort(FatalError);
+                if(sharedEdge == -1)
+                {
+                    FatalErrorInFunction
+                    << "Error: No shared Edge found in Cut Cell Method"
+                    << abort(FatalError);
+                }
+                firstCutPoint = edgeToPoint_[sharedEdge];
+                //Info<<firstCutPoint<<endl;
+                
+                secondCutPoint = -1;
+                if(addedEdge.start() == firstCutPoint)
+                    secondCutPoint = addedEdge.end();
+                else if(addedEdge.end() == firstCutPoint)
+                    secondCutPoint = addedEdge.start();
+                else
+                {
+                    FatalErrorInFunction
+                    << "Error: No Point matches in CutFace"
+                    << abort(FatalError);
+                }
+                //Info<<firstCutPoint<<endl;
             }
-            label firstCutPoint = edgeToPoint_[sharedEdge];
-            label secondCutPoint = -1;
-            if(addedEdge.start() == firstCutPoint)
-                secondCutPoint = addedEdge.end();
-            else if(addedEdge.end() == firstCutPoint)
-                secondCutPoint = addedEdge.start();
             else
             {
                 FatalErrorInFunction
-                << "Error: No Point matches in CutFace"
+                << "Next point is neither a cut point nor a point at the " 
+                << "other side of the cut."
                 << abort(FatalError);
             }
+            
+            //Info<<firstCutPoint<<endl;
 
             //Info<<"Add cut points"<<endl;
             newFace1.append(firstCutPoint);
             newFace2.append(firstCutPoint);
             
-            /*
+            
             Info<<"3 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
                 label point = newFace1[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
-            */
+            
             
             currPoint = nextPoint;
             faceInd++;
@@ -1469,33 +1543,36 @@ void Foam::cutCellPolyMesh::cutOldFaces
             newFace2.append(currPoint);
             newFace2Sign = pointsToSide_[currPoint];
             
-            /*
+            
             Info<<"1 Face 2 size:"<<newFace2.size()<<"| ";
             for(int l=0;l<newFace2.size();l++)
             {                
                 label point = newFace2[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
-            */
+            
             
             //Info<<"Create face 2"<<endl;
             while(pointsToSide_[currPoint] ==
                   pointsToSide_[currFace[faceInd+1]])
             {
+                Info<<newMeshPoints_[currPoint]<<pointsToSide_[currPoint]<<endl;
+                Info<<newMeshPoints_[currFace[faceInd+1]]<<pointsToSide_[currFace[faceInd+1]]<<endl;
                 //Info<<"Index:"<<faceInd<<endl;
                 currPoint = meshFaces[i][faceInd+1];
                 newFace2.append(currPoint);
                 faceInd++;
                 
-                /*
+                
                 Info<<"2 Face 2 size:"<<newFace2.size()<<"| ";
                 for(int l=0;l<newFace2.size();l++)
                 {                
                     label point = newFace2[l];
-                    Info<<point<<" "; //<<meshPoints[point];
+                    Info<<point<<newMeshPoints_[point]<<" ";
                 }
-                */
+                Info<<endl;
+                
                 
                 if(faceInd+1>=currFace.size())
                     break;
@@ -1511,43 +1588,45 @@ void Foam::cutCellPolyMesh::cutOldFaces
             newFace2.append(secondCutPoint);
             newFace1.append(secondCutPoint);
             
-            /*
+            if(secondCutPoint<nbrOfPrevPoints)
+                faceInd++;
+            
             Info<<"3 Face 2 size:"<<newFace2.size()<<"| ";
             for(int l=0;l<newFace2.size();l++)
             {                
                 label point = newFace2[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
-            */
+            
         
-            /*
+            
             Info<<"4 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
                 label point = newFace1[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
-            */
             
-            //Info<<"Finish face 1"<<endl;
+            
+            Info<<"Finish face 1"<<endl;
             while(++faceInd < meshFaces[i].size())
             {
                 currPoint = meshFaces[i][faceInd];
-                //Info<<currPoint<<"!="<<firstFacePoint<<endl;
+                Info<<currPoint<<"!="<<firstFacePoint<<endl;
                 newFace1.append(currPoint);
             }
             
-            /*
+            
             Info<<"5 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
                 label point = newFace1[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
-            */
+            
             
             cutFaces_.append(face(newFace1));
             cutFacesToSide_.append(newFace1Sign);
@@ -1560,7 +1639,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
             for(int l=0;l<newFace1.size();l++)
             {                
                 label point = newFace1[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
             
@@ -1568,7 +1647,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
             for(int l=0;l<newFace2.size();l++)
             {                
                 label point = newFace2[l];
-                Info<<point<<" "; //<<meshPoints[point];
+                Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<endl;
         }
@@ -1651,13 +1730,15 @@ void Foam::cutCellPolyMesh::printCutFaces
             Info<<cutFacesToSide_[cutFaces[0]]<<"\t";
             for(int j=0;j<cutFaces_[cutFaces[0]].size();j++)
             {
-                Info<<newMeshPoints_[cutFaces[0]][j]<<"-";
+                Info<<newMeshPoints_[cutFaces_[cutFaces[0]][j]]<<"-";
             }
+            Info<<endl;
             Info<<cutFacesToSide_[cutFaces[1]]<<"\t";
             for(int j=0;j<cutFaces_[cutFaces[1]].size();j++)
             {
-                Info<<newMeshPoints_[cutFaces[1]][j]<<"-";
+                Info<<newMeshPoints_[cutFaces_[cutFaces[1]][j]]<<"-";
             }
+            Info<<endl;
         }
         else
         {
@@ -2033,4 +2114,73 @@ void Foam::cutCellPolyMesh::createNewMeshData
     {
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
+}
+
+void Foam::cutCellPolyMesh::printNewMeshData
+(
+)
+{
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    const wordList& types = boundMesh.types();
+    const wordList& phystypes = boundMesh.physicalTypes();
+    label nextBound = patchStarts[0];
+    label countFaces = 0;
+    label boundaryIndex = -1;
+    Info<<"---------------------------------------CutFaces------------------------------------"<<endl;
+    for(int i=0;i<addedCutFaces.size();i++)
+    {
+        if(countFaces == nextBound)
+        {
+            boundaryIndex++;
+            Info<<"Boundarypatch "<<boundaryIndex<<" patchStart "<<patchStarts[boundaryIndex]<<" patchSize "<<patchSizes[boundaryIndex]<<"  type:"<<types[boundaryIndex]<<"  phystype:"<<phystypes[boundaryIndex]<<endl;
+            if(boundaryIndex != patchStarts.size()-1)
+                nextBound = patchStarts[boundaryIndex+1];
+        }
+        Info<<"  Face:"<<i<<" Owner:"<<addedCutFaceOwner[i]<<" Neighbor:"<<addedCutFaceNeighbor[i]<<" ";
+        for(int k=0;k<addedCutFaces[i].size();k++)
+        {
+            Info<<newMeshPoints_[addedCutFaces[i][k]]<<"->";
+        }
+        Info<<endl;
+        countFaces++;
+    }
+    
+    Info<<"-----------------------------splitAndUnsplitFacesInterior--------------------------"<<endl;
+    for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
+    {
+        if(countFaces == nextBound)
+        {
+            boundaryIndex++;
+            Info<<"Boundarypatch "<<boundaryIndex<<" patchStart "<<patchStarts[boundaryIndex]<<" patchSize "<<patchSizes[boundaryIndex]<<"  type:"<<types[boundaryIndex]<<"  phystype:"<<phystypes[boundaryIndex]<<endl;
+            if(boundaryIndex != patchStarts.size()-1)
+                nextBound = patchStarts[boundaryIndex+1];
+        }
+        Info<<"  Face:"<<i<<" Owner:"<<splitAndUnsplitFaceInteriorOwner[i]<<" Neighbor:"<<splitAndUnsplitFaceInteriorNeighbor[i]<<" ";
+        for(int k=0;k<splitAndUnsplitFacesInterior[i].size();k++)
+        {
+            Info<<newMeshPoints_[splitAndUnsplitFacesInterior[i][k]]<<"->";
+        }
+        Info<<endl;
+        countFaces++;
+    }
+    
+    Info<<"-----------------------------splitAndUnsplitFacesBoundary--------------------------"<<endl;
+    for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++)
+    {
+        if(countFaces == nextBound)
+        {
+            boundaryIndex++;
+            Info<<"Boundarypatch "<<boundaryIndex<<" patchStart "<<patchStarts[boundaryIndex]<<" patchSize "<<patchSizes[boundaryIndex]<<"  type:"<<types[boundaryIndex]<<"  phystype:"<<phystypes[boundaryIndex]<<endl;
+            if(boundaryIndex != patchStarts.size()-1)
+                nextBound = patchStarts[boundaryIndex+1];
+        }
+        Info<<"  Face:"<<i<<" Owner:"<<splitAndUnsplitFaceBoundaryOwner[i]<<" Neighbor:"<<splitAndUnsplitFaceBoundaryNeighbor[i]<<" ";
+        for(int k=0;k<splitAndUnsplitFacesBoundary[i].size();k++)
+        {
+            Info<<newMeshPoints_[splitAndUnsplitFacesBoundary[i][k]]<<"->";
+        }        
+        Info<<endl;
+        countFaces++;
+    }  
+    
 }

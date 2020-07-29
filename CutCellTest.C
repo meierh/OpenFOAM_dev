@@ -78,9 +78,11 @@ int main(int argc, char *argv[])
         }
     );
     
-    basisMesh.printAddedPoints();
-    basisMesh.printAddedEdges();
-    basisMesh.printAddedFaces();
+    //basisMesh.printAddedPoints();
+    //basisMesh.printAddedEdges();
+    //basisMesh.printAddedFaces();
+    //basisMesh.printCutFaces();
+    basisMesh.printNewMeshData();
 
     // ---
     // Write the grid
