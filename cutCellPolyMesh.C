@@ -9,7 +9,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 {
     this->levelSet = levelSet;
     newMeshPoints();
-    //printAddedPoints();
+    printAddedPoints();
     newMeshEdges();
     //edgesToSide();
     newMeshFaces();
@@ -1017,15 +1017,32 @@ void Foam::cutCellPolyMesh::newMeshFaces
     
     newMeshFaces_ = faceList(0);
     newMeshFaces_.append(basisFaces);
-    
+
     facesToSide(newMeshFaces_);
     
+    /*
+     * A existing face is a cut face if all its points are cut points.
+     * Only if thats true the respective point is 
+     */
     faceToCells_ = labelListList(basisFaces.size());
     labelList owner = this->faceOwner();
     labelList neighbour = this->faceNeighbour();
     for(int i=0;i<basisFaces.size();i++)
     {
         labelList facePoints = basisFaces[i];
+        
+        Info<<"  Face:"<<i<<" Owner:"<<owner[i]<<" ";
+        if(i < neighbour.size())
+            Info<<" Neighbor:"<<neighbour[i]<<" ";
+        for(int k=0;k<basisFaces[i].size();k++)
+        {
+            Info<<newMeshPoints_[basisFaces[i][k]]<<"->";
+        }
+        Info<<" with centre:"<<basisFaces[i].centre(newMeshPoints_);
+        Info<<" and normal vector:"<<basisFaces[i].normal(newMeshPoints_);
+        Info<<" and area:"<<basisFaces[i].mag(newMeshPoints_);
+
+        /*
         if(facePoints.size() != 4)
         {
             FatalErrorInFunction
@@ -1034,12 +1051,14 @@ void Foam::cutCellPolyMesh::newMeshFaces
             << "cut points are not old points! "
             << abort(FatalError);
         }
+        */
         bool isCutFace = true;
         for(int k=0;k<facePoints.size();k++)
         {
             if(pointsToSide_[facePoints[k]] != 0)
                 isCutFace = false;
         }
+        Info<<"\t"<<"is CutFace:"<<isCutFace<<endl;
         if(isCutFace)
         {
             faceToCells_[i].append(owner[i]);
@@ -2183,4 +2202,30 @@ void Foam::cutCellPolyMesh::printNewMeshData
         countFaces++;
     }  
     
+}
+
+void Foam::cutCellPolyMesh::printMesh
+(
+)
+{
+    const cellList& meshCells = this->cells();
+    const faceList& meshFaces = this->faces();
+    const edgeList& meshEdges = this->edges();
+    const pointField& meshPoints = this->points();
+    const labelList owner   = this->faceOwner();
+    const labelList neighbour = this->faceNeighbour(); 
+    
+    for(int i=0;i<meshFaces.size();i++)
+    {
+        Info<<"  Face:"<<i<<" Owner:"<<owner[i];
+        if(i < neighbour.size())
+            Info<<" Neighbor:"<<neighbour[i]<<" ";
+        for(int k=0;k<addedCutFaces[i].size();k++)
+        {
+            Info<<meshPoints[meshFaces[i][k]]<<"->";
+        }
+        Info<<" with centre:"<<meshFaces[i].centre(meshPoints);
+        Info<<" and normal vector:"<<meshFaces[i].normal(meshPoints);
+        Info<<" and area:"<<meshFaces[i].mag(meshPoints)<<endl;
+    }    
 }
