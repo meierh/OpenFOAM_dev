@@ -9,7 +9,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 {
     this->levelSet = levelSet;
     newMeshPoints();
-    printAddedPoints();
+    //printAddedPoints();
     newMeshEdges();
     //edgesToSide();
     newMeshFaces();
@@ -31,6 +31,8 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
     neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
     
+    printMesh();
+    
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -39,6 +41,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
                     patchStarts,
                     true);
     this->write();
+    printMesh();
 }
 
 void Foam::cutCellPolyMesh::pointsToSide
@@ -1022,7 +1025,9 @@ void Foam::cutCellPolyMesh::newMeshFaces
     
     /*
      * A existing face is a cut face if all its points are cut points.
-     * Only if thats true the respective point is 
+     * Only if thats true the respective face is connected to its connected
+     * cells via the faceToCells_ list. A non empty faceToCells_ for a face 
+     * is the sign that the face is a cut face
      */
     faceToCells_ = labelListList(basisFaces.size());
     labelList owner = this->faceOwner();
@@ -1066,9 +1071,17 @@ void Foam::cutCellPolyMesh::newMeshFaces
         }        
     }
 
+    /*
+     * The following creates the added faces as well as the cellToFaces_ list 
+     * and finishes the faceToCells_ list of the previous part with the new faces.
+     * 
+     */
     cellToFaces_ = labelListList(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
-    {     
+    {    
+        /* 1)
+         * If a cell has no cut edges it is not cut by a face
+         */
         if(cellToEdges_[i].size() == 0)
         {
             continue;
@@ -1077,6 +1090,11 @@ void Foam::cutCellPolyMesh::newMeshFaces
         labelList facePoints;
         labelList cellCutEdgeList = cellToEdges_[i];
         
+        /* 2)
+         * If a cell has one cut edge it is not cut. It should be impossible that a
+         * cell has two cut edges because the minimum cut face thinkable is a three edge
+         * face. Because of that a failure abort is called if these states appear 
+         */
         if(cellCutEdgeList.size() <= 2)
         {
             FatalErrorInFunction
@@ -2208,6 +2226,7 @@ void Foam::cutCellPolyMesh::printMesh
 (
 )
 {
+    Info<<"------------------------------------printMesh---------------------------------"<<endl;
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
     const edgeList& meshEdges = this->edges();
@@ -2215,17 +2234,33 @@ void Foam::cutCellPolyMesh::printMesh
     const labelList owner   = this->faceOwner();
     const labelList neighbour = this->faceNeighbour(); 
     
+    for(int i=0;i<meshCells.size();i++)
+    {
+        Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" |";
+        for(int k=0;k<meshCells[i].size();k++)
+        {
+            Info<<meshCells[i][k]<<"->";
+        }
+        Info<<" with centre:"<<meshCells[i].centre(meshPoints,meshFaces);
+        Info<<" and volume:"<<meshCells[i].mag(meshPoints,meshFaces)<<endl;
+    }
+
     for(int i=0;i<meshFaces.size();i++)
     {
-        Info<<"  Face:"<<i<<" Owner:"<<owner[i];
+        Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
         if(i < neighbour.size())
             Info<<" Neighbor:"<<neighbour[i]<<" ";
-        for(int k=0;k<addedCutFaces[i].size();k++)
+        for(int k=0;k<meshFaces[i].size();k++)
         {
             Info<<meshPoints[meshFaces[i][k]]<<"->";
         }
         Info<<" with centre:"<<meshFaces[i].centre(meshPoints);
         Info<<" and normal vector:"<<meshFaces[i].normal(meshPoints);
         Info<<" and area:"<<meshFaces[i].mag(meshPoints)<<endl;
-    }    
+    }
+    
+    for(int i=0;i<meshEdges.size();i++)
+    {
+        Info<<"Edge:"<<i<< " Start:"<<meshPoints[meshEdges[i].start()]<<"-> End:"<<meshPoints[meshEdges[i].end()]<<endl;
+    }
 }
