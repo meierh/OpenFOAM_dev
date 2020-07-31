@@ -1401,15 +1401,18 @@ void Foam::cutCellPolyMesh::cutOldFaces
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             edge        addedEdge = newMeshEdges_[faceToEdges_[i][0]];
-            face currFace = meshFaces[i];
+            face        currFace = meshFaces[i];
             labelList   newFace1(0);
             scalar      newFace1Sign;
             labelList   newFace2(0);
             scalar      newFace2Sign;
             label       faceInd = 0;
+            label       currPointIndex = 0;
+            label       relPointIndex = 0; // zero at the first appended point
             label       firstFacePoint = currFace[faceInd];
             label       currPoint = firstFacePoint;
-            
+            label       firstCutPoint;
+            label       secondCutPoint;
             
             Info<<endl<<"OrigFace "<<i<<" size:"<<currFace.size()<<"| ";
             for(int l=0;l<currFace.size();l++)
@@ -1420,57 +1423,66 @@ void Foam::cutCellPolyMesh::cutOldFaces
             Info<<"Added Edge: "<<newMeshPoints_[addedEdge.start()]<<"->"<<newMeshPoints_[addedEdge.end()];
             Info<<endl;
             
-            
-            newFace1.append(firstFacePoint);
-            newFace1Sign = pointsToSide_[firstFacePoint];
-            
-            
-            Info<<"1 Face 1 size:"<<newFace1.size()<<"| ";
-            for(int l=0;l<newFace1.size();l++)
-            {                
-                label point = newFace1[l];
-                Info<<point<<newMeshPoints_[point]<<" ";
-            }
-            Info<<endl;
-            
-            
-            //Info<<"First part of face 1"<<endl;
-            while(pointsToSide_[currPoint] ==
-                  pointsToSide_[currFace[faceInd+1]])
+            // Cycle to first non cut point
+            while(pointsToSide_[currPoint]==0)
             {
-                currPoint = currFace[faceInd+1];
-                newFace1.append(currPoint);
-                faceInd++;
-                
-                Info<<"2 Face 1 size:"<<newFace1.size()<<"| ";
+                currPoint = currFace.nextLabel(currPointIndex);
+                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+                relPointIndex++;
+            }
+            
+            // Append fist point to first face
+            newFace1.append(currPoint);
+            newFace1Sign = pointsToSide_[currPoint];
+            
+            
+                Info<<"1 Face 1 size:"<<newFace1.size()<<"| ";
                 for(int l=0;l<newFace1.size();l++)
                 {                
                     label point = newFace1[l];
                     Info<<point<<newMeshPoints_[point]<<" ";
                 }
-                Info<<endl;
-                
+                Info<<relPointIndex<<endl;
+            
+            
+            //Info<<"First part of face 1"<<endl;
+            while(pointsToSide_[currPoint] == pointsToSide_[currFace.nextLabel(currPointIndex)])
+            {
+                currPoint = currFace.nextLabel(currPointIndex);
+                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+                relPointIndex++;
+                newFace1.append(currPoint);
+    
+                    Info<<"2 Face 1 size:"<<newFace1.size()<<"| ";
+                    for(int l=0;l<newFace1.size();l++)
+                    {                
+                        label point = newFace1[l];
+                        Info<<point<<newMeshPoints_[point]<<" ";
+                    }
+                    Info<<relPointIndex<<endl;
             }
 //////////////////////////////////////////////////////////////////////////////////
 //      Fallunterscheidung jump point old or addedCutFaceNeighbor
 //////////////////////////////////////////////////////////////////////////////////
-            label firstCutPoint;
-            label secondCutPoint;
             label nextPoint = -1;
-            if(pointsToSide_[currFace[faceInd+1]] == 0)
+            
+            // Cut point is old point
+            if(pointsToSide_[currFace.nextLabel(currPointIndex)] == 0)
             {
                 //Info<<newMeshPoints_[currFace[faceInd+1]];
-                firstCutPoint = currFace[faceInd+1];
-                if(faceInd+2 >= currFace.size())
+                firstCutPoint = currFace.nextLabel(currPointIndex);
+                if(relPointIndex+2 >= currFace.size())
                 {
                     FatalErrorInFunction
                     << "First cut point is the last point of face. "
                     << "THis can not happen"
                     << abort(FatalError);
                 }
-                nextPoint = currFace[faceInd+2];
-                firstCutPoint = currFace[faceInd+1];
-                faceInd++;
+                
+                nextPoint = currFace.nextLabel((currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1);
+                
+                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+                relPointIndex++;
                 
                 secondCutPoint = -1;
                 if(addedEdge.start() == firstCutPoint)
@@ -1484,10 +1496,10 @@ void Foam::cutCellPolyMesh::cutOldFaces
                     << abort(FatalError);
                 }                
             }
-            else if(pointsToSide_[currFace[faceInd+1]]
-                    * pointsToSide_[currFace[faceInd]] < 0)
+            // Cut point is added point
+            else if(pointsToSide_[currPoint] * pointsToSide_[currFace.nextLabel(currPointIndex)] < 0)
             {
-                nextPoint = currFace[faceInd+1];
+                nextPoint = currFace.nextLabel(currPointIndex);
                 labelList currPointEdges = this->pointEdges()[currPoint];
                 labelList nextPointEdges = this->pointEdges()[nextPoint];
                 /*
@@ -1571,11 +1583,12 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 label point = newFace1[l];
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
-            Info<<endl;
+            Info<<relPointIndex<<endl;
             
             
             currPoint = nextPoint;
-            faceInd++;
+            currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+            relPointIndex++;
             
             newFace2.append(currPoint);
             newFace2Sign = pointsToSide_[currPoint];
@@ -1587,32 +1600,28 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 label point = newFace2[l];
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
-            Info<<endl;
-            
+            Info<<relPointIndex<<endl;
             
             //Info<<"Create face 2"<<endl;
-            while(pointsToSide_[currPoint] ==
-                  pointsToSide_[currFace[faceInd+1]])
+            while(pointsToSide_[currPoint] == pointsToSide_[currFace.nextLabel(currPointIndex)])
             {
                 Info<<newMeshPoints_[currPoint]<<pointsToSide_[currPoint]<<endl;
-                Info<<newMeshPoints_[currFace[faceInd+1]]<<pointsToSide_[currFace[faceInd+1]]<<endl;
+                Info<<newMeshPoints_[currFace.nextLabel(currPointIndex)]<<pointsToSide_[currFace.nextLabel(currPointIndex)]<<endl;
                 //Info<<"Index:"<<faceInd<<endl;
-                currPoint = meshFaces[i][faceInd+1];
+                currPoint = currFace.nextLabel(currPointIndex);
+                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+                relPointIndex++;
                 newFace2.append(currPoint);
-                faceInd++;
                 
                 
-                Info<<"2 Face 2 size:"<<newFace2.size()<<"| ";
-                for(int l=0;l<newFace2.size();l++)
-                {                
-                    label point = newFace2[l];
-                    Info<<point<<newMeshPoints_[point]<<" ";
-                }
-                Info<<endl;
+                    Info<<"2 Face 2 size:"<<newFace2.size()<<"| ";
+                    for(int l=0;l<newFace2.size();l++)
+                    {                
+                        label point = newFace2[l];
+                        Info<<point<<newMeshPoints_[point]<<" ";
+                    }
+                    Info<<relPointIndex<<endl;
                 
-                
-                if(faceInd+1>=currFace.size())
-                    break;
                 /*
                 Info<<endl;
                 Info<<currPoint<<":";
@@ -1625,34 +1634,42 @@ void Foam::cutCellPolyMesh::cutOldFaces
             newFace2.append(secondCutPoint);
             newFace1.append(secondCutPoint);
             
-            if(secondCutPoint<nbrOfPrevPoints)
-                faceInd++;
-            
-            Info<<"3 Face 2 size:"<<newFace2.size()<<"| ";
-            for(int l=0;l<newFace2.size();l++)
-            {                
-                label point = newFace2[l];
-                Info<<point<<newMeshPoints_[point]<<" ";
+            if(secondCutPoint < nbrOfPrevPoints)
+            {
+                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+                relPointIndex++;
             }
-            Info<<endl;
             
-        
-            
-            Info<<"4 Face 1 size:"<<newFace1.size()<<"| ";
-            for(int l=0;l<newFace1.size();l++)
-            {                
-                label point = newFace1[l];
-                Info<<point<<newMeshPoints_[point]<<" ";
-            }
-            Info<<endl;
-            
+                Info<<"3 Face 2 size:"<<newFace2.size()<<"| ";
+                for(int l=0;l<newFace2.size();l++)
+                {                
+                    label point = newFace2[l];
+                    Info<<point<<newMeshPoints_[point]<<" ";
+                }
+                Info<<relPointIndex<<endl;
+                Info<<"4 Face 1 size:"<<newFace1.size()<<"| ";
+                for(int l=0;l<newFace1.size();l++)
+                {                
+                    label point = newFace1[l];
+                    Info<<point<<newMeshPoints_[point]<<" ";
+                }
+                Info<<relPointIndex<<endl;
+
             
             Info<<"Finish face 1"<<endl;
-            while(++faceInd < meshFaces[i].size())
+            while(relPointIndex+1 < meshFaces[i].size())
             {
-                currPoint = meshFaces[i][faceInd];
-                Info<<currPoint<<"!="<<firstFacePoint<<endl;
+                currPoint = currFace.nextLabel(currPointIndex);
+                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
+                relPointIndex++;
                 newFace1.append(currPoint);
+                
+                if(newFace1[0] == currPoint)
+                {
+                    FatalErrorInFunction
+                    << "The starting point is added again. Something is wrong here."
+                    << abort(FatalError);
+                }                    
             }
             
             
@@ -1662,7 +1679,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 label point = newFace1[l];
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
-            Info<<endl;
+            Info<<relPointIndex<<endl;
             
             
             cutFaces_.append(face(newFace1));
@@ -1678,7 +1695,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 label point = newFace1[l];
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
-            Info<<endl;
+            Info<<relPointIndex<<endl;
             
             Info<<"4 Face 2 size:"<<newFace2.size()<<"| ";
             for(int l=0;l<newFace2.size();l++)
@@ -1686,7 +1703,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 label point = newFace2[l];
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
-            Info<<endl;
+            Info<<relPointIndex<<endl;
         }
     }
 
@@ -1969,16 +1986,14 @@ void Foam::cutCellPolyMesh::createNewMeshData
         }
         else
         {
+            splitAndUnsplitFacesInterior.append(meshFaces[i]);
             if(facesToSide_[i] == 1)
             {
-                splitAndUnsplitFacesInterior.append(meshFaces[i]);
                 splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
                 splitAndUnsplitFaceInteriorOwner.append(owner[i]);
             }
-            else
-            {
-                splitAndUnsplitFacesInterior.append(meshFaces[i]);
-                
+            else if(facesToSide_[i] == -1)
+            {                
                 if(cellsToSide_[neighbour[i]] == 0)
                     splitAndUnsplitFaceInteriorNeighbor.append(oldCellsToAddedMinusSideCellIndex[neighbour[i]]);
                 else
@@ -1988,6 +2003,13 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     splitAndUnsplitFaceInteriorOwner.append(oldCellsToAddedMinusSideCellIndex[owner[i]]);
                 else
                     splitAndUnsplitFaceInteriorOwner.append(owner[i]);                
+            }
+            else
+            {
+                FatalErrorInFunction
+                << "A face with the side: "<<facesToSide_[i]<<" was not treated."
+                << " This must not happen."
+                << abort(FatalError);
             }
             
             /*
@@ -2083,22 +2105,28 @@ void Foam::cutCellPolyMesh::createNewMeshData
         }
         else
         {
-            if(cellsToSide_[i] == 1)
+            splitAndUnsplitFacesBoundary.append(meshFaces[i]);
+            
+            if(facesToSide_[i] == 1)
             {
-                splitAndUnsplitFacesBoundary.append(meshFaces[i]);
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
             }
-            else
+            else if(facesToSide_[i] == -1)
             {
-                splitAndUnsplitFacesBoundary.append(meshFaces[i]);
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 
-                            
                 if(cellsToSide_[owner[i]] == 0)
                     splitAndUnsplitFaceBoundaryOwner.append(oldCellsToAddedMinusSideCellIndex[owner[i]]);
                 else
                     splitAndUnsplitFaceBoundaryOwner.append(owner[i]);                
+            }
+            else
+            {
+                FatalErrorInFunction
+                << "A face with the side: "<<facesToSide_[i]<<" was not treated."
+                << " This must not happen."
+                << abort(FatalError);
             }
             
             /*
