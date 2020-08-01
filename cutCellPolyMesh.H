@@ -179,6 +179,9 @@ class cutCellPolyMesh   :   public polyMesh
         
         //rebuild mesh by using cut data
         void createNewMeshData();
+        
+        //rebuild mesh delting negative side
+        void createNewMeshData_cutNeg();
 
 };
 }

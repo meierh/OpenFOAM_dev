@@ -1267,6 +1267,8 @@ void Foam::cutCellPolyMesh::newMeshFaces
         }
         //add to addedFaces
         face newFace(facePoints);
+        //newFace = newFace.reverseFace();
+        
         newMeshFaces_.append(newFace);
         facesToSide_.append(0);
         
@@ -1894,6 +1896,34 @@ void Foam::cutCellPolyMesh::createNewMeshData
         if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
         {
             face addedFace = newMeshFaces_[cellToFaces_[i][0]];
+            
+            labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
+            cell thisCell = meshCells[i];
+            vector thisNormal = addedFace.normal(newMeshPoints_);
+            Info<<"This Normal: "<<thisNormal<<endl;
+            point thisCentre = addedFace.centre(newMeshPoints_);
+            Info<<"This Centre: "<<thisCentre<<endl;
+            
+            label testInd = -1;
+            for(int i=0;i<thisCellPointLabels.size();i++)
+            {
+                if(pointsToSide_[thisCellPointLabels[i]] == -1)
+                {
+                    testInd = thisCellPointLabels[i];
+                    break;
+                }
+            }
+            Info<<"test Point:"<<newMeshPoints_[testInd]<<endl;
+            vector centreToPointInd = newMeshPoints_[testInd] - thisCentre;
+            //centreToPointInd -= thisCentre;
+            Info<<"centreToPointInd: "<<centreToPointInd<<endl;
+            scalar dir = centreToPointInd && thisNormal;
+            Info<<"dir: "<<dir<<endl;
+            if(dir < 0)
+                addedFace = addedFace.reverseFace();
+            
+            Info<<centreToPointInd<<endl;
+            
             addedCutFaces.append(addedFace);
             addedCutFaceNeighbor.append(oldCellsToAddedMinusSideCellIndex[i]);
             addedCutFaceOwner.append(i);
@@ -2179,6 +2209,350 @@ void Foam::cutCellPolyMesh::createNewMeshData
     {
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
+}
+
+void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
+(
+)
+{
+    const cellList& meshCells = this->cells();
+    const faceList& meshFaces = this->faces();
+    //const edgeList& meshEdges = this->edges();
+    const pointField& meshPoints = this->points();
+    const labelList owner   = this->faceOwner();
+    const labelList neighbour = this->faceNeighbour();    
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    
+    // Store old boundary patches
+    patchStarts = labelList(boundMesh.size());
+    patchSizes = labelList(boundMesh.size());
+    for(int i=0;i<boundMesh.size();i++)
+    {
+        patchStarts[i] = boundMesh[i].start();
+        patchSizes[i] = boundMesh[i].faceCentres().size();
+    }
+    
+    Info<<"------------------------------------OldFaces------------------------------------"<<endl;
+    for(int k=0;k<meshFaces.size();k++)
+    {
+        Info<<"Face: -"<<k<<"-";
+        pointField facePoints = meshFaces[k].points(meshPoints);
+        for(int j=0;j<facePoints.size();j++)
+            Info<<facePoints[j]<<"->";
+        Info<<"owner:"<<owner[k];
+        //Info<<" neighbour:"<<neighbour[k];
+        Info<<endl;
+    }
+    
+    for(int i=0;i<boundMesh.size();i++)
+    {        
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+    }
+    Info<<"------------------------------------EndOldFaces---------------------------------"<<endl;
+    
+    oldSplittedCellToNewPlusCell = labelList(meshCells.size());
+    oldSplittedCellToNewMinusCell = labelList(meshCells.size());
+    for(int i=0;i<meshCells.size();i++)
+    {
+        oldSplittedCellToNewPlusCell[i] = -1;
+        oldSplittedCellToNewMinusCell[i] = -1;
+    }
+    
+    // Compute new cellIndexes for added cells
+    labelList oldCellsToAddedMinusSideCellIndex(meshCells.size());
+    label addedCellIndex = 0;
+    for(int i=0;i<meshCells.size();i++)
+    {
+        if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
+        {
+            oldCellsToAddedMinusSideCellIndex[i] = addedCellIndex+oldCellsToAddedMinusSideCellIndex.size();
+            oldSplittedCellToNewPlusCell[i] = i;
+            oldSplittedCellToNewMinusCell[i]= oldCellsToAddedMinusSideCellIndex[i];
+            Info<<i<<"->"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
+            addedCellIndex++;
+        }
+    }
+    
+/*
+// Problem here
+    pointField facePoints = addedStruc.addedFaces[addedStruc.oldCellsToAddedFace[0]].points(combinedPoints);
+    for(int j=0;j<facePoints.size();j++)
+        Info<<facePoints[j]<<"->";
+    Info<<endl;
+    
+    facePoints = addedStruc.addedFaces[0].points(combinedPoints);
+    for(int j=0;j<facePoints.size();j++)
+        Info<<facePoints[j]<<"->";
+    Info<<endl;
+*/
+    
+    Info<<"Insert Split cell faces"<<endl;
+    // Compute List of new faces splitting old cells
+    label addedCutFacesNbr = 0;
+    addedCutFaces = faceList(0);
+    addedCutFaceNeighbor = labelList(0);
+    addedCutFaceOwner = labelList(0);
+    for(int i=0;i<cellToFaces_.size();i++)
+    {
+        if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
+        {
+            face addedFace = newMeshFaces_[cellToFaces_[i][0]];
+            
+            labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
+            cell thisCell = meshCells[i];
+            vector thisNormal = addedFace.normal(newMeshPoints_);
+            Info<<"This Normal: "<<thisNormal<<endl;
+            point thisCentre = addedFace.centre(newMeshPoints_);
+            Info<<"This Centre: "<<thisCentre<<endl;
+            
+            label testInd = -1;
+            for(int i=0;i<thisCellPointLabels.size();i++)
+            {
+                if(pointsToSide_[thisCellPointLabels[i]] == -1)
+                {
+                    testInd = thisCellPointLabels[i];
+                    break;
+                }
+            }
+            Info<<"test Point:"<<newMeshPoints_[testInd]<<endl;
+            vector centreToPointInd = newMeshPoints_[testInd] - thisCentre;
+            //centreToPointInd -= thisCentre;
+            Info<<"centreToPointInd: "<<centreToPointInd<<endl;
+            scalar dir = centreToPointInd && thisNormal;
+            Info<<"dir: "<<dir<<endl;
+            if(dir < 0)
+                addedFace = addedFace.reverseFace();
+            
+            Info<<centreToPointInd<<endl;
+            
+            addedCutFaces.append(addedFace);
+            addedCutFaceNeighbor.append(-1);
+            addedCutFaceOwner.append(i);
+
+            /*
+            Info<<"+New: ";
+            pointField facePoints = addedFace.points(combinedPoints);
+            for(int j=0;j<facePoints.size();j++)
+                Info<<facePoints[j]<<"->";
+            Info<<"owner:"<<i;
+            Info<<" neighbour:"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
+            */
+            
+        }
+    }
+
+    
+    Info<<"Insert split faces interior"<<endl;
+    // Compute the List of new faces resulting from the splitting of old faces
+    label addedSplitCellsInteriorNbr = 0;
+    splitAndUnsplitFacesInterior = faceList(0);
+    splitAndUnsplitFaceInteriorNeighbor = labelList(0);
+    splitAndUnsplitFaceInteriorOwner = labelList(0);    
+    for(int i=0;i<neighbour.size();i++)
+    {
+        /*
+        Info<<"-Old: ";
+        pointField facePoints = meshFaces[i].points(combinedPoints);
+        for(int j=0;j<facePoints.size();j++)
+            Info<<facePoints[j]<<"->";
+        Info<<"owner:"<<owner[i];
+        Info<<" neighbour:"<<neighbour[i]<<endl;
+        */
+        
+        if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
+        {
+            if(oldFacesToCutFaces_[i].size() != 2)
+            {
+                FatalErrorInFunction
+                << " Splitted interior cell is cut into"<<oldFacesToCutFaces_[i].size()
+                << " faces instead of the expected 2."
+                << abort(FatalError);
+            }
+            face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
+            label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
+            face face2      = cutFaces_[oldFacesToCutFaces_[i][1]];
+            //label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
+            
+            face sameCellFace;
+            face addedCellFace;
+            if(signFace1 > 0)
+            {
+                sameCellFace = face1;
+                addedCellFace = face2;
+            }
+            else
+            {
+                sameCellFace = face2;
+                addedCellFace = face1;
+            }
+            splitAndUnsplitFacesInterior.append(sameCellFace);
+            splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
+            splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+            
+            addedSplitCellsInteriorNbr++;
+        }
+        else
+        {
+            if(facesToSide_[i] == 1)
+            {
+                splitAndUnsplitFacesInterior.append(meshFaces[i]);
+                splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
+                splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                
+                addedSplitCellsInteriorNbr++;
+            }
+            else
+            {
+                FatalErrorInFunction
+                << "A face with the side: "<<facesToSide_[i]<<" was not treated."
+                << " This must not happen."
+                << abort(FatalError);
+            }
+            
+        }
+        
+        if(splitAndUnsplitFaceInteriorOwner[splitAndUnsplitFaceInteriorOwner.size()-1] == -1)
+        {
+            FatalErrorInFunction
+            << " Owner of face must not be -1 as happend in face "<<i
+            << abort(FatalError);
+        }
+    }
+
+    for(int i=0;i<boundMesh.size();i++)
+    {
+        patchStarts[i] += addedSplitCellsInteriorNbr-neighbour.size();
+    }
+    
+    Info<<"Insert split faces boundary"<<endl;
+    label currBoundaryPatch = 0;
+    label countOldBoundaryFaces = 0;
+    label countNewBoundaryFaces = 0;
+    splitAndUnsplitFacesBoundary = faceList(0);
+    splitAndUnsplitFaceBoundaryNeighbor = labelList(0);
+    splitAndUnsplitFaceBoundaryOwner = labelList(0);
+    for(int i=neighbour.size();i<meshFaces.size();i++)
+    {
+        /*
+        Info<<"-Old: ";
+        pointField facePoints = meshFaces[i].points(combinedPoints);
+        for(int j=0;j<facePoints.size();j++)
+            Info<<facePoints[j]<<"->";
+        Info<<"owner:"<<owner[i];
+        Info<<" neighbour:"<<-1<<endl;
+        */
+        
+        if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
+        {
+            face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
+            label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
+            face face2      = cutFaces_[oldFacesToCutFaces_[i][1]];
+            //label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
+            
+            face sameCellFace;
+            face addedCellFace;
+            if(signFace1 > 0)
+            {
+                sameCellFace = face1;
+                addedCellFace = face2;
+            }
+            else
+            {
+                sameCellFace = face2;
+                addedCellFace = face1;
+            }
+            splitAndUnsplitFacesBoundary.append(sameCellFace);
+            splitAndUnsplitFaceBoundaryNeighbor.append(-1);
+            splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
+
+            /*
+            Info<<"+New: ";
+            pointField facePoints = sameCellFace.points(combinedPoints);
+            for(int j=0;j<facePoints.size();j++)
+                Info<<facePoints[j]<<"->";
+            Info<<"owner:"<<owner[i];
+            Info<<" neighbour:"<<-1<<endl;
+            */
+            
+            /*
+            Info<<"+New: ";
+            facePoints = addedCellFace.points(combinedPoints);
+            for(int j=0;j<facePoints.size();j++)
+                Info<<facePoints[j]<<"->";
+            Info<<"owner:"<<oldCellsToAddedMinusSideCellIndex[owner[i]];
+            Info<<" neighbour:"<<-1<<endl;
+            */
+            
+            countNewBoundaryFaces++;
+        }
+        else
+        {            
+            if(facesToSide_[i] == 1)
+            {
+                countNewBoundaryFaces++;
+                splitAndUnsplitFacesBoundary.append(meshFaces[i]);
+                splitAndUnsplitFaceBoundaryNeighbor.append(-1);
+                splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
+            }
+            else
+            {
+                FatalErrorInFunction
+                << "A face with the side: "<<facesToSide_[i]<<" was not treated."
+                << " This must not happen."
+                << abort(FatalError);
+            }
+            
+            /*
+            // Modify !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!            
+            Info<<"+New: ";
+            pointField facePoints = meshFaces[i].points(combinedPoints);
+            for(int j=0;j<facePoints.size();j++)
+                Info<<facePoints[j]<<"->";
+            Info<<"owner:"<<owner[i];
+            Info<<" neighbour:"<<-1<<endl;
+            */
+            
+        }
+        countOldBoundaryFaces++;
+        
+        if(patchSizes[currBoundaryPatch] <= countOldBoundaryFaces)
+        {
+            patchSizes[currBoundaryPatch] = countNewBoundaryFaces;
+            currBoundaryPatch++;
+            countNewBoundaryFaces = 0;
+            countOldBoundaryFaces = 0;            
+        }        
+    }
+    for(int i=1;i<patchStarts.size();i++)
+    {
+        Info<<i<<":"<<patchStarts[i-1]<<"+"<<patchSizes[i-1]<<"="<<patchStarts[i-1] + patchSizes[i-1]<<endl;
+        patchStarts[i] = patchStarts[i-1] + patchSizes[i-1]; 
+    }
+    
+
+    /*
+    Info<<"---------------------------------------Faces------------------------------------"<<endl;
+    Info<<"NbrFaces:"<<combinedFaces.size()<<endl;
+    Info<<"NbrOwner:"<<combinedOwner.size()<<endl;
+    Info<<"NbrNeighbor:"<<combinedNeighbor.size()<<endl;
+    for(int k=0;k<combinedFaces.size();k++)
+    {
+        Info<<"Face: -"<<k<<"-";
+        pointField facePoints = combinedFaces[k].points(combinedPoints);
+        for(int j=0;j<facePoints.size();j++)
+            Info<<facePoints[j]<<"->";
+        Info<<"owner:"<<combinedOwner[k];
+        Info<<" neighbour:"<<combinedNeighbor[k];
+        Info<<endl;
+    }
+    */
+    
+    for(int i=0;i<boundMesh.size();i++)
+    {
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+    }
+}
+    
 }
 
 void Foam::cutCellPolyMesh::printNewMeshData
