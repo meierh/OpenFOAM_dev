@@ -7,6 +7,11 @@ class cutCellPolyMesh   :   public polyMesh
 {
     //Public attributes
     public:
+        enum cutStatus 
+        {
+            delNegMesh = 0,
+            internalCut
+        };
 
 
     //Private Attributes
@@ -133,7 +138,12 @@ class cutCellPolyMesh   :   public polyMesh
     //Public Memberfunctions    
     public:
         //Constructor
-        explicit cutCellPolyMesh(const IOobject& io, std::function<scalar(const vector)> levelSet);
+        explicit cutCellPolyMesh
+        (
+            const IOobject& io,
+            std::function<scalar(const vector)> levelSet,
+            cutStatus state = delNegMesh
+        );
         
         // Print Functions for debugg purposes
         void printAddedPoints();

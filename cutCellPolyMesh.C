@@ -3,7 +3,8 @@
 Foam::cutCellPolyMesh::cutCellPolyMesh
 (
     const IOobject& io,
-    std::function<scalar(const vector)> levelSet
+    std::function<scalar(const vector)> levelSet,
+    cutStatus state
 )  
 :   polyMesh(io)
 {
@@ -14,24 +15,45 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     //edgesToSide();
     newMeshFaces();
     cutOldFaces();
-    createNewMeshData();
     
     faceList faces(0);
-    faces.append(addedCutFaces);
-    faces.append(splitAndUnsplitFacesInterior);
-    faces.append(splitAndUnsplitFacesBoundary);
-    
     labelList owner(0);
-    owner.append(addedCutFaceOwner);
-    owner.append(splitAndUnsplitFaceInteriorOwner);
-    owner.append(splitAndUnsplitFaceBoundaryOwner);
-    
     labelList neighbour(0);
-    neighbour.append(addedCutFaceNeighbor);
-    neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
-    neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
+        
+    if(state == internalCut)
+    {
+        createNewMeshData();
     
-    printMesh();
+        faces.append(addedCutFaces);
+        faces.append(splitAndUnsplitFacesInterior);
+        faces.append(splitAndUnsplitFacesBoundary);
+    
+        owner.append(addedCutFaceOwner);
+        owner.append(splitAndUnsplitFaceInteriorOwner);
+        owner.append(splitAndUnsplitFaceBoundaryOwner);
+    
+        neighbour.append(addedCutFaceNeighbor);
+        neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
+        neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
+    }
+    else if(state == delNegMesh)
+    {
+        createNewMeshData_cutNeg();
+
+        faces.append(splitAndUnsplitFacesInterior);
+        faces.append(splitAndUnsplitFacesBoundary);
+        faces.append(addedCutFaces);
+    
+        owner.append(splitAndUnsplitFaceInteriorOwner);
+        owner.append(splitAndUnsplitFaceBoundaryOwner);
+        owner.append(addedCutFaceOwner);
+        
+        neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
+        neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
+        neighbour.append(addedCutFaceNeighbor);
+
+    }
+    //printMesh();
     
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
@@ -2221,7 +2243,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     const pointField& meshPoints = this->points();
     const labelList owner   = this->faceOwner();
     const labelList neighbour = this->faceNeighbour();    
-    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
     // Store old boundary patches
     patchStarts = labelList(boundMesh.size());
@@ -2288,7 +2310,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     
     Info<<"Insert Split cell faces"<<endl;
     // Compute List of new faces splitting old cells
-    label addedCutFacesNbr = 0;
+    //label addedCutFacesNbr = 0;
     addedCutFaces = faceList(0);
     addedCutFaceNeighbor = labelList(0);
     addedCutFaceOwner = labelList(0);
@@ -2547,12 +2569,29 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     }
     */
     
+    word boundName = "Cut Bound";
+    labelList patches(addedCutFaces.size());
+    label nbrFacesBeforeCutFaces =  splitAndUnsplitFacesInterior.size() 
+                                    + splitAndUnsplitFacesBoundary.size();
+    for(int i=0;i<patches.size();i++)
+    {
+        patches[i] = nbrFacesBeforeCutFaces + i;
+    }
+    boundMesh.setGroup(boundName,patches);
+    
     for(int i=0;i<boundMesh.size();i++)
     {
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
-}
     
+    /*
+    labelList posPoints(0);
+    for(int i=0;i<pointsToSide_.size();i++)
+    {
+        if(pointsToSide_[i] >= 0)
+            posPoints.append(
+    }
+    */
 }
 
 void Foam::cutCellPolyMesh::printNewMeshData
