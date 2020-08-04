@@ -51,9 +51,12 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
         neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
         neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
         neighbour.append(addedCutFaceNeighbor);
+        
+        patchStarts.append(patchStarts.last()+patchSizes.last());
+        patchSizes.append(addedCutFaces.size());
 
     }
-    //printMesh();
+    printMesh();
     
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
@@ -61,7 +64,38 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
                     Foam::clone(neighbour),
                     patchSizes,
                     patchStarts,
-                    true);
+                    false);
+    
+    if(state == delNegMesh)
+    {
+        const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+
+        patchStarts = labelList(boundMesh.size());
+        patchSizes = labelList(boundMesh.size());
+        for(int i=0;i<boundMesh.size();i++)
+        {
+            patchStarts[i] = boundMesh[i].start();
+            patchSizes[i] = boundMesh[i].faceCentres().size();
+        }
+        
+        for(int i=0;i<boundMesh.size();i++)
+        {        
+            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        }
+        
+        Info<<boundMesh.size()<<endl;
+
+        label insertPatchi = boundMesh.size()+1;
+        
+        word name = "Cut Wall";
+        word patchType = "wall";
+
+        polyPatch& patch = polyPatch(name,addedCutFaces.size(),patchStarts.last(),insertPatchi,boundMesh,patchType);
+        dictionary& patchFieldDict();
+        word defaultPatchFieldType = "wall";
+        
+    }
+    
     this->write();
     printMesh();
 }
@@ -2243,7 +2277,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     const pointField& meshPoints = this->points();
     const labelList owner   = this->faceOwner();
     const labelList neighbour = this->faceNeighbour();    
-    polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
     // Store old boundary patches
     patchStarts = labelList(boundMesh.size());
@@ -2569,6 +2603,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     }
     */
     
+    /*
     word boundName = "Cut Bound";
     labelList patches(addedCutFaces.size());
     label nbrFacesBeforeCutFaces =  splitAndUnsplitFacesInterior.size() 
@@ -2578,6 +2613,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
         patches[i] = nbrFacesBeforeCutFaces + i;
     }
     boundMesh.setGroup(boundName,patches);
+    */
     
     for(int i=0;i<boundMesh.size();i++)
     {
