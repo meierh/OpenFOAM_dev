@@ -8,6 +8,25 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 )  
 :   polyMesh(io)
 {
+    //
+    {
+        const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+        patchStarts = labelList(boundMesh.size());
+        patchSizes = labelList(boundMesh.size());
+        for(int i=0;i<boundMesh.size();i++)
+        {
+            patchStarts[i] = boundMesh[i].start();
+            patchSizes[i] = boundMesh[i].faceCentres().size();
+        }
+        if(patchStarts.last() != this->nFaces() || patchSizes.last() != 0)
+        {
+                FatalErrorInFunction
+                << " The cutCellPolyMesh must be defined with an empty boundary patch at the end."
+                << " Starting at: "<<this->nFaces()<<" (curr:"<<patchStarts.last()<<") and with the size: 0 ("<<patchSizes.last()<<")"
+                << abort(FatalError);
+        }
+    }
+    
     this->levelSet = levelSet;
     newMeshPoints();
     //printAddedPoints();
@@ -52,8 +71,14 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
         neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
         neighbour.append(addedCutFaceNeighbor);
         
-        patchStarts.append(patchStarts.last()+patchSizes.last());
-        patchSizes.append(addedCutFaces.size());
+        patchStarts[patchStarts.size()-1] = (patchStarts.last()+patchSizes.last());
+        patchSizes[patchSizes.size()-1] = (addedCutFaces.size());
+        
+        Info<<"--"<<endl;
+        for(int i=0;i<patchStarts.size();i++)
+        {
+            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        }
 
     }
     printMesh();
@@ -64,11 +89,22 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
                     Foam::clone(neighbour),
                     patchSizes,
                     patchStarts,
-                    false);
+                    true);
     
+    /*
     if(state == delNegMesh)
     {
         const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+        for(int i=0;i<boundMesh.size();i++)
+        {
+            polyPatch thisPatch = boundMesh[i];
+            Info<<"-------Patch "<<thisPatch.index()<<"----------"<<endl;
+            Info<<"| Name:"<<thisPatch.name()<<endl;
+            Info<<"| Size:"<<thisPatch.size()<<endl;
+            Info<<"| Start:"<<thisPatch.start()<<endl;
+            Info<<"| patchI:"<<thisPatch.index()<<endl;
+            Info<<"| patchType:"<<thisPatch.physicalType()<<endl;
+        }
 
         patchStarts = labelList(boundMesh.size());
         patchSizes = labelList(boundMesh.size());
@@ -77,6 +113,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
             patchStarts[i] = boundMesh[i].start();
             patchSizes[i] = boundMesh[i].faceCentres().size();
         }
+        patchStarts.append(patchStarts.last()+patchSizes.last());
         
         for(int i=0;i<boundMesh.size();i++)
         {        
@@ -87,14 +124,44 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 
         label insertPatchi = boundMesh.size()+1;
         
-        word name = "Cut Wall";
+        word name = "cutWall";
         word patchType = "wall";
 
-        polyPatch& patch = polyPatch(name,addedCutFaces.size(),patchStarts.last(),insertPatchi,boundMesh,patchType);
-        dictionary& patchFieldDict();
+        polyPatch* patch= new polyPatch
+        (
+            name,
+            addedCutFaces.size(),
+            patchStarts.last(),
+            insertPatchi,
+            boundMesh,
+            patchType
+        );
+        List<polyPatch*> p(1,patch);
+        
+        fileName dictName = "wallDict";
+        dictionary patchFieldDict(dictName);
         word defaultPatchFieldType = "wall";
         
+        Info<<"-------Patch "<<patch->index()<<"----------"<<endl;
+        Info<<"| Name:"<<patch->name()<<endl;
+        Info<<"| Size:"<<patch->size()<<endl;
+        Info<<"| Start:"<<patch->start()<<endl;
+        Info<<"| patchI:"<<patch->index()<<endl;
+        Info<<"| patchType:"<<patch->physicalType()<<endl;
+        
+        boundMesh.append(patch);
+        Info<<boundary_.size()<<endl;
+        
+        
+        //this->addPatches(p);
+        
+        
+        this->addPatch(insertPatchi,patch,patchFieldDict,
+                       defaultPatchFieldType,true);  
+        
     }
+    */
+    
     
     this->write();
     printMesh();
@@ -2709,7 +2776,8 @@ void Foam::cutCellPolyMesh::printMesh
     const edgeList& meshEdges = this->edges();
     const pointField& meshPoints = this->points();
     const labelList owner   = this->faceOwner();
-    const labelList neighbour = this->faceNeighbour(); 
+    const labelList neighbour = this->faceNeighbour();
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
     for(int i=0;i<meshCells.size();i++)
     {
@@ -2739,5 +2807,9 @@ void Foam::cutCellPolyMesh::printMesh
     for(int i=0;i<meshEdges.size();i++)
     {
         Info<<"Edge:"<<i<< " Start:"<<meshPoints[meshEdges[i].start()]<<"-> End:"<<meshPoints[meshEdges[i].end()]<<endl;
+    }
+    for(int i=0;i<boundMesh.size();i++)
+    {
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
 }
