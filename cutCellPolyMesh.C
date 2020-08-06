@@ -83,6 +83,16 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     }
     printMesh();
     
+    const pointField& oldPoints = this->points();
+    const faceList& oldFaceList = this->faces();
+    const cellList& oldCells = this->cells();
+    
+    oldCellVolume = scalarList(oldCells.size());
+    for(int i=0;i<oldCells.size();i++)
+    {
+        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+    }
+    
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -2524,7 +2534,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 
                 addedSplitCellsInteriorNbr++;
             }
-            else
+            else if(facesToSide_[i] != -1)
             {
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
@@ -2617,7 +2627,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
             }
-            else
+            else if(facesToSide_[i] != -1)
             {
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
