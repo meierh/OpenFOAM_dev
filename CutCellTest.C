@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
         {
             scalar center_x = 0;
             scalar center_y = 0;
-            scalar radius = 0.6;
+            scalar radius = 0.472;
     
             scalar x = coord.x();
             scalar y = coord.y();
