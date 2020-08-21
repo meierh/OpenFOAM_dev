@@ -27,9 +27,11 @@ Application
 Description
 
 \*---------------------------------------------------------------------------*/
+#include <math.h> 
 
 #include "fvCFD.H"
 #include "cutCellPolyMesh.H"
+#include "Nurbs.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -55,6 +57,28 @@ int main(int argc, char *argv[])
     << "Create mesh for time = "
     << runTime.timeName() << Foam::nl << Foam::endl;
 
+    Foam::Info<<"Test Nurbs Curve"<<Foam::endl;
+    
+    scalarList& knots = new scalarList(12);
+    knots[0] = 0;    knots[1] = 0;    knots[2] = 0;    knots[3] = 1;
+    knots[4] = 1;    knots[5] = 2;    knots[6] = 2;    knots[7] = 3;
+    knots[8] = 3;    knots[9] = 4;    knots[10] = 4;   knots[11] = 4;
+    
+    int testdegree = 2;
+    
+    scalarList& weights = new scalarList(9);
+    weights[0] = 1;    weights[1] = sqrt(2)/2;    weights[2] = 1;
+    weights[3] = sqrt(2)/2;    weights[4] = 1;    weights[5] = sqrt(2)/2;
+    weights[6] = 1;    weights[7] = sqrt(2)/2;    weights[8] = 1;
+    
+    List<vector>& controlPoints = new List<vector>(9);
+    controlPoints[0] = vector(1,0,0);    controlPoints[1] = vector(1,1,0);    controlPoints[2] = vector(0,1,0);
+    controlPoints[3] = vector(-1,1,0);   controlPoints[4] = vector(-1,0,0);   controlPoints[5] = vector(-1,-1,0);
+    controlPoints[6] = vector(0,-1,0);   controlPoints[7] = vector(1,-1,0);   controlPoints[8] = vector(1,0,0);
+    
+    Nurbs Circle(std::move(knots),std::move(controlPoints),std::move(weights),testdegree);
+    
+    /*
     Foam::cutCellPolyMesh basisMesh
     (
         Foam::IOobject
@@ -77,6 +101,7 @@ int main(int argc, char *argv[])
             return std::sqrt(x_c*x_c+y_c*y_c)-radius;
         }
     );
+    */
     
     //basisMesh.printAddedPoints();
     //basisMesh.printAddedEdges();
@@ -86,12 +111,14 @@ int main(int argc, char *argv[])
 
     // ---
     // Write the grid
+    
+    /*
     Info << nl << "Writing extruded mesh to time = " << runTime.timeName() << nl << endl;
     Info<< "nPoints: "<<basisMesh.nPoints() <<endl;
     Info<< "nInternalFaces: "<<basisMesh.nInternalFaces()<<endl;
     Info<< "nFaces: "<<basisMesh.nFaces()<<endl;
     Info<< "nCells: "<<basisMesh.nCells()<<endl;
-    
+    */
     
     /*
     labelList Hello = basisMesh.faces()[0];
@@ -158,7 +185,7 @@ int main(int argc, char *argv[])
     }
     */
     
-    basisMesh.write();
+    //basisMesh.write();
     runTime.loop();
     runTime.write();
 
