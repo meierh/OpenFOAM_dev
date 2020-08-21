@@ -19,7 +19,9 @@ class cutCellPolyMesh   :   public polyMesh
         // Level-Set Function for Boundary Computation
         std::function<scalar(const vector)> levelSet;
         
-        
+        //old Cell Volume 
+        scalarList oldCellVolume;
+                
         //Points to Side (+1,0,-1)
         labelList pointsToSide_;
         

@@ -83,6 +83,16 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     }
     printMesh();
     
+    const pointField& oldPoints = this->points();
+    const faceList& oldFaceList = this->faces();
+    const cellList& oldCells = this->cells();
+    
+    oldCellVolume = scalarList(oldCells.size());
+    for(int i=0;i<oldCells.size();i++)
+    {
+        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+    }
+    
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -2524,7 +2534,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 
                 addedSplitCellsInteriorNbr++;
             }
-            else
+            else if(facesToSide_[i] != -1)
             {
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
@@ -2617,7 +2627,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
             }
-            else
+            else if(facesToSide_[i] != -1)
             {
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
@@ -2811,5 +2821,286 @@ void Foam::cutCellPolyMesh::printMesh
     for(int i=0;i<boundMesh.size();i++)
     {
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+    }
+}
+
+void Foam::cutCellPolyMesh::selfTestMesh()
+{
+    const cellList& meshCells = this->cells();
+    const faceList& meshFaces = this->faces();
+    const edgeList& meshEdges = this->edges();
+    const pointField& meshPoints = this->points();
+    const labelList owner   = this->faceOwner();
+    const labelList neighbour = this->faceNeighbour();    
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    
+    //Test faces
+    for(int i=0;i<meshFaces.size();i++)
+    {
+        point centreFace = meshFaces[i].centre(meshPoints);
+        vector normalFace = meshFaces[i].normal(meshPoints);
+        scalar area = meshFaces[i].mag(meshPoints)<<endl;
+        
+        //Test for face shape
+        point curr,prev,next;
+        vector edge1,edge2;
+        List<vector> crossProds(meshFaces[i].size()+1);
+        for(int k=0;k<meshFaces[i].size();k++)
+        {
+            prev = meshPoints[meshFaces[i].prevLabel(k)];
+            curr = meshPoints[meshFaces[i][k]]
+            next = meshPoints[meshFaces[i].nextLabel(k)];
+            
+            edge1 = curr-prev;
+            edge2 = next-curr;
+            crossProds[i] = crossProduct(edge1,edge2);
+        }
+        crossProds[crossProds.size()] = crossProds[0];
+        scalar res;
+        for(int k=0;k<meshFaces[i].size();k++)
+        {
+            res = innerProduct(crossProds[k],crossProds[k+1]);
+            if(res<0)
+            {
+                Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+                if(i < neighbour.size())
+                    Info<<" Neighbor:"<<neighbour[i]<<" ";
+                for(int k=0;k<meshFaces[i].size();k++)
+                {
+                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                }
+                Info<<" with centre:"<<centreFace;
+                Info<<" and normal vector:"<<normalFace;
+                Info<<" and area:"<<area<<endl;
+                
+                FatalErrorInFunction
+                << "Face must not have a concave shape!";
+                << abort(FatalError);
+            }
+        }
+        
+        //Test for centre point internal
+        vector toCentre1,toCentre2;
+        crossProds = List<vector>(meshFaces[i].size()+1);
+        for(int k=0;k<meshFaces[i].size();k++)
+        {
+            curr = meshPoints[meshFaces[i][k]]
+            next = meshPoints[meshFaces[i].nextLabel(k)];
+            
+            edge1 = next-curr;
+            toCentre1 = centre-curr;
+            toCentre2 = centre-next;
+            
+            crossProds[i] = 0.5*(crossProduct(edge1,toCentre1) + crossProduct(edge1,toCentre2));
+        }
+        crossProds[crossProds.size()] = crossProds[0];
+        scalar res;
+        for(int k=0;k<crossProds.size();k++)
+        {
+            res = innerProduct(crossProds[k],crossProds[k+1]);
+            if(res<0)
+            {
+                Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+                if(i < neighbour.size())
+                    Info<<" Neighbor:"<<neighbour[i]<<" ";
+                for(int k=0;k<meshFaces[i].size();k++)
+                {
+                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                }
+                Info<<" with centre:"<<centreFace;
+                Info<<" and normal vector:"<<normalFace;
+                Info<<" and area:"<<area<<endl;
+                
+                FatalErrorInFunction
+                << "Face  has a centre thats not strictly inside!";
+                << abort(FatalError);
+            }
+        }
+        
+        //Test if face has double points
+        if(meshFaces[i].size() != meshFaces[i].collapse())
+        {
+            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+            if(i < neighbour.size())
+                Info<<" Neighbor:"<<neighbour[i]<<" ";
+            for(int k=0;k<meshFaces[i].size();k++)
+            {
+                Info<<meshPoints[meshFaces[i][k]]<<"->";
+            }
+            Info<<" with centre:"<<centreFace;
+            Info<<" and normal vector:"<<normalFace;
+            Info<<" and area:"<<area<<endl;
+            
+            FatalErrorInFunction
+            << "Face had a double point!";
+            << abort(FatalError);
+        }
+        
+        if(area<0)
+        {
+            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+            if(i < neighbour.size())
+                Info<<" Neighbor:"<<neighbour[i]<<" ";
+            for(int k=0;k<meshFaces[i].size();k++)
+            {
+                Info<<meshPoints[meshFaces[i][k]]<<"->";
+            }
+            Info<<" with centre:"<<centreFace;
+            Info<<" and normal vector:"<<normalFace;
+            Info<<" and area:"<<area<<endl;
+            
+            FatalErrorInFunction
+            << "Face has negative area!";
+            << abort(FatalError); 
+        }
+        
+        label ownerCell = owner[i];
+        bool isOwnerCell = false;
+        for(int k=0;k<meshCells[ownerCell].size();k++)
+        {
+            if(meshCells[ownerCell][k] == i)
+            {
+                isOwnerCel = true;
+            }
+        }
+        if(!isOwnerCell)
+        {
+            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+            if(i < neighbour.size())
+                Info<<" Neighbor:"<<neighbour[i]<<" ";
+            for(int k=0;k<meshFaces[i].size();k++)
+            {
+                Info<<meshPoints[meshFaces[i][k]]<<"->";
+            }
+            Info<<" with centre:"<<centreFace;
+            Info<<" and normal vector:"<<normalFace;
+            Info<<" and area:"<<area<<endl;
+            
+            FatalErrorInFunction
+            << "Is listed as owned by "<<ownerCell<<" but this cell does not have this face!";
+            << abort(FatalError); 
+        }
+        
+        if(i<neighbour.size())
+        {
+            label neighbourCell = neighbour[i];
+            bool isNeighbourCell = false;
+            for(int k=0;k<meshCells[neighbourCell].size();k++)
+            {
+                if(meshCells[neighbourCell][k] == i)
+                {
+                    isNeighbourCell = true;
+                }
+            }
+            if(!isNeighbourCell)
+            {
+                Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+                if(i < neighbour.size())
+                    Info<<" Neighbor:"<<neighbour[i]<<" ";
+                for(int k=0;k<meshFaces[i].size();k++)
+                {
+                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                }
+                Info<<" with centre:"<<centreFace;
+                Info<<" and normal vector:"<<normalFace;
+                Info<<" and area:"<<area<<endl;
+            
+                FatalErrorInFunction
+                << "Is listed as neighbouring "<<neighbourCell<<" but this cell does not have this face!";
+                << abort(FatalError); 
+            }
+        }
+        
+        vector centreToOwnerCentre = meshCells[ownerCell].centre(meshPoints,meshFaces)-centreFace;
+        if(innerProduct(centreToOwnerCentre,normalFace)>=0)
+        {
+            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+            if(i < neighbour.size())
+                Info<<" Neighbor:"<<neighbour[i]<<" ";
+            for(int k=0;k<meshFaces[i].size();k++)
+            {
+                Info<<meshPoints[meshFaces[i][k]]<<"->";
+            }
+            Info<<" with centre:"<<centreFace;
+            Info<<" and normal vector:"<<normalFace;
+            Info<<" and area:"<<area<<endl;
+            
+            FatalErrorInFunction
+            <<"Normal vector is "<<normalFace<<" while centreToOwnerCentre is "<<centreToOwnerCentre<<"!";
+            <<" They must have a opposite direction"; 
+            << abort(FatalError); 
+        }
+        
+        if(i<neighbour.size())
+        {
+            label neighbourCell = neighbour[i];
+            vector centreToNeighbourCentre = meshCells[neighbourCell].centre(meshPoints,meshFaces)-centreFace;
+            if(innerProduct(centreToOwnerCentre,normalFace)<=0)
+            {
+                Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+                if(i < neighbour.size())
+                    Info<<" Neighbor:"<<neighbour[i]<<" ";
+                for(int k=0;k<meshFaces[i].size();k++)
+                {
+                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                }
+                Info<<" with centre:"<<centreFace;
+                Info<<" and normal vector:"<<normalFace;
+                Info<<" and area:"<<area<<endl;
+            
+                FatalErrorInFunction
+                <<"Normal vector is "<<normalFace<<" while centreToNeighbourCentre is "<<centreToNeighbourCentre<<"!";
+                <<" They must have the same direction"; 
+                << abort(FatalError);
+            }
+        }      
+    }
+    
+    //Test cells
+    //Test if cell centre is inside cell
+    for(int i=0;i<meshCells.size();i++)
+    {
+        const point cellCentre = meshCells[i].centre(meshPoints, meshFaces);
+        scalar mag = meshCells[i].mag(meshPoints, meshFaces);
+        
+        //Test for correct volume
+        if(mag < 0)
+        {
+            Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" |";
+            for(int k=0;k<meshCells[i].size();k++)
+            {
+                Info<<meshCells[i][k]<<"->";
+            }
+            Info<<" with centre:"<<cellCentre;
+            Info<<" and volume:"<<mag<<endl;
+            
+            FatalErrorInFunction
+            << "Cell cannot have Volume smaller than zero! "
+            << abort(FatalError);
+        }
+        if(mag == 0 && cellsToSide_[i] != -1)
+        {
+            Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" |";
+            for(int k=0;k<meshCells[i].size();k++)
+            {
+                Info<<meshCells[i][k]<<"->";
+            }
+            Info<<" with centre:"<<cellCentre;
+            Info<<" and volume:"<<mag<<endl;
+            
+            FatalErrorInFunction
+            << "Cell cannot have Volume equal zero while being on side:"<<cellsToSide_[i];
+            << abort(FatalError);
+        }
+        
+        
+        
+        //Test if centre is really inside cell
+        for(int a=0;a<meshCells[i].size();a++)
+        {
+            for(int b=0;b<meshCells[i][a].size();i++
+            for(int j=0;j<meshCells[i].size();j++
+            
+        }        
     }
 }
