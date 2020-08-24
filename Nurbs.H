@@ -18,6 +18,9 @@ class Nurbs
         int p;
         std::unique_ptr<List<vector>> controlPoints;
         std::unique_ptr<scalarList> weights;
+        std::unique_ptr<List<vector>> weightedControlPoints;
+        scalar _min_U;
+        scalar _max_U;
         
     public:
         explicit Nurbs
@@ -27,9 +30,11 @@ class Nurbs
             std::unique_ptr<scalarList> weights,
             int degree
         );
-        vector Curve_Derivative(int k, int u);
+        vector Curve_Derivative(int k, scalar u);
         BoundingBox computeBoundingBox(scalar start_u, scalar end_u);
-        
+        BoundingBox computeBoundingBox();
+        scalar min_U() const {return _min_U;}
+        scalar max_U() const {return _max_U;}
         
     private:
         scalar B_Spline_Basis(int i, int p, scalar u);

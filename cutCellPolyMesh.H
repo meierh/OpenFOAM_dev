@@ -154,6 +154,7 @@ class cutCellPolyMesh   :   public polyMesh
         void printCutFaces();
         void printNewMeshData();
         void printMesh();
+        void selfTestMesh();
     
 
     //Private Memberfunctions

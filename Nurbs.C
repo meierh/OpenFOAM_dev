@@ -1,4 +1,4 @@
-#include "NURBS.H"
+#include "Nurbs.H"
 #include <math.h> 
 
 Foam::Nurbs::Nurbs
@@ -26,9 +26,23 @@ Foam::Nurbs::Nurbs
         << " Currently there are "<<m<<" knots and "<<n<<" control Points and degree "<<p
         << abort(FatalError);
     }
-    this->knots = std::unique_ptr<scalarList>(knots);
-    this->controlPoints = std::unique_ptr<List<vector>>(controlPoints);
-    this->weights = std::unique_ptr<scalarList>(weights);    
+    this->knots = std::unique_ptr<scalarList>(std::move(knots));
+    this->controlPoints = std::unique_ptr<List<vector>>(std::move(controlPoints));
+    this->weights = std::unique_ptr<scalarList>(std::move(weights));
+    
+    _min_U = this->knots->first();
+    Info<<_min_U<<endl;
+    _max_U = this->knots->last();
+    Info<<_max_U<<endl;
+    Info<<"Constructed"<<endl;
+    
+    this->weightedControlPoints = std::unique_ptr<List<vector>>(new List<vector>(n));
+    for(int i=0;i<n;i++)
+    {
+        Info<<i<<endl;
+        (*(this->weightedControlPoints))[i] = (*(this->weights))[i] * (*(this->controlPoints))[i];
+    }
+    Info<<"Constructed"<<endl;
 }
 
 scalar Foam::Nurbs::B_Spline_Basis  // The Nurbs Book Equation 2.5 S.50
@@ -38,9 +52,15 @@ scalar Foam::Nurbs::B_Spline_Basis  // The Nurbs Book Equation 2.5 S.50
     scalar u
 )
 {
+    if(i+p+1 >= knots->size())
+    {
+        FatalErrorInFunction
+        << " B_Spline_Basis is called by i:"<<i<<" p:"<<p<<" although the Nurbs Curve does only have "<<knots->size()<<"knots"<<endl
+        << abort(FatalError);
+    }
     if(p==0)
     {
-        if(knots[i] <= u && u < knots[i+1])
+        if((*knots)[i] <= u && u < (*knots)[i+1])
         {
             return 1;
         }
@@ -51,15 +71,15 @@ scalar Foam::Nurbs::B_Spline_Basis  // The Nurbs Book Equation 2.5 S.50
     }
     else
     {
-        scalar factor1_Z = u - knots[i];
-        scalar factor1_N = knots[i+p] - knots[i];
+        scalar factor1_Z = u - (*knots)[i];
+        scalar factor1_N = (*knots)[i+p] - (*knots)[i];
         scalar factor1 = 0;
         if(factor1_N != 0)
         {
             factor1 = factor1_Z / factor1_N;
         }
-        scalar factor2_Z = knots[i+p+1] - u;
-        scalar factor2_N = knots[i+p+1] - knots[i+1]
+        scalar factor2_Z = (*knots)[i+p+1] - u;
+        scalar factor2_N = (*knots)[i+p+1] - (*knots)[i+1];
         scalar factor2 = 0;
         if(factor2_N != 0)
         {
@@ -74,7 +94,7 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
 (
     int k,
     int i,
-    const unique_ptr<List<T>>&  controlPoints
+    const List<T>*  controlPoints
 )
 {
     if(m < controlPoints->size()+p+1)
@@ -93,12 +113,18 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
     }
     if(k==0)
     {
-        return controlPoints[i]
+        if(i>=controlPoints->size())
+        {
+            FatalErrorInFunction
+            << " Something is wrong here. i:"<<i<<" while controlPoints.size():"<<controlPoints->size()<<endl
+            << abort(FatalError);
+        }
+        return (*controlPoints)[i];
     }
     else
     {
         scalar koeff = 0;
-        scalar nenner = knots[i+p+1] - knots[i+k]
+        scalar nenner = (*knots)[i+p+1] - (*knots)[i+k];
         if(nenner == 0)
         {
             koeff = 0;
@@ -123,7 +149,7 @@ scalar Foam::Nurbs::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3
     scalar res = 0;
     for(int i = 0;i<n-k;i++)
     {
-        res += B_Spline_Basis(i+k,p-k,u) * Control_Point_Derivative<scalar>(k,i,this->weights);
+        res += B_Spline_Basis(i+k,p-k,u) * Control_Point_Derivative<scalar>(k,i,weights.get());
     }
     return res;
 }
@@ -133,17 +159,12 @@ vector Foam::Nurbs::A   //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
     int k,
     scalar u
 )
-{
-    unique_ptr<List<vector>> weightedControlPoints = unique_ptr<List<vector>>();
-    for(int i=0;i<controlPoints->size();i++)
+{    
+    vector res(0,0,0);
+    for(int i=0;i<n-k;i++)
     {
-        weightedControlPoints.append(weights[i] * controlPoints[i]);
-    }
-    
-    vector res;
-    for(int i=0;i<controlPoints->size();i++)
-    {
-        res += B_Spline_Basis(i+k,p-k,u) * Control_Point_Derivative<vector>(k,i,weightedControlPoints);
+        Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
+        res += B_Spline_Basis(i+k,p-k,u) * Control_Point_Derivative<vector>(k,i,weightedControlPoints.get());
     }
     return res;
 }
@@ -167,20 +188,30 @@ int Foam::Nurbs::binomial
 vector Foam::Nurbs::Curve_Derivative
 (
     int k,
-    int u
+    scalar u
 )
 {
-    vector A = A(k,u)
-    w = Weights_B_Spline_Derivative(0,u);
-    vector B;
+    if(k > p)
+    {
+        FatalErrorInFunction
+        << " Called the "<<k<<"-th Derivative of a "<<p<<"-th order Nurbs. This will not work!"<<endl
+        << abort(FatalError);
+    }
+    Info<<"Start"<<endl;
+    vector A_res = A(k,u);
+    Info<<"Computed A"<<endl;
+    scalar w = Weights_B_Spline_Derivative(0,u);
+    Info<<"Computed w"<<endl;
+    vector B(0,0,0);
     for(int i=1;i<k+1;i++)
     {
         scalar koeff = binomial(n,k);
         scalar w_i = Weights_B_Spline_Derivative(i,u);
         vector C_kmi = Curve_Derivative(k-i,u);
-        B = koeff * w_i * C_kmi;
-    }    
-    return (A-B)/w;
+        B += koeff * w_i * C_kmi;
+    }
+    Info<<"Computed B"<<endl;
+    return (A_res-B)/w;
 }
 
 inline scalar Foam::Nurbs::euklidianNorm
@@ -191,5 +222,52 @@ inline scalar Foam::Nurbs::euklidianNorm
         return sqrt(vec.x()*vec.x()+vec.y()*vec.y()+vec.z()*vec.z());
 }
 
-
+Foam::BoundingBox Foam::Nurbs::computeBoundingBox()
+{
+    if(controlPoints->size() == 0)
+    {
+        FatalErrorInFunction
+        << " Nurbs Curve has no controlPoints. Therefore no bounds can be computed!"<<endl
+        << abort(FatalError);
+    }
+    
+    BoundingBox MinMaxBox;
+    MinMaxBox.Min = controlPoints->first();
+    MinMaxBox.Max = controlPoints->first();
+    
+    for(int i=0;i<n;i++)
+    {
+        for(int d=0;d<3;d++)
+        {
+            if((*controlPoints)[i][d] > MinMaxBox.Max[d])
+                MinMaxBox.Max[d] = (*controlPoints)[i][d];
+                
+            if((*controlPoints)[i][d] < MinMaxBox.Min[d])
+                MinMaxBox.Min[d] = (*controlPoints)[i][d];
+        }
+    }
+    
+    return MinMaxBox;
 }
+
+Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end)
+{
+    if(start < _min_U || start >= _max_U)
+    {
+        FatalErrorInFunction
+        << " Start value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<")"<<endl
+        << abort(FatalError);
+    }
+    if(end < _min_U || end >= _max_U)
+    {
+        FatalErrorInFunction
+        << " End value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<")"<<endl
+        << abort(FatalError);
+    }
+    
+    scalar sup_D2 = 0;
+    return void;
+    
+    
+}
+        

@@ -27,7 +27,8 @@ Application
 Description
 
 \*---------------------------------------------------------------------------*/
-#include <math.h> 
+#include <math.h>
+#include <memory>
 
 #include "fvCFD.H"
 #include "cutCellPolyMesh.H"
@@ -59,24 +60,53 @@ int main(int argc, char *argv[])
 
     Foam::Info<<"Test Nurbs Curve"<<Foam::endl;
     
-    scalarList& knots = new scalarList(12);
-    knots[0] = 0;    knots[1] = 0;    knots[2] = 0;    knots[3] = 1;
-    knots[4] = 1;    knots[5] = 2;    knots[6] = 2;    knots[7] = 3;
-    knots[8] = 3;    knots[9] = 4;    knots[10] = 4;   knots[11] = 4;
+    std::unique_ptr<scalarList> knots(new scalarList(12));
+    (*knots)[0] = 0;    (*knots)[1] = 0;    (*knots)[2] = 0;    (*knots)[3] = 1;
+    (*knots)[4] = 1;    (*knots)[5] = 2;    (*knots)[6] = 2;    (*knots)[7] = 3;
+    (*knots)[8] = 3;    (*knots)[9] = 4;    (*knots)[10] = 4;   (*knots)[11] = 4;
+    Info<<"Knoten"<<endl;
     
     int testdegree = 2;
     
-    scalarList& weights = new scalarList(9);
-    weights[0] = 1;    weights[1] = sqrt(2)/2;    weights[2] = 1;
-    weights[3] = sqrt(2)/2;    weights[4] = 1;    weights[5] = sqrt(2)/2;
-    weights[6] = 1;    weights[7] = sqrt(2)/2;    weights[8] = 1;
+    std::unique_ptr<scalarList> weights(new scalarList(9));
+    (*weights)[0] = 1;    (*weights)[1] = sqrt(2)/2;    (*weights)[2] = 1;
+    (*weights)[3] = sqrt(2)/2;    (*weights)[4] = 1;    (*weights)[5] = sqrt(2)/2;
+    (*weights)[6] = 1;    (*weights)[7] = sqrt(2)/2;    (*weights)[8] = 1;
+    Info<<"Gewichte"<<endl;
     
-    List<vector>& controlPoints = new List<vector>(9);
-    controlPoints[0] = vector(1,0,0);    controlPoints[1] = vector(1,1,0);    controlPoints[2] = vector(0,1,0);
-    controlPoints[3] = vector(-1,1,0);   controlPoints[4] = vector(-1,0,0);   controlPoints[5] = vector(-1,-1,0);
-    controlPoints[6] = vector(0,-1,0);   controlPoints[7] = vector(1,-1,0);   controlPoints[8] = vector(1,0,0);
+    std::unique_ptr<List<vector>> controlPoints(new List<vector>(9));
+    (*controlPoints)[0] = vector(1,0,0);    (*controlPoints)[1] = vector(1,1,0);    (*controlPoints)[2] = vector(0,1,0);
+    (*controlPoints)[3] = vector(-1,1,0);   (*controlPoints)[4] = vector(-1,0,0);   (*controlPoints)[5] = vector(-1,-1,0);
+    (*controlPoints)[6] = vector(0,-1,0);   (*controlPoints)[7] = vector(1,-1,0);   (*controlPoints)[8] = vector(1,0,0);
+    Info<<"Kontrollpunkte"<<endl;
     
     Nurbs Circle(std::move(knots),std::move(controlPoints),std::move(weights),testdegree);
+    
+    
+    Info<<"Derivative 0"<<endl;
+    Info<<Circle.Curve_Derivative(0,0)<<endl;
+    Info<<Circle.Curve_Derivative(0,1)<<endl;
+    Info<<Circle.Curve_Derivative(0,2)<<endl;
+    Info<<Circle.Curve_Derivative(0,3)<<endl;
+    Info<<Circle.Curve_Derivative(0,3.999)<<endl<<endl;
+    
+    Info<<"Derivative 1"<<endl;
+    Info<<Circle.Curve_Derivative(1,0)<<endl;
+    Info<<Circle.Curve_Derivative(1,1)<<endl;
+    Info<<Circle.Curve_Derivative(1,2)<<endl;
+    Info<<Circle.Curve_Derivative(1,3)<<endl;
+    Info<<Circle.Curve_Derivative(1,3.999)<<endl<<endl;
+    
+    Info<<"Derivative 2"<<endl;
+    Info<<Circle.Curve_Derivative(2,0)<<endl;
+    Info<<Circle.Curve_Derivative(2,1)<<endl;
+    Info<<Circle.Curve_Derivative(2,2)<<endl;
+    Info<<Circle.Curve_Derivative(2,3)<<endl;
+    Info<<Circle.Curve_Derivative(2,3.999)<<endl<<endl;
+    
+    BoundingBox MiMa = Circle.computeBoundingBox();
+    Info<<"Max: "<<MiMa.Max<<endl;
+    Info<<"Min: "<<MiMa.Min<<endl;
     
     /*
     Foam::cutCellPolyMesh basisMesh
