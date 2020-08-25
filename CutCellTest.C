@@ -33,6 +33,7 @@ Description
 #include "fvCFD.H"
 #include "cutCellPolyMesh.H"
 #include "Nurbs.H"
+#include "KdTree.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -80,9 +81,9 @@ int main(int argc, char *argv[])
     (*controlPoints)[6] = vector(0,-1,0);   (*controlPoints)[7] = vector(1,-1,0);   (*controlPoints)[8] = vector(1,0,0);
     Info<<"Kontrollpunkte"<<endl;
     
+    /*
     Nurbs Circle(std::move(knots),std::move(controlPoints),std::move(weights),testdegree);
-    
-    
+       
     Info<<"Derivative 0"<<endl;
     Info<<Circle.Curve_Derivative(0,0)<<endl;
     Info<<Circle.Curve_Derivative(0,1)<<endl;
@@ -107,6 +108,14 @@ int main(int argc, char *argv[])
     BoundingBox MiMa = Circle.computeBoundingBox();
     Info<<"Max: "<<MiMa.Max<<endl;
     Info<<"Min: "<<MiMa.Min<<endl;
+    */
+        
+    std::unique_ptr<List<Nurbs*>> items(new List<Nurbs*>());
+
+    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree));
+    
+    Info<<"KdTree"<<endl;
+    KdTree Tree(std::move(items));
     
     /*
     Foam::cutCellPolyMesh basisMesh

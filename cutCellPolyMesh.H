@@ -1,3 +1,6 @@
+#ifndef CUTCELLPOLYMESH_H
+#define CUTCELLPOLYMESH_H
+
 #include "fvCFD.H"
 #include <functional>
 
@@ -198,3 +201,5 @@ class cutCellPolyMesh   :   public polyMesh
 
 };
 }
+
+#endif

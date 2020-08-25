@@ -3,6 +3,12 @@
 
 Foam::Nurbs::Nurbs
 (
+)
+{
+}
+
+Foam::Nurbs::Nurbs
+(
     std::unique_ptr<scalarList> knots,
     std::unique_ptr<List<vector>> controlPoints,
     std::unique_ptr<scalarList> weights,
@@ -264,10 +270,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end)
         << " End value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<")"<<endl
         << abort(FatalError);
     }
-    
+    BoundingBox empty;
     scalar sup_D2 = 0;
-    return void;
-    
-    
+    return empty;    
 }
-        

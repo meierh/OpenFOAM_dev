@@ -1,3 +1,6 @@
+#ifndef NURBS_H
+#define NURBS_H
+
 #include "fvCFD.H"
 #include <memory>
 
@@ -30,12 +33,19 @@ class Nurbs
             std::unique_ptr<scalarList> weights,
             int degree
         );
-        vector Curve_Derivative(int k, scalar u);
-        BoundingBox computeBoundingBox(scalar start_u, scalar end_u);
-        BoundingBox computeBoundingBox();
-        scalar min_U() const {return _min_U;}
-        scalar max_U() const {return _max_U;}
         
+        explicit Nurbs();
+        
+        vector Curve_Derivative(int k,scalar u);
+        
+        BoundingBox computeBoundingBox(scalar start_u, scalar end_u);
+        
+        BoundingBox computeBoundingBox();
+        
+        scalar min_U() const {return _min_U;}
+        
+        scalar max_U() const {return _max_U;}
+                
     private:
         scalar B_Spline_Basis(int i, int p, scalar u);
         template <typename T> T Control_Point_Derivative(int k, int i, const List<T>*  controlPoints);
@@ -46,3 +56,5 @@ class Nurbs
         scalar supremum_Derivative(scalar start_u, scalar end_u);
 };
 }
+
+#endif

@@ -1,5 +1,6 @@
 CutCellTest.C
 cutCellPolyMesh.C
 Nurbs.C
+KdTree.C
 
 EXE = $(FOAM_USER_APPBIN)/CutCellTest
