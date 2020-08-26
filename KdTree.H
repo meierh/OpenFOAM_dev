@@ -18,7 +18,11 @@ class KdTree
             Node* right;
             BoundingBox MinMaxBox;
             labelList nurbsCurves;
+            label divideDim;
+            scalar divideBound;
         };
+        
+        label maxCurvesPerNode;
         
         Node* _nil;
         Node* root;
