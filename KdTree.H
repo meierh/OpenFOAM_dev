@@ -35,8 +35,15 @@ class KdTree
         explicit KdTree(std::unique_ptr<List<Nurbs*>> Items);
         
     private:
-        Node *newNode(labelList nurbsCurves,Node* parent);
-        void constructTree(Node* thisNode, labelList nurbsCurves, label treeHeight);
+        Node *newNode(Node* parent);
+        void constructTree
+        (
+            Node* thisNode,
+            labelList nurbsCurves,
+            label treeHeight,
+            labelList firstLevel,
+            labelList secondLevel
+        );
 };
 }
 

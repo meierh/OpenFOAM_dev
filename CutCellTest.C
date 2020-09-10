@@ -37,6 +37,14 @@ Description
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+void UnitTests()
+{
+    Info<<"---------------------------Unit Test---------------------------"<<endl;
+    UnitTest_Nurbs();
+    Info<<"-------------------------Unit Test End-------------------------"<<endl;
+
+}
+
 int main(int argc, char *argv[])
 {
     // set up the case
@@ -59,6 +67,8 @@ int main(int argc, char *argv[])
     << "Create mesh for time = "
     << runTime.timeName() << Foam::nl << Foam::endl;
 
+    UnitTests();
+    
     Foam::Info<<"Test Nurbs Curve"<<Foam::endl;
     
     std::unique_ptr<scalarList> knots(new scalarList(12));

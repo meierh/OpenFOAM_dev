@@ -37,18 +37,18 @@ Foam::Nurbs::Nurbs
     this->weights = std::unique_ptr<scalarList>(std::move(weights));
     
     _min_U = this->knots->first();
-    Info<<_min_U<<endl;
+    //Info<<_min_U<<endl;
     _max_U = this->knots->last();
-    Info<<_max_U<<endl;
-    Info<<"Constructed"<<endl;
+    //Info<<_max_U<<endl;
+    //Info<<"Constructed"<<endl;
     
     this->weightedControlPoints = std::unique_ptr<List<vector>>(new List<vector>(n));
     for(int i=0;i<n;i++)
     {
-        Info<<i<<endl;
+        //Info<<i<<endl;
         (*(this->weightedControlPoints))[i] = (*(this->weights))[i] * (*(this->controlPoints))[i];
     }
-    Info<<"Constructed"<<endl;
+    //Info<<"Constructed"<<endl;
 }
 
 scalar Foam::Nurbs::B_Spline_Basis  // The Nurbs Book Equation 2.5 S.50
@@ -169,7 +169,7 @@ vector Foam::Nurbs::A   //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
     vector res(0,0,0);
     for(int i=0;i<n-k;i++)
     {
-        Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
+        //Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
         res += B_Spline_Basis(i+k,p-k,u) * Control_Point_Derivative<vector>(k,i,weightedControlPoints.get());
     }
     return res;
@@ -203,20 +203,24 @@ vector Foam::Nurbs::Curve_Derivative
         << " Called the "<<k<<"-th Derivative of a "<<p<<"-th order Nurbs. This will not work!"<<endl
         << abort(FatalError);
     }
-    Info<<"Start"<<endl;
+    //Info<<"-----------------------"<<endl;
     vector A_res = A(k,u);
-    Info<<"Computed A"<<endl;
     scalar w = Weights_B_Spline_Derivative(0,u);
-    Info<<"Computed w"<<endl;
     vector B(0,0,0);
     for(int i=1;i<k+1;i++)
     {
-        scalar koeff = binomial(n,k);
+        scalar koeff = binomial(k,i);
         scalar w_i = Weights_B_Spline_Derivative(i,u);
         vector C_kmi = Curve_Derivative(k-i,u);
         B += koeff * w_i * C_kmi;
+        //Info<<koeff<<"  "<<w_i<<"   "<<C_kmi<<endl;
     }
-    Info<<"Computed B"<<endl;
+    
+    //Info<<"A_"<<k<<"_:"<<A_res<<endl;
+    //Info<<"w_"<<k<<"_:"<<w<<endl;
+    //Info<<"B_"<<k<<"_:"<<B<<endl;
+    //Info<<"-----------------------"<<endl;
+    
     return (A_res-B)/w;
 }
 

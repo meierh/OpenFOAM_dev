@@ -23,10 +23,10 @@ Foam::KdTree::KdTree
     }
     
     _nil =  new Node();
-    root = newNode(nurbsCurves,_nil);
+    root = newNode(_nil);
     if(nurbsCurves.size() >= 1)
     {
-        constructTree(root,nurbsCurves,0);
+        constructTree(root,nurbsCurves,0,labelList(0),labelList(0));
     }
 }
 
@@ -36,13 +36,14 @@ Foam::KdTree::Node *Foam::KdTree::newNode
     Node* parent
 )
 {
-
     Node* newNodeItem = new Node();
+    
     
     newNodeItem->left = _nil;
     newNodeItem->right = _nil;
     newNodeItem->parent = parent;
     
+    /*
     Foam::BoundingBox MinMaxBox = listMinMaxBoxes[nurbsCurves[0]];
     for(int i=0; i<nurbsCurves.size();i++)
     {
@@ -57,6 +58,7 @@ Foam::KdTree::Node *Foam::KdTree::newNode
     }
     newNodeItem->MinMaxBox = MinMaxBox;
     
+    */
     return newNodeItem;
 }
 
@@ -66,9 +68,10 @@ void Foam::KdTree::constructTree
     labelList nurbsCurves,
     label treeHeight,
     labelList firstLevel,
-    labelList secondLevel,
+    labelList secondLevel
 )
 {
+    /*
     if(nurbsCurves.size() <= 1)
     {
         FatalErrorInFunction
@@ -202,4 +205,5 @@ void Foam::KdTree::constructTree
         thisNode->nurbsCurves.append(nextFirstLevel);
         thisNode->nurbsCurves.append(nextSecondLevel);
     }
+    */
 }

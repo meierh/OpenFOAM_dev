@@ -55,6 +55,7 @@ class Nurbs
         inline scalar euklidianNorm(vector vec);
         scalar supremum_Derivative(scalar start_u, scalar end_u);
 };
-}
 
+void UnitTest_Nurbs();
+}
 #endif
