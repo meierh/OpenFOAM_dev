@@ -17,7 +17,7 @@ Foam::KdTree::KdTree
     {
         listMinMaxBoxes[i] = (*(this->Items))[i]->computeBoundingBox();
     }
-    Info<<listMinMaxBoxes[0].Min<<" "<<listMinMaxBoxes[0].Max<<endl;
+    //Info<<listMinMaxBoxes[0].Min<<" "<<listMinMaxBoxes[0].Max<<endl;
     
     labelList nurbsCurves(this->Items->size());
     for(int i=0;i<nurbsCurves.size();i++)
@@ -57,6 +57,14 @@ void Foam::KdTree::constructTree
     labelList secondLevel
 )
 {
+    if(treeHeight > 2)
+    {
+        FatalErrorInFunction
+        << " Temporary stop!"<<endl
+        << abort(FatalError);
+    }
+    
+    Info<<"constructTree on height: "<<treeHeight<<" with "<<nurbsCurves.size()<<" Curves"<<endl;
     if(nurbsCurves.size() < 1)
     {
         FatalErrorInFunction
@@ -65,7 +73,7 @@ void Foam::KdTree::constructTree
     }
     
     //Create the Bounding Box for the Subtree
-    Foam::BoundingBox MinMaxBox = listMinMaxBoxes[thisNode->nurbsCurves[0]];
+    BoundingBox MinMaxBox = listMinMaxBoxes[nurbsCurves[0]];
     for(int i=0; i<nurbsCurves.size();i++)
     {
         BoundingBox temp = listMinMaxBoxes[nurbsCurves[i]];
@@ -100,6 +108,7 @@ void Foam::KdTree::constructTree
         }
     }
     thisNode->MinMaxBox = MinMaxBox;
+    Info<<"MinMaxBox on height "<<treeHeight<<" is "<<MinMaxBox.Min<<"->"<<MinMaxBox.Max<<endl;
     // Bounding Box for Subtree created
     
     label divideDim = treeHeight % 3;
@@ -116,14 +125,17 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[nurbsCurves[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
+            Info<<nurbsCurves[i]<<" from main to left"<<endl;
             leftSide.append(nurbsCurves[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
+            Info<<nurbsCurves[i]<<" from main to right"<<endl;
             rightSide.append(nurbsCurves[i]);
         }
         else
         {
+            Info<<nurbsCurves[i]<<" from main to firstLevel"<<endl;
             nextFirstLevel.append(nurbsCurves[i]);
         }
     }
@@ -132,14 +144,17 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[firstLevel[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
+            Info<<firstLevel[i]<<" from firstLevel to left"<<endl;
             leftSide.append(firstLevel[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
+            Info<<firstLevel[i]<<" from firstLevel to right"<<endl;
             rightSide.append(firstLevel[i]);
         }
         else
         {
+            Info<<firstLevel[i]<<" from firstLevel to secondLevel"<<endl;
             nextSecondLevel.append(firstLevel[i]);
         }
     }
@@ -148,14 +163,17 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[secondLevel[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
+            Info<<secondLevel[i]<<" from secondLevel to left"<<endl;
             leftSide.append(secondLevel[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
+            Info<<secondLevel[i]<<" from secondLevel to right"<<endl;
             rightSide.append(secondLevel[i]);
         }
         else
         {
+            Info<<secondLevel[i]<<" from secondLevel to node"<<endl;
             thisNode->nurbsCurves.append(secondLevel[i]);
         }
     }
@@ -170,12 +188,12 @@ void Foam::KdTree::constructTree
         if(leftSide.size()+nextFirstLevel.size()+nextSecondLevel.size() >= 1)
         {
             thisNode->left = newNode(thisNode);
-            constructTree(thisNode->left,leftSide,treeHeight++,nextFirstLevel,nextSecondLevel);
+            constructTree(thisNode->left,leftSide,treeHeight+1,nextFirstLevel,nextSecondLevel);
         }
         if(rightSide.size()+nextFirstLevel.size()+nextSecondLevel.size() >= 1)
         {
             thisNode->right = newNode(thisNode);
-            constructTree(thisNode->right,rightSide,treeHeight++,nextFirstLevel,nextSecondLevel);
+            constructTree(thisNode->right,rightSide,treeHeight+1,nextFirstLevel,nextSecondLevel);
         }
     }
     else

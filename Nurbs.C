@@ -12,7 +12,9 @@ Foam::Nurbs::Nurbs
     std::unique_ptr<scalarList> knots,
     std::unique_ptr<List<vector>> controlPoints,
     std::unique_ptr<scalarList> weights,
-    int degree
+    int degree,
+    scalar diameter,
+    scalar deltaX
 )
 {
     if(weights->size() != controlPoints->size())
@@ -25,6 +27,8 @@ Foam::Nurbs::Nurbs
     m = knots->size();
     n = controlPoints->size();
     p = degree;
+    this->diameter = diameter;
+    this->deltaX = deltaX;
     if(m < n+p+1)
     {
         FatalErrorInFunction
@@ -257,6 +261,12 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox()
         }
     }
     
+    for(int d=0;d<3;d++)
+    {
+        MinMaxBox.Min[d] = MinMaxBox.Min[d]-(2*deltaX+diameter);
+        MinMaxBox.Max[d] = MinMaxBox.Max[d]+(2*deltaX+diameter);
+    }
+    
     return MinMaxBox;
 }
 
@@ -275,6 +285,6 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end)
         << abort(FatalError);
     }
     BoundingBox empty;
-    scalar sup_D2 = 0;
+    //scalar sup_D2 = 0;
     return empty;    
 }

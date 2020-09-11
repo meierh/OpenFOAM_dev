@@ -41,6 +41,7 @@ void UnitTests()
 {
     Info<<"---------------------------Unit Test---------------------------"<<endl;
     UnitTest_Nurbs();
+    UnitTest_KdTree();
     Info<<"-------------------------Unit Test End-------------------------"<<endl;
 
 }
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
     (*knots)[8] = 3;    (*knots)[9] = 4;    (*knots)[10] = 4;   (*knots)[11] = 4;
     Info<<"Knoten"<<endl;
     
-    int testdegree = 2;
+    //int testdegree = 2;
     
     std::unique_ptr<scalarList> weights(new scalarList(9));
     (*weights)[0] = 1;    (*weights)[1] = sqrt(2)/2;    (*weights)[2] = 1;
@@ -120,12 +121,12 @@ int main(int argc, char *argv[])
     Info<<"Min: "<<MiMa.Min<<endl;
     */
         
-    std::unique_ptr<List<Nurbs*>> items(new List<Nurbs*>());
+    //std::unique_ptr<List<Nurbs*>> items(new List<Nurbs*>());
 
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree));
+    //items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0));
     
-    Info<<"KdTree"<<endl;
-    KdTree Tree(std::move(items),2);
+    //Info<<"KdTree"<<endl;
+    //KdTree Tree(std::move(items),2);
     
     /*
     Foam::cutCellPolyMesh basisMesh

@@ -8,7 +8,6 @@
 
 namespace Foam
 {   
-
 class KdTree
 {
     private:
@@ -49,6 +48,7 @@ class KdTree
         bool isInsideMinMaxBox(Foam::BoundingBox MinMaxBox, vector point);
         void traverseKdTree(Node* currentNode,vector point,std::set<label>* nearNurbsList);
 };
-}
 
+void UnitTest_KdTree();
+}
 #endif

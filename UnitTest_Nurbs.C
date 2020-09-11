@@ -14,7 +14,7 @@ bool vectorIsEqual(vector vec1, vector vec2, scalar errorMargin)
 
 void Foam::UnitTest_Nurbs()
 {
-    //Foam::Info<<"Test Quarter Circle Nurbs Curve"<<Foam::endl;    
+    Foam::Info<<"NURBS"<<Foam::endl;    
     std::unique_ptr<scalarList> knots(new scalarList(6));
     (*knots)[0] = 0;    (*knots)[1] = 0;    (*knots)[2] = 0;    (*knots)[3] = 1;
     (*knots)[4] = 1;    (*knots)[5] = 1;    
@@ -74,7 +74,7 @@ void Foam::UnitTest_Nurbs()
     else
         Info<<"C''(1) Wrong: "<<X1_D2<<"!="<<X1_D2_soll<<endl;
 
-    Info<<"UnitTest Nurbs Circle Done:"<<correctRes<<"/6 correct"<<endl;
+    Info<<"UnitTest Nurbs Quarter Circle Done:"<<correctRes<<"/6 correct"<<endl;
     
     /*
     Foam::Info<<"Test Quarter Circle Nurbs Curve"<<Foam::endl;    

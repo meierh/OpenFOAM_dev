@@ -24,6 +24,8 @@ class Nurbs
         std::unique_ptr<List<vector>> weightedControlPoints;
         scalar _min_U;
         scalar _max_U;
+        scalar diameter;
+        scalar deltaX;
         
     public:
         explicit Nurbs
@@ -31,7 +33,9 @@ class Nurbs
             std::unique_ptr<scalarList> knots,
             std::unique_ptr<List<vector>> controlPoints,
             std::unique_ptr<scalarList> weights,
-            int degree
+            int degree,
+            scalar diameter=0,
+            scalar deltaX=0
         );
         
         explicit Nurbs();
