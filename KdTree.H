@@ -3,6 +3,7 @@
 
 #include "fvCFD.H"
 #include <memory>
+#include <set>
 #include "Nurbs.H"
 
 namespace Foam
@@ -32,7 +33,8 @@ class KdTree
         List<Foam::BoundingBox> listMinMaxBoxes;
         
     public:
-        explicit KdTree(std::unique_ptr<List<Nurbs*>> Items);
+        explicit KdTree(std::unique_ptr<List<Nurbs*>> Items,label maxCurvesPerNode);
+        labelList nearNurbsCurves(vector point);
         
     private:
         Node *newNode(Node* parent);
@@ -44,6 +46,8 @@ class KdTree
             labelList firstLevel,
             labelList secondLevel
         );
+        bool isInsideMinMaxBox(Foam::BoundingBox MinMaxBox, vector point);
+        void traverseKdTree(Node* currentNode,vector point,std::set<label>* nearNurbsList);
 };
 }
 

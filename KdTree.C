@@ -1,12 +1,15 @@
 #include "KdTree.H"
-#include <math.h> 
+#include <math.h>
+#include <set>
 
 Foam::KdTree::KdTree
 (
-    std::unique_ptr<List<Nurbs*>> Items
+    std::unique_ptr<List<Nurbs*>> Items,
+    label maxCurvesPerNode
 )
 {
     this->Items = std::unique_ptr<List<Nurbs*>>(std::move(Items));
+    this->maxCurvesPerNode = maxCurvesPerNode;
     
     listMinMaxBoxes = List<BoundingBox>(this->Items->size());
     
@@ -38,27 +41,10 @@ Foam::KdTree::Node *Foam::KdTree::newNode
 {
     Node* newNodeItem = new Node();
     
-    
     newNodeItem->left = _nil;
     newNodeItem->right = _nil;
     newNodeItem->parent = parent;
-    
-    /*
-    Foam::BoundingBox MinMaxBox = listMinMaxBoxes[nurbsCurves[0]];
-    for(int i=0; i<nurbsCurves.size();i++)
-    {
-        BoundingBox temp = listMinMaxBoxes[nurbsCurves[0]];
-        for(int d=0;d<3;d++)
-        {
-            if(MinMaxBox.Min[d] > temp.Min[d])
-                MinMaxBox.Min[d] = temp.Min[d];
-            if(MinMaxBox.Max[d] < temp.Max[d])
-                MinMaxBox.Max[d] = temp.Max[d];
-        }
-    }
-    newNodeItem->MinMaxBox = MinMaxBox;
-    
-    */
+
     return newNodeItem;
 }
 
@@ -71,8 +57,7 @@ void Foam::KdTree::constructTree
     labelList secondLevel
 )
 {
-    /*
-    if(nurbsCurves.size() <= 1)
+    if(nurbsCurves.size() < 1)
     {
         FatalErrorInFunction
         << " Node with zero Nurbs inside forbidden!"<<endl
@@ -114,7 +99,7 @@ void Foam::KdTree::constructTree
                 MinMaxBox.Max[d] = temp.Max[d];
         }
     }
-    this->MinMaxBox = MinMaxBox;
+    thisNode->MinMaxBox = MinMaxBox;
     // Bounding Box for Subtree created
     
     label divideDim = treeHeight % 3;
@@ -122,11 +107,9 @@ void Foam::KdTree::constructTree
     
     labelList leftSide(0);
     labelList rightSide(0);
-    labelList bothSides(0);
     
     labelList nextFirstLevel(0);
     labelList nextSecondLevel(0);
-    labelList nextThirdLevel(0);
     
     for(int i=0;i<nurbsCurves.size();i++)
     {
@@ -177,25 +160,22 @@ void Foam::KdTree::constructTree
         }
     }
     
-    thisNode->nurbsCurves = bothSides;
-    // Limit BoundaryBox to bothSides 
-
     if
     (
-        leftSide.size()+rightSide.size()+nextfirstLevel.size()
-        +nextsecondLevel.size()+thisNode->nurbsCurves.size()
+        leftSide.size()+rightSide.size()+nextFirstLevel.size()
+        +nextSecondLevel.size()+thisNode->nurbsCurves.size()
         >=maxCurvesPerNode
     )
     {
-        if(leftSide.size() >= 1)
+        if(leftSide.size()+nextFirstLevel.size()+nextSecondLevel.size() >= 1)
         {
             thisNode->left = newNode(thisNode);
-            constructTree(thisNode->left,leftSide,treeHeight++);
+            constructTree(thisNode->left,leftSide,treeHeight++,nextFirstLevel,nextSecondLevel);
         }
-        if(rightSide.size() >= 1)
+        if(rightSide.size()+nextFirstLevel.size()+nextSecondLevel.size() >= 1)
         {
             thisNode->right = newNode(thisNode);
-            constructTree(thisNode->right,rightSide,treeHeight++);
+            constructTree(thisNode->right,rightSide,treeHeight++,nextFirstLevel,nextSecondLevel);
         }
     }
     else
@@ -205,5 +185,56 @@ void Foam::KdTree::constructTree
         thisNode->nurbsCurves.append(nextFirstLevel);
         thisNode->nurbsCurves.append(nextSecondLevel);
     }
-    */
+}
+
+bool Foam::KdTree::isInsideMinMaxBox
+(
+    Foam::BoundingBox MinMaxBox,
+    vector point
+)
+{
+    bool isInside = true;
+    for(int d=0;d<3;d++)
+    {
+        if(MinMaxBox.Min[d] > point[d])
+            isInside = false;
+        if(MinMaxBox.Max[d] < point[d])
+            isInside = false;
+    }
+    return isInside;
+}
+
+labelList Foam::KdTree::nearNurbsCurves
+(
+    vector point
+)
+{
+    labelList nearNurbsCurves(0);
+    std::set<label> nearNurbsCurvesSet;
+    traverseKdTree(root,point,&nearNurbsCurvesSet);
+    
+    for(const label &curve : nearNurbsCurvesSet)
+        nearNurbsCurves.append(curve);
+    
+    return nearNurbsCurves;
+}
+
+void Foam::KdTree::traverseKdTree
+(
+    Node* currentNode,
+    vector point,
+    std::set<label>* nearNurbsList
+)
+{
+    for(int i=0;i<currentNode->nurbsCurves.size();i++)
+        nearNurbsList->insert(currentNode->nurbsCurves[i]);
+    
+    if(currentNode->left != _nil && isInsideMinMaxBox(currentNode->left->MinMaxBox,point))
+    {
+        traverseKdTree(currentNode->left,point,nearNurbsList);
+    }
+    if(currentNode->right != _nil && isInsideMinMaxBox(currentNode->right->MinMaxBox,point))
+    {
+        traverseKdTree(currentNode->right,point,nearNurbsList);
+    }
 }

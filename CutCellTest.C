@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
     items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree));
     
     Info<<"KdTree"<<endl;
-    KdTree Tree(std::move(items));
+    KdTree Tree(std::move(items),2);
     
     /*
     Foam::cutCellPolyMesh basisMesh

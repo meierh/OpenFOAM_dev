@@ -3,6 +3,6 @@ cutCellPolyMesh.C
 Nurbs.C
 UnitTest_Nurbs.C
 KdTree.C
-
+BsTree.C
 
 EXE = $(FOAM_USER_APPBIN)/CutCellTest
