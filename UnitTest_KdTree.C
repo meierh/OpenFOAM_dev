@@ -82,7 +82,7 @@ void Foam::UnitTest_KdTree()
     (*controlPoints)[0]=vector(0,1,0); (*controlPoints)[1]=vector(0,1,1);    
     items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
 
-    //8) X[0,1]Y1Z1
+    //8) X[0,1]Y0Z1
     knots = std::unique_ptr<scalarList>(new scalarList(6));
     (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
     weights = std::unique_ptr<scalarList>(new scalarList(2));

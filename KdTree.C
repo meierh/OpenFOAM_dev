@@ -29,7 +29,7 @@ Foam::KdTree::KdTree
     root = newNode(_nil);
     if(nurbsCurves.size() >= 1)
     {
-        constructTree(root,nurbsCurves,0,labelList(0),labelList(0));
+        constructTree(root,nurbsCurves,0,labelList(0),labelList(0),labelList(0));
     }
 }
 
@@ -54,10 +54,11 @@ void Foam::KdTree::constructTree
     labelList nurbsCurves,
     label treeHeight,
     labelList firstLevel,
-    labelList secondLevel
+    labelList secondLevel,
+    labelList thirdLevel
 )
 {
-    if(treeHeight > 2)
+    if(treeHeight > 3)
     {
         FatalErrorInFunction
         << " Temporary stop!"<<endl
@@ -118,7 +119,12 @@ void Foam::KdTree::constructTree
     labelList rightSide(0);
     
     labelList nextFirstLevel(0);
-    labelList nextSecondLevel(0);
+    
+    labelList nextSecondLevelLeft(0);
+    labelList nextSecondLevelRight(0);
+
+    labelList nextThirdLevelLeft(0);
+    labelList nextThirdLevelRight(0);
     
     for(int i=0;i<nurbsCurves.size();i++)
     {
@@ -144,18 +150,19 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[firstLevel[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
-            Info<<firstLevel[i]<<" from firstLevel to left"<<endl;
-            leftSide.append(firstLevel[i]);
+            Info<<firstLevel[i]<<" from firstLevel to secondLevelLeft"<<endl;
+            nextSecondLevelLeft.append(firstLevel[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
-            Info<<firstLevel[i]<<" from firstLevel to right"<<endl;
-            rightSide.append(firstLevel[i]);
+            Info<<firstLevel[i]<<" from firstLevel to secondLevelRight"<<endl;
+            nextSecondLevelRight.append(firstLevel[i]);
         }
         else
         {
-            Info<<firstLevel[i]<<" from firstLevel to secondLevel"<<endl;
-            nextSecondLevel.append(firstLevel[i]);
+            Info<<firstLevel[i]<<" from firstLevel to secondLevelLeft/Right"<<endl;
+            nextSecondLevelLeft.append(firstLevel[i]);
+            nextSecondLevelRight.append(firstLevel[i]);
         }
     }
     for(int i=0;i<secondLevel.size();i++)
@@ -163,37 +170,56 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[secondLevel[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
-            Info<<secondLevel[i]<<" from secondLevel to left"<<endl;
-            leftSide.append(secondLevel[i]);
+            Info<<secondLevel[i]<<" from secondLevel to thirdLevelLeft"<<endl;
+            nextThirdLevelLeft.append(secondLevel[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
-            Info<<secondLevel[i]<<" from secondLevel to right"<<endl;
-            rightSide.append(secondLevel[i]);
+            Info<<secondLevel[i]<<" from secondLevel to thirdLevelRight"<<endl;
+            nextThirdLevelRight.append(secondLevel[i]);
         }
         else
         {
-            Info<<secondLevel[i]<<" from secondLevel to node"<<endl;
-            thisNode->nurbsCurves.append(secondLevel[i]);
+            Info<<secondLevel[i]<<" from secondLevel to thirdLevelLeft/Right"<<endl;
+            nextThirdLevelLeft.append(secondLevel[i]);
+            nextThirdLevelRight.append(secondLevel[i]);
         }
+    }
+    for(int i=0;i<thirdLevel.size();i++)
+    {
+        thisNode->nurbsCurves.append(thirdLevel[i]);
     }
     
     if
     (
-        leftSide.size()+rightSide.size()+nextFirstLevel.size()
-        +nextSecondLevel.size()+thisNode->nurbsCurves.size()
+        leftSide.size()+rightSide.size()+nextFirstLevel.size()+
+        nextSecondLevelRight.size()+nextSecondLevelLeft.size()+
+        nextThirdLevelRight.size()+nextThirdLevelLeft.size()+
+        thisNode->nurbsCurves.size()
         >=maxCurvesPerNode
     )
     {
-        if(leftSide.size()+nextFirstLevel.size()+nextSecondLevel.size() >= 1)
+        if(leftSide.size()+nextFirstLevel.size()+nextSecondLevelLeft.size()+
+            nextThirdLevelLeft.size() >= 1)
         {
             thisNode->left = newNode(thisNode);
-            constructTree(thisNode->left,leftSide,treeHeight+1,nextFirstLevel,nextSecondLevel);
+            constructTree(thisNode->left,leftSide,treeHeight+1,
+                          nextFirstLevel,nextSecondLevelLeft,nextThirdLevelLeft);
         }
-        if(rightSide.size()+nextFirstLevel.size()+nextSecondLevel.size() >= 1)
+        else
+        {
+            thisNode->left = _nil;
+        }
+        if(rightSide.size()+nextFirstLevel.size()+nextSecondLevelRight.size()+
+            nextThirdLevelRight.size() >= 1)
         {
             thisNode->right = newNode(thisNode);
-            constructTree(thisNode->right,rightSide,treeHeight+1,nextFirstLevel,nextSecondLevel);
+            constructTree(thisNode->right,rightSide,treeHeight+1,
+                          nextFirstLevel,nextSecondLevelRight,nextThirdLevelRight);
+        }
+        else
+        {
+            thisNode->right = _nil;
         }
     }
     else
@@ -201,7 +227,10 @@ void Foam::KdTree::constructTree
         thisNode->nurbsCurves.append(leftSide);
         thisNode->nurbsCurves.append(rightSide);
         thisNode->nurbsCurves.append(nextFirstLevel);
-        thisNode->nurbsCurves.append(nextSecondLevel);
+        thisNode->nurbsCurves.append(nextSecondLevelLeft);
+        thisNode->nurbsCurves.append(nextSecondLevelRight);
+        thisNode->nurbsCurves.append(nextThirdLevelLeft);
+        thisNode->nurbsCurves.append(nextThirdLevelRight);
     }
 }
 

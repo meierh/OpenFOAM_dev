@@ -43,7 +43,8 @@ class KdTree
             labelList nurbsCurves,
             label treeHeight,
             labelList firstLevel,
-            labelList secondLevel
+            labelList secondLevel,
+            labelList thirdLevel
         );
         bool isInsideMinMaxBox(Foam::BoundingBox MinMaxBox, vector point);
         void traverseKdTree(Node* currentNode,vector point,std::set<label>* nearNurbsList);
