@@ -21,18 +21,22 @@ class KdTree
             label divideDim;
             scalar divideBound;
         };
-        
-        label maxCurvesPerNode;
-        
+                
         Node* _nil;
         Node* root;
-        
-    private:
-        std::unique_ptr<List<Nurbs*>> Items;
+                
+        const std::unique_ptr<List<Nurbs*>> Items;
+        const label maxCurvesPerNode;
+
         List<Foam::BoundingBox> listMinMaxBoxes;
         
     public:
-        explicit KdTree(std::unique_ptr<List<Nurbs*>> Items,label maxCurvesPerNode);
+        explicit KdTree
+        (
+            std::unique_ptr<List<Nurbs*>> Items,
+            label maxCurvesPerNode=1
+        );
+        ~KdTree();
         labelList nearNurbsCurves(vector point);
         
     private:
@@ -46,8 +50,20 @@ class KdTree
             labelList secondLevel,
             labelList thirdLevel
         );
-        bool isInsideMinMaxBox(Foam::BoundingBox MinMaxBox, vector point);
-        void traverseKdTree(Node* currentNode,vector point,std::set<label>* nearNurbsList);
+        bool isInsideMinMaxBox
+        (
+            Foam::BoundingBox MinMaxBox,
+            vector point
+        );
+        void traverseKdTree
+        (
+            Node* currentNode,
+            vector point,
+            std::set<label>* nearNurbsList
+        ) const;
+        void recursiveNodeDeleter(Node* thisNode);
+        
+        friend void UnitTest_KdTree();
 };
 
 void UnitTest_KdTree();

@@ -8,24 +8,32 @@ namespace Foam
 {   
 struct BoundingBox
 {
-    vector Min;
-    vector Max;
+    vector Min={    std::numeric_limits<scalar>::max(),
+                    std::numeric_limits<scalar>::max(),
+                    std::numeric_limits<scalar>::max()
+                };
+    vector Max={
+                    std::numeric_limits<scalar>::lowest(),
+                    std::numeric_limits<scalar>::lowest(),
+                    std::numeric_limits<scalar>::lowest()
+                };
+    bool isInside(vector point) const;
 };
     
 class Nurbs
 {
     private:
-        std::unique_ptr<scalarList> knots;
-        int m;
-        int n;
-        int p;
-        std::unique_ptr<List<vector>> controlPoints;
-        std::unique_ptr<scalarList> weights;
+        const std::unique_ptr<scalarList> knots;
+        const std::unique_ptr<List<vector>> controlPoints;
+        const std::unique_ptr<scalarList> weights;
+        const int m;
+        const int n;
+        const int p;
         std::unique_ptr<List<vector>> weightedControlPoints;
-        scalar _min_U;
-        scalar _max_U;
-        scalar diameter;
-        scalar deltaX;
+        const scalar _min_U;
+        const scalar _max_U;
+        const scalar diameter;
+        const scalar deltaX;
         
     public:
         explicit Nurbs
@@ -38,26 +46,24 @@ class Nurbs
             scalar deltaX=0
         );
         
-        explicit Nurbs();
+        vector Curve_Derivative(int k,scalar u) const;
         
-        vector Curve_Derivative(int k,scalar u);
+        BoundingBox computeBoundingBox(scalar start_u, scalar end_u) const;
         
-        BoundingBox computeBoundingBox(scalar start_u, scalar end_u);
-        
-        BoundingBox computeBoundingBox();
+        BoundingBox computeBoundingBox() const;
         
         scalar min_U() const {return _min_U;}
         
         scalar max_U() const {return _max_U;}
                 
     private:
-        scalar B_Spline_Basis(int i, int p, scalar u);
-        template <typename T> T Control_Point_Derivative(int k, int i, const List<T>*  controlPoints);
-        scalar Weights_B_Spline_Derivative(int k, scalar u);
-        vector A(int k, scalar u);
-        int binomial(int n, int k);
-        inline scalar euklidianNorm(vector vec);
-        scalar supremum_Derivative(scalar start_u, scalar end_u);
+        scalar B_Spline_Basis(int i, int p, scalar u) const;
+        template <typename T> T Control_Point_Derivative(int k, int i, const List<T>*  controlPoints) const;
+        scalar Weights_B_Spline_Derivative(int k, scalar u) const;
+        vector A(int k, scalar u) const;
+        int binomial(int n, int k) const;
+        inline scalar euklidianNorm(vector vec) const;
+        scalar supremum_Derivative(scalar start_u, scalar end_u) const;
 };
 
 void UnitTest_Nurbs();

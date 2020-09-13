@@ -1,10 +1,17 @@
 #include "Nurbs.H"
 #include <math.h> 
 
-Foam::Nurbs::Nurbs
-(
-)
+bool Foam::BoundingBox::isInside(vector point) const
 {
+    bool inside = true;
+    for(int d=0;d<3;d++)
+    {
+        if(Min[d]>point[d])
+            inside = false;
+        if(Max[d]<point[d])
+            inside = false;
+    }
+    return inside;
 }
 
 Foam::Nurbs::Nurbs
@@ -15,20 +22,30 @@ Foam::Nurbs::Nurbs
     int degree,
     scalar diameter,
     scalar deltaX
-)
+):
+knots(std::move(knots)),
+controlPoints(std::move(controlPoints)),
+weights(std::move(weights)),
+m(this->knots->size()),
+n(this->controlPoints->size()),
+p(degree),
+_min_U(this->knots->first()),
+_max_U(this->knots->last()),
+diameter(diameter),
+deltaX(deltaX)
 {
-    if(weights->size() != controlPoints->size())
+    if(this->weights->size() != this->controlPoints->size())
     {
         FatalErrorInFunction
         << " A Nurbs Curve must have an equal amount of control Points and weights!"<<endl
-        << " Currently there are "<<weights->size()<<" weights and "<<controlPoints->size()<<" control Points!"
+        << " Currently there are "<<this->weights->size()<<" weights and "<<this->controlPoints->size()<<" control Points!"
         << abort(FatalError);
     }
-    m = knots->size();
-    n = controlPoints->size();
-    p = degree;
-    this->diameter = diameter;
-    this->deltaX = deltaX;
+    //m = knots->size();
+    //n = controlPoints->size();
+    //p = degree;
+    //this->diameter = diameter;
+    //this->deltaX = deltaX;
     if(m < n+p+1)
     {
         FatalErrorInFunction
@@ -36,13 +53,13 @@ Foam::Nurbs::Nurbs
         << " Currently there are "<<m<<" knots and "<<n<<" control Points and degree "<<p
         << abort(FatalError);
     }
-    this->knots = std::unique_ptr<scalarList>(std::move(knots));
-    this->controlPoints = std::unique_ptr<List<vector>>(std::move(controlPoints));
-    this->weights = std::unique_ptr<scalarList>(std::move(weights));
+    //this->knots = std::unique_ptr<scalarList>(std::move(knots));
+    //this->controlPoints = std::unique_ptr<List<vector>>(std::move(controlPoints));
+    //this->weights = std::unique_ptr<scalarList>(std::move(weights));
     
-    _min_U = this->knots->first();
+    //_min_U = this->knots->first();
     //Info<<_min_U<<endl;
-    _max_U = this->knots->last();
+    //_max_U = this->knots->last();
     //Info<<_max_U<<endl;
     //Info<<"Constructed"<<endl;
     
@@ -55,12 +72,12 @@ Foam::Nurbs::Nurbs
     //Info<<"Constructed"<<endl;
 }
 
-scalar Foam::Nurbs::B_Spline_Basis  // The Nurbs Book Equation 2.5 S.50
+scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
 (
     int i,
     int p,
     scalar u
-)
+) const
 {
     if(i+p+1 >= knots->size())
     {
@@ -105,7 +122,7 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
     int k,
     int i,
     const List<T>*  controlPoints
-)
+) const
 {
     if(m < controlPoints->size()+p+1)
     {
@@ -154,7 +171,7 @@ scalar Foam::Nurbs::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3
 (
     int k,
     scalar u
-)
+) const
 {
     scalar res = 0;
     for(int i = 0;i<n-k;i++)
@@ -164,11 +181,11 @@ scalar Foam::Nurbs::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3
     return res;
 }
 
-vector Foam::Nurbs::A   //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4 S.97
+vector Foam::Nurbs::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4 S.97
 (
     int k,
     scalar u
-)
+) const
 {    
     vector res(0,0,0);
     for(int i=0;i<n-k;i++)
@@ -183,7 +200,7 @@ int Foam::Nurbs::binomial
 (
     int n,
     int k
-)
+) const
 {
     if(k==0 || n==k)
     {
@@ -199,7 +216,7 @@ vector Foam::Nurbs::Curve_Derivative
 (
     int k,
     scalar u
-)
+) const
 {
     if(k > p)
     {
@@ -231,12 +248,12 @@ vector Foam::Nurbs::Curve_Derivative
 inline scalar Foam::Nurbs::euklidianNorm
 (
     vector vec
-)
+) const
 {
         return sqrt(vec.x()*vec.x()+vec.y()*vec.y()+vec.z()*vec.z());
 }
 
-Foam::BoundingBox Foam::Nurbs::computeBoundingBox()
+Foam::BoundingBox Foam::Nurbs::computeBoundingBox() const
 {
     if(controlPoints->size() == 0)
     {
@@ -270,7 +287,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox()
     return MinMaxBox;
 }
 
-Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end)
+Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) const
 {
     if(start < _min_U || start >= _max_U)
     {

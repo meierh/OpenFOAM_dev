@@ -27,7 +27,7 @@ void Foam::UnitTest_Nurbs()
     (*controlPoints)[0] = vector(1,0,0);    
     (*controlPoints)[1] = vector(1,1,0);    
     (*controlPoints)[2] = vector(0,1,0);
-    //Info<<"Kontrollpunkte"<<endl;    
+    Info<<"Kontrollpunkte"<<endl;    
     Nurbs QuarterCircle(std::move(knots),std::move(controlPoints),std::move(weights),testdegree);
     
     int correctRes = 0;

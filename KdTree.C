@@ -6,11 +6,10 @@ Foam::KdTree::KdTree
 (
     std::unique_ptr<List<Nurbs*>> Items,
     label maxCurvesPerNode
-)
+):
+Items(std::move(Items)),
+maxCurvesPerNode(maxCurvesPerNode)
 {
-    this->Items = std::unique_ptr<List<Nurbs*>>(std::move(Items));
-    this->maxCurvesPerNode = maxCurvesPerNode;
-    
     listMinMaxBoxes = List<BoundingBox>(this->Items->size());
     
     for(int i=0;i<this->Items->size();i++)
@@ -33,6 +32,20 @@ Foam::KdTree::KdTree
     }
 }
 
+Foam::KdTree::~KdTree()
+{
+    recursiveNodeDeleter(root);
+    delete _nil;
+}
+
+void Foam::KdTree::recursiveNodeDeleter(Node* thisNode)
+{
+    if(thisNode->left != _nil)
+        recursiveNodeDeleter(thisNode->left);
+    if(thisNode->right != _nil)
+        recursiveNodeDeleter(thisNode->right);
+    delete thisNode;     
+}
 
 Foam::KdTree::Node *Foam::KdTree::newNode
 (
@@ -58,23 +71,26 @@ void Foam::KdTree::constructTree
     labelList thirdLevel
 )
 {
-    if(treeHeight > 3)
+    if(treeHeight > 5)
     {
         FatalErrorInFunction
         << " Temporary stop!"<<endl
         << abort(FatalError);
     }
     
-    Info<<"constructTree on height: "<<treeHeight<<" with "<<nurbsCurves.size()<<" Curves"<<endl;
-    if(nurbsCurves.size() < 1)
+    Info<<"constructTree on height: "<<treeHeight<<" with "
+        <<nurbsCurves.size()+firstLevel.size()+secondLevel.size()+thirdLevel.size()
+        <<" Curves and split in "<<treeHeight % 3<<endl;
+    if(nurbsCurves.size()+firstLevel.size()+secondLevel.size()+thirdLevel.size() < 1)
     {
         FatalErrorInFunction
         << " Node with zero Nurbs inside forbidden!"<<endl
         << abort(FatalError);
     }
     
+    BoundingBox MinMaxBox;
+    //Info<<"MinMaxBox on height "<<treeHeight<<" is "<<MinMaxBox.Min<<"->"<<MinMaxBox.Max<<endl;
     //Create the Bounding Box for the Subtree
-    BoundingBox MinMaxBox = listMinMaxBoxes[nurbsCurves[0]];
     for(int i=0; i<nurbsCurves.size();i++)
     {
         BoundingBox temp = listMinMaxBoxes[nurbsCurves[i]];
@@ -100,6 +116,17 @@ void Foam::KdTree::constructTree
     for(int i=0; i<secondLevel.size();i++)
     {
         BoundingBox temp = listMinMaxBoxes[secondLevel[i]];
+        for(int d=0;d<3;d++)
+        {
+            if(MinMaxBox.Min[d] > temp.Min[d])
+                MinMaxBox.Min[d] = temp.Min[d];
+            if(MinMaxBox.Max[d] < temp.Max[d])
+                MinMaxBox.Max[d] = temp.Max[d];
+        }
+    }
+    for(int i=0; i<thirdLevel.size();i++)
+    {
+        BoundingBox temp = listMinMaxBoxes[thirdLevel[i]];
         for(int d=0;d<3;d++)
         {
             if(MinMaxBox.Min[d] > temp.Min[d])
@@ -187,6 +214,7 @@ void Foam::KdTree::constructTree
     }
     for(int i=0;i<thirdLevel.size();i++)
     {
+        Info<<thirdLevel[i]<<" from thirdLevel to nurbsCurves"<<endl;
         thisNode->nurbsCurves.append(thirdLevel[i]);
     }
     
@@ -196,7 +224,7 @@ void Foam::KdTree::constructTree
         nextSecondLevelRight.size()+nextSecondLevelLeft.size()+
         nextThirdLevelRight.size()+nextThirdLevelLeft.size()+
         thisNode->nurbsCurves.size()
-        >=maxCurvesPerNode
+        >maxCurvesPerNode
     )
     {
         if(leftSide.size()+nextFirstLevel.size()+nextSecondLevelLeft.size()+
@@ -212,7 +240,7 @@ void Foam::KdTree::constructTree
         }
         if(rightSide.size()+nextFirstLevel.size()+nextSecondLevelRight.size()+
             nextThirdLevelRight.size() >= 1)
-        {
+        {            
             thisNode->right = newNode(thisNode);
             constructTree(thisNode->right,rightSide,treeHeight+1,
                           nextFirstLevel,nextSecondLevelRight,nextThirdLevelRight);
@@ -271,16 +299,16 @@ void Foam::KdTree::traverseKdTree
     Node* currentNode,
     vector point,
     std::set<label>* nearNurbsList
-)
+) const
 {
     for(int i=0;i<currentNode->nurbsCurves.size();i++)
         nearNurbsList->insert(currentNode->nurbsCurves[i]);
     
-    if(currentNode->left != _nil && isInsideMinMaxBox(currentNode->left->MinMaxBox,point))
+    if(currentNode->left != _nil && currentNode->left->MinMaxBox.isInside(point))
     {
         traverseKdTree(currentNode->left,point,nearNurbsList);
     }
-    if(currentNode->right != _nil && isInsideMinMaxBox(currentNode->right->MinMaxBox,point))
+    if(currentNode->right != _nil && currentNode->right->MinMaxBox.isInside(point))
     {
         traverseKdTree(currentNode->right,point,nearNurbsList);
     }
