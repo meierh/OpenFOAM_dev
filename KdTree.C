@@ -71,16 +71,11 @@ void Foam::KdTree::constructTree
     labelList thirdLevel
 )
 {
-    if(treeHeight > 5)
-    {
-        FatalErrorInFunction
-        << " Temporary stop!"<<endl
-        << abort(FatalError);
-    }
-    
+    /*
     Info<<"constructTree on height: "<<treeHeight<<" with "
         <<nurbsCurves.size()+firstLevel.size()+secondLevel.size()+thirdLevel.size()
         <<" Curves and split in "<<treeHeight % 3<<endl;
+    */
     if(nurbsCurves.size()+firstLevel.size()+secondLevel.size()+thirdLevel.size() < 1)
     {
         FatalErrorInFunction
@@ -136,11 +131,13 @@ void Foam::KdTree::constructTree
         }
     }
     thisNode->MinMaxBox = MinMaxBox;
-    Info<<"MinMaxBox on height "<<treeHeight<<" is "<<MinMaxBox.Min<<"->"<<MinMaxBox.Max<<endl;
+    //Info<<"MinMaxBox on height "<<treeHeight<<" is "<<MinMaxBox.Min<<"->"<<MinMaxBox.Max<<endl;
     // Bounding Box for Subtree created
     
     label divideDim = treeHeight % 3;
     scalar divideBound = (thisNode->MinMaxBox.Min[divideDim]+thisNode->MinMaxBox.Max[divideDim])/2;
+    thisNode->divideDim = divideDim;
+    thisNode->divideBound = divideBound;
     
     labelList leftSide(0);
     labelList rightSide(0);
@@ -158,17 +155,17 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[nurbsCurves[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
-            Info<<nurbsCurves[i]<<" from main to left"<<endl;
+            //Info<<nurbsCurves[i]<<" from main to left"<<endl;
             leftSide.append(nurbsCurves[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
-            Info<<nurbsCurves[i]<<" from main to right"<<endl;
+            //Info<<nurbsCurves[i]<<" from main to right"<<endl;
             rightSide.append(nurbsCurves[i]);
         }
         else
         {
-            Info<<nurbsCurves[i]<<" from main to firstLevel"<<endl;
+            //Info<<nurbsCurves[i]<<" from main to firstLevel"<<endl;
             nextFirstLevel.append(nurbsCurves[i]);
         }
     }
@@ -177,17 +174,17 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[firstLevel[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
-            Info<<firstLevel[i]<<" from firstLevel to secondLevelLeft"<<endl;
+            //Info<<firstLevel[i]<<" from firstLevel to secondLevelLeft"<<endl;
             nextSecondLevelLeft.append(firstLevel[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
-            Info<<firstLevel[i]<<" from firstLevel to secondLevelRight"<<endl;
+            //Info<<firstLevel[i]<<" from firstLevel to secondLevelRight"<<endl;
             nextSecondLevelRight.append(firstLevel[i]);
         }
         else
         {
-            Info<<firstLevel[i]<<" from firstLevel to secondLevelLeft/Right"<<endl;
+            //Info<<firstLevel[i]<<" from firstLevel to secondLevelLeft/Right"<<endl;
             nextSecondLevelLeft.append(firstLevel[i]);
             nextSecondLevelRight.append(firstLevel[i]);
         }
@@ -197,24 +194,24 @@ void Foam::KdTree::constructTree
         BoundingBox temp = listMinMaxBoxes[secondLevel[i]];
         if(temp.Min[divideDim] < divideBound && temp.Max[divideDim] < divideBound)
         {
-            Info<<secondLevel[i]<<" from secondLevel to thirdLevelLeft"<<endl;
+            //Info<<secondLevel[i]<<" from secondLevel to thirdLevelLeft"<<endl;
             nextThirdLevelLeft.append(secondLevel[i]);
         }
         else if(temp.Min[divideDim] > divideBound && temp.Max[divideDim] > divideBound)
         {
-            Info<<secondLevel[i]<<" from secondLevel to thirdLevelRight"<<endl;
+            //Info<<secondLevel[i]<<" from secondLevel to thirdLevelRight"<<endl;
             nextThirdLevelRight.append(secondLevel[i]);
         }
         else
         {
-            Info<<secondLevel[i]<<" from secondLevel to thirdLevelLeft/Right"<<endl;
+            //Info<<secondLevel[i]<<" from secondLevel to thirdLevelLeft/Right"<<endl;
             nextThirdLevelLeft.append(secondLevel[i]);
             nextThirdLevelRight.append(secondLevel[i]);
         }
     }
     for(int i=0;i<thirdLevel.size();i++)
     {
-        Info<<thirdLevel[i]<<" from thirdLevel to nurbsCurves"<<endl;
+        //Info<<thirdLevel[i]<<" from thirdLevel to nurbsCurves"<<endl;
         thisNode->nurbsCurves.append(thirdLevel[i]);
     }
     
@@ -262,54 +259,84 @@ void Foam::KdTree::constructTree
     }
 }
 
-bool Foam::KdTree::isInsideMinMaxBox
-(
-    Foam::BoundingBox MinMaxBox,
-    vector point
-)
-{
-    bool isInside = true;
-    for(int d=0;d<3;d++)
-    {
-        if(MinMaxBox.Min[d] > point[d])
-            isInside = false;
-        if(MinMaxBox.Max[d] < point[d])
-            isInside = false;
-    }
-    return isInside;
-}
-
 labelList Foam::KdTree::nearNurbsCurves
 (
     vector point
 )
 {
-    labelList nearNurbsCurves(0);
-    std::set<label> nearNurbsCurvesSet;
-    traverseKdTree(root,point,&nearNurbsCurvesSet);
-    
-    for(const label &curve : nearNurbsCurvesSet)
-        nearNurbsCurves.append(curve);
-    
-    return nearNurbsCurves;
+    labelList foundNurbsCurves(0);
+    traverseKdTree(root,point,foundNurbsCurves);
+    return foundNurbsCurves;
 }
 
 void Foam::KdTree::traverseKdTree
 (
     Node* currentNode,
     vector point,
-    std::set<label>* nearNurbsList
+    labelList& foundNurbsCurves
 ) const
 {
-    for(int i=0;i<currentNode->nurbsCurves.size();i++)
-        nearNurbsList->insert(currentNode->nurbsCurves[i]);
+    if(currentNode == _nil || !currentNode->MinMaxBox.isInside(point))
+        return;
     
-    if(currentNode->left != _nil && currentNode->left->MinMaxBox.isInside(point))
+    for(int i=0;i<currentNode->nurbsCurves.size();i++)
+        if(listMinMaxBoxes[currentNode->nurbsCurves[i]].isInside(point))
+            foundNurbsCurves.append(currentNode->nurbsCurves[i]);
+    
+    if(point[currentNode->divideDim] < currentNode->divideBound)
     {
-        traverseKdTree(currentNode->left,point,nearNurbsList);
+        traverseKdTree(currentNode->left,point,foundNurbsCurves);
     }
-    if(currentNode->right != _nil && currentNode->right->MinMaxBox.isInside(point))
+    else
     {
-        traverseKdTree(currentNode->right,point,nearNurbsList);
+        traverseKdTree(currentNode->right,point,foundNurbsCurves);
     }
+}
+
+labelList Foam::KdTree::printPath(vector point)
+{
+    Info<<"Path for: "<<point<<endl;
+    labelList foundNurbsCurves(0);
+    printTraversedKdTree(root,point,foundNurbsCurves);
+    return foundNurbsCurves;
+}
+
+void Foam::KdTree::printTraversedKdTree
+(
+    Node* currentNode,
+    vector point,
+    labelList& foundNurbsCurves
+) const
+{
+    if(currentNode == _nil)
+    {
+        Info<<"End of path because of nil"<<endl<<endl;
+        return;
+    }
+        
+    if(!currentNode->MinMaxBox.isInside(point))
+    {
+        Info<<"End of path because of MinMaxBox:"<<currentNode->MinMaxBox.Min<<"->"<<currentNode->MinMaxBox.Max<<endl<<endl;
+        return;
+    }
+    
+    Info<<"Append Curves of Node (MinMaxBox:"<<currentNode->MinMaxBox.Min<<"->"<<currentNode->MinMaxBox.Max<<"): ";
+    for(int i=0;i<currentNode->nurbsCurves.size();i++)
+        if(listMinMaxBoxes[currentNode->nurbsCurves[i]].isInside(point))
+        {
+            Info<<currentNode->nurbsCurves[i]<<" ";
+            foundNurbsCurves.append(currentNode->nurbsCurves[i]);
+        }
+    
+    Info<<"continuing dim_"<<currentNode->divideDim<<":"<<currentNode->divideBound;
+    if(point[currentNode->divideDim] < currentNode->divideBound)
+    {
+        Info<<" left"<<endl;
+        printTraversedKdTree(currentNode->left,point,foundNurbsCurves);
+    }
+    else
+    {
+        Info<<" right"<<endl;
+        printTraversedKdTree(currentNode->right,point,foundNurbsCurves);
+    }    
 }

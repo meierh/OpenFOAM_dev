@@ -2,6 +2,48 @@
 #include <random>
 #include <time.h>
 
+bool Foam::nonIncreasingBoundingBox(const KdTree::Node* thisNode, const KdTree::Node* _nil)
+{
+    if(thisNode->left != _nil && thisNode->right != _nil)
+    {
+        if( thisNode->MinMaxBox.isInside(thisNode->left->MinMaxBox.Min) &&
+            thisNode->MinMaxBox.isInside(thisNode->left->MinMaxBox.Max)
+            &&
+            thisNode->MinMaxBox.isInside(thisNode->right->MinMaxBox.Min) &&
+            thisNode->MinMaxBox.isInside(thisNode->right->MinMaxBox.Max)
+        )
+        {
+            return nonIncreasingBoundingBox(thisNode->left,_nil) && nonIncreasingBoundingBox(thisNode->right,_nil);
+        }
+        else
+            return false;            
+    }
+    if(thisNode->left != _nil)
+    {
+        if( thisNode->MinMaxBox.isInside(thisNode->left->MinMaxBox.Min) &&
+            thisNode->MinMaxBox.isInside(thisNode->left->MinMaxBox.Max)
+        )
+        {
+            return nonIncreasingBoundingBox(thisNode->left,_nil);
+        }
+        else
+            return false;            
+    }
+    if(thisNode->right != _nil)
+    {
+        if( thisNode->MinMaxBox.isInside(thisNode->right->MinMaxBox.Min) &&
+            thisNode->MinMaxBox.isInside(thisNode->right->MinMaxBox.Max)
+        )
+        {
+            return nonIncreasingBoundingBox(thisNode->right,_nil);
+        }
+        else
+            return false;            
+    }
+
+    return true;            
+}
+
 bool listContainsUnique(List<int> list, int number)
 {
     bool contains = false;
@@ -47,6 +89,129 @@ Nurbs* generateRandomNurbs(scalar minCoord, scalar maxCoord, scalar diameter, sc
     return new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),degree,diameter,delta_X);
 }
 
+List<Nurbs*> generateShiftedNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
+{
+    List<Nurbs*> items(0);
+    int testdegree = 2;
+    std::unique_ptr<scalarList> knots;
+    std::unique_ptr<scalarList> weights;
+    std::unique_ptr<List<vector>> controlPoints;
+    
+    vector shiftVector;
+    for(int d=0;d<3;d++)
+        shiftVector[d] = randFrom(minCoord,maxCoord);
+
+    //0) X[0,1]Y0Z0
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(0,0,0)+shiftVector; (*controlPoints)[1]=vector(1,0,0)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //1) X1Y[0,1]Z0
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(1,0,0)+shiftVector; (*controlPoints)[1]=vector(1,1,0)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    
+    //2) X[1,0]Y1Z0
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(1,1,0)+shiftVector; (*controlPoints)[1]=vector(0,1,0)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //3) X0Y[1,0]Z0
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(0,1,0)+shiftVector; (*controlPoints)[1]=vector(0,0,0)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //4) X0Y0Z[0,1]
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(0,0,0)+shiftVector; (*controlPoints)[1]=vector(0,0,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //5) X1Y0Z[0,1]
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(1,0,0)+shiftVector; (*controlPoints)[1]=vector(1,0,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //6) X1Y1Z[0,1]
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(1,1,0)+shiftVector; (*controlPoints)[1]=vector(1,1,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //7) X0Y1Z[0,1]
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(0,1,0)+shiftVector; (*controlPoints)[1]=vector(0,1,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //8) X[0,1]Y0Z1
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(0,0,1)+shiftVector; (*controlPoints)[1]=vector(1,0,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //9) X1Y[0,1]Z1
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(1,0,1)+shiftVector; (*controlPoints)[1]=vector(1,1,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    
+    //10) X[1,0]Y1Z1
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(1,1,1)+shiftVector; (*controlPoints)[1]=vector(0,1,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+
+    //11) X0Y[1,0]Z1
+    knots = std::unique_ptr<scalarList>(new scalarList(6));
+    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    weights = std::unique_ptr<scalarList>(new scalarList(2));
+    (*weights)[0] = 1;    (*weights)[1] = 1;    
+    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
+    (*controlPoints)[0]=vector(0,1,1)+shiftVector; (*controlPoints)[1]=vector(0,0,1)+shiftVector;    
+    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    
+    return items;
+}
+
 labelList getNearNurbsBruteForce(const vector point, const List<Foam::BoundingBox>& listMinMaxBoxes)
 {
     labelList nearNurbs(0);
@@ -58,6 +223,56 @@ labelList getNearNurbsBruteForce(const vector point, const List<Foam::BoundingBo
     return nearNurbs;
 }
 
+bool Foam::testTreeForDuplicatesOnPath
+(
+    const KdTree::Node* thisNode,
+    labelList foundCurves,
+    const KdTree::Node* _nil
+)
+{
+    if(thisNode == _nil)
+    {
+        return true;
+    }
+    
+    bool duplicateValue = false;
+    for(int i=0;i<foundCurves.size();i++)
+    {
+        for(int k=0;k<thisNode->nurbsCurves.size();k++)
+        {
+            if(foundCurves[i] == thisNode->nurbsCurves[k])
+                duplicateValue = true;
+        }
+    }
+    if(duplicateValue)
+        return false;
+    
+    for(int k=0;k<thisNode->nurbsCurves.size();k++)
+    {
+        foundCurves.append(thisNode->nurbsCurves[k]);
+    }
+    
+    return  testTreeForDuplicatesOnPath(thisNode->left,foundCurves,_nil) &&
+            testTreeForDuplicatesOnPath(thisNode->right,foundCurves,_nil);
+}
+
+bool testForEqualFoundNurbs(const labelList& bruteForceList, const labelList& kdTreeList)
+{
+    bool listsMatch = true;
+    bool indexMatch;
+    for(int i=0;i<bruteForceList.size();i++)
+    {
+        indexMatch = false;
+        for(int k=0;k<kdTreeList.size();k++)
+        {
+            if(bruteForceList[i] == kdTreeList[k])
+                indexMatch = true;
+        }
+        if(!indexMatch)
+            listsMatch = false;
+    }
+    return listsMatch;
+}
 
 void Foam::UnitTest_KdTree()
 {
@@ -284,23 +499,39 @@ void Foam::UnitTest_KdTree()
     Info<<"UnitTest KdTree Structure Done:"<<correctNodes<<"/31 Nodes correct"<<endl;
     
     
-    label NUM_RUNS = 100;
-    scalar minCoord = -1;
-    scalar maxCoord = 1;
-    scalar diameter = 0.1;
-    scalar delta_X = 0.1;
+    label NUM_RUNS = 50;
+    scalar minCoord = -100;
+    scalar maxCoord = 100;
+    scalar diameter = 0.3;
+    scalar delta_X = 0.3;
     int degree = 2;
-    label MAX_NUM_NURBS = 100;
-    label NUM_TESTPOINTS_PER_RUN = 1000;
+    label NUM_NURBS = 1000;
+    label NUM_TESTPOINTS_PER_RUN = 100;
+    bool noDuplicatesInTree;
+    label treesWithDuplicates = 0;
+    label pointsNearNurbsBruteForce = 0;
+    label pointsNearNurbsKdTree = 0;
+    label matchingFoundNurbs = 0;
+    bool nonIncreasing;
+    label treesWithIncreasing = 0;
     
     for(int run=0;run<NUM_RUNS;run++)
     {
         std::unique_ptr<List<Nurbs*>> thisRunNurbsCurves(new List<Nurbs*>());
-        for(int numNurbs=0;numNurbs<MAX_NUM_NURBS;numNurbs++)
+        for(int numNurbs=0;numNurbs<NUM_NURBS;numNurbs++)
         {
             thisRunNurbsCurves->append(generateRandomNurbs(minCoord, maxCoord, diameter, delta_X, degree));
         }
         KdTree Tree(std::move(thisRunNurbsCurves));
+        
+        nonIncreasing = nonIncreasingBoundingBox(Tree.root,Tree._nil);
+        if(nonIncreasing)
+            treesWithIncreasing++;
+        
+        noDuplicatesInTree = testTreeForDuplicatesOnPath(Tree.root,labelList(0),Tree._nil);
+        if(noDuplicatesInTree)
+            treesWithDuplicates++;
+        
         
         for(int numP=0;numP<NUM_TESTPOINTS_PER_RUN;numP++)
         {
@@ -308,7 +539,87 @@ void Foam::UnitTest_KdTree()
             for(int d=0;d<3;d++)
                 point[d] = randFrom(minCoord,maxCoord);
         
-            labelList BruteForceRes = getNearNurbsBruteForce(point,Tree.listMinMaxBoxes);            
+            labelList BruteForceRes = getNearNurbsBruteForce(point,Tree.listMinMaxBoxes);
+            labelList KdTreeRes = Tree.nearNurbsCurves(point);
+            
+            if(BruteForceRes.size() != 0)
+                pointsNearNurbsBruteForce++;
+            if(KdTreeRes.size() != 0)
+                pointsNearNurbsKdTree++;
+            
+            if(testForEqualFoundNurbs(BruteForceRes,KdTreeRes))
+                matchingFoundNurbs++;
+        }
+        
+    }
+    Info<<"UnitTest KdTreeRand Duplicates:"<<treesWithDuplicates<<"/"<<NUM_RUNS<<" Trees with no duplicates"<<endl;
+    Info<<"UnitTest KdTreeRand nonIncreasing:"<<treesWithIncreasing<<"/"<<NUM_RUNS<<" Trees with no Increasing BoundingBox"<<endl;
+    Info<<"UnitTest KdTreeRand Matching Nurbs Found:"<<matchingFoundNurbs<<"/"<<NUM_RUNS*NUM_TESTPOINTS_PER_RUN<<" Points have matching Nurbs found"<<endl;
+    
+    treesWithDuplicates = 0;
+    matchingFoundNurbs = 0;
+    treesWithIncreasing = 0;
+    for(int run=0;run<NUM_RUNS;run++)
+    {
+        std::unique_ptr<List<Nurbs*>> thisRunNurbsCurves(new List<Nurbs*>());
+        for(int numNurbs=0;numNurbs<NUM_NURBS;numNurbs++)
+        {
+            thisRunNurbsCurves->append(generateShiftedNurbs(minCoord, maxCoord, diameter, delta_X, degree));
+        }
+        KdTree Tree(std::move(thisRunNurbsCurves));
+        
+        nonIncreasing = nonIncreasingBoundingBox(Tree.root,Tree._nil);
+        if(nonIncreasing)
+            treesWithIncreasing++;
+        
+        noDuplicatesInTree = testTreeForDuplicatesOnPath(Tree.root,labelList(0),Tree._nil);
+        if(noDuplicatesInTree)
+            treesWithDuplicates++;
+        
+        
+        for(int numP=0;numP<NUM_TESTPOINTS_PER_RUN;numP++)
+        {
+            vector point;
+            for(int d=0;d<3;d++)
+                point[d] = randFrom(minCoord,maxCoord);
+        
+            labelList BruteForceRes = getNearNurbsBruteForce(point,Tree.listMinMaxBoxes);
+            labelList KdTreeRes = Tree.nearNurbsCurves(point);
+            
+            if(BruteForceRes.size() != 0)
+                pointsNearNurbsBruteForce++;
+            if(KdTreeRes.size() != 0)
+                pointsNearNurbsKdTree++;
+            
+            if(testForEqualFoundNurbs(BruteForceRes,KdTreeRes))
+                matchingFoundNurbs++;
+            else
+            {
+                Info<<point<<endl;
+                Info<<"Brute Force: ";
+                for(int i=0;i<BruteForceRes.size();i++)
+                {
+                    Info<<BruteForceRes[i]<<" ";
+                    (*Tree.Items)[BruteForceRes[i]]->printBox();
+                    Info<<endl;
+                }
+                Info<<endl;
+                Info<<"Kd Tree: ";
+                for(int i=0;i<KdTreeRes.size();i++)
+                {
+                    Info<<KdTreeRes[i]<<" ";
+                }
+                
+                Tree.printPath(point);
+                
+                Info<<endl;
+                FatalErrorInFunction
+                << " Temporary stop!"<<endl
+                << abort(FatalError);
+            }
         }
     }
+    Info<<"UnitTest KdTreeShift Duplicates:"<<treesWithDuplicates<<"/"<<NUM_RUNS<<" Trees with no duplicates"<<endl;
+    Info<<"UnitTest KdTreeShift nonIncreasing:"<<treesWithIncreasing<<"/"<<NUM_RUNS<<" Trees with no Increasing BoundingBox"<<endl;
+    Info<<"UnitTest KdTreeShift Matching Nurbs Found:"<<matchingFoundNurbs<<"/"<<NUM_RUNS*NUM_TESTPOINTS_PER_RUN<<" Points have matching Nurbs found"<<endl;
 }

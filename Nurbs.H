@@ -55,6 +55,9 @@ class Nurbs
         scalar min_U() const {return _min_U;}
         
         scalar max_U() const {return _max_U;}
+        
+        void print() const {Info<<(*controlPoints)[0]<<"->"<<(*controlPoints)[1]<<endl;}
+        void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}
                 
     private:
         scalar B_Spline_Basis(int i, int p, scalar u) const;

@@ -3,7 +3,6 @@
 
 #include "fvCFD.H"
 #include <memory>
-#include <set>
 #include "Nurbs.H"
 
 namespace Foam
@@ -39,6 +38,8 @@ class KdTree
         ~KdTree();
         labelList nearNurbsCurves(vector point);
         
+        labelList printPath(vector point);
+        
     private:
         Node *newNode(Node* parent);
         void constructTree
@@ -50,22 +51,34 @@ class KdTree
             labelList secondLevel,
             labelList thirdLevel
         );
-        bool isInsideMinMaxBox
-        (
-            Foam::BoundingBox MinMaxBox,
-            vector point
-        );
         void traverseKdTree
         (
             Node* currentNode,
             vector point,
-            std::set<label>* nearNurbsList
+            labelList& nearNurbsList
         ) const;
+        
+        void printTraversedKdTree
+        (
+            Node* currentNode,
+            vector point,
+            labelList& nearNurbsList
+        ) const;
+        
         void recursiveNodeDeleter(Node* thisNode);
         
         friend void UnitTest_KdTree();
+        friend bool testTreeForDuplicatesOnPath
+        (
+            const KdTree::Node* thisNode,
+            labelList foundCurves,
+            const KdTree::Node* _nil
+        );
+        friend bool nonIncreasingBoundingBox(const KdTree::Node* thisNode, const KdTree::Node* _nil);
 };
 
 void UnitTest_KdTree();
+bool testTreeForDuplicatesOnPath(const KdTree::Node* thisNode,labelList foundCurves, const KdTree::Node* _nil);
+bool nonIncreasingBoundingBox(const KdTree::Node* thisNode, const KdTree::Node* _nil);
 }
 #endif
