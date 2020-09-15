@@ -54,7 +54,11 @@ class Nurbs
         
         scalar min_U() const {return _min_U;}
         
-        scalar max_U() const {return _max_U;}
+        scalar max_U() const {return std::nexttoward(_max_U,_min_U);}
+        
+        int nbrKnots() const {return knots->size();}
+        
+        int degree() const {return p;}
         
         void print() const {Info<<(*controlPoints)[0]<<"->"<<(*controlPoints)[1]<<endl;}
         void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}
@@ -66,7 +70,7 @@ class Nurbs
         vector A(int k, scalar u) const;
         int binomial(int n, int k) const;
         inline scalar euklidianNorm(vector vec) const;
-        scalar supremum_Derivative(scalar start_u, scalar end_u) const;
+        scalar supremum_Derivative2(scalar start_u, scalar end_u) const;
 };
 
 void UnitTest_Nurbs();

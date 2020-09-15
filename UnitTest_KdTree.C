@@ -502,10 +502,10 @@ void Foam::UnitTest_KdTree()
     label NUM_RUNS = 50;
     scalar minCoord = -100;
     scalar maxCoord = 100;
-    scalar diameter = 0.3;
-    scalar delta_X = 0.3;
+    scalar diameter = 3;
+    scalar delta_X = 3;
     int degree = 2;
-    label NUM_NURBS = 1000;
+    label NUM_NURBS = 100;
     label NUM_TESTPOINTS_PER_RUN = 100;
     bool noDuplicatesInTree;
     label treesWithDuplicates = 0;

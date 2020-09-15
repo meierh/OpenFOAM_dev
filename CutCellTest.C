@@ -34,6 +34,7 @@ Description
 #include "cutCellPolyMesh.H"
 #include "Nurbs.H"
 #include "KdTree.H"
+#include "BsTree.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -42,6 +43,7 @@ void UnitTests()
     Info<<"---------------------------Unit Test---------------------------"<<endl;
     UnitTest_Nurbs();
     UnitTest_KdTree();
+    UnitTest_BsTree();
     Info<<"-------------------------Unit Test End-------------------------"<<endl;
 
 }

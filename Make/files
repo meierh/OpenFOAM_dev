@@ -5,5 +5,6 @@ UnitTest_Nurbs.C
 KdTree.C
 UnitTest_KdTree.C
 BsTree.C
+UnitTest_BsTree.C
 
 EXE = $(FOAM_USER_APPBIN)/CutCellTest

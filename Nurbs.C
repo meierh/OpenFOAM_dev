@@ -218,6 +218,12 @@ vector Foam::Nurbs::Curve_Derivative
     scalar u
 ) const
 {
+    if(u>=_max_U || u<_min_U)
+    {
+        FatalErrorInFunction
+        << " Parameter u has to be within ["<<_max_U<<","<<_min_U<<") but is "<<u<<"!"<<endl
+        << abort(FatalError);
+    }
     if(k > p)
     {
         FatalErrorInFunction
@@ -298,10 +304,58 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) cons
     if(end < _min_U || end >= _max_U)
     {
         FatalErrorInFunction
-        << " End value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<")"<<endl
+        << " End value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<") but is "<<end<<endl
         << abort(FatalError);
     }
-    BoundingBox empty;
-    //scalar sup_D2 = 0;
-    return empty;    
+    
+    vector startP = Curve_Derivative(0,start);
+    vector endP = Curve_Derivative(0,end);
+    BoundingBox Box;
+    for(int d=0;d<3;d++)
+    {
+        if(Box.Min[d] > startP[d])
+            Box.Min[d] = startP[d];
+        if(Box.Max[d] < startP[d])
+            Box.Max[d] = startP[d];
+        if(Box.Min[d] > endP[d])
+            Box.Min[d] = endP[d];
+        if(Box.Max[d] < endP[d])
+            Box.Max[d] = endP[d];
+    }
+    scalar koeff = (1.0/8.0)*(end-start)*(end-start)*supremum_Derivative2(start,end);
+    for(int d=0;d<3;d++)
+    {
+        Box.Min[d] -= koeff;
+        Box.Max[d] += koeff;
+    }
+    return Box;    
+}
+
+scalar Foam::Nurbs::supremum_Derivative2(scalar start_u, scalar end_u) const
+{
+    vector maxD2(   std::numeric_limits<scalar>::lowest(),
+                    std::numeric_limits<scalar>::lowest(),
+                    std::numeric_limits<scalar>::lowest()
+                );
+    
+    vector res;
+    scalar dist = end_u-start_u;
+    label NUM_POINTS = 100;
+    scalar p;
+    for(int i=0;i<NUM_POINTS;i++)
+    {
+        p = (static_cast<double>(i)/static_cast<double>(NUM_POINTS))*dist+start_u;
+        res = Curve_Derivative(2,p);
+        for(int d=0;d<3;d++)
+        {
+            res[d] = std::abs(res[d]);
+            maxD2[d] = std::max(res[d],maxD2[d]);
+        }        
+    }
+    scalar sup = 0;
+    for(int d=0;d<3;d++)
+    {
+        sup += maxD2[d] * maxD2[d];
+    }
+    return sup;
 }

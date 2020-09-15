@@ -73,6 +73,10 @@ void Foam::UnitTest_Nurbs()
         correctRes++;
     else
         Info<<"C''(1) Wrong: "<<X1_D2<<"!="<<X1_D2_soll<<endl;
+    
+    Info<<QuarterCircle.max_U()<<" "<<(QuarterCircle.max_U()==1.0)<<endl;
+    Info<<QuarterCircle.Curve_Derivative(0,QuarterCircle.max_U())<<endl;
+   
 
     Info<<"UnitTest Nurbs Quarter Circle Done:"<<correctRes<<"/6 correct"<<endl;
     

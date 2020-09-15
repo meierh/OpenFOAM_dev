@@ -18,13 +18,14 @@ class BsTree
             scalar min;
             scalar max;
             scalar divideBound;
+            BoundingBox MinMaxBox;
         };
                 
         Node* _nil;
         Node* root;
                 
         const std::unique_ptr<Nurbs> Curve;
-        const label nbrSplitsBetweenCPs;
+        const label maxHeight;
         
     public:
         explicit BsTree
@@ -34,19 +35,23 @@ class BsTree
         );
         ~BsTree();
         
-        scalar nearestPoint(vector point);
+        scalarList nearestPoint(vector point) const;
                 
     private:
-        Node *newNode(Node* parent);
-        void constructTree
-        (
-            Node* thisNode
-        );
+        Node *newNode(Node* parent = nullptr,scalar min=0, scalar max=0);
+        void constructTree(Node* thisNode, int height=0);
         
         void recursiveNodeDeleter(Node* thisNode);
         
-        friend void UnitTest_BsTree();
+        void traverseBsTree
+        (
+            Node* currentNode,
+            vector point,
+            scalarList& coordNurbs
+        ) const;
 };
+
+void UnitTest_BsTree();
 }
 
 #endif
