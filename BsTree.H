@@ -36,6 +36,7 @@ class BsTree
         ~BsTree();
         
         scalarList nearestPoint(vector point) const;
+        scalar distanceToNurbs(vector point) const;
                 
     private:
         Node *newNode(Node* parent = nullptr,scalar min=0, scalar max=0);
@@ -49,6 +50,8 @@ class BsTree
             vector point,
             scalarList& coordNurbs
         ) const;
+        
+        friend void UnitTest_BsTree();
 };
 
 void UnitTest_BsTree();

@@ -251,14 +251,6 @@ vector Foam::Nurbs::Curve_Derivative
     return (A_res-B)/w;
 }
 
-inline scalar Foam::Nurbs::euklidianNorm
-(
-    vector vec
-) const
-{
-        return sqrt(vec.x()*vec.x()+vec.y()*vec.y()+vec.z()*vec.z());
-}
-
 Foam::BoundingBox Foam::Nurbs::computeBoundingBox() const
 {
     if(controlPoints->size() == 0)
@@ -325,8 +317,8 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) cons
     scalar koeff = (1.0/8.0)*(end-start)*(end-start)*supremum_Derivative2(start,end);
     for(int d=0;d<3;d++)
     {
-        Box.Min[d] -= koeff;
-        Box.Max[d] += koeff;
+        Box.Min[d] -= (koeff+diameter+deltaX);
+        Box.Max[d] += (koeff+diameter+deltaX);
     }
     return Box;    
 }
@@ -358,4 +350,127 @@ scalar Foam::Nurbs::supremum_Derivative2(scalar start_u, scalar end_u) const
         sup += maxD2[d] * maxD2[d];
     }
     return sup;
+}
+
+vector Foam::Nurbs::vectorCurveToPoint_Derivative(int k,scalar para,vector point) const
+{
+    vector C = Curve_Derivative(k,para);
+    if(k==0)
+        return C-point;
+    else
+        return C;
+}
+
+scalar Foam::Nurbs::distCurveToPoint_Deriv0(scalar para,vector point) const
+{
+    return euklidianNorm(vectorCurveToPoint_Derivative(0,para,point));
+}
+
+scalar Foam::Nurbs::distCurveToPoint_Deriv1(scalar para,vector point) const
+{
+    /*
+    vector PointToCurve = vectorCurveToPoint_Derivative(0,para,point);
+    vector PointToCurve_D1 = vectorCurveToPoint_Derivative(1,para,point);
+    scalar N = euklidianNorm(PointToCurve);
+    scalar Z = 0;
+    for(int d=0;d<3;d++)
+        Z += PointToCurve[d]*PointToCurve_D1[d];
+    return N/Z;
+    */
+    
+    vector C = Curve_Derivative(0,para);
+    vector C_D1 = Curve_Derivative(1,para);
+    vector C_P = C-point;
+    
+    return (C_P && C_D1)/std::sqrt(C_P && C_P);
+}
+
+scalar Foam::Nurbs::distCurveToPoint_Deriv2(scalar para,vector point) const
+{
+    /*
+    vector PointToCurve = vectorCurveToPoint_Derivative(0,para,point);
+    vector PointToCurve_D1 = vectorCurveToPoint_Derivative(1,para,point);
+    vector PointToCurve_D2 = vectorCurveToPoint_Derivative(2,para,point);
+    
+    //Info<<endl<<"Computed all vectors"<<PointToCurve<<PointToCurve_D1<<PointToCurve_D2<<endl;
+    
+    scalar v_i_2 = 0;
+    for(int d=0;d<3;d++)
+        v_i_2 += PointToCurve[d]*PointToCurve[d];
+    
+    scalar v_i_D0_D1 = 0;
+    for(int d=0;d<3;d++)
+        v_i_D0_D1 += PointToCurve[d]*PointToCurve_D1[d];
+    
+    scalar v_i_D0_D2 = 0;
+    for(int d=0;d<3;d++)
+        v_i_D0_D2 += PointToCurve[d]*PointToCurve_D2[d];
+    
+    scalar sqrt_v_i_2 = std::sqrt(v_i_2);
+    scalar sum1 = -(1/(sqrt_v_i_2*sqrt_v_i_2*sqrt_v_i_2))*v_i_D0_D1*v_i_D0_D1;
+    scalar sum2 = (1/(sqrt_v_i_2))*(v_i_2+v_i_D0_D2);
+    
+    return sum1+sum2;
+    */
+    
+    vector C = Curve_Derivative(0,para);
+    vector C_D1 = Curve_Derivative(1,para);
+    vector C_D2 = Curve_Derivative(2,para);
+    vector C_P = C-point;
+    
+    return ((C_D2 && C_P)+(C_D1 && C_D1))/(C_P && C_P);    
+}
+
+scalar Foam::Nurbs::newtonIterateNearestNeighbour_alt(scalar u_0,vector point) const
+{
+    scalar change = distCurveToPoint_Deriv1(u_0,point)/distCurveToPoint_Deriv2(u_0,point);
+    //bool posSign = (change > 0);
+    int i=0;
+    scalar f = distCurveToPoint_Deriv1(u_0,point);
+    while(abs(f) > 1e-6)
+    {   
+        /*
+        Info<<"u:"<<u_0<<"    "<<"change:"<<change<<endl;
+        Info<<vectorCurveToPoint_Derivative(0,u_0,point)<<
+        " d:"<<distCurveToPoint_Deriv0(u_0,point)<<
+        " d_1:"<<distCurveToPoint_Deriv1(u_0,point)<<
+        " d_2:"<<distCurveToPoint_Deriv2(u_0,point)<<endl;
+        */
+        u_0 = u_0 - change;
+        f = distCurveToPoint_Deriv1(u_0,point);
+        change = f/distCurveToPoint_Deriv2(u_0,point);
+        if(i++ > 1000000)
+            break;
+    }
+    Info<<"Count: "<<i<<endl;
+    Info<<"u:"<<u_0<<"    "<<"change:"<<change<<endl;
+    Info<<vectorCurveToPoint_Derivative(0,u_0,point)<<
+    " d:"<<distCurveToPoint_Deriv0(u_0,point)<<
+    " d_1:"<<distCurveToPoint_Deriv1(u_0,point)<<
+    " d_2:"<<distCurveToPoint_Deriv2(u_0,point)<<endl;
+    return u_0;
+}
+
+scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
+{
+    vector C = Curve_Derivative(0,u_0);
+    vector C_D1 = Curve_Derivative(1,u_0);
+    vector C_D2 = Curve_Derivative(2,u_0);
+    scalar f = (point-C) && C_D1;
+    scalar f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
+    scalar epsilon = 1e-10;
+    int iterations = 0;
+    Info<<"It:0 f("<<u_0<<")="<<f<<endl;
+    while(abs(f) > epsilon)
+    {
+        iterations++;
+        C = Curve_Derivative(0,u_0);
+        C_D1 = Curve_Derivative(1,u_0);
+        C_D2 = Curve_Derivative(2,u_0);
+        f = (point-C) && C_D1;
+        f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
+        u_0 = u_0 - (f/f_D1);
+        Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
+    }
+    return u_0;
 }

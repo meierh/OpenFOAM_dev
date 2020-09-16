@@ -46,6 +46,8 @@ class Nurbs
             scalar deltaX=0
         );
         
+        scalar getBoundingBoxOverhang() const {return diameter+deltaX;}
+        
         vector Curve_Derivative(int k,scalar u) const;
         
         BoundingBox computeBoundingBox(scalar start_u, scalar end_u) const;
@@ -60,6 +62,9 @@ class Nurbs
         
         int degree() const {return p;}
         
+        scalar newtonIterateNearestNeighbour(scalar u_0,vector point) const;
+        scalar newtonIterateNearestNeighbour_alt(scalar u_0,vector point) const;
+                
         void print() const {Info<<(*controlPoints)[0]<<"->"<<(*controlPoints)[1]<<endl;}
         void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}
                 
@@ -69,10 +74,17 @@ class Nurbs
         scalar Weights_B_Spline_Derivative(int k, scalar u) const;
         vector A(int k, scalar u) const;
         int binomial(int n, int k) const;
-        inline scalar euklidianNorm(vector vec) const;
         scalar supremum_Derivative2(scalar start_u, scalar end_u) const;
+        vector vectorCurveToPoint_Derivative(int k,scalar para,vector point) const;
+        scalar distCurveToPoint_Deriv0(scalar para,vector point) const;
+        scalar distCurveToPoint_Deriv1(scalar para,vector point) const;
+        scalar distCurveToPoint_Deriv2(scalar para,vector point) const;
+        
+        friend void UnitTest_BsTree();
 };
 
 void UnitTest_Nurbs();
+inline scalar euklidianNorm(vector vec) {return sqrt(vec && vec);}
+    
 }
 #endif
