@@ -1,5 +1,6 @@
 CutCellTest.C
 cutCellPolyMesh.C
+cutCellPolyMesh_viaNurbs.C
 Nurbs.C
 UnitTest_Nurbs.C
 KdTree.C

@@ -24,19 +24,20 @@ class BsTree
         Node* _nil;
         Node* root;
                 
-        const std::unique_ptr<Nurbs> Curve;
+        const std::shared_ptr<Nurbs> Curve;
         const label maxHeight;
         
     public:
         explicit BsTree
         (
-            std::unique_ptr<Nurbs> Curve,
-            label nbrSplitsBetweenCPs
+            std::shared_ptr<Nurbs> Curve,
+            label nbrSplitsBetweenCPs = 1
         );
         ~BsTree();
         
         scalarList nearestPoint(vector point) const;
-        scalar distanceToNurbs(vector point) const;
+        scalar closestParaOnNurbsToPoint(vector point) const;
+        scalar minDistanceToPoint(vector point) const;
                 
     private:
         Node *newNode(Node* parent = nullptr,scalar min=0, scalar max=0);

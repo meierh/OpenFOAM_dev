@@ -24,19 +24,22 @@ class KdTree
         Node* _nil;
         Node* root;
                 
-        const std::unique_ptr<List<Nurbs*>> Items;
-        const label maxCurvesPerNode;
+        List<std::shared_ptr<Nurbs>> Items;
+        label maxCurvesPerNode;
 
         List<Foam::BoundingBox> listMinMaxBoxes;
         
     public:
         explicit KdTree
         (
-            std::unique_ptr<List<Nurbs*>> Items,
+            List<std::shared_ptr<Nurbs>> Items,
             label maxCurvesPerNode=1
         );
+        
+        KdTree() {}
+        
         ~KdTree();
-        labelList nearNurbsCurves(vector point);
+        std::unique_ptr<labelList> nearNurbsCurves(vector point) const;
         
         labelList printPath(vector point);
         
@@ -54,8 +57,8 @@ class KdTree
         void traverseKdTree
         (
             Node* currentNode,
-            vector point,
-            labelList& nearNurbsList
+            vector& point,
+            std::unique_ptr<labelList>& nearNurbsList
         ) const;
         
         void printTraversedKdTree

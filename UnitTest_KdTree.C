@@ -67,15 +67,15 @@ double randFrom(double min, double max)
     return min + (rand() / div);
 }
 
-Nurbs* generateRandomNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
+std::unique_ptr<Nurbs> generateRandomNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
 {
-    std::unique_ptr<scalarList> knots(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
+    scalarList knots(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
     
-    std::unique_ptr<scalarList> weights(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;
+    scalarList weights(2);
+    weights[0] = 1;    weights[1] = 1;
     
-    std::unique_ptr<List<vector>> controlPoints(new List<vector>(2));
+    List<vector> controlPoints(2);
     time_t t;
     srand(static_cast<unsigned>(time(&t)));
     vector start;
@@ -84,130 +84,130 @@ Nurbs* generateRandomNurbs(scalar minCoord, scalar maxCoord, scalar diameter, sc
     vector end;
     for(int d=0;d<3;d++)
         end[d] = randFrom(minCoord,maxCoord);
-    (*controlPoints)[0]=start; (*controlPoints)[1]=end;
+    controlPoints[0]=start; controlPoints[1]=end;
     
-    return new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),degree,diameter,delta_X);
+    return std::unique_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,degree,diameter,delta_X));
 }
 
-List<Nurbs*> generateShiftedNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
+List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
 {
-    List<Nurbs*> items(0);
+    List<std::shared_ptr<Nurbs>> items(0);
     int testdegree = 2;
-    std::unique_ptr<scalarList> knots;
-    std::unique_ptr<scalarList> weights;
-    std::unique_ptr<List<vector>> controlPoints;
+    scalarList knots;
+    scalarList weights;
+    List<vector> controlPoints;
     
     vector shiftVector;
     for(int d=0;d<3;d++)
         shiftVector[d] = randFrom(minCoord,maxCoord);
 
     //0) X[0,1]Y0Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,0,0)+shiftVector; (*controlPoints)[1]=vector(1,0,0)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,0,0)+shiftVector; controlPoints[1]=vector(1,0,0)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //1) X1Y[0,1]Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,0,0)+shiftVector; (*controlPoints)[1]=vector(1,1,0)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,0,0)+shiftVector; controlPoints[1]=vector(1,1,0)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
     
     //2) X[1,0]Y1Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,1,0)+shiftVector; (*controlPoints)[1]=vector(0,1,0)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,1,0)+shiftVector; controlPoints[1]=vector(0,1,0)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //3) X0Y[1,0]Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,1,0)+shiftVector; (*controlPoints)[1]=vector(0,0,0)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,1,0)+shiftVector; controlPoints[1]=vector(0,0,0)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //4) X0Y0Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,0,0)+shiftVector; (*controlPoints)[1]=vector(0,0,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,0,0)+shiftVector; controlPoints[1]=vector(0,0,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //5) X1Y0Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,0,0)+shiftVector; (*controlPoints)[1]=vector(1,0,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,0,0)+shiftVector; controlPoints[1]=vector(1,0,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //6) X1Y1Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,1,0)+shiftVector; (*controlPoints)[1]=vector(1,1,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,1,0)+shiftVector; controlPoints[1]=vector(1,1,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //7) X0Y1Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,1,0)+shiftVector; (*controlPoints)[1]=vector(0,1,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,1,0)+shiftVector; controlPoints[1]=vector(0,1,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //8) X[0,1]Y0Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,0,1)+shiftVector; (*controlPoints)[1]=vector(1,0,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,0,1)+shiftVector; controlPoints[1]=vector(1,0,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //9) X1Y[0,1]Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,0,1)+shiftVector; (*controlPoints)[1]=vector(1,1,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,0,1)+shiftVector; controlPoints[1]=vector(1,1,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
     
     //10) X[1,0]Y1Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,1,1)+shiftVector; (*controlPoints)[1]=vector(0,1,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,1,1)+shiftVector; controlPoints[1]=vector(0,1,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
 
     //11) X0Y[1,0]Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,1,1)+shiftVector; (*controlPoints)[1]=vector(0,0,1)+shiftVector;    
-    items.append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,diameter,delta_X));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,1,1)+shiftVector; controlPoints[1]=vector(0,0,1)+shiftVector;    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
     
     return items;
 }
@@ -256,16 +256,16 @@ bool Foam::testTreeForDuplicatesOnPath
             testTreeForDuplicatesOnPath(thisNode->right,foundCurves,_nil);
 }
 
-bool testForEqualFoundNurbs(const labelList& bruteForceList, const labelList& kdTreeList)
+bool testForEqualFoundNurbs(const labelList& bruteForceList, const std::unique_ptr<labelList>& kdTreeList)
 {
     bool listsMatch = true;
     bool indexMatch;
     for(int i=0;i<bruteForceList.size();i++)
     {
         indexMatch = false;
-        for(int k=0;k<kdTreeList.size();k++)
+        for(int k=0;k<kdTreeList->size();k++)
         {
-            if(bruteForceList[i] == kdTreeList[k])
+            if(bruteForceList[i] == (*kdTreeList)[k])
                 indexMatch = true;
         }
         if(!indexMatch)
@@ -279,121 +279,121 @@ void Foam::UnitTest_KdTree()
     Foam::Info<<"KDTREE"<<Foam::endl;
     
     int testdegree = 2;
-    std::unique_ptr<scalarList> knots;
-    std::unique_ptr<scalarList> weights;
-    std::unique_ptr<List<vector>> controlPoints;
-    std::unique_ptr<List<Nurbs*>> items(new List<Nurbs*>());
+    scalarList knots;
+    scalarList weights;
+    List<vector> controlPoints;
+    List<std::shared_ptr<Nurbs>> items(0);
 
     //0) X[0,1]Y0Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,0,0); (*controlPoints)[1]=vector(1,0,0);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(1,0,0);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //1) X1Y[0,1]Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,0,0); (*controlPoints)[1]=vector(1,1,0);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,0,0); controlPoints[1]=vector(1,1,0);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
     
     //2) X[1,0]Y1Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,1,0); (*controlPoints)[1]=vector(0,1,0);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,1,0); controlPoints[1]=vector(0,1,0);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //3) X0Y[1,0]Z0
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,1,0); (*controlPoints)[1]=vector(0,0,0);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,1,0); controlPoints[1]=vector(0,0,0);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //4) X0Y0Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,0,0); (*controlPoints)[1]=vector(0,0,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(0,0,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //5) X1Y0Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,0,0); (*controlPoints)[1]=vector(1,0,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,0,0); controlPoints[1]=vector(1,0,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //6) X1Y1Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,1,0); (*controlPoints)[1]=vector(1,1,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,1,0); controlPoints[1]=vector(1,1,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //7) X0Y1Z[0,1]
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,1,0); (*controlPoints)[1]=vector(0,1,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,1,0); controlPoints[1]=vector(0,1,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //8) X[0,1]Y0Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,0,1); (*controlPoints)[1]=vector(1,0,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,0,1); controlPoints[1]=vector(1,0,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //9) X1Y[0,1]Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,0,1); (*controlPoints)[1]=vector(1,1,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,0,1); controlPoints[1]=vector(1,1,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
     
     //10) X[1,0]Y1Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(1,1,1); (*controlPoints)[1]=vector(0,1,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(1,1,1); controlPoints[1]=vector(0,1,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     //11) X0Y[1,0]Z1
-    knots = std::unique_ptr<scalarList>(new scalarList(6));
-    (*knots)[0]=0; (*knots)[1]=0; (*knots)[2]=0; (*knots)[3]=1; (*knots)[4]=1; (*knots)[5]=1;    
-    weights = std::unique_ptr<scalarList>(new scalarList(2));
-    (*weights)[0] = 1;    (*weights)[1] = 1;    
-    controlPoints = std::unique_ptr<List<vector>>(new List<vector>(2));
-    (*controlPoints)[0]=vector(0,1,1); (*controlPoints)[1]=vector(0,0,1);    
-    items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0.1,0.1));
+    knots = scalarList(6);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
+    weights = scalarList(2);
+    weights[0] = 1;    weights[1] = 1;    
+    controlPoints = List<vector>(2);
+    controlPoints[0]=vector(0,1,1); controlPoints[1]=vector(0,0,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
 
     
-    KdTree testTree(std::move(items),1);
+    KdTree testTree(items);
     int correctNodes = 0;
     
     KdTree::Node* _nil = testTree._nil;
@@ -517,12 +517,12 @@ void Foam::UnitTest_KdTree()
     
     for(int run=0;run<NUM_RUNS;run++)
     {
-        std::unique_ptr<List<Nurbs*>> thisRunNurbsCurves(new List<Nurbs*>());
+        List<std::shared_ptr<Nurbs>> thisRunNurbsCurves(0);
         for(int numNurbs=0;numNurbs<NUM_NURBS;numNurbs++)
         {
-            thisRunNurbsCurves->append(generateRandomNurbs(minCoord, maxCoord, diameter, delta_X, degree));
+            thisRunNurbsCurves.append(std::move(generateRandomNurbs(minCoord, maxCoord, diameter, delta_X, degree)));
         }
-        KdTree Tree(std::move(thisRunNurbsCurves));
+        KdTree Tree(thisRunNurbsCurves);
         
         nonIncreasing = nonIncreasingBoundingBox(Tree.root,Tree._nil);
         if(nonIncreasing)
@@ -540,11 +540,11 @@ void Foam::UnitTest_KdTree()
                 point[d] = randFrom(minCoord,maxCoord);
         
             labelList BruteForceRes = getNearNurbsBruteForce(point,Tree.listMinMaxBoxes);
-            labelList KdTreeRes = Tree.nearNurbsCurves(point);
+            std::unique_ptr<labelList> KdTreeRes = Tree.nearNurbsCurves(point);
             
             if(BruteForceRes.size() != 0)
                 pointsNearNurbsBruteForce++;
-            if(KdTreeRes.size() != 0)
+            if(KdTreeRes->size() != 0)
                 pointsNearNurbsKdTree++;
             
             if(testForEqualFoundNurbs(BruteForceRes,KdTreeRes))
@@ -561,12 +561,12 @@ void Foam::UnitTest_KdTree()
     treesWithIncreasing = 0;
     for(int run=0;run<NUM_RUNS;run++)
     {
-        std::unique_ptr<List<Nurbs*>> thisRunNurbsCurves(new List<Nurbs*>());
+        List<std::shared_ptr<Nurbs>> thisRunNurbsCurves(0);
         for(int numNurbs=0;numNurbs<NUM_NURBS;numNurbs++)
         {
-            thisRunNurbsCurves->append(generateShiftedNurbs(minCoord, maxCoord, diameter, delta_X, degree));
+            thisRunNurbsCurves.append(generateShiftedNurbs(minCoord, maxCoord, diameter, delta_X, degree));
         }
-        KdTree Tree(std::move(thisRunNurbsCurves));
+        KdTree Tree(thisRunNurbsCurves);
         
         nonIncreasing = nonIncreasingBoundingBox(Tree.root,Tree._nil);
         if(nonIncreasing)
@@ -584,11 +584,11 @@ void Foam::UnitTest_KdTree()
                 point[d] = randFrom(minCoord,maxCoord);
         
             labelList BruteForceRes = getNearNurbsBruteForce(point,Tree.listMinMaxBoxes);
-            labelList KdTreeRes = Tree.nearNurbsCurves(point);
+            std::unique_ptr<labelList> KdTreeRes = Tree.nearNurbsCurves(point);
             
             if(BruteForceRes.size() != 0)
                 pointsNearNurbsBruteForce++;
-            if(KdTreeRes.size() != 0)
+            if(KdTreeRes->size() != 0)
                 pointsNearNurbsKdTree++;
             
             if(testForEqualFoundNurbs(BruteForceRes,KdTreeRes))
@@ -600,14 +600,14 @@ void Foam::UnitTest_KdTree()
                 for(int i=0;i<BruteForceRes.size();i++)
                 {
                     Info<<BruteForceRes[i]<<" ";
-                    (*Tree.Items)[BruteForceRes[i]]->printBox();
+                    Tree.Items[BruteForceRes[i]]->printBox();
                     Info<<endl;
                 }
                 Info<<endl;
                 Info<<"Kd Tree: ";
-                for(int i=0;i<KdTreeRes.size();i++)
+                for(int i=0;i<KdTreeRes->size();i++)
                 {
-                    Info<<KdTreeRes[i]<<" ";
+                    Info<<(*KdTreeRes)[i]<<" ";
                 }
                 
                 Tree.printPath(point);

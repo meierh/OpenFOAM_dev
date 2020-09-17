@@ -3,6 +3,11 @@
 
 #include "fvCFD.H"
 #include <functional>
+#include <memory>
+#include "BsTree.H"
+#include "KdTree.H"
+#include "Nurbs.H"
+#include <unordered_map>
 
 namespace Foam
 {    
@@ -138,7 +143,13 @@ class cutCellPolyMesh   :   public polyMesh
             //index of plus side cell of splitted cell or -1 if cell is not split
             labelList oldSplittedCellToNewPlusCell;
       //End
-            
+        
+        List<std::shared_ptr<Nurbs>> Curves;
+
+        std::unique_ptr<KdTree> MainTree;
+        List<std::unique_ptr<BsTree>> NurbsTrees;
+        
+        std::unordered_map<label,scalar> pointToNurbsDist;
         
     //Public Memberfunctions    
     public:
@@ -147,6 +158,13 @@ class cutCellPolyMesh   :   public polyMesh
         (
             const IOobject& io,
             std::function<scalar(const vector)> levelSet,
+            cutStatus state = delNegMesh
+        );
+        
+        explicit cutCellPolyMesh
+        (
+            const IOobject& io,
+            List<std::shared_ptr<Nurbs>> Curves,
             cutStatus state = delNegMesh
         );
         

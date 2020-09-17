@@ -4,21 +4,21 @@
 
 Foam::KdTree::KdTree
 (
-    std::unique_ptr<List<Nurbs*>> Items,
+    List<std::shared_ptr<Nurbs>> Items,
     label maxCurvesPerNode
 ):
-Items(std::move(Items)),
+Items(Items),
 maxCurvesPerNode(maxCurvesPerNode)
 {
-    listMinMaxBoxes = List<BoundingBox>(this->Items->size());
+    listMinMaxBoxes = List<BoundingBox>(this->Items.size());
     
-    for(int i=0;i<this->Items->size();i++)
+    for(int i=0;i<this->Items.size();i++)
     {
-        listMinMaxBoxes[i] = (*(this->Items))[i]->computeBoundingBox();
+        listMinMaxBoxes[i] = this->Items[i]->computeBoundingBox();
     }
     //Info<<listMinMaxBoxes[0].Min<<" "<<listMinMaxBoxes[0].Max<<endl;
     
-    labelList nurbsCurves(this->Items->size());
+    labelList nurbsCurves(this->Items.size());
     for(int i=0;i<nurbsCurves.size();i++)
     {
         nurbsCurves[i] = i;
@@ -259,12 +259,12 @@ void Foam::KdTree::constructTree
     }
 }
 
-labelList Foam::KdTree::nearNurbsCurves
+std::unique_ptr<labelList> Foam::KdTree::nearNurbsCurves
 (
     vector point
-)
+) const
 {
-    labelList foundNurbsCurves(0);
+    std::unique_ptr<labelList> foundNurbsCurves = std::unique_ptr<labelList>(new labelList(0));
     traverseKdTree(root,point,foundNurbsCurves);
     return foundNurbsCurves;
 }
@@ -272,8 +272,8 @@ labelList Foam::KdTree::nearNurbsCurves
 void Foam::KdTree::traverseKdTree
 (
     Node* currentNode,
-    vector point,
-    labelList& foundNurbsCurves
+    vector& point,
+    std::unique_ptr<labelList>& foundNurbsCurves
 ) const
 {
     if(currentNode == _nil || !currentNode->MinMaxBox.isInside(point))
@@ -281,7 +281,7 @@ void Foam::KdTree::traverseKdTree
     
     for(int i=0;i<currentNode->nurbsCurves.size();i++)
         if(listMinMaxBoxes[currentNode->nurbsCurves[i]].isInside(point))
-            foundNurbsCurves.append(currentNode->nurbsCurves[i]);
+            foundNurbsCurves->append(currentNode->nurbsCurves[i]);
     
     if(point[currentNode->divideDim] < currentNode->divideBound)
     {

@@ -2,10 +2,10 @@
 
 Foam::BsTree::BsTree
 (
-    std::unique_ptr<Nurbs> Curve,
+    std::shared_ptr<Nurbs> Curve,
     label nbrSplitsBetweenCPs
 ):
-Curve(std::move(Curve)),
+Curve(Curve),
 maxHeight(nbrSplitsBetweenCPs*this->Curve->nbrKnots()*this->Curve->degree())
 {
     _nil =  new Node();
@@ -97,7 +97,7 @@ void Foam::BsTree::traverseBsTree
     }
 }
 
-scalar Foam::BsTree::distanceToNurbs(vector point) const
+scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
 {
     scalarList testPoints = nearestPoint(point);
     for(int i=0;i<testPoints.size();i++)
@@ -127,4 +127,9 @@ scalar Foam::BsTree::distanceToNurbs(vector point) const
         }
     }
     return u_min_min;    
+}
+
+scalar minDistanceToPoint(vector point) const
+{
+    return euklidianNorm(Curve->Curve_Derivative(0,closestParaOnNurbsToPoint(point))-point); 
 }
