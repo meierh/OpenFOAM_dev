@@ -64,6 +64,8 @@ class Nurbs
         
         scalar newtonIterateNearestNeighbour(scalar u_0,vector point) const;
         scalar newtonIterateNearestNeighbour_alt(scalar u_0,vector point) const;
+        
+        scalar distanceToNurbsSurface(scalar para, vector point) const;
                 
         void print() const {Info<<controlPoints[0]<<"->"<<controlPoints[1]<<endl;}
         void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}

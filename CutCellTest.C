@@ -38,12 +38,13 @@ Description
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-void UnitTests()
+void UnitTests(int argc, char *argv[],Time& runTime)
 {
     Info<<"---------------------------Unit Test---------------------------"<<endl;
     UnitTest_Nurbs();
     UnitTest_KdTree();
     UnitTest_BsTree();
+    UnitTest_cutCellPolyMesh(argc,argv,runTime);
     Info<<"-------------------------Unit Test End-------------------------"<<endl;
 
 }
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
     << "Create mesh for time = "
     << runTime.timeName() << Foam::nl << Foam::endl;
 
-    UnitTests();
+    UnitTests(argc,argv,runTime);
     
     Foam::Info<<"Test Nurbs Curve"<<Foam::endl;
     

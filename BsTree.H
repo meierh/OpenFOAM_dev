@@ -35,9 +35,8 @@ class BsTree
         );
         ~BsTree();
         
-        scalarList nearestPoint(vector point) const;
+        scalarList nearestPoints(vector point) const;
         scalar closestParaOnNurbsToPoint(vector point) const;
-        scalar minDistanceToPoint(vector point) const;
                 
     private:
         Node *newNode(Node* parent = nullptr,scalar min=0, scalar max=0);

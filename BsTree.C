@@ -10,8 +10,8 @@ maxHeight(nbrSplitsBetweenCPs*this->Curve->nbrKnots()*this->Curve->degree())
 {
     _nil =  new Node();
     root = newNode(_nil,this->Curve->min_U(),this->Curve->max_U());
-    Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
-    Info<<"Create first box from "<<root->min<<" to "<<root->max<<"//"<<(root->max == 1)<<endl;
+    //Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
+    //Info<<"Create first box from "<<root->min<<" to "<<root->max<<"//"<<(root->max == 1)<<endl;
     constructTree(root);
 }
 
@@ -67,7 +67,7 @@ void Foam::BsTree::constructTree(Node* thisNode,int height)
     }
 }
 
-scalarList Foam::BsTree::nearestPoint(vector point) const
+scalarList Foam::BsTree::nearestPoints(vector point) const
 {
     scalarList coordNurbs(0);
     traverseBsTree(root,point,coordNurbs);
@@ -83,7 +83,7 @@ void Foam::BsTree::traverseBsTree
 {
     if(!currentNode->MinMaxBox.isInside(point))
     {
-        Info<<"Point "<<point<<" not in Box "<<currentNode->MinMaxBox.Min<<" "<<currentNode->MinMaxBox.Max<<endl;
+        //Info<<"Point "<<point<<" not in Box "<<currentNode->MinMaxBox.Min<<" "<<currentNode->MinMaxBox.Max<<endl;
         return;
     }
     if(currentNode->left == _nil && currentNode->right == _nil)
@@ -99,9 +99,14 @@ void Foam::BsTree::traverseBsTree
 
 scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
 {
-    scalarList testPoints = nearestPoint(point);
+    scalarList testPoints = nearestPoints(point);
+    if(testPoints.size() == 0)
+        return Curve->min_U()-1;
+    
+    Info<<"BsTree nearest Points: ";
     for(int i=0;i<testPoints.size();i++)
         Info<<testPoints[i]<<endl;
+    
     scalarList u_min_List(0);
     scalar u_min;
     for(int i=0;i<testPoints.size();i++)
@@ -127,9 +132,4 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
         }
     }
     return u_min_min;    
-}
-
-scalar minDistanceToPoint(vector point) const
-{
-    return euklidianNorm(Curve->Curve_Derivative(0,closestParaOnNurbsToPoint(point))-point); 
 }

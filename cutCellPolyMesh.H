@@ -27,6 +27,9 @@ class cutCellPolyMesh   :   public polyMesh
         // Level-Set Function for Boundary Computation
         std::function<scalar(const vector)> levelSet;
         
+        // distance to Surface for all Points
+        scalarList pointDist;
+        
         //old Cell Volume 
         scalarList oldCellVolume;
                 
@@ -216,8 +219,15 @@ class cutCellPolyMesh   :   public polyMesh
         
         //rebuild mesh delting negative side
         void createNewMeshData_cutNeg();
+        
+        // project distance from Nurbs Surface on Points
+        void projectNurbsSurface();
+        
+        // project level set function on Points
+        void projectLevelSet();
 
 };
+void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);
 }
 
 #endif

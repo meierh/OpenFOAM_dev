@@ -442,12 +442,14 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour_alt(scalar u_0,vector point) c
         if(i++ > 1000000)
             break;
     }
+    /*
     Info<<"Count: "<<i<<endl;
     Info<<"u:"<<u_0<<"    "<<"change:"<<change<<endl;
     Info<<vectorCurveToPoint_Derivative(0,u_0,point)<<
     " d:"<<distCurveToPoint_Deriv0(u_0,point)<<
     " d_1:"<<distCurveToPoint_Deriv1(u_0,point)<<
     " d_2:"<<distCurveToPoint_Deriv2(u_0,point)<<endl;
+    */
     return u_0;
 }
 
@@ -463,12 +465,16 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
     Info<<"It:0 f("<<u_0<<")="<<f<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
+    int hitMaxOrMinCounter = 0;
     while(abs(f) > epsilon)
     {
         iterations++;
         C = Curve_Derivative(0,u_0);
+        Info<<"C: "<<C<<endl;
         C_D1 = Curve_Derivative(1,u_0);
+        Info<<"C_D1: "<<C_D1<<endl;
         C_D2 = Curve_Derivative(2,u_0);
+        Info<<"C_D2: "<<C_D2<<endl;
         f = (point-C) && C_D1;
         f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
         u_0 = u_0 - (f/f_D1);
@@ -477,14 +483,27 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
         {
             u_0 = max_U;
             Info<<"Break: f("<<u_0<<")"<<endl;
-            break;
+            if(hitMaxOrMinCounter >= 2)
+                break;
+            hitMaxOrMinCounter++;
+
         }
         if(u_0 < min_U)
         {
-            Info<<"Break: f("<<u_0<<")"<<endl;
             u_0 = min_U;
-            break;
+            Info<<"Break: f("<<u_0<<")"<<endl;
+            if(hitMaxOrMinCounter >= 2)
+                break;
+            hitMaxOrMinCounter++;
         }
     }
     return u_0;
 }
+
+scalar Foam::Nurbs::distanceToNurbsSurface(scalar para, vector point) const
+{
+    vector C = Curve_Derivative(0,para);
+    scalar distToCentre = euklidianNorm(C-point);
+    return distToCentre - diameter;
+}
+
