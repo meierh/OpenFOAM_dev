@@ -39,13 +39,13 @@ void Foam::UnitTest_BsTree()
         " d_2:"<<Tree.Curve->distCurveToPoint_Deriv2(resIn[i],testPointInside)<<endl;
     */
     scalar nearest = Tree.Curve->newtonIterateNearestNeighbour(resIn.last(),testPointInside);
-    Info<<"UnitTest BsTree nearest Point on Nurbs found 1/3"<<endl;
+    Info<<"UnitTest BsTree nearest Point on Nurbs found 1/5"<<endl;
     
     nearest = Tree.Curve->newtonIterateNearestNeighbour_alt(resIn.last(),testPointInside);
-    Info<<"UnitTest BsTree nearest Point on Nurbs found 2/3"<<endl;
+    Info<<"UnitTest BsTree nearest Point on Nurbs found 2/5"<<endl;
 
     nearest = Tree.closestParaOnNurbsToPoint(testPointInside);
-    Info<<"UnitTest BsTree nearest Point on Nurbs found 3/3"<<endl;
+    Info<<"UnitTest BsTree nearest Point on Nurbs found 3/5"<<endl;
     
     
     knots = scalarList(6);
@@ -58,10 +58,12 @@ void Foam::UnitTest_BsTree()
     
     BsTree Tree2(Line);
     vector pointOnNurbs(0,0,0.6);
-    Info<<"Compute closest Parameter: ";
+    //Info<<"Compute closest Parameter: ";
     scalar closestPara = Tree2.closestParaOnNurbsToPoint(pointOnNurbs);
-    Info<<closestPara<<" "<<Tree2.Curve->Curve_Derivative(0,closestPara)<<endl;
-    Info<<"Compute closest Distance ";
+    //Info<<closestPara<<" "<<Tree2.Curve->Curve_Derivative(0,closestPara)<<endl;
+    Info<<"UnitTest BsTree nearest Point on Nurbs found 4/5"<<endl;
+    //Info<<"Compute closest Distance ";
     scalar closestDist = Tree2.Curve->distanceToNurbsSurface(closestPara,pointOnNurbs);
-    Info<<closestDist<<endl;
+    Info<<"UnitTest BsTree nearest Point on Nurbs found 5/5"<<endl;
+    //Info<<closestDist<<endl;
 }

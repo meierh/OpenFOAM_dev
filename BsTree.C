@@ -103,10 +103,11 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
     if(testPoints.size() == 0)
         return Curve->min_U()-1;
     
+    /*
     Info<<"BsTree nearest Points: ";
     for(int i=0;i<testPoints.size();i++)
         Info<<testPoints[i]<<endl;
-    
+    */
     scalarList u_min_List(0);
     scalar u_min;
     for(int i=0;i<testPoints.size();i++)

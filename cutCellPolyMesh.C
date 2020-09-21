@@ -28,6 +28,9 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     }
     
     this->levelSet = levelSet;
+    
+    projectLevelSet();
+    
     newMeshPoints();
     //printAddedPoints();
     newMeshEdges();
@@ -185,7 +188,7 @@ void Foam::cutCellPolyMesh::pointsToSide
     scalar lvlSet;
     for(int i=0;i<newMeshPoints_.size();i++)
     {
-        lvlSet = levelSet(newMeshPoints_[i]);
+        lvlSet = pointDist[i];
         if(lvlSet > 0)
             pointsToSide[i] = 1;
         else if(lvlSet < 0)
@@ -207,7 +210,7 @@ void Foam::cutCellPolyMesh::pointsToSide
     scalar lvlSet;
     for(int i=0;i<points.size();i++)
     {
-        lvlSet = levelSet(points[i]);
+        lvlSet = pointDist[i];
         if(lvlSet > 0)
             pointsToSide[i] = 1;
         else if(lvlSet < 0)
@@ -224,16 +227,13 @@ void Foam::cutCellPolyMesh::edgesToSide
 (
 )
 {
-    const pointField& points = this->points();
     const edgeList& edges = this->edges();
     labelList edgesToSide(edges.size());
     
     for(int i=0;i<edges.size();i++)
     {
-        point start = points[edges[i].start()];
-        point end = points[edges[i].end()];
-        scalar lvlSetStart = levelSet(start);
-        scalar lvlSetEnd = levelSet(end);
+        scalar lvlSetStart = pointDist[edges[i].start()];
+        scalar lvlSetEnd = pointDist[edges[i].end()];
 
         if(lvlSetStart != 0 && lvlSetEnd != 0)
         {
@@ -264,15 +264,12 @@ void Foam::cutCellPolyMesh::edgesToSide
     const edgeList& edges
 )
 {
-    const pointField& points = this->points();
     labelList edgesToSide(edges.size());
     
     for(int i=0;i<edges.size();i++)
     {
-        point start = points[edges[i].start()];
-        point end = points[edges[i].end()];
-        scalar lvlSetStart = levelSet(start);
-        scalar lvlSetEnd = levelSet(end);
+        scalar lvlSetStart = pointDist[edges[i].start()];
+        scalar lvlSetEnd = pointDist[edges[i].end()];
 
         if(lvlSetStart != 0 && lvlSetEnd != 0)
         {
@@ -302,7 +299,6 @@ void Foam::cutCellPolyMesh::facesToSide
 (
 )
 {
-    const pointField& points = this->points();
     const faceList& faces = this->faces();
     labelList facesToSide(faces.size());
     
@@ -313,10 +309,9 @@ void Foam::cutCellPolyMesh::facesToSide
         bool negExist = false;
         for(int k=0;k<faces[i].size();k++)
         {
-            point thisPoint = points[faces[i][k]];
-            if(levelSet(thisPoint) == 0)
+            if(pointDist[faces[i][k]] == 0)
                 nullExist = true;
-            else if(levelSet(thisPoint) > 0)
+            else if(pointDist[faces[i][k]] > 0)
                 posExist = true;
             else
                 negExist = true;
@@ -358,7 +353,6 @@ void Foam::cutCellPolyMesh::facesToSide
     const faceList& faces
 )
 {
-    const pointField& points = this->points();
     labelList facesToSide(faces.size());
     
     for(int i=0;i<faces.size();i++)
@@ -368,10 +362,9 @@ void Foam::cutCellPolyMesh::facesToSide
         bool negExist = false;
         for(int k=0;k<faces[i].size();k++)
         {
-            point thisPoint = points[faces[i][k]];
-            if(levelSet(thisPoint) == 0)
+            if(pointDist[faces[i][k]] == 0)
                 nullExist = true;
-            else if(levelSet(thisPoint) > 0)
+            else if(pointDist[faces[i][k]] > 0)
                 posExist = true;
             else
                 negExist = true;
@@ -420,16 +413,17 @@ void Foam::cutCellPolyMesh::cellsToSide
     for(int i=0;i<cells.size();i++)
     {
         pointField cellPoints = cells[i].points(faces,points);
+        labelList cellLabels = cells[i].labels(faces);
+
         
         bool nullExist = false;
         bool posExist = false;
         bool negExist = false;
-        for(int k=0;k<cellPoints.size();k++)
+        for(int k=0;k<cellLabels.size();k++)
         {
-            point thisPoint = cellPoints[k];
-            if(levelSet(thisPoint) == 0)
+            if(pointDist[cellLabels[k]] == 0)
                 nullExist = true;
-            else if(levelSet(thisPoint) > 0)
+            else if(pointDist[cellLabels[k]] > 0)
                 posExist = true;
             else
                 negExist = true;
@@ -478,16 +472,16 @@ void Foam::cutCellPolyMesh::cellsToSide
     for(int i=0;i<cells.size();i++)
     {
         pointField cellPoints = cells[i].points(faces,points);
+        labelList cellLabels = cells[i].labels(faces);
         
         bool nullExist = false;
         bool posExist = false;
         bool negExist = false;
-        for(int k=0;k<cellPoints.size();k++)
+        for(int k=0;k<cellLabels.size();k++)
         {
-            point thisPoint = cellPoints[k];
-            if(levelSet(thisPoint) == 0)
+            if(pointDist[cellLabels[k]] == 0)
                 nullExist = true;
-            else if(levelSet(thisPoint) > 0)
+            else if(pointDist[cellLabels[k]] > 0)
                 posExist = true;
             else
                 negExist = true;
@@ -522,6 +516,17 @@ void Foam::cutCellPolyMesh::cellsToSide
         }
     }
     this->cellsToSide_ = cellsToSide;
+}
+
+void Foam::cutCellPolyMesh::projectLevelSet()
+{
+    const pointField& points = this->points();
+    pointDist = scalarList(points.size());
+    
+    for(int i=0;i<points.size();i++)
+    {
+        pointDist[i] = levelSet(points[i]);
+    }
 }
 
 void Foam::cutCellPolyMesh::newMeshPoints
@@ -621,8 +626,8 @@ void Foam::cutCellPolyMesh::newMeshPoints
         label endLabel = basisEdges[i].end();        
         pos = 0;
         neg = 0;
-        scalar phiStart = levelSet(basisPoints[startLabel]);
-        scalar phiEnd = levelSet(basisPoints[endLabel]);
+        scalar phiStart = pointDist[startLabel];
+        scalar phiEnd = pointDist[endLabel];
         
         //Info<<phiStart<<" -> "<<phiEnd<<endl;
         
@@ -2824,11 +2829,18 @@ void Foam::cutCellPolyMesh::printMesh
     }
 }
 
+vector crossProd(const vector& v1, const vector& v2)
+{
+    return vector(  v1[1]*v2[2]-v1[2]*v2[1],
+                    v1[2]*v2[0]-v1[0]*v2[2],
+                    v1[0]*v2[1]-v1[1]*v2[0]
+                 );
+}
+
 
 void Foam::cutCellPolyMesh::selfTestMesh()
-{
-/*    
-
+{  
+    Info<<"START MESH SELF TEST"<<endl;
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
     const edgeList& meshEdges = this->edges();
@@ -2840,6 +2852,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
     //Test faces
     for(int i=0;i<meshFaces.size();i++)
     {
+        Info<<"Test face "<<i<<endl;
         point centreFace = meshFaces[i].centre(meshPoints);
         vector normalFace = meshFaces[i].normal(meshPoints);
         scalar area = meshFaces[i].mag(meshPoints);
@@ -2856,13 +2869,13 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
             edge1 = curr-prev;
             edge2 = next-curr;
-            crossProds[i] = crossProduct<vector,vector>(edge1,edge2);
+            crossProds[k] = crossProd(edge1,edge2);
         }
-        crossProds[crossProds.size()] = crossProds[0];
+        crossProds[crossProds.size()-1] = crossProds[0];
         scalar res;
         for(int k=0;k<meshFaces[i].size();k++)
         {
-            res = innerProduct<vector,vector>(crossProds[k],crossProds[k+1]);
+            res = crossProds[k] && crossProds[k+1];
             if(res<0)
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
@@ -2885,21 +2898,28 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         //Test for centre point internal
         vector toCentre1,toCentre2;
         crossProds = List<vector>(meshFaces[i].size()+1);
+        Info<<"---------------------------------------------"<<endl;
         for(int k=0;k<meshFaces[i].size();k++)
         {
             curr = meshPoints[meshFaces[i][k]];
             next = meshPoints[meshFaces[i].nextLabel(k)];
             
             edge1 = next-curr;
-            toCentre1 = centre-curr;
-            toCentre2 = centre-next;
+            toCentre1 = centreFace-curr;
+            toCentre2 = centreFace-next;
             
-            crossProds[i] = 0.5*(crossProduct<vector,vector>(edge1,toCentre1) + crossProduct<vector,vector>(edge1,toCentre2));
+            Info<<"Edge: "<<edge1<<endl;
+            Info<<"toCentre 1: "<<toCentre1<<endl;
+            Info<<"toCentre 2: "<<toCentre2<<endl;
+            
+            crossProds[k] = 0.5*(crossProd(edge1,toCentre1) + crossProd(edge1,toCentre2));
+            Info<<"crossProds: "<<crossProds[k]<<endl;
+
         }
-        crossProds[crossProds.size()] = crossProds[0];
-        for(int k=0;k<crossProds.size();k++)
+        crossProds[crossProds.size()-1] = crossProds[0];
+        for(int k=0;k<meshFaces[i].size();k++)
         {
-            res = innerProduct<vector,vector>(crossProds[k],crossProds[k+1]);
+            res = crossProds[k] && crossProds[k+1];
             if(res<0)
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
@@ -2913,6 +2933,11 @@ void Foam::cutCellPolyMesh::selfTestMesh()
                 Info<<" and normal vector:"<<normalFace;
                 Info<<" and area:"<<area<<endl;
                 
+                Info<<"CrossProds k: "<<crossProds[k]<<endl;
+                Info<<"CrossProds k+1: "<<crossProds[k+1]<<endl;
+                Info<<"res: "<<res<<endl;
+                
+                
                 FatalErrorInFunction
                 << "Face  has a centre thats not strictly inside!"
                 << abort(FatalError);
@@ -2921,26 +2946,33 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         
         //Test if face has double points
         //collapse not allowed in this area
-        
-        if(meshFaces[i].size() != meshFaces[i].collapse())
+        for(int j = 0;j<meshFaces[i].size();j++)
         {
-            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
-            if(i < neighbour.size())
-                Info<<" Neighbor:"<<neighbour[i]<<" ";
             for(int k=0;k<meshFaces[i].size();k++)
             {
-                Info<<meshPoints[meshFaces[i][k]]<<"->";
-            }
-            Info<<" with centre:"<<centreFace;
-            Info<<" and normal vector:"<<normalFace;
-            Info<<" and area:"<<area<<endl;
+                if(k==j)
+                    continue;
+                else if(meshFaces[i][j] == meshFaces[i][k])
+                {
+                    Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+                    if(i < neighbour.size())
+                        Info<<" Neighbor:"<<neighbour[i]<<" ";
+                    for(int s=0;s<meshFaces[i].size();s++)
+                    {
+                        Info<<meshPoints[meshFaces[i][s]]<<"->";
+                    }
+                    Info<<" with centre:"<<centreFace;
+                    Info<<" and normal vector:"<<normalFace;
+                    Info<<" and area:"<<area<<endl;
             
-            FatalErrorInFunction
-            << "Face had a double point!"
-            << abort(FatalError);
-        }
+                    FatalErrorInFunction
+                    << "Face had a double point!"
+                    << abort(FatalError);
+                }
+            }
+        }        
         
-        
+        //Test for face with negative area
         if(area<0)
         {
             Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
@@ -2959,6 +2991,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             << abort(FatalError); 
         }
         
+        //Test if the specified owner of each face is the actual owner
         label ownerCell = owner[i];
         bool isOwnerCell = false;
         for(int k=0;k<meshCells[ownerCell].size();k++)
@@ -2986,6 +3019,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             << abort(FatalError); 
         }
         
+        //Test if the specified neighbour of each face is the actual owner
         if(i<neighbour.size())
         {
             label neighbourCell = neighbour[i];
@@ -3016,12 +3050,13 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             }
         }
         
-        vector centreToOwnerCentre = meshCells[ownerCell].centre(meshPoints,meshFaces)-centreFace;
-        if(innerProduct<vector,vector>(centreToOwnerCentre,normalFace)>=0)
+        
+        vector faceCentreToOwnerCentre = meshCells[ownerCell].centre(meshPoints,meshFaces)-centreFace;
+        if((faceCentreToOwnerCentre && normalFace)>=0)
         {
             Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
             if(i < neighbour.size())
-                Info<<" Neighbor:"<<neighbour[i]<<" ";
+                Info<<"Neighbor:"<<neighbour[i]<<" ";
             for(int k=0;k<meshFaces[i].size();k++)
             {
                 Info<<meshPoints[meshFaces[i][k]]<<"->";
@@ -3031,7 +3066,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             Info<<" and area:"<<area<<endl;
             
             FatalErrorInFunction
-            <<"Normal vector is "<<normalFace<<" while centreToOwnerCentre is "<<centreToOwnerCentre<<"!"
+            <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
             <<" They must have a opposite direction"
             << abort(FatalError); 
         }
@@ -3040,11 +3075,11 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         {
             label neighbourCell = neighbour[i];
             vector centreToNeighbourCentre = meshCells[neighbourCell].centre(meshPoints,meshFaces)-centreFace;
-            if(innerProduct<vector,vector>(centreToOwnerCentre,normalFace)<=0)
+            if((centreToNeighbourCentre && normalFace)<=0)
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
-                    Info<<" Neighbor:"<<neighbour[i]<<" ";
+                    Info<<"Neighbor:"<<neighbour[i]<<" ";
                 for(int k=0;k<meshFaces[i].size();k++)
                 {
                     Info<<meshPoints[meshFaces[i][k]]<<"->";
@@ -3054,12 +3089,14 @@ void Foam::cutCellPolyMesh::selfTestMesh()
                 Info<<" and area:"<<area<<endl;
             
                 FatalErrorInFunction
-                <<"Normal vector is "<<normalFace<<" while centreToNeighbourCentre is "<<centreToNeighbourCentre<<"!"
+                <<"Normal vector is "<<normalFace<<" while faceCentreToNeighbourCentre is "<<centreToNeighbourCentre<<"!"
                 <<" They must have the same direction"
                 << abort(FatalError);
             }
         }      
     }
+    
+    /*
     
     //Test cells
     //Test if cell centre is inside cell

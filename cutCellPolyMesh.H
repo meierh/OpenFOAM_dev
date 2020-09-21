@@ -217,7 +217,7 @@ class cutCellPolyMesh   :   public polyMesh
         //rebuild mesh by using cut data
         void createNewMeshData();
         
-        //rebuild mesh delting negative side
+        //rebuild mesh deleting negative side
         void createNewMeshData_cutNeg();
         
         // project distance from Nurbs Surface on Points
