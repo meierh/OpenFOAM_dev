@@ -96,6 +96,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
         oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
     }
     
+    
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -461,7 +462,7 @@ void Foam::cutCellPolyMesh::newMeshPoints
 (
 )
 {
-    //Info<<"Starting adding Points"<<endl;
+    Info<<"Starting adding Points"<<endl;
     const cellList& meshCells = this->cells();
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
@@ -473,6 +474,7 @@ void Foam::cutCellPolyMesh::newMeshPoints
     newMeshPoints_.append(basisPoints);
     
     pointsToSide(newMeshPoints_);
+    Info<<"Point to Side done"<<endl;
     
     pointToEgde_ = labelList(basisPoints.size());
     for(int i=0;i<basisPoints.size();i++)
@@ -492,6 +494,7 @@ void Foam::cutCellPolyMesh::newMeshPoints
             pointToFaces_[i] = pointFaces[i];
         }
     }
+    Info<<"Point to faces"<<endl;
         
     faceToPoints_ = labelListList(basisFaces.size());
     for(int i=0;i<basisPoints.size();i++)
@@ -512,17 +515,23 @@ void Foam::cutCellPolyMesh::newMeshPoints
             }
         }
     }
+    Info<<"Point to faces done"<<endl;
     
     pointToCells_ = labelListList(basisPoints.size());
+    Info<<"1"<<endl;
     labelListList pointCells = this->pointCells();
+    Info<<"2"<<endl;
     labelListList edgeCells = this->edgeCells();
+    Info<<"3"<<endl;
     for(int i=0;i<basisPoints.size();i++)
     {
+        Info<<pointsToSide_[i]<<endl;
         if(pointsToSide_[i] == 0)
         {
             pointToCells_[i] = pointCells[i];
         }
     }
+    Info<<"Point to cells "<<basisPoints.size()<<" done"<<endl;
     
     cellToPoints_ = labelListList(meshCells.size());
     for(int i=0;i<basisPoints.size();i++)
@@ -2726,7 +2735,7 @@ void Foam::cutCellPolyMesh::printMesh
     
     for(int i=0;i<meshCells.size();i++)
     {
-        Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" |";
+        Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" faces |";
         for(int k=0;k<meshCells[i].size();k++)
         {
             Info<<meshCells[i][k]<<"->";
@@ -3090,5 +3099,36 @@ void Foam::cutCellPolyMesh::selfTestMesh()
     }
     Info<<": MESH IS CORRECT"<<endl;
 
+}
+
+void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
+(
+    scalarList& newCellVolume,
+    scalarList& oldCellVolume
+)
+{
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        Info<<"Cell "<<i<<" volume: "<<oldCellVolume[i]<<" splitted to minus side cell: "<<oldSplittedCellToNewMinusCell[i]<<endl;
+        Info<<"Cell "<<i<<" splitted to plus side cell: "<<oldSplittedCellToNewPlusCell[i]<<endl;
+    }
+    scalarList partialVolumeScale = scalarList(newCellVolume.size());
+    Info<<"new Cell Size: "<<newCellVolume.size()<<endl;
+
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        if(oldSplittedCellToNewPlusCell[i] >= 0)
+        {
+            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[i];
+        }
+        else
+        {
+            partialVolumeScale[i] = -1;
+        }
+    }
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        Info<<"new Cell "<<i<<" has volume scale: "<<partialVolumeScale[i]<<endl;
+    }
 }
 

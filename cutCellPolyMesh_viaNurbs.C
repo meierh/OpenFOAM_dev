@@ -18,8 +18,11 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     Info<<"Prepared all Data"<<endl;
     
     projectNurbsSurface();
-
+    Info<<"Projected Nurbs Surface"<<endl;
+    
     newMeshPoints();
+    Info<<"Added Mesh Points"<<endl;
+    
     printAddedPoints();
     newMeshEdges();
     edgesToSide();
@@ -79,7 +82,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     const cellList& oldCells = this->cells();
     
     oldCellVolume = scalarList(oldCells.size());
-    for(int i=0;i<oldCells.size();i++)
+    for(int i=0;i<oldCellVolume.size();i++)
     {
         oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
     }
@@ -91,9 +94,19 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     patchSizes,
                     patchStarts,
                     true);
+    
+    const cellList& newCells = this->cells();
+    newCellVolume = scalarList(newCells.size());
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        newCellVolume[i] = newCells[i].mag(newMeshPoints_,this->faces());
+    }
+    
+    agglomerateSmallCells_cutNeg(newCellVolume,oldCellVolume);
 
-    //this->write();
-    //printMesh();
+    printMesh();
+    this->write();
+    printMesh();
     selfTestMesh();
 }
  

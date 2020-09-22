@@ -32,6 +32,9 @@ class cutCellPolyMesh   :   public polyMesh
         
         //old Cell Volume 
         scalarList oldCellVolume;
+        
+        //new Cell Volume
+        scalarList newCellVolume;
                 
         //Points to Side (+1,0,-1)
         labelList pointsToSide_;
@@ -227,7 +230,11 @@ class cutCellPolyMesh   :   public polyMesh
         void projectLevelSet();
         
         //cell agglomeration
-        void agglomerateSmallCells
+        void agglomerateSmallCells_cutNeg
+        (
+            scalarList& newCellVolume,
+            scalarList& oldCellVolume
+        );
 
 };
 void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);
