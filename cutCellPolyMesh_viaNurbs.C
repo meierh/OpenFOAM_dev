@@ -20,9 +20,9 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     projectNurbsSurface();
 
     newMeshPoints();
-    //printAddedPoints();
+    printAddedPoints();
     newMeshEdges();
-    //edgesToSide();
+    edgesToSide();
     newMeshFaces();
     cutOldFaces();
     
@@ -91,80 +91,8 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     patchSizes,
                     patchStarts,
                     true);
-    
-    /*
-    if(state == delNegMesh)
-    {
-        const polyBoundaryMesh& boundMesh = this->boundaryMesh();
-        for(int i=0;i<boundMesh.size();i++)
-        {
-            polyPatch thisPatch = boundMesh[i];
-            Info<<"-------Patch "<<thisPatch.index()<<"----------"<<endl;
-            Info<<"| Name:"<<thisPatch.name()<<endl;
-            Info<<"| Size:"<<thisPatch.size()<<endl;
-            Info<<"| Start:"<<thisPatch.start()<<endl;
-            Info<<"| patchI:"<<thisPatch.index()<<endl;
-            Info<<"| patchType:"<<thisPatch.physicalType()<<endl;
-        }
 
-        patchStarts = labelList(boundMesh.size());
-        patchSizes = labelList(boundMesh.size());
-        for(int i=0;i<boundMesh.size();i++)
-        {
-            patchStarts[i] = boundMesh[i].start();
-            patchSizes[i] = boundMesh[i].faceCentres().size();
-        }
-        patchStarts.append(patchStarts.last()+patchSizes.last());
-        
-        for(int i=0;i<boundMesh.size();i++)
-        {        
-            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-        }
-        
-        Info<<boundMesh.size()<<endl;
-
-        label insertPatchi = boundMesh.size()+1;
-        
-        word name = "cutWall";
-        word patchType = "wall";
-
-        polyPatch* patch= new polyPatch
-        (
-            name,
-            addedCutFaces.size(),
-            patchStarts.last(),
-            insertPatchi,
-            boundMesh,
-            patchType
-        );
-        List<polyPatch*> p(1,patch);
-        
-        fileName dictName = "wallDict";
-        dictionary patchFieldDict(dictName);
-        word defaultPatchFieldType = "wall";
-        
-        Info<<"-------Patch "<<patch->index()<<"----------"<<endl;
-        Info<<"| Name:"<<patch->name()<<endl;
-        Info<<"| Size:"<<patch->size()<<endl;
-        Info<<"| Start:"<<patch->start()<<endl;
-        Info<<"| patchI:"<<patch->index()<<endl;
-        Info<<"| patchType:"<<patch->physicalType()<<endl;
-        
-        boundMesh.append(patch);
-        Info<<boundary_.size()<<endl;
-        
-        
-        //this->addPatches(p);
-        
-        
-        this->addPatch(insertPatchi,patch,patchFieldDict,
-                       defaultPatchFieldType,true);  
-        
-    }
-    */
-    
-    
-    this->write();
+    //this->write();
     //printMesh();
     selfTestMesh();
 }

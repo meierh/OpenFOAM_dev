@@ -225,6 +225,9 @@ class cutCellPolyMesh   :   public polyMesh
         
         // project level set function on Points
         void projectLevelSet();
+        
+        //cell agglomeration
+        void agglomerateSmallCells
 
 };
 void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);

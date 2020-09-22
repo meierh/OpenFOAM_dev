@@ -102,79 +102,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
                     Foam::clone(neighbour),
                     patchSizes,
                     patchStarts,
-                    true);
-    
-    /*
-    if(state == delNegMesh)
-    {
-        const polyBoundaryMesh& boundMesh = this->boundaryMesh();
-        for(int i=0;i<boundMesh.size();i++)
-        {
-            polyPatch thisPatch = boundMesh[i];
-            Info<<"-------Patch "<<thisPatch.index()<<"----------"<<endl;
-            Info<<"| Name:"<<thisPatch.name()<<endl;
-            Info<<"| Size:"<<thisPatch.size()<<endl;
-            Info<<"| Start:"<<thisPatch.start()<<endl;
-            Info<<"| patchI:"<<thisPatch.index()<<endl;
-            Info<<"| patchType:"<<thisPatch.physicalType()<<endl;
-        }
-
-        patchStarts = labelList(boundMesh.size());
-        patchSizes = labelList(boundMesh.size());
-        for(int i=0;i<boundMesh.size();i++)
-        {
-            patchStarts[i] = boundMesh[i].start();
-            patchSizes[i] = boundMesh[i].faceCentres().size();
-        }
-        patchStarts.append(patchStarts.last()+patchSizes.last());
-        
-        for(int i=0;i<boundMesh.size();i++)
-        {        
-            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-        }
-        
-        Info<<boundMesh.size()<<endl;
-
-        label insertPatchi = boundMesh.size()+1;
-        
-        word name = "cutWall";
-        word patchType = "wall";
-
-        polyPatch* patch= new polyPatch
-        (
-            name,
-            addedCutFaces.size(),
-            patchStarts.last(),
-            insertPatchi,
-            boundMesh,
-            patchType
-        );
-        List<polyPatch*> p(1,patch);
-        
-        fileName dictName = "wallDict";
-        dictionary patchFieldDict(dictName);
-        word defaultPatchFieldType = "wall";
-        
-        Info<<"-------Patch "<<patch->index()<<"----------"<<endl;
-        Info<<"| Name:"<<patch->name()<<endl;
-        Info<<"| Size:"<<patch->size()<<endl;
-        Info<<"| Start:"<<patch->start()<<endl;
-        Info<<"| patchI:"<<patch->index()<<endl;
-        Info<<"| patchType:"<<patch->physicalType()<<endl;
-        
-        boundMesh.append(patch);
-        Info<<boundary_.size()<<endl;
-        
-        
-        //this->addPatches(p);
-        
-        
-        this->addPatch(insertPatchi,patch,patchFieldDict,
-                       defaultPatchFieldType,true);  
-        
-    }
-    */
-    
+                    true);    
     
     this->write();
     printMesh();
@@ -1205,7 +1133,10 @@ void Foam::cutCellPolyMesh::newMeshFaces
         if(isCutFace)
         {
             faceToCells_[i].append(owner[i]);
-            faceToCells_[i].append(neighbour[i]);
+            //Info<<"I want a neighbour"<<endl;
+            if(i < neighbour.size())
+                faceToCells_[i].append(neighbour[i]);
+                //Info<<"I have a neighbour"<<endl;
         }        
     }
 
@@ -1417,6 +1348,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
         //input to oldCellsToAddedFace
         cellToFaces_[i].append(newMeshFaces_.size()-1);
     }
+    Info<<"End adding faces"<<endl;
 }
 
 void Foam::cutCellPolyMesh::printAddedFaces
@@ -2571,15 +2503,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     splitAndUnsplitFaceBoundaryOwner = labelList(0);
     for(int i=neighbour.size();i<meshFaces.size();i++)
     {
-        /*
-        Info<<"-Old: ";
-        pointField facePoints = meshFaces[i].points(combinedPoints);
-        for(int j=0;j<facePoints.size();j++)
-            Info<<facePoints[j]<<"->";
-        Info<<"owner:"<<owner[i];
-        Info<<" neighbour:"<<-1<<endl;
-        */
-        
+        Info<<"Boundary face "<<i;
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
@@ -2628,6 +2552,12 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
             if(facesToSide_[i] == 1)
             {
                 countNewBoundaryFaces++;
+                splitAndUnsplitFacesBoundary.append(meshFaces[i]);
+                splitAndUnsplitFaceBoundaryNeighbor.append(-1);
+                splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
+            }
+            else if(facesToSide_[i] == 0)
+            {
                 splitAndUnsplitFacesBoundary.append(meshFaces[i]);
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
@@ -2840,7 +2770,7 @@ vector crossProd(const vector& v1, const vector& v2)
 
 void Foam::cutCellPolyMesh::selfTestMesh()
 {  
-    Info<<"START MESH SELF TEST"<<endl;
+    Info<<"START MESH SELF TEST";
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
     const edgeList& meshEdges = this->edges();
@@ -2852,7 +2782,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
     //Test faces
     for(int i=0;i<meshFaces.size();i++)
     {
-        Info<<"Test face "<<i<<endl;
+        //Info<<"Test face "<<i<<endl;
         point centreFace = meshFaces[i].centre(meshPoints);
         vector normalFace = meshFaces[i].normal(meshPoints);
         scalar area = meshFaces[i].mag(meshPoints);
@@ -2898,7 +2828,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         //Test for centre point internal
         vector toCentre1,toCentre2;
         crossProds = List<vector>(meshFaces[i].size()+1);
-        Info<<"---------------------------------------------"<<endl;
+        //Info<<"---------------------------------------------"<<endl;
         for(int k=0;k<meshFaces[i].size();k++)
         {
             curr = meshPoints[meshFaces[i][k]];
@@ -2908,12 +2838,12 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             toCentre1 = centreFace-curr;
             toCentre2 = centreFace-next;
             
-            Info<<"Edge: "<<edge1<<endl;
-            Info<<"toCentre 1: "<<toCentre1<<endl;
-            Info<<"toCentre 2: "<<toCentre2<<endl;
+            //Info<<"Edge: "<<edge1<<endl;
+            //Info<<"toCentre 1: "<<toCentre1<<endl;
+            //Info<<"toCentre 2: "<<toCentre2<<endl;
             
             crossProds[k] = 0.5*(crossProd(edge1,toCentre1) + crossProd(edge1,toCentre2));
-            Info<<"crossProds: "<<crossProds[k]<<endl;
+            //Info<<"crossProds: "<<crossProds[k]<<endl;
 
         }
         crossProds[crossProds.size()-1] = crossProds[0];
@@ -3019,7 +2949,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             << abort(FatalError); 
         }
         
-        //Test if the specified neighbour of each face is the actual owner
+        //Test if the specified neighbour of each face is the actual neighbour
         if(i<neighbour.size())
         {
             label neighbourCell = neighbour[i];
@@ -3096,8 +3026,6 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         }      
     }
     
-    /*
-    
     //Test cells
     //Test if cell centre is inside cell
     for(int i=0;i<meshCells.size();i++)
@@ -3122,7 +3050,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         }
         if(mag == 0 && cellsToSide_[i] != -1)
         {
-            Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" |";
+            Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<"faces |";
             for(int k=0;k<meshCells[i].size();k++)
             {
                 Info<<meshCells[i][k]<<"->";
@@ -3136,17 +3064,31 @@ void Foam::cutCellPolyMesh::selfTestMesh()
         }
         
         
-        
         //Test if centre is really inside cell
-        
         for(int a=0;a<meshCells[i].size();a++)
         {
-            for(int b=0;b<meshCells[i][a].size();i++
-            for(int j=0;j<meshCells[i].size();j++
-            
+            label oneFaceInd = meshCells[i][a];
+            vector thisFaceNormal = meshFaces[oneFaceInd].normal(meshPoints);
+            if(owner[oneFaceInd] != i)
+                thisFaceNormal = -1*thisFaceNormal;
+            vector thisFaceCentre = meshFaces[oneFaceInd].centre(meshPoints);
+            if(((thisFaceCentre-cellCentre) && thisFaceNormal) <= 0)
+            {            
+                Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<"faces |";
+                for(int k=0;k<meshCells[i].size();k++)
+                {
+                    Info<<meshCells[i][k]<<"->";
+                }
+                Info<<" with centre:"<<cellCentre;
+                Info<<" and volume:"<<mag<<endl;
+                
+                FatalErrorInFunction
+                << "Cell Face "<<a<<" has a normal "<<thisFaceNormal<<" but cellCentreToFaceCentre is "<<thisFaceCentre-cellCentre
+                << abort(FatalError);                
+            }
         }
-        
     }
-    */ 
+    Info<<": MESH IS CORRECT"<<endl;
+
 }
 
