@@ -3104,7 +3104,8 @@ void Foam::cutCellPolyMesh::selfTestMesh()
 void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
 (
     scalarList& newCellVolume,
-    scalarList& oldCellVolume
+    scalarList& oldCellVolume,
+    scalarList partialThreeshold
 )
 {
     for(int i=0;i<oldCellVolume.size();i++)
@@ -3130,5 +3131,51 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     {
         Info<<"new Cell "<<i<<" has volume scale: "<<partialVolumeScale[i]<<endl;
     }
+    
+    const cellList& newCells = this->cells();
+    const faceList& faces = this->faces();
+    const labelList& owner   = this->faceOwner();
+    const labelList& neighbour = this->faceNeighbour();
+    const pointField& points = this->points();
+    
+    labelListList possbileMergeFaces(newCellVolume.size());
+    labelListList possibleMergeCells(newCellVolume.size());
+    scalarListList possibleMergeFaceArea(newCellVolume.size());
+    labelList MergeCell
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        if(partialVolumeScale[i] >= 0 && partialVolumeScale > partialThreeshold)
+        {
+            for(int k=0;k<newCells[i].size();k++)
+            {
+                if(newCells[i][k] < neighbour.size())
+                    possbileMergeFaces[i].append(newCells[i][k]);
+            }
+            for(int k=0;k<possbileMergeFaces[i].size();k++)
+            {
+                possibleMergeFaceArea[i].append(face[possbileMergeFaces[i][k]].mag(points));
+            }
+            for(int k=0;k<possbileMergeFaces[i].size();k++)
+            {
+                if(owner[possibleMergeFaces[i][k]] == i)
+                {
+                    possibleMergeCells.append(neighbour[possibleMergeFaces[i][k]]);
+                }
+                else if(neighbour[possibleMergeFaces[i][k]] == i)
+                {
+                    possibleMergeCells.append(owner[possibleMergeFaces[i][k]]);
+                }
+                else
+                {
+                    FatalErrorInFunction
+                    << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
+                    << abort(FatalError);  
+                }
+            }
+        }
+    }
+    
+    // Remove agglomerated cell with too low volume for merging
+    
 }
 
