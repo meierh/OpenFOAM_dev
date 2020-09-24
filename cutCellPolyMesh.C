@@ -3138,10 +3138,14 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     const labelList& neighbour = this->faceNeighbour();
     const pointField& points = this->points();
     
-    labelListList possbileMergeFaces(newCellVolume.size());
+    labelListList possibleMergeFaces(newCellVolume.size());
     labelListList possibleMergeCells(newCellVolume.size());
     scalarListList possibleMergeFaceArea(newCellVolume.size());
-    labelList MergeCell
+    boolListList possibleMergeFaceSufficient(newCellVolume.size());
+    boolList oneMergeFaceSufficient(newCellVolume.size());
+    labelList MergeCell;
+    label neighbourCell;
+    scalar neighbourCellPartialVolume;
     for(int i=0;i<newCellVolume.size();i++)
     {
         if(partialVolumeScale[i] >= 0 && partialVolumeScale > partialThreeshold)
@@ -3149,33 +3153,101 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
             for(int k=0;k<newCells[i].size();k++)
             {
                 if(newCells[i][k] < neighbour.size())
-                    possbileMergeFaces[i].append(newCells[i][k]);
-            }
-            for(int k=0;k<possbileMergeFaces[i].size();k++)
-            {
-                possibleMergeFaceArea[i].append(face[possbileMergeFaces[i][k]].mag(points));
-            }
-            for(int k=0;k<possbileMergeFaces[i].size();k++)
-            {
-                if(owner[possibleMergeFaces[i][k]] == i)
                 {
-                    possibleMergeCells.append(neighbour[possibleMergeFaces[i][k]]);
+                    if(owner[newCells[i][k]] == i)
+                    {
+                        neighbourCell = neighbour[newCells[i][k]];
+                    }
+                    else if(neighbour[newCells[i][k]] == i)
+                    {   
+                        neighbourCell = owner[newCells[i][k]];
+                    }
+                    else
+                    {
+                        FatalErrorInFunction
+                        << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
+                        << abort(FatalError);  
+                    }
+                    
+                    neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
+                    possibleMergeFaces[i].append(newCells[i][k]);
+                    possibleMergeCells[i].append(neighbour);
+                    possibleMergeFaceArea[i].append(face[possibleMergeFaces[i][k]].mag(points));
+                    if(neighbourCellPartialVolume + partialVolumeScale[i] > partialThreeshold)
+                    {
+                        possibleMergeFaceSufficient[i].append(true);
+                    }
+                    else
+                    {
+                        possibleMergeFaceSufficient[i].append(false);
+                    }
                 }
-                else if(neighbour[possibleMergeFaces[i][k]] == i)
+            }
+            oneMergeFaceSufficient[i] = false;
+            for(int k=0;k<possibleMergeFaceSufficient.size();k++)
+            {
+                if(possibleMergeFaceSufficient[i][k])
                 {
-                    possibleMergeCells.append(owner[possibleMergeFaces[i][k]]);
-                }
-                else
-                {
-                    FatalErrorInFunction
-                    << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
-                    << abort(FatalError);  
+                    oneMergeFaceSufficient[i] = true;
+                    break;
                 }
             }
         }
     }
+    // Sort possible merging cell by respect to face area biggest to smallest
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        int j;
+        scalar keyArea;
+        label keyFaces,keyCells;
+        bool keySuff;
+        for(int k=1;k<possibleMergeFaceArea[i].size();k++)
+        {
+            keyArea = possibleMergeFaceArea[i][k];
+            keyFaces = possibleMergeFaces[i][k];
+            keyCells = possibleMergeCells[i][k];
+            keySuff = possibleMergeFaceSufficient[i][k];
+            j = k-1;
+            while(j>=0 && possibleMergeFaceArea[i][j] < keyArea)
+            {
+                possibleMergeFaceArea[j+1] = possibleMergeFaceArea[j];
+                possibleMergeFaces[j+1] = possibleMergeFaces[j];
+                possibleMergeCells[j+1] = possibleMergeCells[j];
+                possibleMergeFaceSufficient[j+1] = possibleMergeFaceSufficient[j];
+                j--;
+            }
+            possibleMergeFaceArea[j+1] = keyArea;
+            possibleMergeFaces[j+1] = keyFaces;
+            possibleMergeCells[j+1] = keyCells;
+            possibleMergeFaceSufficient[j+1] = keySuff;
+        }
+    }
+    std::unordered_set<label> cellReserved;
+    
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        if(
+    }
     
     // Remove agglomerated cell with too low volume for merging
     
+}
+
+void Foam::cutCellPolyMesh::searchDown
+(
+    scalarListList& possibleMergeFaceArea,
+    labelListList& possibleMergeCells,
+    label count,
+    std::unordered_set<label> cellReserved
+)
+{
+    for(int i=0;i<possibleMergeCells[count].size();i++)
+    {
+        label oneCell = possibleMergeCells[count][i];
+        if(cellReserved.find(oneCell) == cellReserved.end())
+        {
+            searchDown(possibleMergeFaceArea,count+1);
+        }
+    }
 }
 
