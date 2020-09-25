@@ -3228,21 +3228,47 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     
     std::unordered_set<label> cellReserved;
     
-    labelList mergeRes = searchDown(possibleMergeFaceArea,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count,cellReserved);
+    labelList mergeFaces = searchDown(possibleMergeFaceArea,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count,cellReserved);
 
-    if(mergeRes.size() == 0)
+    if(mergeFaces.size() == 0)
     {
         FatalErrorInFunction
         << "Agglomeration cell not found for all cells!"
         << abort(FatalError);  
     }
+    if(mergeFaces.size() != newCells.size())
+    {
+        FatalErrorInFunction
+        << "Agglomeration cell list size unequal to cell list size!"
+        << abort(FatalError);  
+    }
     // Remove agglomerated cell with too low volume for merging
     
+    for(int i=0;i<newCells.size();i++)
+    {
+        if(mergeFaces[i] != -1)
+        {
+            label myCell = i;
+            label mergedWithCell;
+            if(owner[mergeFaces[i]] == i)
+                mergedWithCell = 
+        }
+    }
+    
+    
+    resetPrimitives(Foam::clone(newMeshPoints_),
+                    Foam::clone(faces),
+                    Foam::clone(owner),
+                    Foam::clone(neighbour),
+                    patchSizes,
+                    patchStarts,
+                    true);    
 }
 
 label Foam::cutCellPolyMesh::searchDown
 (
     scalarListList& possibleMergeFaceArea,
+    labelListList& possibleMergeFaces,
     labelListList& possibleMergeCells,
     boolList& oneMergeFaceSufficient,
     boolList& mergeNecessary,
@@ -3257,6 +3283,7 @@ label Foam::cutCellPolyMesh::searchDown
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
                 label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
                 labelList retList;
                 std::unordered_set<label> cellReservedCpy;
                 if(cellReserved.find(oneCell) == cellReserved.end())
@@ -3267,7 +3294,7 @@ label Foam::cutCellPolyMesh::searchDown
                 }
                 if(retList.size() != 0)
                 {
-                    labelList returnList = {oneCell};
+                    labelList returnList = {oneFace};
                     return returnList.append(retList);
                 }
             }
@@ -3287,9 +3314,10 @@ label Foam::cutCellPolyMesh::searchDown
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
                 label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
                 if(cellReserved.find(oneCell) == cellReserved.end())
                 {
-                    labelList returnList = {oneCell};
+                    labelList returnList = {oneFace};
                     return returnList;
                 }
             }
