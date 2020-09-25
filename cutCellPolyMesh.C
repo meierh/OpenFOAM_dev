@@ -3243,18 +3243,74 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         << abort(FatalError);  
     }
     // Remove agglomerated cell with too low volume for merging
+    faceList newFaces_ = std::copy(faces);
+    labelList newOwner_ = std::copy(owner);
+    labelList newNeighbour_ = std::copy(neighbour);
     
     for(int i=0;i<newCells.size();i++)
     {
         if(mergeFaces[i] != -1)
         {
+            label viaFace = mergeFaces[i];
             label myCell = i;
             label mergedWithCell;
             if(owner[mergeFaces[i]] == i)
-                mergedWithCell = 
+                mergedWithCell = neighbour[mergeFaces[i]];
+            else if(neighbour[mergeFaces[i]] == i)
+                mergedWithCell = owner[mergeFaces[i]];
+
+            newFaces_[mergeFaces[i]] = face() // Only viable if empty face is doable
+            newOwner_[mergeFaces[i]] = -1;
+            if(mergeFaces[i] >= newNeighbour_.size();
+            {
+                FatalErrorInFunction
+                << "Merge Face is has no neighbour that can not happen!"
+                << abort(FatalError);
+            }
+            newNeighbour_[mergeFaces[i]] = -1;
+            
+            labelList facesMyCell = newCells[myCell];
+            labelList facesMergeCell = newCells[mergedWithCell];
+            
+            for(int k=0;k<facesMyCell.size();k++)
+            {
+                if(facesMyCell[k] == mergeFaces[i])
+                    continue;
+
+                if(owner[facesMyCell[k]] == myCell)
+                    owner[facesMyCell[k]] = myCell;
+                else if(neighbour[facesMyCell[k]] = myCell)
+                    neighbour[facesMyCell[k] = myCell;
+                else
+                {
+                    FatalErrorInFunction
+                    << "Face of merging cells is neither in owner nor in neighbour cell!"
+                    << abort(FatalError);
+                }
+            }
+            for(int k=0;k<facesMergeCell.size();k++)
+            {
+                if(facesMergeCell[k] == mergeFaces[i])
+                    continue;
+                
+                if(owner[facesMergeCell[k] == mergedWithCell)
+                   owner[facesMergeCell[k]] = myCell;
+                else if(neighbour[facesMergeCell[k]] == mergedWithCell)
+                    neighbour[facesMergeCell[k]] = mergedWithCell;
+                else
+                {
+                    FatalErrorInFunction
+                    << "Face of merging cells is neither in owner nor in neighbour cell!"
+                    << abort(FatalError);
+                }                    
+            }            
         }
     }
     
+    
+    for(int i=0;i<newFaces_.size();i++)
+    {
+    }
     
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
