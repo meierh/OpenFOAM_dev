@@ -3143,13 +3143,16 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     scalarListList possibleMergeFaceArea(newCellVolume.size());
     boolListList possibleMergeFaceSufficient(newCellVolume.size());
     boolList oneMergeFaceSufficient(newCellVolume.size());
+    boolList mergeNecessary(newCellVolume.size());
     labelList MergeCell;
     label neighbourCell;
     scalar neighbourCellPartialVolume;
     for(int i=0;i<newCellVolume.size();i++)
     {
-        if(partialVolumeScale[i] >= 0 && partialVolumeScale > partialThreeshold)
+        mergeNecessary[i] = false;
+        if(partialVolumeScale[i] >= 0 && partialVolumeScale < partialThreeshold)
         {
+            mergeNecessary[i] = true;
             for(int k=0;k<newCells[i].size();k++)
             {
                 if(newCells[i][k] < neighbour.size())
@@ -3222,32 +3225,80 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
             possibleMergeFaceSufficient[j+1] = keySuff;
         }
     }
+    
     std::unordered_set<label> cellReserved;
     
-    for(int i=0;i<newCellVolume.size();i++)
+    labelList mergeRes = searchDown(possibleMergeFaceArea,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count,cellReserved);
+
+    if(mergeRes.size() == 0)
     {
-        if(
+        FatalErrorInFunction
+        << "Agglomeration cell not found for all cells!"
+        << abort(FatalError);  
     }
-    
     // Remove agglomerated cell with too low volume for merging
     
 }
 
-void Foam::cutCellPolyMesh::searchDown
+label Foam::cutCellPolyMesh::searchDown
 (
     scalarListList& possibleMergeFaceArea,
     labelListList& possibleMergeCells,
+    boolList& oneMergeFaceSufficient,
+    boolList& mergeNecessary,
     label count,
     std::unordered_set<label> cellReserved
 )
 {
-    for(int i=0;i<possibleMergeCells[count].size();i++)
+    if(count < possibleMergeCells.size()-1)
     {
-        label oneCell = possibleMergeCells[count][i];
-        if(cellReserved.find(oneCell) == cellReserved.end())
+        if(mergeNecessary[count])
         {
-            searchDown(possibleMergeFaceArea,count+1);
+            for(int i=0;i<possibleMergeCells[count].size();i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                labelList retList;
+                std::unordered_set<label> cellReservedCpy;
+                if(cellReserved.find(oneCell) == cellReserved.end())
+                {
+                    cellReservedCpy = std::copy(cellReserved);
+                    cellReservedCpy.insert(oneCell);
+                    retList = searchDown(possibleMergeFaceArea,,possibleMergeCells,count+1,cellReservedCpy);
+                }
+                if(retList.size() != 0)
+                {
+                    labelList returnList = {oneCell};
+                    return returnList.append(retList);
+                }
+            }
+            return labelList(0);
+        }
+        else
+        {
+            labelList returnList = {-1};
+            return returnList.append(searchDown
+            (possibleMergeFaceArea,,possibleMergeCells,count+1,std::copy(cellReserved)));
         }
     }
+    else
+    {
+        if(mergeNecessary[count])
+        {
+            for(int i=0;i<possibleMergeCells[count].size();i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                if(cellReserved.find(oneCell) == cellReserved.end())
+                {
+                    labelList returnList = {oneCell};
+                    return returnList;
+                }
+            }
+            return labelList(0);
+        }
+        else
+        {
+            labelList returnList = {-1};
+            return returnList;
+        }
 }
 
