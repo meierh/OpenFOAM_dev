@@ -104,10 +104,10 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     
     agglomerateSmallCells_cutNeg(newCellVolume,oldCellVolume);
 
-    printMesh();
+    //printMesh();
     this->write();
-    printMesh();
-    selfTestMesh();
+    //printMesh();
+    //selfTestMesh();
 }
  
 void Foam::cutCellPolyMesh::projectNurbsSurface()

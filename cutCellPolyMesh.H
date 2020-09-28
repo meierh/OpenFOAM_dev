@@ -7,7 +7,8 @@
 #include "BsTree.H"
 #include "KdTree.H"
 #include "Nurbs.H"
-#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
 
 namespace Foam
 {    
@@ -155,7 +156,7 @@ class cutCellPolyMesh   :   public polyMesh
         std::unique_ptr<KdTree> MainTree;
         List<std::unique_ptr<BsTree>> NurbsTrees;
         
-        std::unordered_map<label,scalar> pointToNurbsDist;
+        //std::unordered_map<label,scalar> pointToNurbsDist;
         
     //Public Memberfunctions    
     public:
@@ -233,9 +234,20 @@ class cutCellPolyMesh   :   public polyMesh
         void agglomerateSmallCells_cutNeg
         (
             scalarList& newCellVolume,
-            scalarList& oldCellVolume
+            scalarList& oldCellVolume,
+            scalar partialThreeshold = 0.5
         );
-
+        
+        labelList searchDown
+        (
+            scalarListList& possibleMergeFaceArea,
+            labelListList& possibleMergeFaces,
+            labelListList& possibleMergeCells,
+            boolList& oneMergeFaceSufficient,
+            boolList& mergeNecessary,
+            label count,
+            std::unordered_set<label> cellReserved
+        );
 };
 void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);
 }

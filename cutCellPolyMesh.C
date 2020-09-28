@@ -106,6 +106,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
                     true);    
     
     this->write();
+    
     printMesh();
 }
 
@@ -2782,11 +2783,11 @@ void Foam::cutCellPolyMesh::selfTestMesh()
     Info<<"START MESH SELF TEST";
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
-    const edgeList& meshEdges = this->edges();
+    //const edgeList& meshEdges = this->edges();
     const pointField& meshPoints = this->points();
     const labelList owner   = this->faceOwner();
     const labelList neighbour = this->faceNeighbour();    
-    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    //const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
     //Test faces
     for(int i=0;i<meshFaces.size();i++)
@@ -3105,7 +3106,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
 (
     scalarList& newCellVolume,
     scalarList& oldCellVolume,
-    scalarList partialThreeshold
+    scalar partialThreeshold
 )
 {
     for(int i=0;i<oldCellVolume.size();i++)
@@ -3145,14 +3146,20 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     boolList oneMergeFaceSufficient(newCellVolume.size());
     boolList mergeNecessary(newCellVolume.size());
     labelList MergeCell;
-    label neighbourCell;
+    label neighbourCell = -1;
     scalar neighbourCellPartialVolume;
     for(int i=0;i<newCellVolume.size();i++)
     {
         mergeNecessary[i] = false;
-        if(partialVolumeScale[i] >= 0 && partialVolumeScale < partialThreeshold)
+        if((partialVolumeScale[i] >= 0) && (partialVolumeScale[i] < partialThreeshold))
         {
             mergeNecessary[i] = true;
+            Info<<"new Cell "<<i<<" is signed for merge via faces ";
+            for(int k=0;k<newCells[i].size();k++)
+            {
+                Info<<newCells[i][k]<<",";
+            }
+            Info<<" with cells:";
             for(int k=0;k<newCells[i].size();k++)
             {
                 if(newCells[i][k] < neighbour.size())
@@ -3171,11 +3178,15 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                         << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
                         << abort(FatalError);  
                     }
-                    
+                    Info<<endl<<"\t"<<newCells[i][k]<<"("<<k<<")->"<<neighbourCell<<",";
                     neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
+                    Info<<endl<<"\t"<<" partialVol:"<<neighbourCellPartialVolume;
                     possibleMergeFaces[i].append(newCells[i][k]);
-                    possibleMergeCells[i].append(neighbour);
-                    possibleMergeFaceArea[i].append(face[possibleMergeFaces[i][k]].mag(points));
+                    Info<<endl<<"\t"<<" mergeFace:"<<possibleMergeFaces[i][possibleMergeFaces[i].size()-1];
+                    possibleMergeCells[i].append(neighbourCell);
+                    Info<<endl<<"\t"<<" mergeCells:"<<possibleMergeCells[i][possibleMergeCells[i].size()-1];
+                    possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1]].mag(points));
+                    Info<<endl<<"\t"<<" mergeFaceArea:"<<possibleMergeFaceArea[i][possibleMergeFaceArea[i].size()-1];
                     if(neighbourCellPartialVolume + partialVolumeScale[i] > partialThreeshold)
                     {
                         possibleMergeFaceSufficient[i].append(true);
@@ -3184,8 +3195,11 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                     {
                         possibleMergeFaceSufficient[i].append(false);
                     }
+
+                    Info<<endl<<"\t"<<" sufficientFace:"<<possibleMergeFaceSufficient[i][possibleMergeFaceSufficient[i].size()-1];
                 }
             }
+            Info<<endl;
             oneMergeFaceSufficient[i] = false;
             for(int k=0;k<possibleMergeFaceSufficient.size();k++)
             {
@@ -3228,8 +3242,13 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     
     std::unordered_set<label> cellReserved;
     
-    labelList mergeFaces = searchDown(possibleMergeFaceArea,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count,cellReserved);
+    labelList mergeFaces = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,0,cellReserved);
 
+    for(int i=0;i<mergeFaces.size();i++)
+    {
+        Info<<"cell:"<<i<<" merged via face:"<<mergeFaces[i]<<endl;
+    }
+    
     if(mergeFaces.size() == 0)
     {
         FatalErrorInFunction
@@ -3242,11 +3261,18 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         << "Agglomeration cell list size unequal to cell list size!"
         << abort(FatalError);  
     }
-    // Remove agglomerated cell with too low volume for merging
-    faceList newFaces_ = std::copy(faces);
-    labelList newOwner_ = std::copy(owner);
-    labelList newNeighbour_ = std::copy(neighbour);
+    for(int i=0;i<mergeFaces.size();i++)
+    {
+        Info<<"cell:"<<i<<" merged via face:"<<mergeFaces[i]<<endl;
+    }
     
+    
+    // Remove agglomerated cell with too low volume for merging
+    faceList newFaces_ = faces;
+    labelList newOwner_ = owner;
+    labelList newNeighbour_ = neighbour;
+    
+    /*
     for(int i=0;i<newCells.size();i++)
     {
         if(mergeFaces[i] != -1)
@@ -3296,7 +3322,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                 if(owner[facesMergeCell[k] == mergedWithCell)
                    owner[facesMergeCell[k]] = myCell;
                 else if(neighbour[facesMergeCell[k]] == mergedWithCell)
-                    neighbour[facesMergeCell[k]] = mergedWithCell;
+                    neighbour[facesMergeCell[k]] = myCell;
                 else
                 {
                     FatalErrorInFunction
@@ -3318,10 +3344,11 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                     Foam::clone(neighbour),
                     patchSizes,
                     patchStarts,
-                    true);    
+                    true);
+    */
 }
 
-label Foam::cutCellPolyMesh::searchDown
+labelList Foam::cutCellPolyMesh::searchDown
 (
     scalarListList& possibleMergeFaceArea,
     labelListList& possibleMergeFaces,
@@ -3344,14 +3371,15 @@ label Foam::cutCellPolyMesh::searchDown
                 std::unordered_set<label> cellReservedCpy;
                 if(cellReserved.find(oneCell) == cellReserved.end())
                 {
-                    cellReservedCpy = std::copy(cellReserved);
+                    cellReservedCpy = cellReserved;
                     cellReservedCpy.insert(oneCell);
-                    retList = searchDown(possibleMergeFaceArea,,possibleMergeCells,count+1,cellReservedCpy);
+                    retList = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReservedCpy);
                 }
                 if(retList.size() != 0)
                 {
                     labelList returnList = {oneFace};
-                    return returnList.append(retList);
+                    returnList.append(retList);
+                    return returnList;
                 }
             }
             return labelList(0);
@@ -3359,8 +3387,9 @@ label Foam::cutCellPolyMesh::searchDown
         else
         {
             labelList returnList = {-1};
-            return returnList.append(searchDown
-            (possibleMergeFaceArea,,possibleMergeCells,count+1,std::copy(cellReserved)));
+            returnList.append(searchDown
+            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved));
+            return returnList;
         }
     }
     else
@@ -3384,5 +3413,6 @@ label Foam::cutCellPolyMesh::searchDown
             labelList returnList = {-1};
             return returnList;
         }
+    }
 }
 
