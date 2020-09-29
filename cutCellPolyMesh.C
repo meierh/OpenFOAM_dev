@@ -3125,7 +3125,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         }
         else
         {
-            partialVolumeScale[i] = -1;
+            partialVolumeScale[i] = 1;
         }
     }
     for(int i=0;i<newCellVolume.size();i++)
@@ -3151,7 +3151,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     for(int i=0;i<newCellVolume.size();i++)
     {
         mergeNecessary[i] = false;
-        if((partialVolumeScale[i] >= 0) && (partialVolumeScale[i] < partialThreeshold))
+        if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
         {
             mergeNecessary[i] = true;
             Info<<"new Cell "<<i<<" is signed for merge via faces ";
@@ -3212,7 +3212,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         }
     }
     // Sort possible merging cell by respect to face area biggest to smallest
-    for(int i=0;i<newCellVolume.size();i++)
+    for(int i=0;i<possibleMergeFaceArea.size();i++)
     {
         int j;
         scalar keyArea;
@@ -3227,16 +3227,38 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
             j = k-1;
             while(j>=0 && possibleMergeFaceArea[i][j] < keyArea)
             {
-                possibleMergeFaceArea[j+1] = possibleMergeFaceArea[j];
-                possibleMergeFaces[j+1] = possibleMergeFaces[j];
-                possibleMergeCells[j+1] = possibleMergeCells[j];
-                possibleMergeFaceSufficient[j+1] = possibleMergeFaceSufficient[j];
+                possibleMergeFaceArea[i][j+1] = possibleMergeFaceArea[i][j];
+                possibleMergeFaces[i][j+1] = possibleMergeFaces[i][j];
+                possibleMergeCells[i][j+1] = possibleMergeCells[i][j];
+                possibleMergeFaceSufficient[i][j+1] = possibleMergeFaceSufficient[i][j];
                 j--;
             }
-            possibleMergeFaceArea[j+1] = keyArea;
-            possibleMergeFaces[j+1] = keyFaces;
-            possibleMergeCells[j+1] = keyCells;
-            possibleMergeFaceSufficient[j+1] = keySuff;
+            possibleMergeFaceArea[i][j+1] = keyArea;
+            possibleMergeFaces[i][j+1] = keyFaces;
+            possibleMergeCells[i][j+1] = keyCells;
+            possibleMergeFaceSufficient[i][j+1] = keySuff;
+        }
+    }
+    
+    for(int i=0;i<mergeNecessary.size();i++)
+    {
+        if(mergeNecessary[i])
+        {
+            Info<<"new Cell "<<i<<" is signed for merge via faces ";
+            for(int k=0;k<newCells[i].size();k++)
+            {
+                Info<<newCells[i][k]<<",";
+            }
+            Info<<" with cells:";
+            for(int k=0;k<possibleMergeFaces[i].size();k++)
+            {
+                Info<<endl<<"\t"<<"mergeFace:"<<possibleMergeFaces[i][k];
+                Info<<endl<<"\t"<<"mergeCells:"<<possibleMergeCells[i][k];
+                Info<<endl<<"\t"<<" partialVol:"<<partialVolumeScale[possibleMergeCells[i][k]];
+                Info<<endl<<"\t"<<" mergeFaceArea:"<<possibleMergeFaceArea[i][k];
+                Info<<endl<<"\t"<<" sufficientFace:"<<possibleMergeFaceSufficient[i][k];
+            }
+            Info<<endl;
         }
     }
     
@@ -3260,34 +3282,50 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         FatalErrorInFunction
         << "Agglomeration cell list size unequal to cell list size!"
         << abort(FatalError);  
-    }
-    for(int i=0;i<mergeFaces.size();i++)
-    {
-        Info<<"cell:"<<i<<" merged via face:"<<mergeFaces[i]<<endl;
-    }
-    
+    }    
     
     // Remove agglomerated cell with too low volume for merging
     faceList newFaces_ = faces;
     labelList newOwner_ = owner;
     labelList newNeighbour_ = neighbour;
     
-    /*
+    for(int i=0;i<newFaces_.size();i++)
+    {
+        Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+        if(i < neighbour.size())
+            Info<<" Neighbor:"<<neighbour[i]<<" ";
+        for(int k=0;k<newFaces_[i].size();k++)
+        {
+            Info<<points[newFaces_[i][k]]<<"->";
+        }
+        Info<<" with centre:"<<newFaces_[i].centre(points);
+        Info<<" and normal vector:"<<newFaces_[i].normal(points);
+        Info<<" and area:"<<newFaces_[i].mag(points)<<endl;
+    }
+    
+    int countDeleteFaces = 0;
     for(int i=0;i<newCells.size();i++)
     {
         if(mergeFaces[i] != -1)
         {
-            label viaFace = mergeFaces[i];
+            countDeleteFaces++;
+            //label viaFace = mergeFaces[i];
             label myCell = i;
-            label mergedWithCell;
+            label mergedWithCell = -1;
             if(owner[mergeFaces[i]] == i)
                 mergedWithCell = neighbour[mergeFaces[i]];
             else if(neighbour[mergeFaces[i]] == i)
                 mergedWithCell = owner[mergeFaces[i]];
+            else
+            {
+                FatalErrorInFunction
+                << "No Merge Cell found. That can not happen!"
+                << abort(FatalError);
+            }
 
-            newFaces_[mergeFaces[i]] = face() // Only viable if empty face is doable
+            newFaces_[mergeFaces[i]] = face(); // Only viable if empty face is doable
             newOwner_[mergeFaces[i]] = -1;
-            if(mergeFaces[i] >= newNeighbour_.size();
+            if(mergeFaces[i] >= newNeighbour_.size())
             {
                 FatalErrorInFunction
                 << "Merge Face is has no neighbour that can not happen!"
@@ -3304,9 +3342,9 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                     continue;
 
                 if(owner[facesMyCell[k]] == myCell)
-                    owner[facesMyCell[k]] = myCell;
-                else if(neighbour[facesMyCell[k]] = myCell)
-                    neighbour[facesMyCell[k] = myCell;
+                    newOwner_[facesMyCell[k]] = myCell;
+                else if(neighbour[facesMyCell[k]] == myCell)
+                    newNeighbour_[facesMyCell[k]] = myCell;
                 else
                 {
                     FatalErrorInFunction
@@ -3319,10 +3357,10 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                 if(facesMergeCell[k] == mergeFaces[i])
                     continue;
                 
-                if(owner[facesMergeCell[k] == mergedWithCell)
-                   owner[facesMergeCell[k]] = myCell;
+                if(owner[facesMergeCell[k]] == mergedWithCell)
+                   newOwner_[facesMergeCell[k]] = myCell;
                 else if(neighbour[facesMergeCell[k]] == mergedWithCell)
-                    neighbour[facesMergeCell[k]] = myCell;
+                    newNeighbour_[facesMergeCell[k]] = myCell;
                 else
                 {
                     FatalErrorInFunction
@@ -3333,19 +3371,79 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         }
     }
     
-    
     for(int i=0;i<newFaces_.size();i++)
     {
+        Info<<"Face:"<<i<<" Owner:"<<newOwner_[i]<<" ";
+        if(i < newNeighbour_.size())
+            Info<<" Neighbor:"<<newNeighbour_[i]<<" ";
+        for(int k=0;k<newFaces_[i].size();k++)
+        {
+            Info<<points[newFaces_[i][k]]<<"->";
+        }
+        if(newFaces_[i].size() > 0)
+        {
+            Info<<" with centre:"<<newFaces_[i].centre(points);
+            Info<<" and normal vector:"<<newFaces_[i].normal(points);
+            Info<<" and area:"<<newFaces_[i].mag(points)<<endl;
+        }
+        else
+            Info<<endl;
     }
     
-    resetPrimitives(Foam::clone(newMeshPoints_),
-                    Foam::clone(faces),
-                    Foam::clone(owner),
-                    Foam::clone(neighbour),
+    faceList newFaces__(newFaces_.size()-countDeleteFaces);
+    labelList newOwner__(newOwner_.size()-countDeleteFaces);
+    labelList newNeighbour__(newNeighbour_.size()-countDeleteFaces);
+    Info<<"Created Data Struc"<<endl;
+    
+    int reduction = 0;
+    for(int i = 0;i<newFaces_.size()-reduction;i++)
+    {
+        Info<<"Move "<<i<<" of "<<newFaces_.size()-reduction<<endl;
+        if(newOwner_[i] == -1)
+            reduction++;
+        
+        
+        newFaces__[i] = newFaces_[i+reduction];
+        newOwner__[i] = newOwner_[i+reduction];
+        if(i < newNeighbour_.size()-reduction)
+            newNeighbour__[i] = newNeighbour_[i+reduction];
+    }
+    
+    for(int i=0;i<newFaces__.size();i++)
+    {
+        Info<<"Face:"<<i<<" Owner:"<<newOwner__[i]<<" ";
+        if(i < newNeighbour__.size())
+            Info<<" Neighbor:"<<newNeighbour__[i]<<" ";
+        for(int k=0;k<newFaces__[i].size();k++)
+        {
+            Info<<points[newFaces__[i][k]]<<"->";
+        }
+        if(newFaces__[i].size() > 0)
+        {
+            Info<<" with centre:"<<newFaces__[i].centre(points);
+            Info<<" and normal vector:"<<newFaces__[i].normal(points);
+            Info<<" and area:"<<newFaces__[i].mag(points)<<endl;
+        }
+        else
+            Info<<endl;
+    }
+    
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    patchStarts = labelList(boundMesh.size());
+    patchSizes = labelList(boundMesh.size());
+    for(int i=0;i<boundMesh.size();i++)
+    {
+        patchStarts[i] = boundMesh[i].start()-countDeleteFaces;
+        patchSizes[i] = boundMesh[i].faceCentres().size();
+    }
+    
+    resetPrimitives(Foam::clone(points),
+                    Foam::clone(newFaces__),
+                    Foam::clone(newOwner__),
+                    Foam::clone(newNeighbour__),
                     patchSizes,
                     patchStarts,
-                    true);
-    */
+                    true);    
 }
 
 labelList Foam::cutCellPolyMesh::searchDown
@@ -3359,43 +3457,64 @@ labelList Foam::cutCellPolyMesh::searchDown
     std::unordered_set<label> cellReserved
 )
 {
+    Info<<"Height:"<<count<<"/"<<possibleMergeCells.size();
     if(count < possibleMergeCells.size()-1)
     {
+        Info<<" in first";
         if(mergeNecessary[count])
         {
+            Info<<" merge"<<endl;
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
                 label oneCell = possibleMergeCells[count][i];
                 label oneFace = possibleMergeFaces[count][i];
-                labelList retList;
                 std::unordered_set<label> cellReservedCpy;
                 if(cellReserved.find(oneCell) == cellReserved.end())
                 {
+                    labelList retList;
                     cellReservedCpy = cellReserved;
                     cellReservedCpy.insert(oneCell);
                     retList = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReservedCpy);
-                }
-                if(retList.size() != 0)
-                {
-                    labelList returnList = {oneFace};
-                    returnList.append(retList);
-                    return returnList;
+                
+                    if(retList.size() != 0)
+                    {
+                        labelList returnList = {oneFace};
+                        returnList.append(retList);
+                        Info<<"Return first merge: "<<returnList.size()<<" from "<<count<<endl;
+                        return returnList;
+                    }
                 }
             }
-            return labelList(0);
+            labelList returnList(0);
+            Info<<"Return first: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
         }
         else
         {
+            Info<<" empty"<<endl;
             labelList returnList = {-1};
-            returnList.append(searchDown
-            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved));
-            return returnList;
+            labelList retList = searchDown
+            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+            if(retList.size() != 0)
+            {
+                returnList.append(retList);
+                Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                return returnList;
+            }
+            else
+            {
+                returnList = labelList(0);
+                Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                return returnList;
+            }
         }
     }
     else
     {
+        Info<<" in second";
         if(mergeNecessary[count])
         {
+            Info<<" merge"<<endl;
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
                 label oneCell = possibleMergeCells[count][i];
@@ -3403,14 +3522,18 @@ labelList Foam::cutCellPolyMesh::searchDown
                 if(cellReserved.find(oneCell) == cellReserved.end())
                 {
                     labelList returnList = {oneFace};
+                    Info<<"Return second merge: "<<returnList.size()<<" from "<<count<<endl;
                     return returnList;
                 }
             }
-            return labelList(0);
+            labelList returnList(0);
+            Info<<"Return second: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
         }
         else
         {
             labelList returnList = {-1};
+            Info<<"Return second empty: "<<returnList.size()<<" from "<<count<<endl;
             return returnList;
         }
     }
