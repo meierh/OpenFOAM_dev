@@ -4,9 +4,102 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 (
     const IOobject& io,
     List<std::shared_ptr<Nurbs>> Curves,
+    int help
+    //volScalarField& solidFraction
+):
+fvMesh(io),
+Curves(std::move(Curves)),
+MainTree(new KdTree(this->Curves)),
+NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
+{
+    for(int i=0;i<this->Curves.size();i++)
+    {
+        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree(this->Curves[i])));
+    }
+    Info<<"Prepared all Data"<<endl;
+    
+    projectNurbsSurface();
+    Info<<"Projected Nurbs Surface"<<endl;
+    
+    newMeshPoints();
+    Info<<"Added Mesh Points"<<endl;
+    
+    printAddedPoints();
+    newMeshEdges();
+    edgesToSide();
+    newMeshFaces();
+    cutOldFaces();
+    
+    faceList faces(0);
+    labelList owner(0);
+    labelList neighbour(0);
+        
+    createNewMeshData_cutNeg();
+
+    faces.append(splitAndUnsplitFacesInterior);
+    faces.append(splitAndUnsplitFacesBoundary);
+    faces.append(addedCutFaces);
+    
+    owner.append(splitAndUnsplitFaceInteriorOwner);
+    owner.append(splitAndUnsplitFaceBoundaryOwner);
+    owner.append(addedCutFaceOwner);
+      
+    neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
+    neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
+    neighbour.append(addedCutFaceNeighbor);
+        
+    patchStarts[patchStarts.size()-1] = (patchStarts.last()+patchSizes.last());
+    patchSizes[patchSizes.size()-1] = (addedCutFaces.size());
+        
+    Info<<"--"<<endl;
+    for(int i=0;i<patchStarts.size();i++)
+    {
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+    }
+
+    printMesh();
+    
+    const pointField& oldPoints = this->points();
+    const faceList& oldFaceList = this->faces();
+    const cellList& oldCells = this->cells();
+    
+    oldCellVolume = scalarList(oldCells.size());
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+        Info<<"Old Cell "<<i<<": "<<oldCellVolume[i]<<endl;
+    }
+    
+    resetPrimitives(Foam::clone(newMeshPoints_),
+                    Foam::clone(faces),
+                    Foam::clone(owner),
+                    Foam::clone(neighbour),
+                    patchSizes,
+                    patchStarts,
+                    true);
+    
+    const cellList& newCells = this->cells();
+    newCellVolume = scalarList(newCells.size());
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        newCellVolume[i] = newCells[i].mag(this->points(),this->faces());
+        Info<<"Cell "<<i<<": "<<newCellVolume[i]<<endl;
+    }
+    
+
+    
+    //printMesh();
+    //this->write();
+    //printMesh();
+    //selfTestMesh();
+}
+Foam::cutCellPolyMesh::cutCellPolyMesh
+(
+    const IOobject& io,
+    List<std::shared_ptr<Nurbs>> Curves,
     cutStatus state
 ):
-polyMesh(io),
+fvMesh(io),
 Curves(std::move(Curves)),
 MainTree(new KdTree(this->Curves)),
 NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))

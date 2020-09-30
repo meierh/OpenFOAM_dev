@@ -6,7 +6,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     std::function<scalar(const vector)> levelSet,
     cutStatus state
 )  
-:   polyMesh(io)
+:   fvMesh(io)
 {
     //
     {

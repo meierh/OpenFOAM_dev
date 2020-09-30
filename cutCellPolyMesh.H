@@ -12,7 +12,7 @@
 
 namespace Foam
 {    
-class cutCellPolyMesh   :   public polyMesh
+class cutCellPolyMesh   :   public fvMesh
 {
     //Public attributes
     public:
@@ -173,6 +173,14 @@ class cutCellPolyMesh   :   public polyMesh
             const IOobject& io,
             List<std::shared_ptr<Nurbs>> Curves,
             cutStatus state = delNegMesh
+        );
+        
+        explicit cutCellPolyMesh
+        (
+            const IOobject& io,
+            List<std::shared_ptr<Nurbs>> Curves,
+            int help
+            //volScalarField& solidFraction
         );
         
         // Print Functions for debugg purposes

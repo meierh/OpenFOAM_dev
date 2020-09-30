@@ -34,7 +34,8 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0.5,0); controlPoints[1]=vector(1,0.5,1);    
     items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.9,1)));
-    
+
+/*    
     Foam::cutCellPolyMesh nurbsMesh
     (
         Foam::IOobject
@@ -46,4 +47,34 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
         ),
         items
     );
+*/
+
+            
+    Foam::cutCellPolyMesh nurbsMesh
+    (
+        Foam::IOobject
+        (
+            Foam::polyMesh::defaultRegion,
+            runTime.timeName(),
+            runTime,
+            Foam::IOobject::MUST_READ
+            ),
+        items,
+        1
+     );
+    
+    volScalarField solidFraction
+    (
+        Foam::IOobject
+        (
+            "solidFraction",
+            runTime.timeName(),
+            nurbsMesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        nurbsMesh
+    );
+
+     
 }
