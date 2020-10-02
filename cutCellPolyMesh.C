@@ -1964,6 +1964,9 @@ void Foam::cutCellPolyMesh::createNewMeshData
         Info<<facePoints[j]<<"->";
     Info<<endl;
 */
+    labelListList cutCellsMinusAndPlus();
+    labelList oldCellToMinusCutCell(meshCells.size());
+    labelList oldCellToPlusCutCell(meshCells.size());
     
     Info<<"Insert Split cell faces"<<endl;
     // Compute List of new faces splitting old cells
@@ -1973,6 +1976,8 @@ void Foam::cutCellPolyMesh::createNewMeshData
     addedCutFaceOwner = labelList(0);
     for(int i=0;i<cellToFaces_.size();i++)
     {
+        oldCellToMinusCutCell[i] = -1;
+        oldCellToPlusCutCell[i] = -1;
         if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
         {
             face addedFace = newMeshFaces_[cellToFaces_[i][0]];
@@ -2007,6 +2012,11 @@ void Foam::cutCellPolyMesh::createNewMeshData
             addedCutFaces.append(addedFace);
             addedCutFaceNeighbor.append(oldCellsToAddedMinusSideCellIndex[i]);
             addedCutFaceOwner.append(i);
+            
+            cutCellsMinusAndPlus.append({addedCutFaces.size()-1});
+            oldCellToMinusCutCell[i] = cutCellsMinusAndPlus.size()-1;
+            cutCellsMinusAndPlus.append({addedCutFaces.size()-1});
+            oldCellToPlusCutCell[i] = cutCellsMinusAndPlus.size()-1;
 
             /*
             Info<<"+New: ";
@@ -2017,7 +2027,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
             Info<<" neighbour:"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
             */
             
-            addedCutFacesNbr++; 
+            addedCutFacesNbr++;
         }
     }
 

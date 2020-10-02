@@ -4,8 +4,8 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
 (
     const IOobject& io,
     List<std::shared_ptr<Nurbs>> Curves,
-    int help
-    //volScalarField& solidFraction
+    Time& runTime,
+    std::unique_ptr<volScalarField>& solidFraction
 ):
 fvMesh(io),
 Curves(std::move(Curves)),
@@ -34,42 +34,43 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     labelList owner(0);
     labelList neighbour(0);
         
-    createNewMeshData_cutNeg();
-
+    createNewMeshData();
+    
+    faces.append(addedCutFaces);
     faces.append(splitAndUnsplitFacesInterior);
     faces.append(splitAndUnsplitFacesBoundary);
-    faces.append(addedCutFaces);
     
+    owner.append(addedCutFaceOwner);
     owner.append(splitAndUnsplitFaceInteriorOwner);
     owner.append(splitAndUnsplitFaceBoundaryOwner);
-    owner.append(addedCutFaceOwner);
-      
+    
+    neighbour.append(addedCutFaceNeighbor);
     neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
     neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
-    neighbour.append(addedCutFaceNeighbor);
-        
-    patchStarts[patchStarts.size()-1] = (patchStarts.last()+patchSizes.last());
-    patchSizes[patchSizes.size()-1] = (addedCutFaces.size());
-        
-    Info<<"--"<<endl;
-    for(int i=0;i<patchStarts.size();i++)
-    {
-        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-    }
 
     printMesh();
     
-    const pointField& oldPoints = this->points();
-    const faceList& oldFaceList = this->faces();
+    pointField oldPoints(Foam::clone(this->points()));
+    faceList oldFaces(Foam::clone(this->faces()));
+    labelList oldOwners(Foam::clone(this->faceOwner()));
+    labelList oldNeighbours(Foam::clone(this->faceNeighbour()));
     const cellList& oldCells = this->cells();
+    const polyBoundaryMesh& oldboundMesh = this->boundaryMesh();
+    labelList oldPatchStarts(oldboundMesh.size());
+    labelList oldPatchSizes(oldboundMesh.size());
+    for(int i=0;i<oldboundMesh.size();i++)
+    {
+        oldPatchStarts[i] = oldboundMesh[i].start();
+        oldPatchSizes[i] = oldboundMesh[i].faceCentres().size();
+    }
     
     oldCellVolume = scalarList(oldCells.size());
     for(int i=0;i<oldCellVolume.size();i++)
     {
-        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaces);
         Info<<"Old Cell "<<i<<": "<<oldCellVolume[i]<<endl;
     }
-    
+      
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -79,6 +80,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     true);
     
     const cellList& newCells = this->cells();
+    Info<<"Size: "<<newCells.size()<<endl; 
     newCellVolume = scalarList(newCells.size());
     for(int i=0;i<newCellVolume.size();i++)
     {
@@ -86,13 +88,62 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         Info<<"Cell "<<i<<": "<<newCellVolume[i]<<endl;
     }
     
-
+    scalarList solidFrac(oldCellVolume.size());
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        if(cellsToSide_[i] == 1)
+            solidFrac[i] = 0;
+        else if(cellsToSide_[i] == -1)
+            solidFrac[i] = 1;
+        else
+            solidFrac[i] = newCellVolume[oldSplittedCellToNewMinusCell[i]] / oldCellVolume[i];
+        
+        Info<<"Cell "<<i<<" Partial: "<<solidFrac[i]<<endl;
+    }
+    
+    resetPrimitives(Foam::clone(oldPoints),
+                    Foam::clone(oldFaces),
+                    Foam::clone(oldOwners),
+                    Foam::clone(oldNeighbours),
+                    oldPatchSizes,
+                    oldPatchStarts,
+                    true);
+    
+    //this->clearGeom();
+    //this->clearOut();
+    //this->clearPrimitives();
+    
+    const cellList& newCell2 = this->cells();
+    Info<<"Size: "<<newCell2.size()<<endl; 
     
     //printMesh();
-    //this->write();
+    this->write();
     //printMesh();
     //selfTestMesh();
+    
+    solidFraction = std::unique_ptr<volScalarField>
+    (
+        new volScalarField
+        (
+            Foam::IOobject
+            (
+                "solidFraction",
+                runTime.timeName(),
+                (*this),
+                IOobject::MUST_READ,
+                IOobject::AUTO_WRITE
+            ),
+            (*this)
+        )
+    );
+    
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        (*solidFraction)[i] = solidFrac[i];
+    }
+    solidFraction->write();
 }
+
 Foam::cutCellPolyMesh::cutCellPolyMesh
 (
     const IOobject& io,

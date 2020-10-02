@@ -3,23 +3,6 @@
 void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
 {
     Foam::Info<<"CUTCELLPOLYMESH"<<Foam::endl;    
-
-    /*
-    // set up the case
-    #include "setRootCase.H"
-
-    // create the run time object
-    Info<< "Create time\n" << endl;
-    Time runTime
-    (
-        Time::controlDictName,
-        args.rootPath(),
-        args.caseName()
-    );
-
-    // disable post-processing etc.
-    runTime.functionObjects().off();
-    */
     
     int testdegree = 2;
     scalarList knots;
@@ -35,20 +18,7 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
     controlPoints[0]=vector(1,0.5,0); controlPoints[1]=vector(1,0.5,1);    
     items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.9,1)));
 
-/*    
-    Foam::cutCellPolyMesh nurbsMesh
-    (
-        Foam::IOobject
-        (
-            Foam::polyMesh::defaultRegion,
-            runTime.timeName(),
-            runTime,
-            Foam::IOobject::MUST_READ
-        ),
-        items
-    );
-*/
-
+    std::unique_ptr<volScalarField> solidFraction;
             
     Foam::cutCellPolyMesh nurbsMesh
     (
@@ -60,21 +30,7 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
             Foam::IOobject::MUST_READ
             ),
         items,
-        1
-     );
-    
-    volScalarField solidFraction
-    (
-        Foam::IOobject
-        (
-            "solidFraction",
-            runTime.timeName(),
-            nurbsMesh,
-            IOobject::MUST_READ,
-            IOobject::AUTO_WRITE
-        ),
-        nurbsMesh
-    );
-
-     
+        runTime,
+        solidFraction
+     );     
 }

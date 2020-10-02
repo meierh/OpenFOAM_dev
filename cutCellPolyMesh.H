@@ -179,8 +179,8 @@ class cutCellPolyMesh   :   public fvMesh
         (
             const IOobject& io,
             List<std::shared_ptr<Nurbs>> Curves,
-            int help
-            //volScalarField& solidFraction
+            Time& runTime,
+            std::unique_ptr<volScalarField>& solidFraction
         );
         
         // Print Functions for debugg purposes
