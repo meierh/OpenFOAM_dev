@@ -150,6 +150,14 @@ class cutCellPolyMesh   :   public fvMesh
             //index of plus side cell of splitted cell or -1 if cell is not split
             labelList oldSplittedCellToNewPlusCell;
       //End
+            
+        //Data for solidFraction Computation
+            //index of faces for all cut cell faces
+            labelListList cutCellsMinusAndPlus;
+            // uncut cell to minus side cut cell face collection
+            labelList oldCellToMinusCutCell;
+            //uncut cell to plus side cut cell face collection
+            labelList oldCellToPlusCutCell;
         
         List<std::shared_ptr<Nurbs>> Curves;
 

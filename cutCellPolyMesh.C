@@ -1964,9 +1964,9 @@ void Foam::cutCellPolyMesh::createNewMeshData
         Info<<facePoints[j]<<"->";
     Info<<endl;
 */
-    labelListList cutCellsMinusAndPlus(0);
-    labelList oldCellToMinusCutCell(meshCells.size());
-    labelList oldCellToPlusCutCell(meshCells.size());
+    cutCellsMinusAndPlus = labelListList(0);
+    oldCellToMinusCutCell = labelList(meshCells.size());
+    oldCellToPlusCutCell = labelList(meshCells.size());
     
     Info<<"Insert Split cell faces"<<endl;
     // Compute List of new faces splitting old cells
@@ -2083,6 +2083,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
             
             if( cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].size() == 0 ||
                 cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size() == 0
+                )
             {
                 FatalErrorInFunction
                 << " Split face interior inserted but cell has no cut face."
@@ -2112,6 +2113,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
 
             if( cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].size() == 0 ||
                 cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size() == 0
+                )
             {
                 FatalErrorInFunction
                 << " Split face interior inserted but cell has no cut face."
@@ -2145,6 +2147,44 @@ void Foam::cutCellPolyMesh::createNewMeshData
             {
                 splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
                 splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                
+                if(cellsToSide_[neighbour[i]] == 0)
+                {
+                    if(cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].size() == 0)
+                    {
+                        FatalErrorInFunction
+                        << " Unsplit face interior inserted but cell has no cut face."
+                        << abort(FatalError);
+                    }
+                    cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].append
+                    (
+                        splitAndUnsplitFacesInterior.size()-1+addedCutFaces.size()
+                    );
+                }
+                else if(cellsToSide_[owner[i]] == 0)
+                {
+                    if(cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size() == 0)
+                    {
+                        FatalErrorInFunction
+                        << " Unsplit face interior inserted but cell has no cut face."
+                        << abort(FatalError);
+                    }
+                    cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].append
+                    (
+                        splitAndUnsplitFacesInterior.size()-1+addedCutFaces.size()
+                    );
+                }
+                
+                if( (cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].size() != 0 &&
+                    cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size() != 0)
+                    ||
+                    (cellsToSide_[neighbour[i]] == 0 && cellsToSide_[owner[i]] == 0)
+                    )                    
+                {
+                    FatalErrorInFunction
+                    << " Unsplit face interior can not be owner and neighboring a cut cell."
+                    << abort(FatalError);
+                }
             }
             else if(facesToSide_[i] == -1)
             {                
@@ -2156,7 +2196,47 @@ void Foam::cutCellPolyMesh::createNewMeshData
                 if(cellsToSide_[owner[i]] == 0)
                     splitAndUnsplitFaceInteriorOwner.append(oldCellsToAddedMinusSideCellIndex[owner[i]]);
                 else
-                    splitAndUnsplitFaceInteriorOwner.append(owner[i]);                
+                    splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+
+                if(cellsToSide_[neighbour[i]] == 0)
+                {
+                    if(cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].size() == 0)
+                    {
+                        FatalErrorInFunction
+                        << " Unsplit face interior inserted but cell has no cut face."
+                        << abort(FatalError);
+                    }
+                    cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].append
+                    (
+                        splitAndUnsplitFacesInterior.size()-1+addedCutFaces.size()
+                    );
+                }
+                else if(cellsToSide_[owner[i]] == 0)
+                {
+                    if(cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size() == 0)
+                    {
+                        FatalErrorInFunction
+                        << " Unsplit face interior inserted but cell has no cut face."
+                        << abort(FatalError);
+                    }
+                    cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].append
+                    (
+                        splitAndUnsplitFacesInterior.size()-1+addedCutFaces.size()
+                    );
+                }
+                
+                if( (cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].size() != 0 &&
+                    cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size() != 0)
+                    ||
+                    (cellsToSide_[neighbour[i]] == 0 && cellsToSide_[owner[i]] == 0)
+                    )                    
+                {
+                    FatalErrorInFunction
+                    << " Unsplit face interior can not be owner and neighboring a cut cell."
+                    << abort(FatalError);
+                }
+
+                
             }
             else
             {
@@ -2232,6 +2312,18 @@ void Foam::cutCellPolyMesh::createNewMeshData
             splitAndUnsplitFacesBoundary.append(sameCellFace);
             splitAndUnsplitFaceBoundaryNeighbor.append(-1);
             splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
+            
+            if(cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size() == 0)
+            {
+                FatalErrorInFunction
+                << " Split face interior inserted but cell has no cut face."
+                << abort(FatalError);
+            }
+            cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].append
+            (
+                splitAndUnsplitFacesBoundary.size()-1+
+                addedCutFaces.size()+splitAndUnsplitFacesInterior.size()
+            );
 
             /*
             Info<<"+New: ";
@@ -2245,6 +2337,18 @@ void Foam::cutCellPolyMesh::createNewMeshData
             splitAndUnsplitFacesBoundary.append(addedCellFace);
             splitAndUnsplitFaceBoundaryNeighbor.append(-1);
             splitAndUnsplitFaceBoundaryOwner.append(oldCellsToAddedMinusSideCellIndex[owner[i]]);
+            
+            if(cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size() == 0)
+            {
+                FatalErrorInFunction
+                << " Split face interior inserted but cell has no cut face."
+                << abort(FatalError);
+            }
+            cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].append
+            (
+                splitAndUnsplitFacesBoundary.size()-1+
+                addedCutFaces.size()+splitAndUnsplitFacesInterior.size()
+            );
             
             /*
             Info<<"+New: ";
@@ -2265,6 +2369,21 @@ void Foam::cutCellPolyMesh::createNewMeshData
             {
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
+                
+                if(cellsToSide_[owner[i]] == 0)
+                {
+                    if(cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size() == 0)
+                    {
+                        FatalErrorInFunction
+                        << " Unsplit face interior inserted but cell has no cut face."
+                        << abort(FatalError);
+                    }
+                    cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].append
+                    (
+                        splitAndUnsplitFacesBoundary.size()-1+
+                        addedCutFaces.size()+splitAndUnsplitFacesInterior.size()
+                    );
+                }
             }
             else if(facesToSide_[i] == -1)
             {
@@ -2273,7 +2392,22 @@ void Foam::cutCellPolyMesh::createNewMeshData
                 if(cellsToSide_[owner[i]] == 0)
                     splitAndUnsplitFaceBoundaryOwner.append(oldCellsToAddedMinusSideCellIndex[owner[i]]);
                 else
-                    splitAndUnsplitFaceBoundaryOwner.append(owner[i]);                
+                    splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
+                
+                if(cellsToSide_[owner[i]] == 0)
+                {
+                    if(cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size() == 0)
+                    {
+                        FatalErrorInFunction
+                        << " Unsplit face interior inserted but cell has no cut face."
+                        << abort(FatalError);
+                    }
+                    cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].append
+                    (
+                        splitAndUnsplitFacesBoundary.size()-1+
+                        addedCutFaces.size()+splitAndUnsplitFacesInterior.size()
+                    );
+                }
             }
             else
             {

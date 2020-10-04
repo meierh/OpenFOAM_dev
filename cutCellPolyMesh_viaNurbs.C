@@ -50,6 +50,13 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
 
     printMesh();
     
+    cellList cutCells(0);
+    for(int i=0;i<cutCellsMinusAndPlus.size();i++)
+    {
+        cell cutCell(Foam::clone(cutCellsMinusAndPlus[i]));
+        cutCells.append(cutCell);
+    }
+    
     pointField oldPoints(Foam::clone(this->points()));
     faceList oldFaces(Foam::clone(this->faces()));
     labelList oldOwners(Foam::clone(this->faceOwner()));
@@ -70,6 +77,27 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaces);
         Info<<"Old Cell "<<i<<": "<<oldCellVolume[i]<<endl;
     }
+    scalar wholeCellVol = 0;
+    scalar plusCutCellVol = 0;
+    scalar minusCutCellVol = 0;
+    for(int i=0;i<oldCells.size();i++)
+    {
+        wholeCellVol = oldCellVolume[i];
+        Info<<"Cell "<<i<<" Vol: "<<wholeCellVol<<endl;
+        if((oldCellToMinusCutCell[i] != -1 && oldCellToPlusCutCell[i] == -1) ||
+           (oldCellToMinusCutCell[i] == -1 && oldCellToPlusCutCell[i] != -1))
+            Info<<"Can not happeen"<<endl;
+        if(oldCellToPlusCutCell[i] != -1)
+        {
+            cell minusCell = cutCells[oldCellToMinusCutCell[i]];
+            cell plusCell = cutCells[oldCellToPlusCutCell[i]];
+            minusCutCellVol = minusCell.mag(oldPoints,faces);
+            plusCutCellVol = plusCell.mag(oldPoints,faces);
+            Info<<"\t MinusCell: "<<minusCutCellVol<<endl;
+            Info<<"\t PlusCell: "<<plusCutCellVol<<endl;
+        }
+    }
+    
       
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
