@@ -1090,7 +1090,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
     const cellList& meshCells = this->cells();
     //const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
-    //const edgeList& basisEdges = this->edges();
+    const edgeList& basisEdges = this->edges();
     
     nbrOfPrevFaces = basisFaces.size();
     
@@ -1157,7 +1157,9 @@ void Foam::cutCellPolyMesh::newMeshFaces
      */
     cellToFaces_ = labelListList(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
-    {    
+    {   
+        labelList facePoints;
+        labelList cellCutEdgeList = cellToEdges_[i];
         /* 1)
          * If a cell has no cut edges it is not cut by a face
          */
@@ -1166,20 +1168,27 @@ void Foam::cutCellPolyMesh::newMeshFaces
             continue;
         }
         
-        labelList facePoints;
-        labelList cellCutEdgeList = cellToEdges_[i];
-        
         /* 2)
-         * If a cell has one cut edge it is not cut. It should be impossible that a
-         * cell has two cut edges because the minimum cut face thinkable is a three edge
-         * face. Because of that a failure abort is called if these states appear 
+         * if cell has one cut edge thats an old edge that cell is not cut by a face
          */
-        if(cellCutEdgeList.size() <= 2)
+        if(cellToEdges_[i].size() == 1)
         {
+            if(cellToEdges_[i][0] < basisEdges.size())
+            {
+                continue;
+            }
+            else
+            /* 3)
+            * If a cell has one cut edge it is not cut. It should be impossible that a
+            * cell has two cut edges because the minimum cut face thinkable is a three edge
+            * face. Because of that a failure abort is called if these states appear 
+            */
+            {
             FatalErrorInFunction
             << "A cell cannot be cut by "<< cellCutEdgeList.size()
-            << " edges! "
+            << " edges! "<<"Cell is "<<i
             << abort(FatalError);
+            }
         }
         
         labelListList cellCutEdgeFacesList = labelListList(cellCutEdgeList.size());
@@ -2032,6 +2041,23 @@ void Foam::cutCellPolyMesh::createNewMeshData
             addedCutFacesNbr++;
         }
     }
+    
+    for(int i=0;i<oldCellToPlusCutCell.size();i++)
+    {
+        Info<<"Cell "<<i<<" has ";
+        if(oldCellToMinusCutCell[i] != -1 && oldCellToPlusCutCell[i] != -1)
+        {
+            Info<<
+            cutCellsMinusAndPlus[oldCellToMinusCutCell[i]].size()<<" minus cut faces and "<<
+            cutCellsMinusAndPlus[oldCellToPlusCutCell[i]].size()<<" plus cut faces"<<endl;
+        }
+        else
+        {
+            Info<<
+            oldCellToMinusCutCell[i]<<" and "<<
+            oldCellToPlusCutCell[i]<<endl;
+        }            
+    }
 
     
     Info<<"Insert split faces interior"<<endl;
@@ -2175,12 +2201,16 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     );
                 }
                 
-                if( (cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].size() != 0 &&
-                    cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size() != 0)
+                if( (oldCellToPlusCutCell[neighbour[i]] != -1 &&
+                     oldCellToPlusCutCell[owner[i]] != -1)
                     ||
                     (cellsToSide_[neighbour[i]] == 0 && cellsToSide_[owner[i]] == 0)
-                    )                    
+                    )
                 {
+                    Info<<"Neighbor "<<neighbour[i]<<" Index: "<<oldCellToPlusCutCell[neighbour[i]]<<
+                        " Size: "<<cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].size()<<endl;
+                    Info<<"Owner "<<owner[i]<<" Index: "<<oldCellToPlusCutCell[owner[i]]<<
+                        " Size: "<<cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size()<<endl;
                     FatalErrorInFunction
                     << " Unsplit face interior can not be owner and neighboring a cut cell."
                     << abort(FatalError);
@@ -2225,12 +2255,16 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     );
                 }
                 
-                if( (cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].size() != 0 &&
-                    cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size() != 0)
+                if( (oldCellToMinusCutCell[neighbour[i]] != -1 &&
+                     oldCellToMinusCutCell[owner[i]] != -1)
                     ||
                     (cellsToSide_[neighbour[i]] == 0 && cellsToSide_[owner[i]] == 0)
                     )                    
                 {
+                    Info<<"Neighbor "<<neighbour[i]<<" Index: "<<oldCellToMinusCutCell[neighbour[i]]<<
+                        " Size: "<<cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].size()<<endl;
+                    Info<<"Owner "<<owner[i]<<" Index: "<<oldCellToMinusCutCell[owner[i]]<<
+                        " Size: "<<cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size()<<endl;
                     FatalErrorInFunction
                     << " Unsplit face interior can not be owner and neighboring a cut cell."
                     << abort(FatalError);

@@ -15,8 +15,8 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
     weights = scalarList(2);
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
-    controlPoints[0]=vector(1,0.5,0); controlPoints[1]=vector(1,0.5,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.9,1)));
+    controlPoints[0]=vector(1,1,0); controlPoints[1]=vector(1,1,1);    
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,1,5)));
 
     std::unique_ptr<volScalarField> solidFraction;
             

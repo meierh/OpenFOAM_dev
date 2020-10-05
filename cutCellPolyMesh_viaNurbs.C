@@ -48,57 +48,74 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
     neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
 
-    printMesh();
+    //printMesh();
     
+    Info<<"a";
     cellList cutCells(0);
     for(int i=0;i<cutCellsMinusAndPlus.size();i++)
     {
         cell cutCell(Foam::clone(cutCellsMinusAndPlus[i]));
         cutCells.append(cutCell);
     }
+    Info<<cutCells.size();
+
+    const cellList& cellsLis = this->cells();
+    const faceList& faceList = this->faces();
+    const pointField& pointLis = this->points();
     
-    pointField oldPoints(Foam::clone(this->points()));
-    faceList oldFaces(Foam::clone(this->faces()));
-    labelList oldOwners(Foam::clone(this->faceOwner()));
-    labelList oldNeighbours(Foam::clone(this->faceNeighbour()));
-    const cellList& oldCells = this->cells();
-    const polyBoundaryMesh& oldboundMesh = this->boundaryMesh();
-    labelList oldPatchStarts(oldboundMesh.size());
-    labelList oldPatchSizes(oldboundMesh.size());
-    for(int i=0;i<oldboundMesh.size();i++)
-    {
-        oldPatchStarts[i] = oldboundMesh[i].start();
-        oldPatchSizes[i] = oldboundMesh[i].faceCentres().size();
-    }
-    
-    oldCellVolume = scalarList(oldCells.size());
+    Info<<"c";
+
+    oldCellVolume = scalarList(cellsLis.size());
     for(int i=0;i<oldCellVolume.size();i++)
     {
-        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaces);
+        oldCellVolume[i] = cellsLis[i].mag(pointLis,faceList);
         Info<<"Old Cell "<<i<<": "<<oldCellVolume[i]<<endl;
     }
+    
+    
     scalar wholeCellVol = 0;
     scalar plusCutCellVol = 0;
     scalar minusCutCellVol = 0;
-    for(int i=0;i<oldCells.size();i++)
+    for(int i=0;i<cellsLis.size();i++)
     {
         wholeCellVol = oldCellVolume[i];
         Info<<"Cell "<<i<<" Vol: "<<wholeCellVol<<endl;
         if((oldCellToMinusCutCell[i] != -1 && oldCellToPlusCutCell[i] == -1) ||
            (oldCellToMinusCutCell[i] == -1 && oldCellToPlusCutCell[i] != -1))
-            Info<<"Can not happeen"<<endl;
+            Info<<"Can not happen"<<endl;
         if(oldCellToPlusCutCell[i] != -1)
         {
+            Info<<oldCellToMinusCutCell[i]<<endl;
+            Info<<oldCellToPlusCutCell[i]<<endl;
+            
             cell minusCell = cutCells[oldCellToMinusCutCell[i]];
+            Info<<"\t MinusCell: ";
+            for(int i=0;i<minusCell.size();i++)
+                Info<<minusCell[i]<<" ";
+            Info<<endl;
+            
             cell plusCell = cutCells[oldCellToPlusCutCell[i]];
-            minusCutCellVol = minusCell.mag(oldPoints,faces);
-            plusCutCellVol = plusCell.mag(oldPoints,faces);
+            Info<<"\t PlusCell: ";
+            for(int i=0;i<plusCell.size();i++)
+                Info<<plusCell[i]<<" ";
+            Info<<endl;
+            
+            Info<<"Got cells"<<endl;
+            minusCutCellVol = minusCell.mag(newMeshPoints_,faces);
+            plusCutCellVol = plusCell.mag(newMeshPoints_,faces);
             Info<<"\t MinusCell: "<<minusCutCellVol<<endl;
             Info<<"\t PlusCell: "<<plusCutCellVol<<endl;
         }
     }
     
-      
+    scalarList cutCellVol(cutCells.size());
+    for(int i=0;i<cutCells.size();i++)
+    {
+        cutCellVol[i] = cutCells[i].mag(newMeshPoints_,faces);
+    }
+    
+    
+    /*
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -106,48 +123,39 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     patchSizes,
                     patchStarts,
                     true);
+    */
     
-    const cellList& newCells = this->cells();
-    Info<<"Size: "<<newCells.size()<<endl; 
-    newCellVolume = scalarList(newCells.size());
-    for(int i=0;i<newCellVolume.size();i++)
-    {
-        newCellVolume[i] = newCells[i].mag(this->points(),this->faces());
-        Info<<"Cell "<<i<<": "<<newCellVolume[i]<<endl;
-    }
+    printMesh();
     
     scalarList solidFrac(oldCellVolume.size());
     for(int i=0;i<oldCellVolume.size();i++)
     {
+        Info<<i<<endl;
         if(cellsToSide_[i] == 1)
             solidFrac[i] = 0;
         else if(cellsToSide_[i] == -1)
             solidFrac[i] = 1;
         else
-            solidFrac[i] = newCellVolume[oldSplittedCellToNewMinusCell[i]] / oldCellVolume[i];
+        {
+            scalar plusSideVol = cutCellVol[oldCellToPlusCutCell[i]];
+            Info<<plusSideVol<<endl;            
+            scalar minusSideVol = cutCellVol[oldCellToMinusCutCell[i]];
+            Info<<minusSideVol<<endl;
+            solidFrac[i] = minusSideVol / (plusSideVol+minusSideVol);
+        }
         
         Info<<"Cell "<<i<<" Partial: "<<solidFrac[i]<<endl;
     }
-    
-    resetPrimitives(Foam::clone(oldPoints),
-                    Foam::clone(oldFaces),
-                    Foam::clone(oldOwners),
-                    Foam::clone(oldNeighbours),
-                    oldPatchSizes,
-                    oldPatchStarts,
-                    true);
     
     //this->clearGeom();
     //this->clearOut();
     //this->clearPrimitives();
     
-    const cellList& newCell2 = this->cells();
-    Info<<"Size: "<<newCell2.size()<<endl; 
-    
     //printMesh();
-    this->write();
+    //this->write();
     //printMesh();
     //selfTestMesh();
+    
     
     solidFraction = std::unique_ptr<volScalarField>
     (
@@ -170,6 +178,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         (*solidFraction)[i] = solidFrac[i];
     }
     solidFraction->write();
+    
 }
 
 Foam::cutCellPolyMesh::cutCellPolyMesh
@@ -323,9 +332,9 @@ void Foam::cutCellPolyMesh::projectNurbsSurface()
         //Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
     }
     
-    //Info<<"Final point writing"<<endl;
+    Info<<"Final point writing"<<endl;
     for(int i=0;i<points.size();i++)
     {
-        //Info<<points[i]<<" "<<pointDist[i]<<endl;
+        Info<<points[i]<<" "<<pointDist[i]<<endl;
     }
 }
