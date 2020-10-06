@@ -99,24 +99,28 @@ void Foam::BsTree::traverseBsTree
 
 scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
 {
-    scalarList testPoints = nearestPoints(point);
-    if(testPoints.size() == 0)
+    Info<<"\tPoint: "<<point<<endl;
+    scalarList testU = nearestPoints(point);
+    if(testU.size() == 0)
         return Curve->min_U()-1;
     
-    /*
+    
     Info<<"BsTree nearest Points: ";
-    for(int i=0;i<testPoints.size();i++)
-        Info<<testPoints[i]<<endl;
-    */
+    for(int i=0;i<testU.size();i++)
+        Info<<testU[i]<<endl;
+    
     scalarList u_min_List(0);
     scalar u_min;
-    for(int i=0;i<testPoints.size();i++)
+    for(int i=0;i<testU.size();i++)
     {
-        u_min = Curve->newtonIterateNearestNeighbour(testPoints[i],point);
+        u_min = Curve->newtonIterateNearestNeighbour(testU[i],point);
         u_min_List.append(u_min);
-        while(u_min > testPoints[i])
+        while(i<testU.size() && u_min > testU[i])
+        {
             i++;
+        }
     }
+    Info<<"U_min: "<<u_min<<endl;
     scalarList u_min_Dist(0);
     for(int i=0;i<u_min_List.size();i++)
     {
@@ -132,5 +136,6 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
             u_min_min = u_min_List[i];
         }
     }
+    Info<<"\tRes: "<<u_min_min<<endl;
     return u_min_min;    
 }

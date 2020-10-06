@@ -462,7 +462,7 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
     scalar f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
     scalar epsilon = 1e-10;
     int iterations = 0;
-    //Info<<"It:0 f("<<u_0<<")="<<f<<endl;
+    Info<<"It:0 f("<<u_0<<")="<<f<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
     int hitMaxOrMinCounter = 0;
@@ -478,7 +478,7 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
         f = (point-C) && C_D1;
         f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
         u_0 = u_0 - (f/f_D1);
-        //Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
+        Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
         if(u_0 > max_U)
         {
             u_0 = max_U;
@@ -497,6 +497,7 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
             hitMaxOrMinCounter++;
         }
     }
+    Info<<"Res U: "<<u_0<<endl;
     return u_0;
 }
 

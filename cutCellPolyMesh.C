@@ -1227,6 +1227,10 @@ void Foam::cutCellPolyMesh::newMeshFaces
             }
             if(equalFace.size() == 0)
             {
+                Info<<"\nCell "<<i<<" is cut by ";
+                for(int i=0;i<cellCutEdgeList.size();i++)
+                    Info<<cellCutEdgeList[i]<<" ";
+                Info<<endl;
                 FatalErrorInFunction
                 << "Cell is cut by two old edges that do not"
                 << " share a face! This must not happen! "

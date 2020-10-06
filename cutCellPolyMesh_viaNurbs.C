@@ -256,7 +256,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         }
 
     }
-    printMesh();
+    //printMesh();
     
     const pointField& oldPoints = this->points();
     const faceList& oldFaceList = this->faces();
@@ -286,8 +286,9 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     agglomerateSmallCells_cutNeg(newCellVolume,oldCellVolume);
 
     //printMesh();
+    Info<<"Please write"<<endl;
     this->write();
-    //printMesh();
+    printMesh();
     //selfTestMesh();
 }
  
@@ -298,28 +299,36 @@ void Foam::cutCellPolyMesh::projectNurbsSurface()
     
     for(int i=0;i<points.size();i++)
     {
-        //Info<<"Worked on Point: "<<points[i]<<endl;
+        Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
         
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
         if(firstOrderNearNurbs->size() == 0)
+        {
+            pointDist[i] = 1;
+            Info<<"\tSkipped because far away"<<endl;
             continue;
-        //Info<<"Got list size:"<<firstOrderNearNurbs->size()<<endl;
+        }
+        Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
         
         scalarList distToNurbsSurface(0);
         scalarList paraToNurbsSurface(0);
+        bool outSideNurbsBox = false;
         for(int k=0;k<firstOrderNearNurbs->size();k++)
         {
             label thisNurbs = (*firstOrderNearNurbs)[k];
-            //Info<<"Index of nurbs:"<<thisNurbs<<endl;
             scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(points[i]);
+            Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
             if(thisNodePara < this->Curves[thisNurbs]->min_U())
             {
                 pointDist[i] = 1;
+                outSideNurbsBox = true;
                 continue;
             }
             paraToNurbsSurface.append(thisNodePara);
             distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,points[i]));
         }
+        if(outSideNurbsBox)
+            continue;
         
         scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
         for(int k=0;k<distToNurbsSurface.size();k++)
@@ -335,6 +344,6 @@ void Foam::cutCellPolyMesh::projectNurbsSurface()
     Info<<"Final point writing"<<endl;
     for(int i=0;i<points.size();i++)
     {
-        Info<<points[i]<<" "<<pointDist[i]<<endl;
+        Info<<i<<" "<<points[i]<<" "<<pointDist[i]<<endl;
     }
 }
