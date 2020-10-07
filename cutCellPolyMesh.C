@@ -2556,9 +2556,11 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     
     // Compute new cellIndexes for added cells
     labelList oldCellsToAddedMinusSideCellIndex(meshCells.size());
+    labelList deletedCells(meshCells.size());
     label addedCellIndex = 0;
     for(int i=0;i<meshCells.size();i++)
     {
+        deletedCells[i] = 0;
         if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
         {
             oldCellsToAddedMinusSideCellIndex[i] = addedCellIndex+oldCellsToAddedMinusSideCellIndex.size();
@@ -2567,6 +2569,8 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
             Info<<i<<"->"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
             addedCellIndex++;
         }
+        if(cellsToSide_[i] == -1)
+            deletedCells[i] = 1;
     }
     
 /*
@@ -2643,18 +2647,13 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     label addedSplitCellsInteriorNbr = 0;
     splitAndUnsplitFacesInterior = faceList(0);
     splitAndUnsplitFaceInteriorNeighbor = labelList(0);
-    splitAndUnsplitFaceInteriorOwner = labelList(0);    
+    splitAndUnsplitFaceInteriorOwner = labelList(0);
+    bool addedOneFace;
     for(int i=0;i<neighbour.size();i++)
     {
-        /*
-        Info<<"-Old: ";
-        pointField facePoints = meshFaces[i].points(combinedPoints);
-        for(int j=0;j<facePoints.size();j++)
-            Info<<facePoints[j]<<"->";
-        Info<<"owner:"<<owner[i];
-        Info<<" neighbour:"<<neighbour[i]<<endl;
-        */
+        Info<<"Face "<<i<<" size: "<<faceToEdges_[i].size()<<" on side: "<<facesToSide_[i]<<endl;
         
+        addedOneFace = false;
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             if(oldFacesToCutFaces_[i].size() != 2)
@@ -2684,19 +2683,25 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
             splitAndUnsplitFacesInterior.append(sameCellFace);
             splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
             splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+            addedOneFace = true;
             
             addedSplitCellsInteriorNbr++;
         }
         else
         {
+            Info<<"GonetoElse"<<endl;
+            // Interior uncut face on positive side is appended  without change
             if(facesToSide_[i] == 1)
             {
                 splitAndUnsplitFacesInterior.append(meshFaces[i]);
                 splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
                 splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                addedOneFace = true;
                 
                 addedSplitCellsInteriorNbr++;
+                Info<<"Inserted Split face"<<endl;
             }
+            // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
             {
                 FatalErrorInFunction
@@ -2704,10 +2709,10 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 << " This must not happen."
                 << abort(FatalError);
             }
-            
+            Info<<"Jumped"<<endl;
         }
-        
-        if(splitAndUnsplitFaceInteriorOwner[splitAndUnsplitFaceInteriorOwner.size()-1] == -1)
+        Info<<splitAndUnsplitFaceInteriorOwner.size()<<endl;
+        if(addedOneFace && splitAndUnsplitFaceInteriorOwner[splitAndUnsplitFaceInteriorOwner.size()-1] == -1)
         {
             FatalErrorInFunction
             << " Owner of face must not be -1 as happend in face "<<i
@@ -2866,6 +2871,64 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
             posPoints.append(
     }
     */
+    
+    //reduce for empty cells
+    labelList cellReductionNumb(meshCells.size());
+    label count = 0;
+    for(int i=0;i<cellReductionNumb.size();i++)
+    {
+        if(deletedCells[i] == 1)
+        {
+            count++;
+            cellReductionNumb[i] = -1;
+        }
+        else
+            cellReductionNumb[i] = count;
+    }
+    
+    for(int i=0;i<addedCutFaces.size();i++)
+    {
+        if(cellReductionNumb[addedCutFaceOwner[i]] != -1 &&
+           cellReductionNumb[addedCutFaceNeighbor[i]] != -1)
+        {
+            addedCutFaceOwner[i] -= cellReductionNumb[addedCutFaceOwner[i]];
+            addedCutFaceNeighbor[i] -= cellReductionNumb[addedCutFaceNeighbor[i]];
+        }
+        else
+        {
+            FatalErrorInFunction
+            << "Face neighbors or ownes deleted cell. This can not happen."
+            << abort(FatalError);
+        }
+    }
+    for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
+    {
+        if(cellReductionNumb[splitAndUnsplitFaceInteriorOwner[i]] != -1 &&
+           cellReductionNumb[splitAndUnsplitFaceInteriorNeighbor[i]] != -1)
+        {
+            splitAndUnsplitFaceInteriorOwner[i] -= cellReductionNumb[splitAndUnsplitFaceInteriorOwner[i]];
+            splitAndUnsplitFaceInteriorNeighbor[i] -= cellReductionNumb[splitAndUnsplitFaceInteriorNeighbor[i]];
+        }
+        else
+        {
+            FatalErrorInFunction
+            << "Face neighbors or ownes deleted cell. This can not happen."
+            << abort(FatalError);
+        }
+    }
+    for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++)
+    {
+        if(cellReductionNumb[splitAndUnsplitFaceBoundaryOwner[i]] != -1)
+        {
+            splitAndUnsplitFaceBoundaryOwner[i] -= cellReductionNumb[splitAndUnsplitFaceBoundaryOwner[i]];
+        }
+        else
+        {
+            FatalErrorInFunction
+            << "Face neighbors or ownes deleted cell. This can not happen."
+            << abort(FatalError);
+        }
+    }   
 }
 
 void Foam::cutCellPolyMesh::printNewMeshData
@@ -3480,20 +3543,20 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     
     std::unordered_set<label> cellReserved;
     
-    labelList mergeFaces = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,0,cellReserved);
+    labelList mergeFaceOfCell = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,0,cellReserved);
 
-    for(int i=0;i<mergeFaces.size();i++)
+    for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        Info<<"cell:"<<i<<" merged via face:"<<mergeFaces[i]<<endl;
+        Info<<"cell:"<<i<<" merged via face:"<<mergeFaceOfCell[i]<<endl;
     }
     
-    if(mergeFaces.size() == 0)
+    if(mergeFaceOfCell.size() == 0)
     {
         FatalErrorInFunction
         << "Agglomeration cell not found for all cells!"
         << abort(FatalError);  
     }
-    if(mergeFaces.size() != newCells.size())
+    if(mergeFaceOfCell.size() != newCells.size())
     {
         FatalErrorInFunction
         << "Agglomeration cell list size unequal to cell list size!"
@@ -3519,42 +3582,57 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         Info<<" and area:"<<newFaces_[i].mag(points)<<endl;
     }
     
+    labelList deletedCells(newCells.size());
+    for(int i=0;i<deletedCells.size();i++)
+    {
+        deletedCells[i] = 0;
+    }
     int countDeleteFaces = 0;
     for(int i=0;i<newCells.size();i++)
     {
-        if(mergeFaces[i] != -1)
+        if(mergeFaceOfCell[i] != -1)
         {
             countDeleteFaces++;
-            //label viaFace = mergeFaces[i];
+            //label viaFace = mergeFaceOfCell[i];
             label myCell = i;
             label mergedWithCell = -1;
-            if(owner[mergeFaces[i]] == i)
-                mergedWithCell = neighbour[mergeFaces[i]];
-            else if(neighbour[mergeFaces[i]] == i)
-                mergedWithCell = owner[mergeFaces[i]];
+            if(owner[mergeFaceOfCell[i]] == i)
+                mergedWithCell = neighbour[mergeFaceOfCell[i]];
+            else if(neighbour[mergeFaceOfCell[i]] == i)
+                mergedWithCell = owner[mergeFaceOfCell[i]];
             else
             {
                 FatalErrorInFunction
                 << "No Merge Cell found. That can not happen!"
                 << abort(FatalError);
             }
+            if(deletedCells[mergedWithCell] == 1)
+            {
+                FatalErrorInFunction
+                << "Cell is multiple times deleted!"
+                << abort(FatalError);
+            }
+            else
+            {
+                deletedCells[mergedWithCell] = 1;
+            }
 
-            newFaces_[mergeFaces[i]] = face(); // Only viable if empty face is doable
-            newOwner_[mergeFaces[i]] = -1;
-            if(mergeFaces[i] >= newNeighbour_.size())
+            newFaces_[mergeFaceOfCell[i]] = face(); // Only viable if empty face is doable
+            newOwner_[mergeFaceOfCell[i]] = -1;
+            if(mergeFaceOfCell[i] >= newNeighbour_.size())
             {
                 FatalErrorInFunction
                 << "Merge Face is has no neighbour that can not happen!"
                 << abort(FatalError);
             }
-            newNeighbour_[mergeFaces[i]] = -1;
+            newNeighbour_[mergeFaceOfCell[i]] = -1;
             
             labelList facesMyCell = newCells[myCell];
             labelList facesMergeCell = newCells[mergedWithCell];
             
             for(int k=0;k<facesMyCell.size();k++)
             {
-                if(facesMyCell[k] == mergeFaces[i])
+                if(facesMyCell[k] == mergeFaceOfCell[i])
                     continue;
 
                 if(owner[facesMyCell[k]] == myCell)
@@ -3570,7 +3648,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
             }
             for(int k=0;k<facesMergeCell.size();k++)
             {
-                if(facesMergeCell[k] == mergeFaces[i])
+                if(facesMergeCell[k] == mergeFaceOfCell[i])
                     continue;
                 
                 if(owner[facesMergeCell[k]] == mergedWithCell)
@@ -3651,6 +3729,49 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     {
         patchStarts[i] = boundMesh[i].start()-countDeleteFaces;
         patchSizes[i] = boundMesh[i].faceCentres().size();
+    }
+    
+    
+    labelList cellReductionNumb(newCells.size());
+    label count = 0;
+    for(int i=0;i<cellReductionNumb.size();i++)
+    {
+        if(deletedCells[i] == 1)
+        {
+            count++;
+            cellReductionNumb[i] = -1;
+        }
+        else
+            cellReductionNumb[i] = count;
+    }
+    
+    for(int i=0;i<newNeighbour__.size();i++)
+    {
+        if(cellReductionNumb[newOwner__[i]] != -1 &&
+           cellReductionNumb[newNeighbour__[i]] != -1)
+        {
+            newOwner__[i] -= cellReductionNumb[newOwner__[i]];
+            newNeighbour__[i] -= cellReductionNumb[newNeighbour__[i]];
+        }
+        else
+        {
+            FatalErrorInFunction
+            << "Face neighbors or ownes deleted cell. This can not happen."
+            << abort(FatalError);
+        }
+    }
+    for(int i=newNeighbour__.size();i<newFaces__.size();i++)
+    {
+        if(cellReductionNumb[newOwner__[i]] != -1)
+        {
+            newOwner__[i] -= cellReductionNumb[newOwner__[i]];
+        }
+        else
+        {
+            FatalErrorInFunction
+            << "Face neighbors or ownes deleted cell. This can not happen."
+            << abort(FatalError);
+        }
     }
     
     resetPrimitives(Foam::clone(points),
