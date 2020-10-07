@@ -268,6 +268,8 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
     }
     
+    testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
+    
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -288,7 +290,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     //printMesh();
     Info<<"Please write"<<endl;
     this->write();
-    printMesh();
+    //printMesh();
     //selfTestMesh();
 }
  

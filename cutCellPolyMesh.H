@@ -264,6 +264,16 @@ class cutCellPolyMesh   :   public fvMesh
             label count,
             std::unordered_set<label> cellReserved
         );
+        
+        //test data for new Mesh creation
+        void testNewMeshData
+        (
+            faceList& newFaces,
+            labelList& newFaceOwner,
+            labelList& newFaceNeighbor,
+            labelList& patchStarts,
+            labelList& patchSizes
+        );
 };
 void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);
 }

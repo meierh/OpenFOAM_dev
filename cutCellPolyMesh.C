@@ -3876,3 +3876,52 @@ labelList Foam::cutCellPolyMesh::searchDown
     }
 }
 
+void Foam::cutCellPolyMesh::testNewMeshData
+(
+    faceList& newFaces,
+    labelList& newFaceOwner,
+    labelList& newFaceNeighbor,
+    labelList& patchStarts,
+    labelList& patchSizes
+)
+{
+    Info<<"Face number:"<<newFaces.size()
+    <<" Owner number:"<<newFaceOwner.size()
+    <<" Neighbor number:"<<newFaceNeighbor.size()<<endl;
+    
+    if(newFaces.size() != newFaceOwner.size())
+    {
+        FatalErrorInFunction
+        <<"Face number:"<<newFaces.size()
+        <<" Owner number:"<<newFaceOwner.size()
+        <<" Neighbor number:"<<newFaceNeighbor.size()
+        << abort(FatalError);
+    }
+    bool boundaryFacesReached = false;
+    for(int i=0;i<newFaceOwner.size();i++)
+    {
+        if(newFaceOwner[i] == -1)
+        {       
+            FatalErrorInFunction
+            <<"Face "<<i<<" is owned by: -1"
+            << abort(FatalError);
+        }
+        if(boundaryFacesReached && newFaceNeighbor[i] != -1)
+        {
+            if(i-1>0 && i+1<newFaceOwner.size())
+            {
+                Info<<"Neighbour["<<i-1<<"]:"<<newFaceNeighbor[i-1]
+                <<" Neighbour["<<i<<"]:"<<newFaceNeighbor[i]
+                <<"Neighbour["<<i+1<<"]:"<<newFaceNeighbor[i+1]<<endl;
+            }
+            
+            FatalErrorInFunction
+            <<"Boundary face before inner face."
+            << abort(FatalError);
+        }
+        else if(!boundaryFacesReached && newFaceNeighbor[i] == -1)
+        {
+            boundaryFacesReached = true;
+        }
+    }    
+}
