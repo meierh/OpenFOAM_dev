@@ -268,11 +268,11 @@ class cutCellPolyMesh   :   public fvMesh
         //test data for new Mesh creation
         void testNewMeshData
         (
-            faceList& newFaces,
-            labelList& newFaceOwner,
-            labelList& newFaceNeighbor,
-            labelList& patchStarts,
-            labelList& patchSizes
+            const faceList& newFaces,
+            const labelList& newFaceOwner,
+            const labelList& newFaceNeighbor,
+            const labelList& patchStarts,
+            const labelList& patchSizes
         );
 };
 void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);

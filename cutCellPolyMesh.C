@@ -23,7 +23,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
                 FatalErrorInFunction
                 << " The cutCellPolyMesh must be defined with an empty boundary patch at the end."
                 << " Starting at: "<<this->nFaces()<<" (curr:"<<patchStarts.last()<<") and with the size: 0 ("<<patchSizes.last()<<")"
-                << abort(FatalError);
+                << exit(FatalError);
         }
     }
     
@@ -271,7 +271,7 @@ void Foam::cutCellPolyMesh::facesToSide
                 FatalErrorInFunction
                 << "A face cannot have neither postive,"
                 << " negative nor null points"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }
     }
@@ -324,7 +324,7 @@ void Foam::cutCellPolyMesh::facesToSide
                 FatalErrorInFunction
                 << "A face cannot have neither postive,"
                 << " negative nor null points"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }
     }
@@ -383,7 +383,7 @@ void Foam::cutCellPolyMesh::cellsToSide
                 FatalErrorInFunction
                 << "A face cannot have neither postive,"
                 << " negative nor null points"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }
     }
@@ -441,7 +441,7 @@ void Foam::cutCellPolyMesh::cellsToSide
                 FatalErrorInFunction
                 << "A face cannot have neither postive,"
                 << " negative nor null points"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }
     }
@@ -828,7 +828,7 @@ void Foam::cutCellPolyMesh::newMeshEdges
                 << "A face cannot have "<< thisFacePoints.size()
                 << " cut points while one or more "
                 << "cut points are not old points! "
-                << abort(FatalError);
+                << exit(FatalError);
             }
             bool allPointsBelongToOldEdges = true;
             for(int k=0;k<thisFacePoints.size();k++)
@@ -847,7 +847,7 @@ void Foam::cutCellPolyMesh::newMeshEdges
                 << "Face has "<< thisFacePoints.size()
                 << " cut points while one or more "
                 << "cut points are connected to the other ones! "
-                << abort(FatalError);
+                << exit(FatalError);
             }            
         }
         else if(thisFacePoints.size() == 2)
@@ -962,7 +962,7 @@ void Foam::cutCellPolyMesh::newMeshEdges
                     FatalErrorInFunction
                     << "Added Edge has  "<< edgeToFaces_[i].size()
                     << " neighboring faces instead of one neighboring face! "
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
                 label thisFace = edgeToFaces_[i][0];
                 Info<<"thisFace: "<<thisFace<<endl;
@@ -1130,7 +1130,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
             << "A face cannot have "<< facePoints.size()
             << " cut points while one or more "
             << "cut points are not old points! "
-            << abort(FatalError);
+            << exit(FatalError);
         }
         */
         bool isCutFace = true;
@@ -1181,13 +1181,13 @@ void Foam::cutCellPolyMesh::newMeshFaces
             /* 3)
             * If a cell has one cut edge it is not cut. It should be impossible that a
             * cell has two cut edges because the minimum cut face thinkable is a three edge
-            * face. Because of that a failure abort is called if these states appear 
+            * face. Because of that a failure exit is called if these states appear 
             */
             {
             FatalErrorInFunction
             << "A cell cannot be cut by "<< cellCutEdgeList.size()
             << " edges! "<<"Cell is "<<i
-            << abort(FatalError);
+            << exit(FatalError);
             }
         }
         
@@ -1223,7 +1223,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
                 FatalErrorInFunction
                 << "Two cut edges can not have "<< equalFace.size()
                 << " equal faces! "
-                << abort(FatalError);
+                << exit(FatalError);
             }
             if(equalFace.size() == 0)
             {
@@ -1234,7 +1234,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
                 FatalErrorInFunction
                 << "Cell is cut by two old edges that do not"
                 << " share a face! This must not happen! "
-                << abort(FatalError);
+                << exit(FatalError);
             }
             bool allCutEdgesSameFace = true;
             for(int k=2; k<cellCutEdgeFacesList.size();k++)
@@ -1254,7 +1254,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
                 << "Cell is cut by "<<cellCutEdgeFacesList.size()
                 << " old edges that do not"
                 << " share a face! This must not happen! "
-                << abort(FatalError);
+                << exit(FatalError);
             }
             
             cellToFaces_[i] = equalFace;
@@ -1571,7 +1571,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                     FatalErrorInFunction
                     << "First cut point is the last point of face. "
                     << "THis can not happen"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
                 
                 nextPoint = currFace.nextLabel((currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1);
@@ -1588,7 +1588,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 {
                     FatalErrorInFunction
                     << "Error: No Point matches in CutFace"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }                
             }
             // Cut point is added point
@@ -1639,7 +1639,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 {
                     FatalErrorInFunction
                     << "Error: No shared Edge found in Cut Cell Method"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
                 firstCutPoint = edgeToPoint_[sharedEdge];
                 //Info<<firstCutPoint<<endl;
@@ -1653,7 +1653,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 {
                     FatalErrorInFunction
                     << "Error: No Point matches in CutFace"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
                 //Info<<firstCutPoint<<endl;
             }
@@ -1662,7 +1662,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 FatalErrorInFunction
                 << "Next point is neither a cut point nor a point at the " 
                 << "other side of the cut."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             
             //Info<<firstCutPoint<<endl;
@@ -1763,7 +1763,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
                 {
                     FatalErrorInFunction
                     << "The starting point is added again. Something is wrong here."
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }                    
             }
             
@@ -2088,7 +2088,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                 FatalErrorInFunction
                 << " Splitted interior cell is cut into"<<oldFacesToCutFaces_[i].size()
                 << " faces instead of the expected 2."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
@@ -2117,7 +2117,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
             {
                 FatalErrorInFunction
                 << " Split face interior inserted but cell has no cut face."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].append
             (
@@ -2147,7 +2147,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
             {
                 FatalErrorInFunction
                 << " Split face interior inserted but cell has no cut face."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].append
             (
@@ -2184,7 +2184,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     {
                         FatalErrorInFunction
                         << " Unsplit face interior inserted but cell has no cut face."
-                        << abort(FatalError);
+                        << exit(FatalError);
                     }
                     cutCellsMinusAndPlus[oldCellToPlusCutCell[neighbour[i]]].append
                     (
@@ -2197,7 +2197,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     {
                         FatalErrorInFunction
                         << " Unsplit face interior inserted but cell has no cut face."
-                        << abort(FatalError);
+                        << exit(FatalError);
                     }
                     cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].append
                     (
@@ -2217,7 +2217,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                         " Size: "<<cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].size()<<endl;
                     FatalErrorInFunction
                     << " Unsplit face interior can not be owner and neighboring a cut cell."
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
             }
             else if(facesToSide_[i] == -1)
@@ -2238,7 +2238,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     {
                         FatalErrorInFunction
                         << " Unsplit face interior inserted but cell has no cut face."
-                        << abort(FatalError);
+                        << exit(FatalError);
                     }
                     cutCellsMinusAndPlus[oldCellToMinusCutCell[neighbour[i]]].append
                     (
@@ -2251,7 +2251,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     {
                         FatalErrorInFunction
                         << " Unsplit face interior inserted but cell has no cut face."
-                        << abort(FatalError);
+                        << exit(FatalError);
                     }
                     cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].append
                     (
@@ -2271,7 +2271,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                         " Size: "<<cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].size()<<endl;
                     FatalErrorInFunction
                     << " Unsplit face interior can not be owner and neighboring a cut cell."
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
 
                 
@@ -2281,7 +2281,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
                 << " This must not happen."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             
             /*
@@ -2299,7 +2299,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
         {
             FatalErrorInFunction
             << " Owner of face must not be -1 as happend in face "<<i
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }
 
@@ -2355,7 +2355,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
             {
                 FatalErrorInFunction
                 << " Split face interior inserted but cell has no cut face."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].append
             (
@@ -2380,7 +2380,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
             {
                 FatalErrorInFunction
                 << " Split face interior inserted but cell has no cut face."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].append
             (
@@ -2414,7 +2414,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     {
                         FatalErrorInFunction
                         << " Unsplit face interior inserted but cell has no cut face."
-                        << abort(FatalError);
+                        << exit(FatalError);
                     }
                     cutCellsMinusAndPlus[oldCellToPlusCutCell[owner[i]]].append
                     (
@@ -2438,7 +2438,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     {
                         FatalErrorInFunction
                         << " Unsplit face interior inserted but cell has no cut face."
-                        << abort(FatalError);
+                        << exit(FatalError);
                     }
                     cutCellsMinusAndPlus[oldCellToMinusCutCell[owner[i]]].append
                     (
@@ -2452,7 +2452,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
                 << " This must not happen."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             
             /*
@@ -2661,7 +2661,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 FatalErrorInFunction
                 << " Splitted interior cell is cut into"<<oldFacesToCutFaces_[i].size()
                 << " faces instead of the expected 2."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
@@ -2707,7 +2707,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
                 << " This must not happen."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             Info<<"Jumped"<<endl;
         }
@@ -2716,7 +2716,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
         {
             FatalErrorInFunction
             << " Owner of face must not be -1 as happend in face "<<i
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }
 
@@ -2798,7 +2798,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
                 FatalErrorInFunction
                 << "A face with the side: "<<facesToSide_[i]<<" was not treated."
                 << " This must not happen."
-                << abort(FatalError);
+                << exit(FatalError);
             }
             
             /*
@@ -2898,7 +2898,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
         {
             FatalErrorInFunction
             << "Face neighbors or ownes deleted cell. This can not happen."
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }
     for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
@@ -2913,7 +2913,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
         {
             FatalErrorInFunction
             << "Face neighbors or ownes deleted cell. This can not happen."
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }
     for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++)
@@ -2926,7 +2926,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
         {
             FatalErrorInFunction
             << "Face neighbors or ownes deleted cell. This can not happen."
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }   
 }
@@ -3110,7 +3110,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
                 
                 FatalErrorInFunction
                 << "Face must not have a concave shape!"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }
         
@@ -3159,7 +3159,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
                 
                 FatalErrorInFunction
                 << "Face  has a centre thats not strictly inside!"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }
         
@@ -3186,7 +3186,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
                     FatalErrorInFunction
                     << "Face had a double point!"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
             }
         }        
@@ -3207,7 +3207,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
             FatalErrorInFunction
             << "Face has negative area!"
-            << abort(FatalError); 
+            << exit(FatalError); 
         }
         
         //Test if the specified owner of each face is the actual owner
@@ -3235,7 +3235,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
             FatalErrorInFunction
             << "Is listed as owned by "<<ownerCell<<" but this cell does not have this face!"
-            << abort(FatalError); 
+            << exit(FatalError); 
         }
         
         //Test if the specified neighbour of each face is the actual neighbour
@@ -3265,7 +3265,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
                 FatalErrorInFunction
                 << "Is listed as neighbouring "<<neighbourCell<<" but this cell does not have this face!"
-                << abort(FatalError); 
+                << exit(FatalError); 
             }
         }
         
@@ -3287,7 +3287,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             FatalErrorInFunction
             <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
             <<" They must have a opposite direction"
-            << abort(FatalError); 
+            << exit(FatalError); 
         }
         
         if(i<neighbour.size())
@@ -3310,7 +3310,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
                 FatalErrorInFunction
                 <<"Normal vector is "<<normalFace<<" while faceCentreToNeighbourCentre is "<<centreToNeighbourCentre<<"!"
                 <<" They must have the same direction"
-                << abort(FatalError);
+                << exit(FatalError);
             }
         }      
     }
@@ -3335,7 +3335,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
             FatalErrorInFunction
             << "Cell cannot have Volume smaller than zero! "
-            << abort(FatalError);
+            << exit(FatalError);
         }
         if(mag == 0 && cellsToSide_[i] != -1)
         {
@@ -3349,7 +3349,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
             
             FatalErrorInFunction
             << "Cell cannot have Volume equal zero while being on side:"<<cellsToSide_[i]
-            << abort(FatalError);
+            << exit(FatalError);
         }
         
         
@@ -3373,7 +3373,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
                 
                 FatalErrorInFunction
                 << "Cell Face "<<a<<" has a normal "<<thisFaceNormal<<" but cellCentreToFaceCentre is "<<thisFaceCentre-cellCentre
-                << abort(FatalError);                
+                << exit(FatalError);                
             }
         }
     }
@@ -3455,7 +3455,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                     {
                         FatalErrorInFunction
                         << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
-                        << abort(FatalError);  
+                        << exit(FatalError);  
                     }
                     Info<<endl<<"\t"<<newCells[i][k]<<"("<<k<<")->"<<neighbourCell<<",";
                     neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
@@ -3545,6 +3545,28 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     
     labelList mergeFaceOfCell = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,0,cellReserved);
 
+    std::unordered_set<label> usedFace;
+    for(int i=0;i<mergeFaceOfCell.size();i++)
+    {
+        if(mergeFaceOfCell[i] == -1)
+            continue;
+        
+        if(usedFace.find(mergeFaceOfCell[i]) == usedFace.end())
+            usedFace.insert(mergeFaceOfCell[i]);
+        else
+        {
+            label fc = mergeFaceOfCell[i];
+            label wnr = owner[fc];
+            label nghbr = neighbour[fc];
+            
+            Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
+            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr]<<endl;
+            FatalErrorInFunction
+            << "Merge Face used twice!"
+            << exit(FatalError);  
+        }
+    }
+    
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
         Info<<"cell:"<<i<<" merged via face:"<<mergeFaceOfCell[i]<<endl;
@@ -3554,13 +3576,13 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     {
         FatalErrorInFunction
         << "Agglomeration cell not found for all cells!"
-        << abort(FatalError);  
+        << exit(FatalError);  
     }
     if(mergeFaceOfCell.size() != newCells.size())
     {
         FatalErrorInFunction
         << "Agglomeration cell list size unequal to cell list size!"
-        << abort(FatalError);  
+        << exit(FatalError);  
     }    
     
     // Remove agglomerated cell with too low volume for merging
@@ -3580,6 +3602,13 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         Info<<" with centre:"<<newFaces_[i].centre(points);
         Info<<" and normal vector:"<<newFaces_[i].normal(points);
         Info<<" and area:"<<newFaces_[i].mag(points)<<endl;
+        
+        if(owner[i] == -1)
+        {
+            FatalErrorInFunction
+            << "Cell owner is -1"
+            << exit(FatalError);
+        }
     }
     
     labelList deletedCells(newCells.size());
@@ -3604,13 +3633,13 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
             {
                 FatalErrorInFunction
                 << "No Merge Cell found. That can not happen!"
-                << abort(FatalError);
+                << exit(FatalError);
             }
             if(deletedCells[mergedWithCell] == 1)
             {
                 FatalErrorInFunction
                 << "Cell is multiple times deleted!"
-                << abort(FatalError);
+                << exit(FatalError);
             }
             else
             {
@@ -3618,12 +3647,18 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
             }
 
             newFaces_[mergeFaceOfCell[i]] = face(); // Only viable if empty face is doable
+            if(newOwner_[mergeFaceOfCell[i]] == -1)
+            {
+                FatalErrorInFunction
+                << "Deletion Face has already owner -1!"
+                << exit(FatalError);
+            }
             newOwner_[mergeFaceOfCell[i]] = -1;
             if(mergeFaceOfCell[i] >= newNeighbour_.size())
             {
                 FatalErrorInFunction
                 << "Merge Face is has no neighbour that can not happen!"
-                << abort(FatalError);
+                << exit(FatalError);
             }
             newNeighbour_[mergeFaceOfCell[i]] = -1;
             
@@ -3643,7 +3678,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                 {
                     FatalErrorInFunction
                     << "Face of merging cells is neither in owner nor in neighbour cell!"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }
             }
             for(int k=0;k<facesMergeCell.size();k++)
@@ -3659,7 +3694,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                 {
                     FatalErrorInFunction
                     << "Face of merging cells is neither in owner nor in neighbour cell!"
-                    << abort(FatalError);
+                    << exit(FatalError);
                 }                    
             }            
         }
@@ -3689,20 +3724,45 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
     labelList newNeighbour__(newNeighbour_.size()-countDeleteFaces);
     Info<<"Created Data Struc"<<endl;
     
-    int reduction = 0;
-    for(int i = 0;i<newFaces_.size()-reduction;i++)
-    {
-        Info<<"Move "<<i<<" of "<<newFaces_.size()-reduction<<endl;
+    int countDel = 0;
+    for(int i=0;i<newFaces_.size();i++)
         if(newOwner_[i] == -1)
-            reduction++;
+            countDel++;
         
-        
-        newFaces__[i] = newFaces_[i+reduction];
-        newOwner__[i] = newOwner_[i+reduction];
-        if(i < newNeighbour_.size()-reduction)
-            newNeighbour__[i] = newNeighbour_[i+reduction];
+    if(countDel != countDeleteFaces)
+    {
+        FatalErrorInFunction
+        << countDel<<"!="<<countDeleteFaces
+        << exit(FatalError);
     }
     
+    int insertCounter = 0;
+    for(int i = 0;i<newFaces_.size();i++)
+    {
+        Info<<"Move "<<i<<" of "<<newFaces_.size()<<" to "<<insertCounter
+        <<"/"<<newFaces_.size()-countDeleteFaces<<
+        "-"<<newOwner_.size()-countDeleteFaces<<endl;
+        if(newOwner_[i] != -1)
+        {
+            Info<<"0"<<endl;
+            newFaces__[insertCounter] = newFaces_[i];
+            Info<<"1"<<endl;
+            newOwner__[insertCounter] = newOwner_[i];
+            Info<<"2"<<endl;
+            if(newOwner__[insertCounter] == -1)
+            {            
+                FatalErrorInFunction
+                << "newOwner["<<insertCounter<<"]: "<<newOwner__[insertCounter]
+                <<" from "<<newOwner_[i]
+                << exit(FatalError);
+            }
+            Info<<"3"<<endl;
+            if(i < newNeighbour_.size())
+                newNeighbour__[insertCounter] = newNeighbour_[i];
+            insertCounter++;
+        }
+    }
+    Info<<"End"<<endl;
     for(int i=0;i<newFaces__.size();i++)
     {
         Info<<"Face:"<<i<<" Owner:"<<newOwner__[i]<<" ";
@@ -3720,6 +3780,12 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         }
         else
             Info<<endl;
+        if(newOwner__[i] == -1)
+        {            
+            FatalErrorInFunction
+            << "Stop."
+            << exit(FatalError);
+        }
     }
     
     const polyBoundaryMesh& boundMesh = this->boundaryMesh();
@@ -3750,29 +3816,52 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
         if(cellReductionNumb[newOwner__[i]] != -1 &&
            cellReductionNumb[newNeighbour__[i]] != -1)
         {
+            int temp = newOwner__[i];
             newOwner__[i] -= cellReductionNumb[newOwner__[i]];
+            if(newOwner__[i] == -1)
+            {
+                FatalErrorInFunction
+                << "Owner original "<<temp<<endl
+                << "newOwner "<<newOwner__[i]<<endl
+                << "because of reduction "<<cellReductionNumb[temp]
+                << exit(FatalError);
+            }
             newNeighbour__[i] -= cellReductionNumb[newNeighbour__[i]];
         }
         else
         {
+            Info<<"newOwner__["<<i<<"]:"<<cellReductionNumb[newOwner__[i]]<<endl
+            <<"newNeighbour__["<<i<<"]:"<<cellReductionNumb[newNeighbour__[i]]<<endl;
+            
             FatalErrorInFunction
             << "Face neighbors or ownes deleted cell. This can not happen."
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }
     for(int i=newNeighbour__.size();i<newFaces__.size();i++)
     {
         if(cellReductionNumb[newOwner__[i]] != -1)
         {
+            int temp = newOwner__[i];
             newOwner__[i] -= cellReductionNumb[newOwner__[i]];
+            if(newOwner__[i] == -1)
+            {
+                FatalErrorInFunction
+                << "Owner original "<<temp<<endl
+                << "newOwner "<<newOwner__[i]<<endl
+                << "because of reduction "<<cellReductionNumb[temp]
+                << exit(FatalError);
+            }
         }
         else
         {
             FatalErrorInFunction
             << "Face neighbors or ownes deleted cell. This can not happen."
-            << abort(FatalError);
+            << exit(FatalError);
         }
     }
+
+    testNewMeshData(newFaces__,newOwner__,newNeighbour__,patchStarts,patchSizes);
     
     resetPrimitives(Foam::clone(points),
                     Foam::clone(newFaces__),
@@ -3798,8 +3887,9 @@ labelList Foam::cutCellPolyMesh::searchDown
     if(count < possibleMergeCells.size()-1)
     {
         Info<<" in first";
-        if(mergeNecessary[count])
+        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
         {
+            cellReserved.insert(count);
             Info<<" merge"<<endl;
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
@@ -3849,8 +3939,9 @@ labelList Foam::cutCellPolyMesh::searchDown
     else
     {
         Info<<" in second";
-        if(mergeNecessary[count])
+        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
         {
+            cellReserved.insert(count);
             Info<<" merge"<<endl;
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
@@ -3878,11 +3969,11 @@ labelList Foam::cutCellPolyMesh::searchDown
 
 void Foam::cutCellPolyMesh::testNewMeshData
 (
-    faceList& newFaces,
-    labelList& newFaceOwner,
-    labelList& newFaceNeighbor,
-    labelList& patchStarts,
-    labelList& patchSizes
+    const faceList& newFaces,
+    const labelList& newFaceOwner,
+    const labelList& newFaceNeighbor,
+    const labelList& patchStarts,
+    const labelList& patchSizes
 )
 {
     Info<<"Face number:"<<newFaces.size()
@@ -3895,7 +3986,7 @@ void Foam::cutCellPolyMesh::testNewMeshData
         <<"Face number:"<<newFaces.size()
         <<" Owner number:"<<newFaceOwner.size()
         <<" Neighbor number:"<<newFaceNeighbor.size()
-        << abort(FatalError);
+        << exit(FatalError);
     }
     bool boundaryFacesReached = false;
     for(int i=0;i<newFaceOwner.size();i++)
@@ -3903,25 +3994,36 @@ void Foam::cutCellPolyMesh::testNewMeshData
         if(newFaceOwner[i] == -1)
         {       
             FatalErrorInFunction
-            <<"Face "<<i<<" is owned by: -1"
-            << abort(FatalError);
+            <<"Face "<<i<<" is owned by: -1 "
+            <<"while neighbour is "<<newFaceNeighbor[i]
+            << exit(FatalError);
         }
-        if(boundaryFacesReached && newFaceNeighbor[i] != -1)
+        if(i<newFaceNeighbor.size())
         {
-            if(i-1>0 && i+1<newFaceOwner.size())
+            if(newFaceOwner[i] == newFaceNeighbor[i])
             {
-                Info<<"Neighbour["<<i-1<<"]:"<<newFaceNeighbor[i-1]
-                <<" Neighbour["<<i<<"]:"<<newFaceNeighbor[i]
-                <<"Neighbour["<<i+1<<"]:"<<newFaceNeighbor[i+1]<<endl;
+                FatalErrorInFunction
+                <<"Face "<<i<<" is owned by: "<<newFaceOwner[i]
+                <<"while neighbour is "<<newFaceNeighbor[i]
+                << exit(FatalError);
             }
             
-            FatalErrorInFunction
-            <<"Boundary face before inner face."
-            << abort(FatalError);
-        }
-        else if(!boundaryFacesReached && newFaceNeighbor[i] == -1)
-        {
-            boundaryFacesReached = true;
+            if(boundaryFacesReached && newFaceNeighbor[i] != -1)
+            {
+                if(i-1>0 && i+1<newFaceOwner.size())
+                {
+                    Info<<"Neighbour["<<i-1<<"]:"<<newFaceNeighbor[i-1]
+                    <<" Neighbour["<<i<<"]:"<<newFaceNeighbor[i]
+                    <<" Neighbour["<<i+1<<"]:"<<newFaceNeighbor[i+1]<<endl;
+                }            
+                FatalErrorInFunction
+                <<"Boundary face before inner face."
+                << exit(FatalError);
+            }
+            else if(!boundaryFacesReached && newFaceNeighbor[i] == -1)
+            {
+                boundaryFacesReached = true;
+            }
         }
     }    
 }
