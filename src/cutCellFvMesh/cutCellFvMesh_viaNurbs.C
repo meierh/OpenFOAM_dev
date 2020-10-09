@@ -1,6 +1,6 @@
-#include "cutCellPolyMesh.H"
+#include "cutCellFvMesh.H"
 
-Foam::cutCellPolyMesh::cutCellPolyMesh
+Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
     List<std::shared_ptr<Nurbs>> Curves,
@@ -181,7 +181,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     
 }
 
-Foam::cutCellPolyMesh::cutCellPolyMesh
+Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
     List<std::shared_ptr<Nurbs>> Curves,
@@ -295,7 +295,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     //selfTestMesh();
 }
  
-void Foam::cutCellPolyMesh::projectNurbsSurface()
+void Foam::cutCellFvMesh::projectNurbsSurface()
 {
     const pointField& points = this->points();
     pointDist = scalarList(points.size());

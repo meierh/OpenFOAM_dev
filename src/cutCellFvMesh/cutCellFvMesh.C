@@ -1,6 +1,6 @@
-#include "cutCellPolyMesh.H"
+#include "cutCellFvMesh.H"
 
-Foam::cutCellPolyMesh::cutCellPolyMesh
+Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
     std::function<scalar(const vector)> levelSet,
@@ -21,7 +21,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
         if(patchStarts.last() != this->nFaces() || patchSizes.last() != 0)
         {
                 FatalErrorInFunction
-                << " The cutCellPolyMesh must be defined with an empty boundary patch at the end."
+                << " The cutCellFvMesh must be defined with an empty boundary patch at the end."
                 << " Starting at: "<<this->nFaces()<<" (curr:"<<patchStarts.last()<<") and with the size: 0 ("<<patchSizes.last()<<")"
                 << exit(FatalError);
         }
@@ -110,7 +110,7 @@ Foam::cutCellPolyMesh::cutCellPolyMesh
     printMesh();
 }
 
-void Foam::cutCellPolyMesh::pointsToSide
+void Foam::cutCellFvMesh::pointsToSide
 (
 )
 {
@@ -131,7 +131,7 @@ void Foam::cutCellPolyMesh::pointsToSide
     this->pointsToSide_ = pointsToSide;
 }
 
-void Foam::cutCellPolyMesh::pointsToSide
+void Foam::cutCellFvMesh::pointsToSide
 (
     const pointField& points
 )
@@ -153,7 +153,7 @@ void Foam::cutCellPolyMesh::pointsToSide
     this->pointsToSide_ = pointsToSide;
 }
 
-void Foam::cutCellPolyMesh::edgesToSide
+void Foam::cutCellFvMesh::edgesToSide
 (
 )
 {
@@ -189,7 +189,7 @@ void Foam::cutCellPolyMesh::edgesToSide
     this->edgesToSide_ = edgesToSide;
 }
 
-void Foam::cutCellPolyMesh::edgesToSide
+void Foam::cutCellFvMesh::edgesToSide
 (
     const edgeList& edges
 )
@@ -225,7 +225,7 @@ void Foam::cutCellPolyMesh::edgesToSide
     this->edgesToSide_ = edgesToSide;
 }
 
-void Foam::cutCellPolyMesh::facesToSide
+void Foam::cutCellFvMesh::facesToSide
 (
 )
 {
@@ -278,7 +278,7 @@ void Foam::cutCellPolyMesh::facesToSide
     this->facesToSide_ = facesToSide;
 }
 
-void Foam::cutCellPolyMesh::facesToSide
+void Foam::cutCellFvMesh::facesToSide
 (
     const faceList& faces
 )
@@ -331,7 +331,7 @@ void Foam::cutCellPolyMesh::facesToSide
     this->facesToSide_ = facesToSide;
 }
 
-void Foam::cutCellPolyMesh::cellsToSide
+void Foam::cutCellFvMesh::cellsToSide
 (
 )
 {
@@ -390,7 +390,7 @@ void Foam::cutCellPolyMesh::cellsToSide
     this->cellsToSide_ = cellsToSide;
 }
 
-void Foam::cutCellPolyMesh::cellsToSide
+void Foam::cutCellFvMesh::cellsToSide
 (
     const cellList& cells
 )
@@ -448,7 +448,7 @@ void Foam::cutCellPolyMesh::cellsToSide
     this->cellsToSide_ = cellsToSide;
 }
 
-void Foam::cutCellPolyMesh::projectLevelSet()
+void Foam::cutCellFvMesh::projectLevelSet()
 {
     const pointField& points = this->points();
     pointDist = scalarList(points.size());
@@ -459,7 +459,7 @@ void Foam::cutCellPolyMesh::projectLevelSet()
     }
 }
 
-void Foam::cutCellPolyMesh::newMeshPoints
+void Foam::cutCellFvMesh::newMeshPoints
 (
 )
 {
@@ -639,7 +639,7 @@ void Foam::cutCellPolyMesh::newMeshPoints
     }
 }
 
-void Foam::cutCellPolyMesh::printAddedPoints
+void Foam::cutCellFvMesh::printAddedPoints
 (
 )
 {
@@ -757,7 +757,7 @@ void Foam::cutCellPolyMesh::printAddedPoints
     */    
 }
 
-void Foam::cutCellPolyMesh::newMeshEdges
+void Foam::cutCellFvMesh::newMeshEdges
 (
 )
 {
@@ -1021,7 +1021,7 @@ void Foam::cutCellPolyMesh::newMeshEdges
     Info<<"cell to edge done"<<endl;
 }
 
-void Foam::cutCellPolyMesh::printAddedEdges
+void Foam::cutCellFvMesh::printAddedEdges
 (
 )
 {
@@ -1082,7 +1082,7 @@ void Foam::cutCellPolyMesh::printAddedEdges
     }    
 }
 
-void Foam::cutCellPolyMesh::newMeshFaces
+void Foam::cutCellFvMesh::newMeshFaces
 (
 )
 {
@@ -1374,7 +1374,7 @@ void Foam::cutCellPolyMesh::newMeshFaces
     Info<<"End adding faces"<<endl;
 }
 
-void Foam::cutCellPolyMesh::printAddedFaces
+void Foam::cutCellFvMesh::printAddedFaces
 (
 )
 {
@@ -1444,7 +1444,7 @@ void Foam::cutCellPolyMesh::printAddedFaces
     } 
 }
 
-void Foam::cutCellPolyMesh::cutOldFaces
+void Foam::cutCellFvMesh::cutOldFaces
 (
 )
 {
@@ -1864,7 +1864,7 @@ void Foam::cutCellPolyMesh::cutOldFaces
     
 }
 
-void Foam::cutCellPolyMesh::printCutFaces
+void Foam::cutCellFvMesh::printCutFaces
 (
 )
 {
@@ -1903,7 +1903,7 @@ void Foam::cutCellPolyMesh::printCutFaces
     } 
 }
 
-void Foam::cutCellPolyMesh::createNewMeshData
+void Foam::cutCellFvMesh::createNewMeshData
 (
 )
 {
@@ -2518,7 +2518,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
     }
 }
 
-void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
+void Foam::cutCellFvMesh::createNewMeshData_cutNeg
 (
 )
 {
@@ -2942,7 +2942,7 @@ void Foam::cutCellPolyMesh::createNewMeshData_cutNeg
     }   
 }
 
-void Foam::cutCellPolyMesh::printNewMeshData
+void Foam::cutCellFvMesh::printNewMeshData
 (
 )
 {
@@ -3011,7 +3011,7 @@ void Foam::cutCellPolyMesh::printNewMeshData
     
 }
 
-void Foam::cutCellPolyMesh::printMesh
+void Foam::cutCellFvMesh::printMesh
 (
 )
 {
@@ -3068,7 +3068,7 @@ vector crossProd(const vector& v1, const vector& v2)
 }
 
 
-void Foam::cutCellPolyMesh::selfTestMesh()
+void Foam::cutCellFvMesh::selfTestMesh()
 {  
     Info<<"START MESH SELF TEST";
     const cellList& meshCells = this->cells();
@@ -3392,7 +3392,7 @@ void Foam::cutCellPolyMesh::selfTestMesh()
 
 }
 
-void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
+void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
 (
     scalarList& newCellVolume,
     scalarList& oldCellVolume,
@@ -3883,7 +3883,7 @@ void Foam::cutCellPolyMesh::agglomerateSmallCells_cutNeg
                     true);    
 }
 
-labelList Foam::cutCellPolyMesh::searchDown
+labelList Foam::cutCellFvMesh::searchDown
 (
     scalarListList& possibleMergeFaceArea,
     labelListList& possibleMergeFaces,
@@ -3978,7 +3978,7 @@ labelList Foam::cutCellPolyMesh::searchDown
     }
 }
 
-void Foam::cutCellPolyMesh::testNewMeshData
+void Foam::cutCellFvMesh::testNewMeshData
 (
     const faceList& newFaces,
     const labelList& newFaceOwner,

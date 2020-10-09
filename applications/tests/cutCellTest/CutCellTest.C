@@ -31,7 +31,7 @@ Description
 #include <memory>
 
 #include "fvCFD.H"
-#include "cutCellPolyMesh.H"
+#include "cutCellFvMesh.H"
 #include "Nurbs.H"
 #include "KdTree.H"
 #include "BsTree.H"
@@ -44,7 +44,7 @@ void UnitTests(int argc, char *argv[],Time& runTime)
     UnitTest_Nurbs();
     UnitTest_KdTree();
     UnitTest_BsTree();
-    UnitTest_cutCellPolyMesh(argc,argv,runTime);
+    UnitTest_cutCellFvMesh(argc,argv,runTime);
     Info<<"-------------------------Unit Test End-------------------------"<<endl;
 
 }

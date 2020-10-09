@@ -1,12 +1,7 @@
 CutCellTest.C
-cutCellPolyMesh.C
-cutCellPolyMesh_viaNurbs.C
-UnitTest_cutCellPolyMesh.C
-Nurbs.C
+UnitTest_cutCellFvMesh.C
 UnitTest_Nurbs.C
-KdTree.C
 UnitTest_KdTree.C
-BsTree.C
 UnitTest_BsTree.C
 
 EXE = $(FOAM_USER_APPBIN)/CutCellTest

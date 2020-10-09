@@ -1,0 +1,7 @@
+cutCellFvMesh.C
+cutCellFvMesh_viaNurbs.C
+Nurbs.C
+KdTree.C
+BsTree.C
+
+LIB = $(FOAM_USER_LIBBIN)/cutCellFvMesh

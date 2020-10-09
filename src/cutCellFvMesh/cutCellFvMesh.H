@@ -1,5 +1,5 @@
-#ifndef CUTCELLPOLYMESH_H
-#define CUTCELLPOLYMESH_H
+#ifndef CUTCELLFVMESH_H
+#define CUTCELLFVMESH_H
 
 #include "fvCFD.H"
 #include <functional>
@@ -12,7 +12,7 @@
 
 namespace Foam
 {    
-class cutCellPolyMesh   :   public fvMesh
+class cutCellFvMesh   :   public fvMesh
 {
     //Public attributes
     public:
@@ -169,21 +169,21 @@ class cutCellPolyMesh   :   public fvMesh
     //Public Memberfunctions    
     public:
         //Constructor
-        explicit cutCellPolyMesh
+        explicit cutCellFvMesh
         (
             const IOobject& io,
             std::function<scalar(const vector)> levelSet,
             cutStatus state = delNegMesh
         );
         
-        explicit cutCellPolyMesh
+        explicit cutCellFvMesh
         (
             const IOobject& io,
             List<std::shared_ptr<Nurbs>> Curves,
             cutStatus state = delNegMesh
         );
         
-        explicit cutCellPolyMesh
+        explicit cutCellFvMesh
         (
             const IOobject& io,
             List<std::shared_ptr<Nurbs>> Curves,
@@ -275,7 +275,7 @@ class cutCellPolyMesh   :   public fvMesh
             const labelList& patchSizes
         );
 };
-void UnitTest_cutCellPolyMesh(int argc, char *argv[], Time& runtime);
+void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }
 
 #endif

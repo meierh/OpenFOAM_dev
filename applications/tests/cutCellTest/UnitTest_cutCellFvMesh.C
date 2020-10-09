@@ -1,8 +1,8 @@
-#include "cutCellPolyMesh.H"
+#include "cutCellFvMesh.H"
 
-void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
+void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
 {
-    Foam::Info<<"CUTCELLPOLYMESH"<<Foam::endl;    
+    Foam::Info<<"CUTCELLFVMESH"<<Foam::endl;    
     
     int testdegree = 2;
     scalarList knots;
@@ -23,7 +23,7 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
 
     std::unique_ptr<volScalarField> solidFraction;
      
-    Foam::cutCellPolyMesh nurbsMesh
+    Foam::cutCellFvMesh nurbsMesh
     (
         Foam::IOobject
         (
@@ -38,7 +38,7 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
     );
     
     /*
-    Foam::cutCellPolyMesh nurbsMesh
+    Foam::cutCellFvMesh nurbsMesh
     (
         Foam::IOobject
         (
