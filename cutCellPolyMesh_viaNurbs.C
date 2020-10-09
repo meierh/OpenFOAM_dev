@@ -192,6 +192,7 @@ Curves(std::move(Curves)),
 MainTree(new KdTree(this->Curves)),
 NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
 {
+    Info<<"Created Main Tree"<<endl;
     for(int i=0;i<this->Curves.size();i++)
     {
         NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree(this->Curves[i])));
@@ -340,7 +341,15 @@ void Foam::cutCellPolyMesh::projectNurbsSurface()
         }
         pointDist[i] = minDistToNurbsSurface;
         
-        //Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
+        Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
+        /*
+        if(points[i] == vector(1.6,-0.1,-0.1))
+        {
+            FatalErrorInFunction
+            << "Temp stop"<<endl
+            << exit(FatalError);
+        }
+        */
     }
     
     Info<<"Final point writing"<<endl;

@@ -100,4 +100,27 @@ void Foam::UnitTest_Nurbs()
     Info<<"Kontrollpunkte"<<endl;
     Nurbs Circle(std::move(knots),std::move(controlPoints),std::move(weights),testdegree);
     */
+    
+    knots = scalarList(7);
+    knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=0.5;
+    knots[4]=1; knots[5]=1; knots[6]=1;    
+    weights = scalarList(4);
+    weights[0] = 1;    weights[1] = 1;   weights[2] = 1;    weights[3] = 1; 
+    controlPoints = List<vector>(4);
+    controlPoints[0]=vector(1,0,0.5); controlPoints[1]=vector(1,0,0);
+    controlPoints[2]=vector(3,0,0); controlPoints[3]=vector(3,0,-0.5);
+    Nurbs Snurbs(knots,controlPoints,weights,testdegree,0.2,4);
+    
+    vector res = Snurbs.Curve_Derivative(0,0);
+    Info<<res<<endl;
+    
+    scalar end = Snurbs.newtonIterateNearestNeighbour(0.3,vector(1.6,0,0));
+    
+    Info<<end<<endl;
+    
+    /*
+    FatalErrorInFunction
+    << " Temp stop"<<endl
+    << exit(FatalError);
+    */
 }

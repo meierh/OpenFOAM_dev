@@ -39,7 +39,7 @@ deltaX(deltaX)
         FatalErrorInFunction
         << " A Nurbs Curve must have an equal amount of control Points and weights!"<<endl
         << " Currently there are "<<this->weights.size()<<" weights and "<<this->controlPoints.size()<<" control Points!"
-        << abort(FatalError);
+        << exit(FatalError);
     }
     //m = knots->size();
     //n = controlPoints->size();
@@ -49,9 +49,9 @@ deltaX(deltaX)
     if(m < n+p+1)
     {
         FatalErrorInFunction
-        << " A Nurbs Curve must have a number of knots greater or equal than the number of control Points plus the degree plus one"<<endl
+        << " A Nurbs Curve must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
         << " Currently there are "<<m<<" knots and "<<n<<" control Points and degree "<<p
-        << abort(FatalError);
+        << exit(FatalError);
     }
     //this->knots = std::unique_ptr<scalarList>(std::move(knots));
     //this->controlPoints = std::unique_ptr<List<vector>>(std::move(controlPoints));
@@ -83,7 +83,7 @@ scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
     {
         FatalErrorInFunction
         << " B_Spline_Basis is called by i:"<<i<<" p:"<<p<<" although the Nurbs Curve does only have "<<knots.size()<<"knots"<<endl
-        << abort(FatalError);
+        << exit(FatalError);
     }
     if(p==0)
     {
@@ -129,14 +129,14 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
         FatalErrorInFunction
         << " A Nurbs Curve must have a number of knots greater or equal than the number of control Points plus the degree plus one"<<endl
         << " Currently there are "<<m<<" knots and "<<controlPoints.size()<<" control Points and degree "<<p
-        << abort(FatalError);
+        << exit(FatalError);
     }
     if(m <= i+k)
     {
         FatalErrorInFunction
         << " Procedure must not be called with an i+k greater or equal than the number of knot points"<<endl
         << " Currently there are "<<m<<" knots and i:"<<i<<" k:"<<k
-        << abort(FatalError);
+        << exit(FatalError);
     }
     if(k==0)
     {
@@ -144,7 +144,7 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
         {
             FatalErrorInFunction
             << " Something is wrong here. i:"<<i<<" while controlPoints.size():"<<controlPoints.size()<<endl
-            << abort(FatalError);
+            << exit(FatalError);
         }
         return controlPoints[i];
     }
@@ -187,12 +187,15 @@ vector Foam::Nurbs::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4 S
     scalar u
 ) const
 {    
+    //Info<<"n-k:"<<n-k<<endl;
     vector res(0,0,0);
     for(int i=0;i<n-k;i++)
     {
         //Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
         res += B_Spline_Basis(i+k,p-k,u) * Control_Point_Derivative<vector>(k,i,weightedControlPoints);
+        //Info<<"Done"<<endl;
     }
+    //Info<<"Return "<<res<<endl;
     return res;
 }
 
@@ -221,18 +224,19 @@ vector Foam::Nurbs::Curve_Derivative
     if(u>=_max_U || u<_min_U)
     {
         FatalErrorInFunction
-        << " Parameter u has to be within ["<<_max_U<<","<<_min_U<<") but is "<<u<<"!"<<endl
-        << abort(FatalError);
+        << " Parameter u has to be within ["<<_min_U<<","<<_max_U<<") but is "<<u<<"!"<<endl
+        << exit(FatalError);
     }
     if(k > p)
     {
         FatalErrorInFunction
         << " Called the "<<k<<"-th Derivative of a "<<p<<"-th order Nurbs. This will not work!"<<endl
-        << abort(FatalError);
+        << exit(FatalError);
     }
     //Info<<"-----------------------"<<endl;
     vector A_res = A(k,u);
     scalar w = Weights_B_Spline_Derivative(0,u);
+    //Info<<"A:"<<A_res<<" w:"<<w<<endl;
     vector B(0,0,0);
     for(int i=1;i<k+1;i++)
     {
@@ -248,6 +252,9 @@ vector Foam::Nurbs::Curve_Derivative
     //Info<<"B_"<<k<<"_:"<<B<<endl;
     //Info<<"-----------------------"<<endl;
     
+    if(w == 0)
+        w = 1;
+    
     return (A_res-B)/w;
 }
 
@@ -257,7 +264,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox() const
     {
         FatalErrorInFunction
         << " Nurbs Curve has no controlPoints. Therefore no bounds can be computed!"<<endl
-        << abort(FatalError);
+        << exit(FatalError);
     }
     
     BoundingBox MinMaxBox;
@@ -291,17 +298,19 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) cons
     {
         FatalErrorInFunction
         << " Start value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<")"<<endl
-        << abort(FatalError);
+        << exit(FatalError);
     }
     if(end < _min_U || end >= _max_U)
     {
         FatalErrorInFunction
         << " End value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<") but is "<<end<<endl
-        << abort(FatalError);
+        << exit(FatalError);
     }
     
     vector startP = Curve_Derivative(0,start);
+    Info<<"StartP: "<<startP<<endl;
     vector endP = Curve_Derivative(0,end);
+    Info<<"EndP: "<<endP<<endl;
     BoundingBox Box;
     for(int d=0;d<3;d++)
     {
@@ -314,6 +323,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) cons
         if(Box.Max[d] < endP[d])
             Box.Max[d] = endP[d];
     }
+    Info<<"Initial Bounding Box"<<endl;
     scalar koeff = (1.0/8.0)*(end-start)*(end-start)*supremum_Derivative2(start,end);
     for(int d=0;d<3;d++)
     {
@@ -462,6 +472,8 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
     scalar f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
     scalar epsilon = 1e-10;
     int iterations = 0;
+    int maxIterations = 100;
+    Info<<"Point: "<<point<<endl;
     Info<<"It:0 f("<<u_0<<")="<<f<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
@@ -470,13 +482,17 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
     {
         iterations++;
         C = Curve_Derivative(0,u_0);
-        //Info<<"C: "<<C<<endl;
+        Info<<"\tC("<<u_0<<"): "<<C<<endl;
         C_D1 = Curve_Derivative(1,u_0);
-        //Info<<"C_D1: "<<C_D1<<endl;
+        Info<<"\tC_D1("<<u_0<<"): "<<C_D1<<endl;
         C_D2 = Curve_Derivative(2,u_0);
-        //Info<<"C_D2: "<<C_D2<<endl;
+        Info<<"\tC_D2("<<u_0<<"): "<<C_D2<<endl;
         f = (point-C) && C_D1;
+        Info<<"\tf("<<u_0<<"): "<<f<<endl;
         f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
+        Info<<"\tf_D1("<<u_0<<"): "<<f_D1<<endl;
+        if(f_D1 == 0 || iterations > maxIterations)
+            break;
         u_0 = u_0 - (f/f_D1);
         Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
         if(u_0 > max_U)
@@ -491,7 +507,7 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
         if(u_0 < min_U)
         {
             u_0 = min_U;
-            //Info<<"Break: f("<<u_0<<")"<<endl;
+            Info<<"Break: f("<<u_0<<")"<<endl;
             if(hitMaxOrMinCounter >= 2)
                 break;
             hitMaxOrMinCounter++;
