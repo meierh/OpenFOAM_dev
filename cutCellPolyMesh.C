@@ -2081,6 +2081,13 @@ void Foam::cutCellPolyMesh::createNewMeshData
         Info<<" neighbour:"<<neighbour[i]<<endl;
         */
         
+        Info<<"Face "<<" size: "<<faceToEdges_[i].size()<<" on side: "<<facesToSide_[i]<<" owner:"<<owner[i]<<
+        " on side "<<cellsToSide_[owner[i]]<<" and neighbour:"<<neighbour[i]<<" on side "<<cellsToSide_[neighbour[i]]<<endl;
+        for(int k=0;k<meshFaces[i].size();k++)
+        {
+            Info<<"point: "<<meshPoints[meshFaces[i][k]]<<" at dist: "<<pointDist[meshFaces[i][k]]<<endl;
+        }
+        
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             if(oldFacesToCutFaces_[i].size() != 2)
@@ -2205,6 +2212,8 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     );
                 }
                 
+                /*
+                 * Error is wrong
                 if( (oldCellToPlusCutCell[neighbour[i]] != -1 &&
                      oldCellToPlusCutCell[owner[i]] != -1)
                     ||
@@ -2219,6 +2228,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     << " Unsplit face interior can not be owner and neighboring a cut cell."
                     << exit(FatalError);
                 }
+                */
             }
             else if(facesToSide_[i] == -1)
             {                
@@ -2259,6 +2269,8 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     );
                 }
                 
+                /*
+                 * Error is wrong
                 if( (oldCellToMinusCutCell[neighbour[i]] != -1 &&
                      oldCellToMinusCutCell[owner[i]] != -1)
                     ||
@@ -2273,8 +2285,7 @@ void Foam::cutCellPolyMesh::createNewMeshData
                     << " Unsplit face interior can not be owner and neighboring a cut cell."
                     << exit(FatalError);
                 }
-
-                
+                */
             }
             else
             {

@@ -23,10 +23,9 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
 
     std::unique_ptr<volScalarField> solidFraction;
      
-    /*
     Foam::cutCellPolyMesh nurbsMesh
     (
-        Foam::IOobject1
+        Foam::IOobject
         (
             Foam::polyMesh::defaultRegion,
             runTime.timeName(),
@@ -37,7 +36,8 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
         runTime,
         solidFraction
     );
-     */
+    
+    /*
     Foam::cutCellPolyMesh nurbsMesh
     (
         Foam::IOobject
@@ -48,5 +48,6 @@ void Foam::UnitTest_cutCellPolyMesh(int argc, char *argv[],Time& runTime)
             Foam::IOobject::MUST_READ
             ),
         items
-     );    
+     );
+     */
 }
