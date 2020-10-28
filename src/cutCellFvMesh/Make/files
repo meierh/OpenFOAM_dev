@@ -4,4 +4,4 @@ Nurbs.C
 KdTree.C
 BsTree.C
 
-LIB = $(FOAM_USER_LIBBIN)/cutCellFvMesh
+LIB = $(FOAM_USER_LIBBIN)/libcutCellFvMesh
