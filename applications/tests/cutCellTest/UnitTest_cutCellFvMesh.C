@@ -21,6 +21,7 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.2,4)));
     Info<<"Created Nurbs"<<endl;
 
+    /*
     std::unique_ptr<volScalarField> solidFraction;
      
     Foam::cutCellFvMesh nurbsMesh
@@ -36,8 +37,8 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
         runTime,
         solidFraction
     );
+    */
     
-    /*
     Foam::cutCellFvMesh nurbsMesh
     (
         Foam::IOobject
@@ -49,5 +50,4 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
             ),
         items
      );
-     */
 }

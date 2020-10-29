@@ -3894,6 +3894,7 @@ labelList Foam::cutCellFvMesh::searchDown
     std::unordered_set<label> cellReserved
 )
 {
+    Info<<"Starts"<<endl;
     Info<<"Height:"<<count<<"/"<<possibleMergeCells.size();
     if(count < possibleMergeCells.size()-1)
     {
@@ -3931,8 +3932,10 @@ labelList Foam::cutCellFvMesh::searchDown
         {
             Info<<" empty"<<endl;
             labelList returnList = {-1};
+            Info<<" 1"<<endl;
             labelList retList = searchDown
             (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+            Info<<"Recursion"<<endl;
             if(retList.size() != 0)
             {
                 returnList.append(retList);
