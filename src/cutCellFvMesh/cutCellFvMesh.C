@@ -3894,6 +3894,12 @@ labelList Foam::cutCellFvMesh::searchDown
     std::unordered_set<label> cellReserved
 )
 {
+    Info<<"possibleMergeFaceArea:"<<possibleMergeFaceArea.size()<<endl;
+    Info<<"possibleMergeFaces:"<<possibleMergeFaces.size()<<endl;
+    Info<<"possibleMergeCells:"<<possibleMergeCells.size()<<endl;
+    Info<<"oneMergeFaceSufficient:"<<oneMergeFaceSufficient.size()<<endl;
+    Info<<"mergeNecessary:"<<mergeNecessary.size()<<endl;
+    
     Info<<"Starts"<<endl;
     Info<<"Height:"<<count<<"/"<<possibleMergeCells.size();
     if(count < possibleMergeCells.size()-1)
@@ -3913,8 +3919,9 @@ labelList Foam::cutCellFvMesh::searchDown
                     labelList retList;
                     cellReservedCpy = cellReserved;
                     cellReservedCpy.insert(oneCell);
-                    retList = searchDown(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReservedCpy);
-                
+                    retList = searchDown
+                    (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
+                     oneMergeFaceSufficient,mergeNecessary,count+1,cellReservedCpy);
                     if(retList.size() != 0)
                     {
                         labelList returnList = {oneFace};
@@ -3933,8 +3940,10 @@ labelList Foam::cutCellFvMesh::searchDown
             Info<<" empty"<<endl;
             labelList returnList = {-1};
             Info<<" 1"<<endl;
-            labelList retList = searchDown
-            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+            labelList retList;
+            retList = searchDown
+            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
+             oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
             Info<<"Recursion"<<endl;
             if(retList.size() != 0)
             {
