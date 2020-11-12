@@ -19,6 +19,11 @@ dimensionedScalar nu
     transportProperties.lookup("nu")
 );
 
+dimensionedScalar alpha
+(
+    transportProperties.lookup("alpha")
+);
+
 Info<< "Reading field p\n" << endl;
 volScalarField p
 (
@@ -47,6 +52,7 @@ volVectorField U
     ),
     mesh
 );
+
 
 Info<< "Reading field T\n" << endl;
 volScalarField T

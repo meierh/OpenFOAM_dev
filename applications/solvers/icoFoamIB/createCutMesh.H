@@ -20,7 +20,8 @@ controlPoints[0]=vector(1,0,0.5); controlPoints[1]=vector(1,0,0);
 controlPoints[2]=vector(3,0,0); controlPoints[3]=vector(3,0,-0.5);
 items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.2,4)));
 Info<<"Created Nurbs"<<endl;
-    
+
+/*
 Foam::cutCellFvMesh mesh
 (
     Foam::IOobject
@@ -32,3 +33,16 @@ Foam::cutCellFvMesh mesh
     ),
     items    
 );
+*/
+
+Foam::fvMesh mesh
+(
+    Foam::IOobject
+    (
+        Foam::fvMesh::defaultRegion,
+        runTime.timeName(),
+        runTime,
+        Foam::IOobject::MUST_READ
+    )
+);
+

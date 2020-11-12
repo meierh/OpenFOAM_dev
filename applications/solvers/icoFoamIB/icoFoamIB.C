@@ -113,6 +113,13 @@ int main(int argc, char *argv[])
             U.correctBoundaryConditions();
         }
 
+        solve
+        (
+            fvm::ddt(T)
+            + fvm::div(phi,T)
+            - fvm::laplacian(alpha,T)
+        );
+        
         runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
