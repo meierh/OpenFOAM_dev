@@ -271,7 +271,8 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         Info<< " took \t"<< time_span.count() << " seconds."<<endl;
         Info<<"-------------------------------------------"<<endl;
 
-        
+        Info<<"Combine resetPrimitives data";
+        t1 = std::chrono::high_resolution_clock::now();
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
         faces.append(addedCutFaces);
@@ -295,6 +296,9 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         }
         */
 
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
     }
     //printMesh();
     

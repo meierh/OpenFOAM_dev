@@ -10,10 +10,10 @@ maxHeight(nbrSplitsBetweenCPs*this->Curve->nbrKnots()*this->Curve->degree())
 {
     _nil =  new Node();
     root = newNode(_nil,this->Curve->min_U(),this->Curve->max_U());
-    Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
-    Info<<"Create first box from "<<root->min<<" to "<<root->max<<"//"<<(root->max == 1)<<endl;
+    //Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
+    //Info<<"Create first box from "<<root->min<<" to "<<root->max<<"//"<<(root->max == 1)<<endl;
     constructTree(root);
-    Info<<"Construction Tree done"<<endl;
+    //Info<<"Construction Tree done"<<endl;
 }
 
 Foam::BsTree::~BsTree()
@@ -52,15 +52,15 @@ Foam::BsTree::Node *Foam::BsTree::newNode
 
 void Foam::BsTree::constructTree(Node* thisNode,int height)
 {
-    Info<<"Construct Tree at "<<height<<endl;
+    //Info<<"Construct Tree at "<<height<<endl;
     thisNode->MinMaxBox = Curve->computeBoundingBox(thisNode->min,thisNode->max);
-    Info<<"Computed Box"<<endl;
+    //Info<<"Computed Box"<<endl;
     scalar maxWidth = 0;
     for(int d=0;d<3;d++)
     {
         maxWidth = std::max(thisNode->MinMaxBox.Max[d]-thisNode->MinMaxBox.Min[d],maxWidth);
     }
-    Info<<"Computed maxWidth "<<maxWidth<<endl;
+    //Info<<"Computed maxWidth "<<maxWidth<<endl;
     maxWidth = maxWidth-2*Curve->getBoundingBoxOverhang();
     if(maxWidth > Curve->getBoundingBoxOverhang() && height<maxHeight)
     {
@@ -103,15 +103,16 @@ void Foam::BsTree::traverseBsTree
 
 scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
 {
-    Info<<"\tPoint: "<<point<<endl;
+    //Info<<"\tPoint: "<<point<<endl;
     scalarList testU = nearestPoints(point);
     if(testU.size() == 0)
         return Curve->min_U()-1;
     
-    
+    /*
     Info<<"BsTree nearest Points: ";
     for(int i=0;i<testU.size();i++)
         Info<<testU[i]<<endl;
+    */
     
     scalarList u_min_List(0);
     scalar u_min;
@@ -128,7 +129,7 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
         }
         */
     }
-    Info<<"U_min: "<<u_min<<endl;
+    //Info<<"U_min: "<<u_min<<endl;
     scalarList u_min_Dist(0);
     for(int i=0;i<u_min_List.size();i++)
     {
@@ -144,6 +145,6 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
             u_min_min = u_min_List[i];
         }
     }
-    Info<<"\tRes: "<<u_min_min<<endl;
+    //Info<<"\tRes: "<<u_min_min<<endl;
     return u_min_min;    
 }

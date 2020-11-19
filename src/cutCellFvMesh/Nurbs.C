@@ -308,9 +308,9 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) cons
     }
     
     vector startP = Curve_Derivative(0,start);
-    Info<<"StartP: "<<startP<<endl;
+    //Info<<"StartP: "<<startP<<endl;
     vector endP = Curve_Derivative(0,end);
-    Info<<"EndP: "<<endP<<endl;
+    //Info<<"EndP: "<<endP<<endl;
     BoundingBox Box;
     for(int d=0;d<3;d++)
     {
@@ -323,7 +323,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox(scalar start, scalar end) cons
         if(Box.Max[d] < endP[d])
             Box.Max[d] = endP[d];
     }
-    Info<<"Initial Bounding Box"<<endl;
+    //Info<<"Initial Bounding Box"<<endl;
     scalar koeff = (1.0/8.0)*(end-start)*(end-start)*supremum_Derivative2(start,end);
     for(int d=0;d<3;d++)
     {
@@ -473,8 +473,8 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
     scalar epsilon = 1e-10;
     int iterations = 0;
     int maxIterations = 100;
-    Info<<"Point: "<<point<<endl;
-    Info<<"It:0 f("<<u_0<<")="<<f<<endl;
+    //Info<<"Point: "<<point<<endl;
+    //Info<<"It:0 f("<<u_0<<")="<<f<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
     int hitMaxOrMinCounter = 0;
@@ -482,19 +482,19 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
     {
         iterations++;
         C = Curve_Derivative(0,u_0);
-        Info<<"\tC("<<u_0<<"): "<<C<<endl;
+        //Info<<"\tC("<<u_0<<"): "<<C<<endl;
         C_D1 = Curve_Derivative(1,u_0);
-        Info<<"\tC_D1("<<u_0<<"): "<<C_D1<<endl;
+        //Info<<"\tC_D1("<<u_0<<"): "<<C_D1<<endl;
         C_D2 = Curve_Derivative(2,u_0);
-        Info<<"\tC_D2("<<u_0<<"): "<<C_D2<<endl;
+        //Info<<"\tC_D2("<<u_0<<"): "<<C_D2<<endl;
         f = (point-C) && C_D1;
-        Info<<"\tf("<<u_0<<"): "<<f<<endl;
+        //Info<<"\tf("<<u_0<<"): "<<f<<endl;
         f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
-        Info<<"\tf_D1("<<u_0<<"): "<<f_D1<<endl;
+        //Info<<"\tf_D1("<<u_0<<"): "<<f_D1<<endl;
         if(f_D1 == 0 || iterations > maxIterations)
             break;
         u_0 = u_0 - (f/f_D1);
-        Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
+        //Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
         if(u_0 > max_U)
         {
             u_0 = max_U;
@@ -507,13 +507,13 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour(scalar u_0,vector point) const
         if(u_0 < min_U)
         {
             u_0 = min_U;
-            Info<<"Break: f("<<u_0<<")"<<endl;
+            //Info<<"Break: f("<<u_0<<")"<<endl;
             if(hitMaxOrMinCounter >= 2)
                 break;
             hitMaxOrMinCounter++;
         }
     }
-    Info<<"Res U: "<<u_0<<endl;
+    //Info<<"Res U: "<<u_0<<endl;
     return u_0;
 }
 

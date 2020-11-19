@@ -463,7 +463,7 @@ void Foam::cutCellFvMesh::newMeshPoints
 (
 )
 {
-    Info<<"Starting adding Points"<<endl;
+    //Info<<"Starting adding Points"<<endl;
     const cellList& meshCells = this->cells();
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
@@ -475,7 +475,7 @@ void Foam::cutCellFvMesh::newMeshPoints
     newMeshPoints_.append(basisPoints);
     
     pointsToSide(newMeshPoints_);
-    Info<<"Point to Side done"<<endl;
+    //Info<<"Point to Side done"<<endl;
     
     pointToEgde_ = labelList(basisPoints.size());
     for(int i=0;i<basisPoints.size();i++)
@@ -495,7 +495,7 @@ void Foam::cutCellFvMesh::newMeshPoints
             pointToFaces_[i] = pointFaces[i];
         }
     }
-    Info<<"Point to faces"<<endl;
+    //Info<<"Point to faces"<<endl;
         
     faceToPoints_ = labelListList(basisFaces.size());
     for(int i=0;i<basisPoints.size();i++)
@@ -516,23 +516,23 @@ void Foam::cutCellFvMesh::newMeshPoints
             }
         }
     }
-    Info<<"Point to faces done"<<endl;
+    //Info<<"Point to faces done"<<endl;
     
     pointToCells_ = labelListList(basisPoints.size());
-    Info<<"1"<<endl;
+    //Info<<"1"<<endl;
     labelListList pointCells = this->pointCells();
-    Info<<"2"<<endl;
+    //Info<<"2"<<endl;
     labelListList edgeCells = this->edgeCells();
-    Info<<"3"<<endl;
+    //Info<<"3"<<endl;
     for(int i=0;i<basisPoints.size();i++)
     {
-        Info<<pointsToSide_[i]<<endl;
+        //Info<<pointsToSide_[i]<<endl;
         if(pointsToSide_[i] == 0)
         {
             pointToCells_[i] = pointCells[i];
         }
     }
-    Info<<"Point to cells "<<basisPoints.size()<<" done"<<endl;
+    //Info<<"Point to cells "<<basisPoints.size()<<" done"<<endl;
     
     cellToPoints_ = labelListList(meshCells.size());
     for(int i=0;i<basisPoints.size();i++)
@@ -576,21 +576,21 @@ void Foam::cutCellFvMesh::newMeshPoints
         
         if(pos == +1 && neg == -1)
         {
-            Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
-            Info<<phiStart<<" -> "<<phiEnd<<endl;
+            //Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
+            //Info<<phiStart<<" -> "<<phiEnd<<endl;
             vector startToEnd = basisEdges[i].vec(basisPoints);
-            Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
+            //Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
             scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
-            Info<<"norm_startToEnd: "<<norm_startToEnd<<endl;;
+            //Info<<"norm_startToEnd: "<<norm_startToEnd<<endl;;
             scalar distPhi = std::abs(phiEnd-phiStart);
-            Info<<"distPhi: "<<distPhi<<endl;;
+            //Info<<"distPhi: "<<distPhi<<endl;;
             scalar norm_phiStart = std::abs(phiStart);
-            Info<<"norm_phiStart: "<<norm_phiStart<<endl;;
+            //Info<<"norm_phiStart: "<<norm_phiStart<<endl;;
             scalar scalePoint = phiStart / (phiStart - phiEnd);
-            Info<<"scalePoint: "<<scalePoint<<endl;;
+            //Info<<"scalePoint: "<<scalePoint<<endl;;
             vector newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
             
-            Info<<"Added: "<<newPoint<<endl<<endl;
+            //Info<<"Added: "<<newPoint<<endl<<endl;
 
             newMeshPoints_.append(newPoint);
             
@@ -761,7 +761,7 @@ void Foam::cutCellFvMesh::newMeshEdges
 (
 )
 {
-    Info<<"Starting adding Edges"<<endl;
+    //Info<<"Starting adding Edges"<<endl;
     const cellList& meshCells = this->cells();
     //const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
@@ -781,7 +781,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     }
     */
     
-    Info<<"Put edges to side"<<endl;
+    //Info<<"Put edges to side"<<endl;
     
     edgeToFaces_ = labelListList(basisEdges.size());
     labelListList edgeFaces = this->edgeFaces();
@@ -881,6 +881,8 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
         }
     }
+    
+    /*
     for(int i=0;i<newMeshEdges_.size();i++)
     {
         Info<<"Edge:"<<i;
@@ -893,10 +895,11 @@ void Foam::cutCellFvMesh::newMeshEdges
         Info<<" Side:"<<edgesToSide_[i]<<endl;
     }
     Info<<"edge to face done"<<endl;
+    */
     
     faceToEdges_ = labelListList(basisFaces.size());
-    Info<<faceToEdges_.size()<<endl;
-    Info<<newMeshEdges_.size()<<endl;
+    //Info<<faceToEdges_.size()<<endl;
+    //Info<<newMeshEdges_.size()<<endl;
     for(int i=0;i<newMeshEdges_.size();i++)
     {
         //Info<<"Edge "<<i<<endl;
@@ -921,9 +924,9 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
         }
     }
-    Info<<"face to edge done"<<endl;
+    //Info<<"face to edge done"<<endl;
     
-    Info<<faceToEdges_.size()<<endl;
+    //Info<<faceToEdges_.size()<<endl;
     
     /*
     for(int i=0;i<faceToEdges_.size();i++)
@@ -943,14 +946,14 @@ void Foam::cutCellFvMesh::newMeshEdges
     labelList neighbour = this->faceNeighbour();
     labelListList edgeCells = this->edgeCells();
     
-    Info<<"newMeshEdges_: "<<newMeshEdges_.size()<<endl;
-    Info<<"edgeToCells_: "<<edgeToCells_.size()<<endl;
+    //Info<<"newMeshEdges_: "<<newMeshEdges_.size()<<endl;
+    //Info<<"edgeToCells_: "<<edgeToCells_.size()<<endl;
     for(int i=0;i<newMeshEdges_.size();i++)
     {
-        Info<<"Edge: "<<i<<endl;
+        //Info<<"Edge: "<<i<<endl;
         if(edgeToFaces_[i].size() != 0)
         {
-            Info<<"edgeToFaces_["<<i<<"]: "<<edgeToFaces_[i].size()<<endl;
+            //Info<<"edgeToFaces_["<<i<<"]: "<<edgeToFaces_[i].size()<<endl;
             if(i<nbrOfPrevEdges)
             {
                 edgeToCells_[i] = Foam::clone(edgeCells[i]);
@@ -965,11 +968,11 @@ void Foam::cutCellFvMesh::newMeshEdges
                     << exit(FatalError);
                 }
                 label thisFace = edgeToFaces_[i][0];
-                Info<<"thisFace: "<<thisFace<<endl;
-                Info<<"edgeToCells_[i].size(): "<<edgeToCells_[i].size()<<endl;
-                Info<<"Owner of thisFace: "<<owner[thisFace]<<endl;
+                //Info<<"thisFace: "<<thisFace<<endl;
+                //Info<<"edgeToCells_[i].size(): "<<edgeToCells_[i].size()<<endl;
+                //Info<<"Owner of thisFace: "<<owner[thisFace]<<endl;
                 edgeToCells_[i].append(owner[thisFace]);
-                Info<<"Peter Pan"<<endl;
+                //Info<<"Peter Pan"<<endl;
                 if(thisFace < neighbour.size())
                     edgeToCells_[i].append(neighbour[thisFace]);
             }
@@ -988,21 +991,21 @@ void Foam::cutCellFvMesh::newMeshEdges
     }
     */
     
-    Info<<"edge to cell done"<<endl;
+    //Info<<"edge to cell done"<<endl;
 
     
     cellToEdges_ = labelListList(meshCells.size());
-    Info<<"nCells: "<<meshCells.size()<<endl;
-    Info<<"newMeshEdges_: "<<newMeshEdges_.size()<<endl;
-    Info<<"edgeToCells_: "<<edgeToCells_.size()<<endl;
+    //Info<<"nCells: "<<meshCells.size()<<endl;
+    //Info<<"newMeshEdges_: "<<newMeshEdges_.size()<<endl;
+    //Info<<"edgeToCells_: "<<edgeToCells_.size()<<endl;
     for(int i=0;i<newMeshEdges_.size();i++)
     {
         if(edgeToCells_[i].size() != 0)
         {
-            Info<<"edgeToCells_["<<i<<"]: "<<edgeToCells_[i].size()<<endl;
+            //Info<<"edgeToCells_["<<i<<"]: "<<edgeToCells_[i].size()<<endl;
             for(int k=0;k<edgeToCells_[i].size();k++)
             {
-                Info<<"edgeToCells_["<<i<<"]["<<k<<"]:"<<edgeToCells_[i][k]<<endl;
+                //Info<<"edgeToCells_["<<i<<"]["<<k<<"]:"<<edgeToCells_[i][k]<<endl;
                 /*
                 if(cellToEdges_[edgeToCells_[i][k]].size() == 0)
                 {
@@ -1018,7 +1021,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
         }
     }
-    Info<<"cell to edge done"<<endl;
+    //Info<<"cell to edge done"<<endl;
 }
 
 void Foam::cutCellFvMesh::printAddedEdges
@@ -1086,7 +1089,7 @@ void Foam::cutCellFvMesh::newMeshFaces
 (
 )
 {
-    Info<<"Starting adding Faces"<<endl;
+    //Info<<"Starting adding Faces"<<endl;
     const cellList& meshCells = this->cells();
     //const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
@@ -1112,6 +1115,7 @@ void Foam::cutCellFvMesh::newMeshFaces
     {
         labelList facePoints = basisFaces[i];
         
+        /*
         Info<<"  Face:"<<i<<" Owner:"<<owner[i]<<" ";
         if(i < neighbour.size())
             Info<<" Neighbor:"<<neighbour[i]<<" ";
@@ -1122,7 +1126,8 @@ void Foam::cutCellFvMesh::newMeshFaces
         Info<<" with centre:"<<basisFaces[i].centre(newMeshPoints_);
         Info<<" and normal vector:"<<basisFaces[i].normal(newMeshPoints_);
         Info<<" and area:"<<basisFaces[i].mag(newMeshPoints_);
-
+        */
+    
         /*
         if(facePoints.size() != 4)
         {
@@ -1139,7 +1144,7 @@ void Foam::cutCellFvMesh::newMeshFaces
             if(pointsToSide_[facePoints[k]] != 0)
                 isCutFace = false;
         }
-        Info<<"\t"<<"is CutFace:"<<isCutFace<<endl;
+        //Info<<"\t"<<"is CutFace:"<<isCutFace<<endl;
         if(isCutFace)
         {
             faceToCells_[i].append(owner[i]);
@@ -1371,7 +1376,7 @@ void Foam::cutCellFvMesh::newMeshFaces
         //input to oldCellsToAddedFace
         cellToFaces_[i].append(newMeshFaces_.size()-1);
     }
-    Info<<"End adding faces"<<endl;
+    //Info<<"End adding faces"<<endl;
 }
 
 void Foam::cutCellFvMesh::printAddedFaces
