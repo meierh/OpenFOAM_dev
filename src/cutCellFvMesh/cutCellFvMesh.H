@@ -9,6 +9,7 @@
 #include "Nurbs.H"
 #include <unordered_set>
 #include <algorithm>
+#include <chrono>
 
 namespace Foam
 {    

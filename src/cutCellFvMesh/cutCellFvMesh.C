@@ -1509,6 +1509,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             label       firstCutPoint;
             label       secondCutPoint;
             
+            /*
             Info<<endl<<"OrigFace "<<i<<" size:"<<currFace.size()<<"| ";
             for(int l=0;l<currFace.size();l++)
             {                
@@ -1517,6 +1518,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             }
             Info<<"Added Edge: "<<newMeshPoints_[addedEdge.start()]<<"->"<<newMeshPoints_[addedEdge.end()];
             Info<<endl;
+            */
             
             // Cycle to first non cut point
             while(pointsToSide_[currPoint]==0)
@@ -1530,7 +1532,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             newFace1.append(currPoint);
             newFace1Sign = pointsToSide_[currPoint];
             
-            
+            /*
                 Info<<"1 Face 1 size:"<<newFace1.size()<<"| ";
                 for(int l=0;l<newFace1.size();l++)
                 {                
@@ -1538,7 +1540,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                     Info<<point<<newMeshPoints_[point]<<" ";
                 }
                 Info<<relPointIndex<<endl;
-            
+            */
             
             //Info<<"First part of face 1"<<endl;
             while(pointsToSide_[currPoint] == pointsToSide_[currFace.nextLabel(currPointIndex)])
@@ -1548,6 +1550,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                 relPointIndex++;
                 newFace1.append(currPoint);
     
+                /*
                     Info<<"2 Face 1 size:"<<newFace1.size()<<"| ";
                     for(int l=0;l<newFace1.size();l++)
                     {                
@@ -1555,6 +1558,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                         Info<<point<<newMeshPoints_[point]<<" ";
                     }
                     Info<<relPointIndex<<endl;
+                */
             }
 //////////////////////////////////////////////////////////////////////////////////
 //      Fallunterscheidung jump point old or addedCutFaceNeighbor
@@ -1671,7 +1675,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             newFace1.append(firstCutPoint);
             newFace2.append(firstCutPoint);
             
-            
+            /*
             Info<<"3 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
@@ -1679,7 +1683,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<relPointIndex<<endl;
-            
+            */
             
             currPoint = nextPoint;
             currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
@@ -1688,7 +1692,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             newFace2.append(currPoint);
             newFace2Sign = pointsToSide_[currPoint];
             
-            
+            /*
             Info<<"1 Face 2 size:"<<newFace2.size()<<"| ";
             for(int l=0;l<newFace2.size();l++)
             {                
@@ -1696,19 +1700,20 @@ void Foam::cutCellFvMesh::cutOldFaces
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<relPointIndex<<endl;
+            */
             
             //Info<<"Create face 2"<<endl;
             while(pointsToSide_[currPoint] == pointsToSide_[currFace.nextLabel(currPointIndex)])
             {
-                Info<<newMeshPoints_[currPoint]<<pointsToSide_[currPoint]<<endl;
-                Info<<newMeshPoints_[currFace.nextLabel(currPointIndex)]<<pointsToSide_[currFace.nextLabel(currPointIndex)]<<endl;
+                //Info<<newMeshPoints_[currPoint]<<pointsToSide_[currPoint]<<endl;
+                //Info<<newMeshPoints_[currFace.nextLabel(currPointIndex)]<<pointsToSide_[currFace.nextLabel(currPointIndex)]<<endl;
                 //Info<<"Index:"<<faceInd<<endl;
                 currPoint = currFace.nextLabel(currPointIndex);
                 currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
                 relPointIndex++;
                 newFace2.append(currPoint);
                 
-                
+                /*
                     Info<<"2 Face 2 size:"<<newFace2.size()<<"| ";
                     for(int l=0;l<newFace2.size();l++)
                     {                
@@ -1716,6 +1721,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                         Info<<point<<newMeshPoints_[point]<<" ";
                     }
                     Info<<relPointIndex<<endl;
+                */
                 
                 /*
                 Info<<endl;
@@ -1735,6 +1741,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                 relPointIndex++;
             }
             
+                /*
                 Info<<"3 Face 2 size:"<<newFace2.size()<<"| ";
                 for(int l=0;l<newFace2.size();l++)
                 {                
@@ -1749,9 +1756,10 @@ void Foam::cutCellFvMesh::cutOldFaces
                     Info<<point<<newMeshPoints_[point]<<" ";
                 }
                 Info<<relPointIndex<<endl;
+                */
 
             
-            Info<<"Finish face 1"<<endl;
+            //Info<<"Finish face 1"<<endl;
             while(relPointIndex+1 < meshFaces[i].size())
             {
                 currPoint = currFace.nextLabel(currPointIndex);
@@ -1767,7 +1775,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                 }                    
             }
             
-            
+            /*
             Info<<"5 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
@@ -1775,7 +1783,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<relPointIndex<<endl;
-            
+            */
             
             cutFaces_.append(face(newFace1));
             cutFacesToSide_.append(newFace1Sign);
@@ -1784,6 +1792,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             cutFacesToSide_.append(newFace2Sign);
             oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
             
+            /*
             Info<<"6 Face 1 size:"<<newFace1.size()<<"| ";
             for(int l=0;l<newFace1.size();l++)
             {                
@@ -1799,6 +1808,7 @@ void Foam::cutCellFvMesh::cutOldFaces
                 Info<<point<<newMeshPoints_[point]<<" ";
             }
             Info<<relPointIndex<<endl;
+            */
         }
     }
 
@@ -2539,6 +2549,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
         patchSizes[i] = boundMesh[i].faceCentres().size();
     }
     
+    /*
     Info<<"------------------------------------OldFaces------------------------------------"<<endl;
     for(int k=0;k<meshFaces.size();k++)
     {
@@ -2556,6 +2567,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
     Info<<"------------------------------------EndOldFaces---------------------------------"<<endl;
+    */
     
     oldSplittedCellToNewPlusCell = labelList(meshCells.size());
     oldSplittedCellToNewMinusCell = labelList(meshCells.size());
@@ -2577,7 +2589,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
             oldCellsToAddedMinusSideCellIndex[i] = addedCellIndex+oldCellsToAddedMinusSideCellIndex.size();
             oldSplittedCellToNewPlusCell[i] = i;
             oldSplittedCellToNewMinusCell[i]= oldCellsToAddedMinusSideCellIndex[i];
-            Info<<i<<"->"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
+            //Info<<i<<"->"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
             addedCellIndex++;
         }
         if(cellsToSide_[i] == -1)
@@ -2597,7 +2609,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     Info<<endl;
 */
     
-    Info<<"Insert Split cell faces"<<endl;
+    //Info<<"Insert Split cell faces"<<endl;
     // Compute List of new faces splitting old cells
     //label addedCutFacesNbr = 0;
     addedCutFaces = faceList(0);
@@ -2612,9 +2624,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
             labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
             cell thisCell = meshCells[i];
             vector thisNormal = addedFace.normal(newMeshPoints_);
-            Info<<"This Normal: "<<thisNormal<<endl;
+            //Info<<"This Normal: "<<thisNormal<<endl;
             point thisCentre = addedFace.centre(newMeshPoints_);
-            Info<<"This Centre: "<<thisCentre<<endl;
+            //Info<<"This Centre: "<<thisCentre<<endl;
             
             label testInd = -1;
             for(int i=0;i<thisCellPointLabels.size();i++)
@@ -2625,16 +2637,16 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
                     break;
                 }
             }
-            Info<<"test Point:"<<newMeshPoints_[testInd]<<endl;
+            //Info<<"test Point:"<<newMeshPoints_[testInd]<<endl;
             vector centreToPointInd = newMeshPoints_[testInd] - thisCentre;
             //centreToPointInd -= thisCentre;
-            Info<<"centreToPointInd: "<<centreToPointInd<<endl;
+            //Info<<"centreToPointInd: "<<centreToPointInd<<endl;
             scalar dir = centreToPointInd && thisNormal;
-            Info<<"dir: "<<dir<<endl;
+            //Info<<"dir: "<<dir<<endl;
             if(dir < 0)
                 addedFace = addedFace.reverseFace();
             
-            Info<<centreToPointInd<<endl;
+            //Info<<centreToPointInd<<endl;
             
             addedCutFaces.append(addedFace);
             addedCutFaceNeighbor.append(-1);
@@ -2653,7 +2665,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     }
 
     
-    Info<<"Insert split faces interior"<<endl;
+    //Info<<"Insert split faces interior"<<endl;
     // Compute the List of new faces resulting from the splitting of old faces
     label addedSplitCellsInteriorNbr = 0;
     splitAndUnsplitFacesInterior = faceList(0);
@@ -2662,7 +2674,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     bool addedOneFace;
     for(int i=0;i<neighbour.size();i++)
     {
-        Info<<"Face "<<i<<" size: "<<faceToEdges_[i].size()<<" on side: "<<facesToSide_[i]<<endl;
+        //Info<<"Face "<<i<<" size: "<<faceToEdges_[i].size()<<" on side: "<<facesToSide_[i]<<endl;
         
         addedOneFace = false;
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
@@ -2700,7 +2712,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
         }
         else
         {
-            Info<<"GonetoElse"<<endl;
+            //Info<<"GonetoElse"<<endl;
             // Interior uncut face on positive side is appended  without change
             if(facesToSide_[i] == 1)
             {
@@ -2710,7 +2722,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
                 addedOneFace = true;
                 
                 addedSplitCellsInteriorNbr++;
-                Info<<"Inserted Split face"<<endl;
+                //Info<<"Inserted Split face"<<endl;
             }
             // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
@@ -2720,9 +2732,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
                 << " This must not happen."
                 << exit(FatalError);
             }
-            Info<<"Jumped"<<endl;
+            //Info<<"Jumped"<<endl;
         }
-        Info<<splitAndUnsplitFaceInteriorOwner.size()<<endl;
+        //Info<<splitAndUnsplitFaceInteriorOwner.size()<<endl;
         if(addedOneFace && splitAndUnsplitFaceInteriorOwner[splitAndUnsplitFaceInteriorOwner.size()-1] == -1)
         {
             FatalErrorInFunction
@@ -2736,7 +2748,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
         patchStarts[i] += addedSplitCellsInteriorNbr-neighbour.size();
     }
     
-    Info<<"Insert split faces boundary"<<endl;
+    //Info<<"Insert split faces boundary"<<endl;
     label currBoundaryPatch = 0;
     label countOldBoundaryFaces = 0;
     label countNewBoundaryFaces = 0;
@@ -2745,7 +2757,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     splitAndUnsplitFaceBoundaryOwner = labelList(0);
     for(int i=neighbour.size();i<meshFaces.size();i++)
     {
-        Info<<"Boundary face "<<i;
+        //Info<<"Boundary face "<<i;
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
@@ -2835,7 +2847,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     }
     for(int i=1;i<patchStarts.size();i++)
     {
-        Info<<i<<":"<<patchStarts[i-1]<<"+"<<patchSizes[i-1]<<"="<<patchStarts[i-1] + patchSizes[i-1]<<endl;
+        //Info<<i<<":"<<patchStarts[i-1]<<"+"<<patchSizes[i-1]<<"="<<patchStarts[i-1] + patchSizes[i-1]<<endl;
         patchStarts[i] = patchStarts[i-1] + patchSizes[i-1]; 
     }
     
@@ -2869,10 +2881,12 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     boundMesh.setGroup(boundName,patches);
     */
     
+    /*
     for(int i=0;i<boundMesh.size();i++)
     {
         Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
+    */
     
     /*
     labelList posPoints(0);
@@ -3399,13 +3413,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     scalar partialThreeshold
 )
 {
+    /*
     for(int i=0;i<oldCellVolume.size();i++)
     {
         Info<<"Cell "<<i<<" volume: "<<oldCellVolume[i]<<" splitted to minus side cell: "<<oldSplittedCellToNewMinusCell[i]<<endl;
         Info<<"Cell "<<i<<" splitted to plus side cell: "<<oldSplittedCellToNewPlusCell[i]<<endl;
     }
+    */
     scalarList partialVolumeScale = scalarList(newCellVolume.size());
-    Info<<"new Cell Size: "<<newCellVolume.size()<<endl;
+    //Info<<"new Cell Size: "<<newCellVolume.size()<<endl;
 
     for(int i=0;i<newCellVolume.size();i++)
     {
@@ -3418,10 +3434,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             partialVolumeScale[i] = 1;
         }
     }
+    
+    /*
     for(int i=0;i<newCellVolume.size();i++)
     {
         Info<<"new Cell "<<i<<" has volume scale: "<<partialVolumeScale[i]<<endl;
     }
+    */
     
     const cellList& newCells = this->cells();
     const faceList& faces = this->faces();
@@ -3444,12 +3463,14 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
         {
             mergeNecessary[i] = true;
+            /*
             Info<<"new Cell "<<i<<" is signed for merge via faces ";
             for(int k=0;k<newCells[i].size();k++)
             {
                 Info<<newCells[i][k]<<",";
             }
             Info<<" with cells:";
+            */
             for(int k=0;k<newCells[i].size();k++)
             {
                 if(newCells[i][k] < neighbour.size())
@@ -3468,15 +3489,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                         << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
                         << exit(FatalError);  
                     }
-                    Info<<endl<<"\t"<<newCells[i][k]<<"("<<k<<")->"<<neighbourCell<<",";
+                    //Info<<endl<<"\t"<<newCells[i][k]<<"("<<k<<")->"<<neighbourCell<<",";
                     neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
-                    Info<<endl<<"\t"<<" partialVol:"<<neighbourCellPartialVolume;
+                    //Info<<endl<<"\t"<<" partialVol:"<<neighbourCellPartialVolume;
                     possibleMergeFaces[i].append(newCells[i][k]);
-                    Info<<endl<<"\t"<<" mergeFace:"<<possibleMergeFaces[i][possibleMergeFaces[i].size()-1];
+                    //Info<<endl<<"\t"<<" mergeFace:"<<possibleMergeFaces[i][possibleMergeFaces[i].size()-1];
                     possibleMergeCells[i].append(neighbourCell);
-                    Info<<endl<<"\t"<<" mergeCells:"<<possibleMergeCells[i][possibleMergeCells[i].size()-1];
+                    //Info<<endl<<"\t"<<" mergeCells:"<<possibleMergeCells[i][possibleMergeCells[i].size()-1];
                     possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1]].mag(points));
-                    Info<<endl<<"\t"<<" mergeFaceArea:"<<possibleMergeFaceArea[i][possibleMergeFaceArea[i].size()-1];
+                    //Info<<endl<<"\t"<<" mergeFaceArea:"<<possibleMergeFaceArea[i][possibleMergeFaceArea[i].size()-1];
                     if(neighbourCellPartialVolume + partialVolumeScale[i] > partialThreeshold)
                     {
                         possibleMergeFaceSufficient[i].append(true);
@@ -3486,10 +3507,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                         possibleMergeFaceSufficient[i].append(false);
                     }
 
-                    Info<<endl<<"\t"<<" sufficientFace:"<<possibleMergeFaceSufficient[i][possibleMergeFaceSufficient[i].size()-1];
+                    //Info<<endl<<"\t"<<" sufficientFace:"<<possibleMergeFaceSufficient[i][possibleMergeFaceSufficient[i].size()-1];
                 }
             }
-            Info<<endl;
+            //Info<<endl;
             oneMergeFaceSufficient[i] = false;
             for(int k=0;k<possibleMergeFaceSufficient.size();k++)
             {
@@ -3530,6 +3551,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    /*
     for(int i=0;i<mergeNecessary.size();i++)
     {
         if(mergeNecessary[i])
@@ -3551,6 +3573,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             Info<<endl;
         }
     }
+    */
     
     std::unordered_set<label> cellReserved;
     
@@ -3578,10 +3601,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    /*
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
         Info<<"cell:"<<i<<" merged via face:"<<mergeFaceOfCell[i]<<endl;
     }
+    */
     
     if(mergeFaceOfCell.size() == 0)
     {
@@ -3601,6 +3626,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     labelList newOwner_ = owner;
     labelList newNeighbour_ = neighbour;
     
+    /*
     for(int i=0;i<newFaces_.size();i++)
     {
         Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
@@ -3621,6 +3647,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
     }
+    */
     
     labelList deletedCells(newCells.size());
     for(int i=0;i<deletedCells.size();i++)
@@ -3711,6 +3738,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    /*
     for(int i=0;i<newFaces_.size();i++)
     {
         Info<<"Face:"<<i<<" Owner:"<<newOwner_[i]<<" ";
@@ -3729,11 +3757,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         else
             Info<<endl;
     }
+    */
     
     faceList newFaces__(newFaces_.size()-countDeleteFaces);
     labelList newOwner__(newOwner_.size()-countDeleteFaces);
     labelList newNeighbour__(newNeighbour_.size()-countDeleteFaces);
-    Info<<"Created Data Struc"<<endl;
+    //Info<<"Created Data Struc"<<endl;
     
     int countDel = 0;
     for(int i=0;i<newFaces_.size();i++)
@@ -3750,16 +3779,18 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     int insertCounter = 0;
     for(int i = 0;i<newFaces_.size();i++)
     {
+        /*
         Info<<"Move "<<i<<" of "<<newFaces_.size()<<" to "<<insertCounter
         <<"/"<<newFaces_.size()-countDeleteFaces<<
         "-"<<newOwner_.size()-countDeleteFaces<<endl;
+        */
         if(newOwner_[i] != -1)
         {
-            Info<<"0"<<endl;
+            //Info<<"0"<<endl;
             newFaces__[insertCounter] = newFaces_[i];
-            Info<<"1"<<endl;
+            //Info<<"1"<<endl;
             newOwner__[insertCounter] = newOwner_[i];
-            Info<<"2"<<endl;
+            //Info<<"2"<<endl;
             if(newOwner__[insertCounter] == -1)
             {            
                 FatalErrorInFunction
@@ -3767,12 +3798,14 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 <<" from "<<newOwner_[i]
                 << exit(FatalError);
             }
-            Info<<"3"<<endl;
+            //Info<<"3"<<endl;
             if(i < newNeighbour_.size())
                 newNeighbour__[insertCounter] = newNeighbour_[i];
             insertCounter++;
         }
     }
+    
+    /*
     Info<<"End"<<endl;
     for(int i=0;i<newFaces__.size();i++)
     {
@@ -3798,6 +3831,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
     }
+    */
     
     const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     patchStarts = labelList(boundMesh.size());
@@ -3894,6 +3928,7 @@ labelList Foam::cutCellFvMesh::searchDown
     std::unordered_set<label> cellReserved
 )
 {
+    /*
     Info<<"possibleMergeFaceArea:"<<possibleMergeFaceArea.size()<<endl;
     Info<<"possibleMergeFaces:"<<possibleMergeFaces.size()<<endl;
     Info<<"possibleMergeCells:"<<possibleMergeCells.size()<<endl;
@@ -3902,13 +3937,15 @@ labelList Foam::cutCellFvMesh::searchDown
     
     Info<<"Starts"<<endl;
     Info<<"Height:"<<count<<"/"<<possibleMergeCells.size();
+    */
+    
     if(count < possibleMergeCells.size()-1)
     {
-        Info<<" in first";
+        //Info<<" in first";
         if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
         {
             cellReserved.insert(count);
-            Info<<" merge"<<endl;
+            //Info<<" merge"<<endl;
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
                 label oneCell = possibleMergeCells[count][i];
@@ -3926,46 +3963,46 @@ labelList Foam::cutCellFvMesh::searchDown
                     {
                         labelList returnList = {oneFace};
                         returnList.append(retList);
-                        Info<<"Return first merge: "<<returnList.size()<<" from "<<count<<endl;
+                        //Info<<"Return first merge: "<<returnList.size()<<" from "<<count<<endl;
                         return returnList;
                     }
                 }
             }
             labelList returnList(0);
-            Info<<"Return first: "<<returnList.size()<<" from "<<count<<endl;
+            //Info<<"Return first: "<<returnList.size()<<" from "<<count<<endl;
             return returnList;
         }
         else
         {
-            Info<<" empty"<<endl;
+            //Info<<" empty"<<endl;
             labelList returnList = {-1};
-            Info<<" 1"<<endl;
+            //Info<<" 1"<<endl;
             labelList retList;
             retList = searchDown
             (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
              oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
-            Info<<"Recursion"<<endl;
+            //Info<<"Recursion"<<endl;
             if(retList.size() != 0)
             {
                 returnList.append(retList);
-                Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                //Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
                 return returnList;
             }
             else
             {
                 returnList = labelList(0);
-                Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                //Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
                 return returnList;
             }
         }
     }
     else
     {
-        Info<<" in second";
+        //Info<<" in second";
         if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
         {
             cellReserved.insert(count);
-            Info<<" merge"<<endl;
+            //Info<<" merge"<<endl;
             for(int i=0;i<possibleMergeCells[count].size();i++)
             {
                 label oneCell = possibleMergeCells[count][i];
@@ -3973,18 +4010,18 @@ labelList Foam::cutCellFvMesh::searchDown
                 if(cellReserved.find(oneCell) == cellReserved.end())
                 {
                     labelList returnList = {oneFace};
-                    Info<<"Return second merge: "<<returnList.size()<<" from "<<count<<endl;
+                    //Info<<"Return second merge: "<<returnList.size()<<" from "<<count<<endl;
                     return returnList;
                 }
             }
             labelList returnList(0);
-            Info<<"Return second: "<<returnList.size()<<" from "<<count<<endl;
+            //Info<<"Return second: "<<returnList.size()<<" from "<<count<<endl;
             return returnList;
         }
         else
         {
             labelList returnList = {-1};
-            Info<<"Return second empty: "<<returnList.size()<<" from "<<count<<endl;
+            //Info<<"Return second empty: "<<returnList.size()<<" from "<<count<<endl;
             return returnList;
         }
     }
@@ -3999,9 +4036,11 @@ void Foam::cutCellFvMesh::testNewMeshData
     const labelList& patchSizes
 )
 {
+    /*
     Info<<"Face number:"<<newFaces.size()
     <<" Owner number:"<<newFaceOwner.size()
     <<" Neighbor number:"<<newFaceNeighbor.size()<<endl;
+    */
     
     if(newFaces.size() != newFaceOwner.size())
     {

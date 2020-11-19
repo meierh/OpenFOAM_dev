@@ -192,6 +192,10 @@ Curves(std::move(Curves)),
 MainTree(new KdTree(this->Curves)),
 NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
 {
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::duration<double> time_span;
+    
     Info<<"Created Main Tree"<<endl;
     for(int i=0;i<this->Curves.size();i++)
     {
@@ -199,17 +203,42 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     }
     Info<<"Prepared all Data"<<endl;
     
+    Info<<"Projection of distance field ";
+    t1 = std::chrono::high_resolution_clock::now();
     projectNurbsSurface();
-    Info<<"Projected Nurbs Surface"<<endl;
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
     
+    Info<<"Adding of cut points";
+    t1 = std::chrono::high_resolution_clock::now();
     newMeshPoints();
-    Info<<"Added Mesh Points"<<endl;
-    
-    printAddedPoints();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+
+    Info<<"Adding of cut edges";
+    t1 = std::chrono::high_resolution_clock::now();
     newMeshEdges();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
     edgesToSide();
+    
+    Info<<"Adding of cut faces";
+    t1 = std::chrono::high_resolution_clock::now();
     newMeshFaces();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t"<< time_span.count() << " seconds."<<endl;
+    
+    Info<<"Cutting old faces";
+    t1 = std::chrono::high_resolution_clock::now();
     cutOldFaces();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
     
     faceList faces(0);
     labelList owner(0);
@@ -233,8 +262,16 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     }
     else if(state == delNegMesh)
     {
+        Info<<"-------------------------------------------"<<endl;
+        Info<<"Create new Mesh data and cut negative cells";
+        t1 = std::chrono::high_resolution_clock::now();
         createNewMeshData_cutNeg();
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        Info<< " took \t"<< time_span.count() << " seconds."<<endl;
+        Info<<"-------------------------------------------"<<endl;
 
+        
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
         faces.append(addedCutFaces);
@@ -250,11 +287,13 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         patchStarts[patchStarts.size()-1] = (patchStarts.last()+patchSizes.last());
         patchSizes[patchSizes.size()-1] = (addedCutFaces.size());
         
+        /*
         Info<<"--"<<endl;
         for(int i=0;i<patchStarts.size();i++)
         {
             Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
         }
+        */
 
     }
     //printMesh();
@@ -286,7 +325,12 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         newCellVolume[i] = newCells[i].mag(newMeshPoints_,this->faces());
     }
     
+    Info<<"Agglomerate small cut-cells";
+    t1 = std::chrono::high_resolution_clock::now();
     agglomerateSmallCells_cutNeg(newCellVolume,oldCellVolume);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
 
     //printMesh();
     Info<<"Please write"<<endl;
@@ -302,16 +346,16 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
     
     for(int i=0;i<points.size();i++)
     {
-        Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
+        //Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
         
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
         if(firstOrderNearNurbs->size() == 0)
         {
             pointDist[i] = 1;
-            Info<<"\tSkipped because far away"<<endl;
+            //Info<<"\tSkipped because far away"<<endl;
             continue;
         }
-        Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
+        //Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
         
         scalarList distToNurbsSurface(0);
         scalarList paraToNurbsSurface(0);
@@ -320,7 +364,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         {
             label thisNurbs = (*firstOrderNearNurbs)[k];
             scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(points[i]);
-            Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+            //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
             if(thisNodePara < this->Curves[thisNurbs]->min_U())
             {
                 pointDist[i] = 1;
@@ -341,7 +385,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         }
         pointDist[i] = minDistToNurbsSurface;
         
-        Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
+        //Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
         /*
         if(points[i] == vector(1.6,-0.1,-0.1))
         {
@@ -352,9 +396,11 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         */
     }
     
+    /*
     Info<<"Final point writing"<<endl;
     for(int i=0;i<points.size();i++)
     {
         Info<<i<<" "<<points[i]<<" "<<pointDist[i]<<endl;
     }
+    */
 }
