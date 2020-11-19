@@ -339,6 +339,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     //printMesh();
     Info<<"Please write"<<endl;
     this->write();
+    Info<<"Written"<<endl;
     //printMesh();
     //selfTestMesh();
 }

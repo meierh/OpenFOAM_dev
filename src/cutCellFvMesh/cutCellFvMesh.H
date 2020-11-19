@@ -51,7 +51,7 @@ class cutCellFvMesh   :   public fvMesh
         labelList cellsToSide_;
         
         //cutfaces to Side(+1,0,-1)
-        labelList   cutFacesToSide_;
+        DynamicList<label> cutFacesToSide_;
         
       //Points and data added by newMeshPoints function
       //Begin
@@ -99,20 +99,23 @@ class cutCellFvMesh   :   public fvMesh
             //Nbr of previous existing edges
             label nbrOfPrevFaces;
             // new PointField; previous points + added Points
+            //DynamicList<face> newMeshFaces_;
             faceList newMeshFaces_;
         
             //label of cells for every added face or zero side edge and null for every intersection point
+            //DynamicList<DynamicList<label>> faceToCells_;
             labelListList faceToCells_;
             //label of added point for every cell or null if no added Points
+            //DynamicList<DynamicList<label>> cellToFaces_;
             labelListList cellToFaces_;
       //End
             
       //Split faces and data added by cutOldFaces
             //Begin
             // list of all cut faces replacing old faces
-            faceList    cutFaces_;
+            DynamicList<face>    cutFaces_;
             // list of all faces containing a list of cut Faces or empty
-            labelListList   oldFacesToCutFaces_;
+            DynamicList<DynamicList<label>>   oldFacesToCutFaces_;
       //End
             
       //Data to construct new mesh
@@ -124,27 +127,27 @@ class cutCellFvMesh   :   public fvMesh
             
             //insert cell split faces
             // added cell split faces
-            faceList addedCutFaces;
+            DynamicList<face> addedCutFaces;
             // added split faces owner
-            labelList addedCutFaceOwner;
+            DynamicList<label> addedCutFaceOwner;
             // added split faces neighbor
-            labelList addedCutFaceNeighbor;
+            DynamicList<label> addedCutFaceNeighbor;
             
             //insert interior splitted faces
             // added interior split faces
-            faceList splitAndUnsplitFacesInterior;
+            DynamicList<face> splitAndUnsplitFacesInterior;
             // added interior split faces owner
-            labelList splitAndUnsplitFaceInteriorOwner;
+            DynamicList<label> splitAndUnsplitFaceInteriorOwner;
             // added interior split faces neighbor
-            labelList splitAndUnsplitFaceInteriorNeighbor;
+            DynamicList<label> splitAndUnsplitFaceInteriorNeighbor;
             
             //insert boundary splitted faces
             // added boundary split faces
-            faceList splitAndUnsplitFacesBoundary;
+            DynamicList<face> splitAndUnsplitFacesBoundary;
             // added boundary split faces owner
-            labelList splitAndUnsplitFaceBoundaryOwner;
+            DynamicList<label> splitAndUnsplitFaceBoundaryOwner;
             // added boundary split faces neighbor
-            labelList splitAndUnsplitFaceBoundaryNeighbor;
+            DynamicList<label> splitAndUnsplitFaceBoundaryNeighbor;
             
             //index of minus side cell of splitted cell or -1 if cell is not split
             labelList oldSplittedCellToNewMinusCell;

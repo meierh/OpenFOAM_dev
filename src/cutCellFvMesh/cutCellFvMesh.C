@@ -1492,9 +1492,9 @@ void Foam::cutCellFvMesh::cutOldFaces
     cutCellsItems.cutEdgesToSide = cutEdgesToSide;
 */
     
-    cutFaces_ = faceList(0);
-    oldFacesToCutFaces_ = labelListList(meshFaces.size());
-    cutFacesToSide_ = labelList(0);
+    cutFaces_.setCapacity(meshFaces.size());
+    oldFacesToCutFaces_.setCapacity(meshFaces.size());
+    cutFacesToSide_.setCapacity(meshFaces.size());
     
     for(int i=0;i<meshFaces.size();i++)
     {
@@ -1790,6 +1790,7 @@ void Foam::cutCellFvMesh::cutOldFaces
             Info<<relPointIndex<<endl;
             */
             
+            oldFacesToCutFaces_[i].setCapacity(2);
             cutFaces_.append(face(newFace1));
             cutFacesToSide_.append(newFace1Sign);
             oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
@@ -1816,6 +1817,9 @@ void Foam::cutCellFvMesh::cutOldFaces
             */
         }
     }
+    cutFaces_.setCapacity(cutFaces_.size());
+    oldFacesToCutFaces_.setCapacity(oldFacesToCutFaces_.size());
+    cutFacesToSide_.setCapacity(cutFacesToSide_.size());
 
 /*
     pointField combinedPoints;
@@ -2617,9 +2621,12 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     //Info<<"Insert Split cell faces"<<endl;
     // Compute List of new faces splitting old cells
     //label addedCutFacesNbr = 0;
-    addedCutFaces = faceList(0);
-    addedCutFaceNeighbor = labelList(0);
-    addedCutFaceOwner = labelList(0);
+    //addedCutFaces = DynamicList<face>();
+    addedCutFaces.setCapacity(cellToFaces_.size());
+    //addedCutFaceNeighbor = DynamicList<label>();
+    addedCutFaceNeighbor.setCapacity(cellToFaces_.size());
+    //addedCutFaceOwner = DynamicList<label>();
+    addedCutFaceOwner.setCapacity(cellToFaces_.size());
     for(int i=0;i<cellToFaces_.size();i++)
     {
         if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
@@ -2673,9 +2680,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     //Info<<"Insert split faces interior"<<endl;
     // Compute the List of new faces resulting from the splitting of old faces
     label addedSplitCellsInteriorNbr = 0;
-    splitAndUnsplitFacesInterior = faceList(0);
-    splitAndUnsplitFaceInteriorNeighbor = labelList(0);
-    splitAndUnsplitFaceInteriorOwner = labelList(0);
+    splitAndUnsplitFacesInterior.setCapacity(neighbour.size());
+    splitAndUnsplitFaceInteriorNeighbor.setCapacity(neighbour.size());
+    splitAndUnsplitFaceInteriorOwner.setCapacity(neighbour.size());
     bool addedOneFace;
     for(int i=0;i<neighbour.size();i++)
     {
@@ -2757,9 +2764,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     label currBoundaryPatch = 0;
     label countOldBoundaryFaces = 0;
     label countNewBoundaryFaces = 0;
-    splitAndUnsplitFacesBoundary = faceList(0);
-    splitAndUnsplitFaceBoundaryNeighbor = labelList(0);
-    splitAndUnsplitFaceBoundaryOwner = labelList(0);
+    splitAndUnsplitFacesBoundary.setCapacity(meshFaces.size()-neighbour.size());
+    splitAndUnsplitFaceBoundaryNeighbor.setCapacity(meshFaces.size()-neighbour.size());
+    splitAndUnsplitFaceBoundaryOwner.setCapacity(meshFaces.size()-neighbour.size());
     for(int i=neighbour.size();i<meshFaces.size();i++)
     {
         //Info<<"Boundary face "<<i;
@@ -2958,7 +2965,19 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
             << "Face neighbors or ownes deleted cell. This can not happen."
             << exit(FatalError);
         }
-    }   
+    }
+    
+    addedCutFaces.setCapacity(addedCutFaces.size());
+    addedCutFaceOwner.setCapacity(addedCutFaceOwner.size());
+    addedCutFaceNeighbor.setCapacity(addedCutFaceNeighbor.size());
+    
+    splitAndUnsplitFacesInterior.setCapacity(splitAndUnsplitFacesInterior.size());
+    splitAndUnsplitFaceInteriorOwner.setCapacity(splitAndUnsplitFaceInteriorOwner.size());
+    splitAndUnsplitFaceInteriorNeighbor.setCapacity(splitAndUnsplitFaceInteriorNeighbor.size());
+
+    splitAndUnsplitFacesBoundary.setCapacity(splitAndUnsplitFacesBoundary.size());
+    splitAndUnsplitFaceBoundaryOwner.setCapacity(splitAndUnsplitFaceBoundaryOwner.size());
+    splitAndUnsplitFaceBoundaryNeighbor.setCapacity(splitAndUnsplitFaceBoundaryNeighbor.size());
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
