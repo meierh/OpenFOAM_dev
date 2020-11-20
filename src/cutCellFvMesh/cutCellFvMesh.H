@@ -42,7 +42,7 @@ class cutCellFvMesh   :   public fvMesh
         labelList pointsToSide_;
         
         //Edge to Side (+1,0,-1)
-        labelList edgesToSide_;
+        DynamicList<label> edgesToSide_;
         
         //face to Side (+1,0,-1)
         DynamicList<label> facesToSide_;
@@ -58,6 +58,7 @@ class cutCellFvMesh   :   public fvMesh
             //Nbr of previous existing points
             label nbrOfPrevPoints;
             // new PointField; previous points + added Points
+            DynamicList<point> newMeshPointsInFunc;
             pointField newMeshPoints_;
         
             //label of edge for every added Point and -1 for intersection point
@@ -81,17 +82,21 @@ class cutCellFvMesh   :   public fvMesh
             //Nbr of previous existing edges
             label nbrOfPrevEdges;
             // new PointField; previous points + added Points
-            edgeList newMeshEdges_;
+            DynamicList<edge> newMeshEdges_;
         
             //label of face for every added edge or zero side edge and null every other edge
-            labelListList edgeToFaces_;
+            DynamicList<DynamicList<label>> edgeToFaces_;
+            //labelListList edgeToFaces_;
             //label of added points for every face or null if no point added
-            labelListList faceToEdges_;
+            DynamicList<DynamicList<label>> faceToEdges_;
+            //labelListList faceToEdges_;
         
             //label of cells for every added point and null for every intersection point
-            labelListList edgeToCells_;
+            DynamicList<DynamicList<label>> edgeToCells_;
+            //labelListList edgeToCells_;
             //label of added edge or zero side edge for every cell or zero size
-            labelListList cellToEdges_;
+            DynamicList<DynamicList<label>> cellToEdges_;
+            //labelListList cellToEdges_;
       //End
             
       //Faces and data added by addMeshFaces function
@@ -103,11 +108,11 @@ class cutCellFvMesh   :   public fvMesh
             //faceList newMeshFaces_;
         
             //label of cells for every added face or zero side edge and null for every intersection point
-            //DynamicList<DynamicList<label>> faceToCells_;
-            labelListList faceToCells_;
+            DynamicList<DynamicList<label>> faceToCells_;
+            //labelListList faceToCells_;
             //label of added point for every cell or null if no added Points
             //DynamicList<DynamicList<label>> cellToFaces_;
-            labelListList cellToFaces_;
+            DynamicList<DynamicList<label>> cellToFaces_;
       //End
             
       //Split faces and data added by cutOldFaces
