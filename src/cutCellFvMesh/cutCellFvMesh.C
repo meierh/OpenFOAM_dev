@@ -230,7 +230,7 @@ void Foam::cutCellFvMesh::facesToSide
 )
 {
     const faceList& faces = this->faces();
-    labelList facesToSide(faces.size());
+    facesToSide_.setCapacity(faces.size());
     
     for(int i=0;i<faces.size();i++)
     {
@@ -250,22 +250,22 @@ void Foam::cutCellFvMesh::facesToSide
         if(nullExist)
         {
             if(posExist && negExist)
-                facesToSide[i] = 0;
+                facesToSide_[i] = 0;
             else if(posExist)
-                facesToSide[i] = +1;
+                facesToSide_[i] = +1;
             else if(negExist)
-                facesToSide[i] = -1;
+                facesToSide_[i] = -1;
             else
-                facesToSide[i] = 0;
+                facesToSide_[i] = 0;
         }
         else
         {
             if(posExist && negExist)
-                facesToSide[i] = 0;
+                facesToSide_[i] = 0;
             else if(posExist)
-                facesToSide[i] = +1;
+                facesToSide_[i] = +1;
             else if(negExist)
-                facesToSide[i] = -1;
+                facesToSide_[i] = -1;
             else
             {
                 FatalErrorInFunction
@@ -275,7 +275,6 @@ void Foam::cutCellFvMesh::facesToSide
             }
         }
     }
-    this->facesToSide_ = facesToSide;
 }
 
 void Foam::cutCellFvMesh::facesToSide
@@ -1097,10 +1096,12 @@ void Foam::cutCellFvMesh::newMeshFaces
     
     nbrOfPrevFaces = basisFaces.size();
     
-    newMeshFaces_ = faceList(0);
+    newMeshFaces_.setCapacity(basisFaces.size()*2);
     newMeshFaces_.append(basisFaces);
 
     facesToSide(newMeshFaces_);
+    
+    facesToSide_.setCapacity(basisFaces.size()*2);
     
     /*
      * A existing face is a cut face if all its points are cut points.
@@ -1114,30 +1115,7 @@ void Foam::cutCellFvMesh::newMeshFaces
     for(int i=0;i<basisFaces.size();i++)
     {
         labelList facePoints = basisFaces[i];
-        
-        /*
-        Info<<"  Face:"<<i<<" Owner:"<<owner[i]<<" ";
-        if(i < neighbour.size())
-            Info<<" Neighbor:"<<neighbour[i]<<" ";
-        for(int k=0;k<basisFaces[i].size();k++)
-        {
-            Info<<newMeshPoints_[basisFaces[i][k]]<<"->";
-        }
-        Info<<" with centre:"<<basisFaces[i].centre(newMeshPoints_);
-        Info<<" and normal vector:"<<basisFaces[i].normal(newMeshPoints_);
-        Info<<" and area:"<<basisFaces[i].mag(newMeshPoints_);
-        */
-    
-        /*
-        if(facePoints.size() != 4)
-        {
-            FatalErrorInFunction
-            << "A face cannot have "<< facePoints.size()
-            << " cut points while one or more "
-            << "cut points are not old points! "
-            << exit(FatalError);
-        }
-        */
+
         bool isCutFace = true;
         for(int k=0;k<facePoints.size();k++)
         {
@@ -1377,6 +1355,7 @@ void Foam::cutCellFvMesh::newMeshFaces
         cellToFaces_[i].append(newMeshFaces_.size()-1);
     }
     //Info<<"End adding faces"<<endl;
+    newMeshFaces_.setCapacity(newMeshFaces_.size());
 }
 
 void Foam::cutCellFvMesh::printAddedFaces

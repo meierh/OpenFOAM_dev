@@ -45,7 +45,7 @@ class cutCellFvMesh   :   public fvMesh
         labelList edgesToSide_;
         
         //face to Side (+1,0,-1)
-        labelList facesToSide_;
+        DynamicList<label> facesToSide_;
         
         //cell to Side (+1,0,-1)
         labelList cellsToSide_;
@@ -99,8 +99,8 @@ class cutCellFvMesh   :   public fvMesh
             //Nbr of previous existing edges
             label nbrOfPrevFaces;
             // new PointField; previous points + added Points
-            //DynamicList<face> newMeshFaces_;
-            faceList newMeshFaces_;
+            DynamicList<face> newMeshFaces_;
+            //faceList newMeshFaces_;
         
             //label of cells for every added face or zero side edge and null for every intersection point
             //DynamicList<DynamicList<label>> faceToCells_;
