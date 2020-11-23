@@ -39,7 +39,7 @@ class cutCellFvMesh   :   public fvMesh
         scalarList newCellVolume;
                 
         //Points to Side (+1,0,-1)
-        labelList pointsToSide_;
+        DynamicList<label> pointsToSide_;
         
         //Edge to Side (+1,0,-1)
         DynamicList<label> edgesToSide_;
@@ -62,19 +62,25 @@ class cutCellFvMesh   :   public fvMesh
             pointField newMeshPoints_;
         
             //label of edge for every added Point and -1 for intersection point
-            labelList pointToEgde_;
+            //labelList pointToEgde_;
+            DynamicList<label> pointToEgde_;
             //label of added Point for every edge or -1 if edge has no added point
-            labelList edgeToPoint_;
-        
+            //labelList edgeToPoint_;
+            DynamicList<label> edgeToPoint_;
+            
             //label of face for every added Point or zero side point and null for intersection non-cut point
-            labelListList pointToFaces_;
+            //labelListList pointToFaces_;
+            DynamicList<DynamicList<label>> pointToFaces_;
             //label of added points for every face or null if no point added
-            labelListList faceToPoints_;
-        
+            //labelListList faceToPoints_;
+            DynamicList<DynamicList<label>> faceToPoints_;
+            
             //label of cells for every added point and null for every intersection point
-            labelListList pointToCells_;
+            //labelListList pointToCells_;
+            DynamicList<DynamicList<label>> pointToCells_;
             //label of added point for every cell or null if no added Points
-            labelListList cellToPoints_;
+            //labelListList cellToPoints_;
+            DynamicList<DynamicList<label>> cellToPoints_;
       //End
             
       //Edges and data added by addMeshEdges function

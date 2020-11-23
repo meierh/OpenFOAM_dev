@@ -362,8 +362,10 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         }
         //Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
         
-        scalarList distToNurbsSurface(0);
-        scalarList paraToNurbsSurface(0);
+        DynamicList<scalar> distToNurbsSurface;
+        distToNurbsSurface.setCapacity(10);
+        DynamicList<scalar> paraToNurbsSurface;
+        paraToNurbsSurface.setCapacity(10);
         bool outSideNurbsBox = false;
         for(int k=0;k<firstOrderNearNurbs->size();k++)
         {

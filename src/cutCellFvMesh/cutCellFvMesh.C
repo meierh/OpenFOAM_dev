@@ -136,21 +136,24 @@ void Foam::cutCellFvMesh::pointsToSide
     const pointField& points
 )
 {
-    labelList pointsToSide(points.size());
+    pointsToSide_.setSize(points.size());
     scalar lvlSet;
     for(int i=0;i<points.size();i++)
     {
         lvlSet = pointDist[i];
+        pointsToSide_[i] = (lvlSet > 0) * 1 + (lvlSet < 0) * -1 + 0;
+        
+        /*
         if(lvlSet > 0)
-            pointsToSide[i] = 1;
+            pointsToSide_[i] = 1;
         else if(lvlSet < 0)
-            pointsToSide[i] = -1;
+            pointsToSide_[i] = -1;
         else
-            pointsToSide[i] = 0;
+            pointsToSide_[i] = 0;
+        */
         
         //Info<<points[i]<<"\t"<<lvlSet<<"\t"<<pointsToSide[i]<<endl;
     }
-    this->pointsToSide_ = pointsToSide;
 }
 
 void Foam::cutCellFvMesh::edgesToSide
@@ -463,6 +466,14 @@ void Foam::cutCellFvMesh::newMeshPoints
 (
 )
 {
+    Info<<"-----------------------------------------------"<<endl;
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::duration<double> time_span;
+    
+    Info<<"Data 1 preparation ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
     //Info<<"Starting adding Points"<<endl;
     const cellList& meshCells = this->cells();
     const pointField& basisPoints = this->points();
@@ -471,23 +482,40 @@ void Foam::cutCellFvMesh::newMeshPoints
 
     nbrOfPrevPoints = basisPoints.size();
     
-    newMeshPoints_.setSize(basisPoints.size()*2);
-    newMeshPoints_.append(basisPoints);
+    newMeshPointsInFunc.setCapacity(basisPoints.size()*2);
+    //newMeshPoints_.setSize(basisPoints.size()*2);
+    newMeshPointsInFunc.append(basisPoints);
     
-    pointsToSide(newMeshPoints_);
+    pointsToSide(basisPoints);
     //Info<<"Point to Side done"<<endl;
     
-    pointToEgde_ = labelList(basisPoints.size());
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Data 2 preparation ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    pointToEgde_.setSize(basisPoints.size());
     for(int i=0;i<basisPoints.size();i++)
     {
         pointToEgde_[i] = -1;
     }
+    pointToEgde_.setCapacity(basisPoints.size()*2);
     
-    edgeToPoint_ = labelList(basisEdges.size());
+    edgeToPoint_.setSize(basisEdges.size());
     
-    pointToFaces_ = labelListList(basisPoints.size());
-    labelListList pointFaces = this->pointFaces();
-    labelListList edgeFaces = this->edgeFaces();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Data 3 preparation ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    pointToFaces_.setCapacity(basisPoints.size()*2);
+    pointToFaces_.setSize(basisPoints.size());
+    const labelListList& pointFaces = this->pointFaces();
+    const labelListList& edgeFaces = this->edgeFaces();
     for(int i=0;i<basisPoints.size();i++)
     {
         if(pointsToSide_[i] == 0)
@@ -495,9 +523,16 @@ void Foam::cutCellFvMesh::newMeshPoints
             pointToFaces_[i] = pointFaces[i];
         }
     }
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
     //Info<<"Point to faces"<<endl;
-        
-    faceToPoints_ = labelListList(basisFaces.size());
+
+    Info<<"Data 4 preparation ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    faceToPoints_.setSize(basisFaces.size());
     for(int i=0;i<basisPoints.size();i++)
     {
         if(pointToFaces_[i].size() != 0)
@@ -518,11 +553,19 @@ void Foam::cutCellFvMesh::newMeshPoints
     }
     //Info<<"Point to faces done"<<endl;
     
-    pointToCells_ = labelListList(basisPoints.size());
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Data 5 preparation ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    pointToCells_.setCapacity(basisPoints.size()*2);
+    pointToCells_.setSize(basisPoints.size());
     //Info<<"1"<<endl;
-    labelListList pointCells = this->pointCells();
+    const labelListList& pointCells = this->pointCells();
     //Info<<"2"<<endl;
-    labelListList edgeCells = this->edgeCells();
+    const labelListList& edgeCells = this->edgeCells();
     //Info<<"3"<<endl;
     for(int i=0;i<basisPoints.size();i++)
     {
@@ -534,7 +577,14 @@ void Foam::cutCellFvMesh::newMeshPoints
     }
     //Info<<"Point to cells "<<basisPoints.size()<<" done"<<endl;
     
-    cellToPoints_ = labelListList(meshCells.size());
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Data 6 preparation ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    cellToPoints_.setSize(meshCells.size());
     for(int i=0;i<basisPoints.size();i++)
     {
         if(pointToCells_[i].size() != 0)
@@ -554,7 +604,12 @@ void Foam::cutCellFvMesh::newMeshPoints
         }
     }
     
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
     
+    Info<<"Point computing ";
+    t1 = std::chrono::high_resolution_clock::now();
     
     label pos,neg;
     
@@ -580,11 +635,11 @@ void Foam::cutCellFvMesh::newMeshPoints
             //Info<<phiStart<<" -> "<<phiEnd<<endl;
             vector startToEnd = basisEdges[i].vec(basisPoints);
             //Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
-            scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
+            //scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
             //Info<<"norm_startToEnd: "<<norm_startToEnd<<endl;;
-            scalar distPhi = std::abs(phiEnd-phiStart);
+            //scalar distPhi = std::abs(phiEnd-phiStart);
             //Info<<"distPhi: "<<distPhi<<endl;;
-            scalar norm_phiStart = std::abs(phiStart);
+            //scalar norm_phiStart = std::abs(phiStart);
             //Info<<"norm_phiStart: "<<norm_phiStart<<endl;;
             scalar scalePoint = phiStart / (phiStart - phiEnd);
             //Info<<"scalePoint: "<<scalePoint<<endl;;
@@ -592,15 +647,19 @@ void Foam::cutCellFvMesh::newMeshPoints
             
             //Info<<"Added: "<<newPoint<<endl<<endl;
 
-            newMeshPoints_.append(newPoint);
+            newMeshPointsInFunc.append(newPoint);
             
             pointsToSide_.append(0);
             
             pointToEgde_.append(i);
             
-            edgeToPoint_[i] = newMeshPoints_.size()-1;
-            
-            pointToFaces_.append(edgeFaces[i]);
+            edgeToPoint_[i] = newMeshPointsInFunc.size()-1;
+                        
+            DynamicList<label> insertedgeFaces;
+            insertedgeFaces.setSize(edgeFaces[i].size());
+            for(int j=0;j<edgeFaces[i].size();j++)
+                insertedgeFaces[j] = edgeFaces[i][j];
+            pointToFaces_.append(insertedgeFaces);
             
             for(int k=0;k<edgeFaces[i].size();k++)
             {
@@ -608,15 +667,19 @@ void Foam::cutCellFvMesh::newMeshPoints
                 if(faceToPoints_[faceLabel].size() == 0)
                 {
                     faceToPoints_[faceLabel] = labelList(0);
-                    faceToPoints_[faceLabel].append(newMeshPoints_.size()-1);
+                    faceToPoints_[faceLabel].append(newMeshPointsInFunc.size()-1);
                 }
                 else
                 {
-                    faceToPoints_[faceLabel].append(newMeshPoints_.size()-1);
+                    faceToPoints_[faceLabel].append(newMeshPointsInFunc.size()-1);
                 }
             }
             
-            pointToCells_.append(edgeCells[i]);
+            DynamicList<label> insertedgeCells;        
+            insertedgeCells.setSize(edgeCells[i].size());
+            for(int j=0;j<edgeCells[i].size();j++)
+                insertedgeCells[j] = edgeCells[i][j];
+            pointToCells_.append(insertedgeCells);
             
             for(int k=0;k<edgeCells[i].size();k++)
             {
@@ -624,11 +687,11 @@ void Foam::cutCellFvMesh::newMeshPoints
                 if(cellToPoints_[cellLabel].size() == 0)
                 {
                     cellToPoints_[cellLabel] = labelList(0);
-                    cellToPoints_[cellLabel].append(newMeshPoints_.size()-1);
+                    cellToPoints_[cellLabel].append(newMeshPointsInFunc.size()-1);
                 }
                 else
                 {
-                    cellToPoints_[cellLabel].append(newMeshPoints_.size()-1);
+                    cellToPoints_[cellLabel].append(newMeshPointsInFunc.size()-1);
                 }
             }
         }
@@ -638,8 +701,27 @@ void Foam::cutCellFvMesh::newMeshPoints
         }
     }
     
-    newMeshPoints_.setCapacity(newMeshPoints_.size());
-    pointList
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"End information ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    newMeshPoints_ = pointField(newMeshPointsInFunc.size());
+    for(int i=0;i<newMeshPoints_.size();i++)
+        newMeshPoints_[i] = newMeshPointsInFunc[i];
+    newMeshPointsInFunc.setCapacity(0);
+    
+    pointToEgde_.setCapacity(pointToEgde_.size());
+    pointToFaces_.setCapacity(pointToFaces_.size());
+    pointToCells_.setCapacity(pointToFaces_.size());
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+    Info<<"-----------------------------------------------";
+
 }
 
 void Foam::cutCellFvMesh::printAddedPoints
@@ -789,7 +871,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     //Info<<"Put edges to side"<<endl;
     
     edgeToFaces_.setSize(basisEdges.size());
-    labelListList edgeFaces = this->edgeFaces();
+    const labelListList& edgeFaces = this->edgeFaces();
     for(int i=0;i<basisEdges.size();i++)
     {
         label startPoint = basisEdges[i].start();
@@ -947,9 +1029,9 @@ void Foam::cutCellFvMesh::newMeshEdges
 
     
     edgeToCells_.setSize(newMeshEdges_.size());
-    labelList owner = this->faceOwner();
-    labelList neighbour = this->faceNeighbour();
-    labelListList edgeCells = this->edgeCells();
+    const labelList& owner = this->faceOwner();
+    const labelList& neighbour = this->faceNeighbour();
+    const labelListList& edgeCells = this->edgeCells();
     
     //Info<<"newMeshEdges_: "<<newMeshEdges_.size()<<endl;
     //Info<<"edgeToCells_: "<<edgeToCells_.size()<<endl;
@@ -1122,8 +1204,8 @@ void Foam::cutCellFvMesh::newMeshFaces
      * is the sign that the face is a cut face
      */
     faceToCells_.setSize(basisFaces.size());
-    labelList owner = this->faceOwner();
-    labelList neighbour = this->faceNeighbour();
+    const labelList& owner = this->faceOwner();
+    const labelList& neighbour = this->faceNeighbour();
     for(int i=0;i<basisFaces.size();i++)
     {
         labelList facePoints = basisFaces[i];
