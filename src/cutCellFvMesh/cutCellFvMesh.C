@@ -4117,6 +4117,261 @@ labelList Foam::cutCellFvMesh::searchDown
     }
 }
 
+labelList Foam::cutCellFvMesh::searchDown_iter
+(
+    scalarListList& possibleMergeFaceArea,
+    labelListList& possibleMergeFaces,
+    labelListList& possibleMergeCells,
+    boolList& oneMergeFaceSufficient,
+    boolList& mergeNecessary,
+    label count,
+    std::unordered_set<label> cellReserved
+)
+{
+    labelList cellReservedReference(mergeNecessary.size());
+    DynamicList<std::unordered_set<label>> cellReservedList;
+    std::unordered_set cellReserved;
+    cellReservedReference[0] = 0;
+    cellReservedList.append(cellReserved);
+    labelList resultMergeFaces(mergeNecessary.size(),-1);
+    DynamicList<DynamicList<label>> blockedCellList;
+    blockedCellList.setSize(mergeNecessary.size());
+    
+    for(int count=0; count<mergeNecessary.size(); count++)
+    {
+        cellReservedReference[count] = cellReservedList.size()-1;
+        if(mergeNecessary[count] &&
+           cellReservedList[cellReservedReference[count]].find(count) 
+           == cellReservedList[cellReservedReference[count]].end())
+        {
+            cellReservedList.append(cellReservedList.last());
+            cellReservedReference[count] = cellReservedList.size()-1;
+            cellReservedList.last().insert(count);
+            blockedCellList[count].append(count);
+                
+            for(int i=0;i<possibleMergeCells[count].size(); i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
+                bool cellFound = false;
+                if(cellReservedList[cellReservedReference[count]].find(oneCell) 
+                == cellReservedList[cellReservedReference[count]].end())
+                {
+                    resultMergeFaces[count] = oneFace;
+                    cellReservedList.last().insert(oneCell);
+                    blockedCellList[count].append(oneCell);
+                    cellFound = true;
+                    break;
+                }
+            }
+            if(!cellFound)
+            {
+            }
+            
+        }
+    }
+    
+    if(count < possibleMergeCells.size()-1)
+    {
+        //Info<<" in first";
+        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
+        {
+            cellReserved.insert(count);
+            //Info<<" merge"<<endl;
+            for(int i=0;i<possibleMergeCells[count].size();i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
+                std::unordered_set<label> cellReservedCpy;
+                if(cellReserved.find(oneCell) == cellReserved.end())
+                {
+                    labelList retList;
+                    cellReservedCpy = cellReserved;
+                    cellReservedCpy.insert(oneCell);
+                    retList = searchDown
+                    (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
+                     oneMergeFaceSufficient,mergeNecessary,count+1,cellReservedCpy);
+                    if(retList.size() != 0)
+                    {
+                        labelList returnList = {oneFace};
+                        returnList.append(retList);
+                        //Info<<"Return first merge: "<<returnList.size()<<" from "<<count<<endl;
+                        return returnList;
+                    }
+                }
+            }
+            labelList returnList(0);
+            //Info<<"Return first: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
+        }
+        else
+        {
+            //Info<<" empty"<<endl;
+            labelList returnList = {-1};
+            //Info<<" 1"<<endl;
+            labelList retList;
+            retList = searchDown
+            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
+             oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+            //Info<<"Recursion"<<endl;
+            if(retList.size() != 0)
+            {
+                returnList.append(retList);
+                //Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                return returnList;
+            }
+            else
+            {
+                returnList = labelList(0);
+                //Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                return returnList;
+            }
+        }
+    }
+    else
+    {
+        //Info<<" in second";
+        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
+        {
+            cellReserved.insert(count);
+            //Info<<" merge"<<endl;
+            for(int i=0;i<possibleMergeCells[count].size();i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
+                if(cellReserved.find(oneCell) == cellReserved.end())
+                {
+                    labelList returnList = {oneFace};
+                    //Info<<"Return second merge: "<<returnList.size()<<" from "<<count<<endl;
+                    return returnList;
+                }
+            }
+            labelList returnList(0);
+            //Info<<"Return second: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
+        }
+        else
+        {
+            labelList returnList = {-1};
+            //Info<<"Return second empty: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
+        }
+    }
+}
+
+labelList Foam::cutCellFvMesh::searchDown_rec
+(
+    scalarListList& possibleMergeFaceArea,
+    labelListList& possibleMergeFaces,
+    labelListList& possibleMergeCells,
+    boolList& oneMergeFaceSufficient,
+    boolList& mergeNecessary,
+    label count,
+    DynamicList<DynamicList<label>>& blockedCells
+    std::unordered_set<label>& cellReserved
+)
+{
+    /*
+    Info<<"possibleMergeFaceArea:"<<possibleMergeFaceArea.size()<<endl;
+    Info<<"possibleMergeFaces:"<<possibleMergeFaces.size()<<endl;
+    Info<<"possibleMergeCells:"<<possibleMergeCells.size()<<endl;
+    Info<<"oneMergeFaceSufficient:"<<oneMergeFaceSufficient.size()<<endl;
+    Info<<"mergeNecessary:"<<mergeNecessary.size()<<endl;
+    
+    Info<<"Starts"<<endl;
+    Info<<"Height:"<<count<<"/"<<possibleMergeCells.size();
+    */
+    
+    if(count < possibleMergeCells.size()-1)
+    {
+        //Info<<" in first";
+        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
+        {
+            cellReserved.insert(count);
+            blockedCells[count].append(count);
+            //Info<<" merge"<<endl;
+            for(int i=0;i<possibleMergeCells[count].size();i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
+                std::unordered_set<label> cellReservedCpy;
+                if(cellReserved.find(oneCell) == cellReserved.end())
+                {
+                    labelList retList;
+                    cellReserved.insert(oneCell);
+                    blockedCells[count].append(oneCell);
+
+                    retList = searchDown
+                    (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
+                     oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+                    if(retList.size() != 0)
+                    {
+                        labelList returnList = {oneFace};
+                        returnList.append(retList);
+                        //Info<<"Return first merge: "<<returnList.size()<<" from "<<count<<endl;
+                        return returnList;
+                    }
+                }
+            }
+            labelList returnList(0);
+            //Info<<"Return first: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
+        }
+        else
+        {
+            //Info<<" empty"<<endl;
+            labelList returnList = {-1};
+            //Info<<" 1"<<endl;
+            labelList retList;
+            retList = searchDown
+            (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
+             oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+            //Info<<"Recursion"<<endl;
+            if(retList.size() != 0)
+            {
+                returnList.append(retList);
+                //Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                return returnList;
+            }
+            else
+            {
+                returnList = labelList(0);
+                //Info<<"Return first empty: "<<returnList.size()<<" from "<<count<<endl;
+                return returnList;
+            }
+        }
+    }
+    else
+    {
+        //Info<<" in second";
+        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
+        {
+            cellReserved.insert(count);
+            //Info<<" merge"<<endl;
+            for(int i=0;i<possibleMergeCells[count].size();i++)
+            {
+                label oneCell = possibleMergeCells[count][i];
+                label oneFace = possibleMergeFaces[count][i];
+                if(cellReserved.find(oneCell) == cellReserved.end())
+                {
+                    labelList returnList = {oneFace};
+                    //Info<<"Return second merge: "<<returnList.size()<<" from "<<count<<endl;
+                    return returnList;
+                }
+            }
+            labelList returnList(0);
+            //Info<<"Return second: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
+        }
+        else
+        {
+            labelList returnList = {-1};
+            //Info<<"Return second empty: "<<returnList.size()<<" from "<<count<<endl;
+            return returnList;
+        }
+    }
+}
+
 void Foam::cutCellFvMesh::testNewMeshData
 (
     const faceList& newFaces,
