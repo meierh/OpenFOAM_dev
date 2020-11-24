@@ -22,7 +22,11 @@ Foam::BsTree::~BsTree()
     delete _nil;
 }
 
-void Foam::BsTree::recursiveNodeDeleter(Node* thisNode)
+void Foam::BsTree::recursiveNodeDeleter
+(
+    Node* 
+    thisNode
+)
 {
     if(thisNode->left != _nil)
         recursiveNodeDeleter(thisNode->left);
@@ -50,7 +54,11 @@ Foam::BsTree::Node *Foam::BsTree::newNode
     return newNodeItem;
 }
 
-void Foam::BsTree::constructTree(Node* thisNode,int height)
+void Foam::BsTree::constructTree
+(
+    Node* thisNode,
+    int height
+)
 {
     //Info<<"Construct Tree at "<<height<<endl;
     thisNode->MinMaxBox = Curve->computeBoundingBox(thisNode->min,thisNode->max);
@@ -71,9 +79,12 @@ void Foam::BsTree::constructTree(Node* thisNode,int height)
     }
 }
 
-scalarList Foam::BsTree::nearestPoints(vector point) const
+DynamicList<scalar> Foam::BsTree::nearestPoints
+(
+    vector point
+) const
 {
-    scalarList coordNurbs(0);
+    DynamicList<scalar> coordNurbs;
     traverseBsTree(root,point,coordNurbs);
     return coordNurbs;
 }
@@ -82,7 +93,7 @@ void Foam::BsTree::traverseBsTree
 (
     Node* currentNode,
     vector point,
-    scalarList& coordNurbs
+    DynamicList<scalar>& coordNurbs
 ) const
 {
     if(!currentNode->MinMaxBox.isInside(point))
@@ -101,10 +112,13 @@ void Foam::BsTree::traverseBsTree
     }
 }
 
-scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
+scalar Foam::BsTree::closestParaOnNurbsToPoint
+(
+    vector point
+) const
 {
     //Info<<"\tPoint: "<<point<<endl;
-    scalarList testU = nearestPoints(point);
+    DynamicList<scalar> testU = nearestPoints(point);
     if(testU.size() == 0)
         return Curve->min_U()-1;
     
@@ -114,7 +128,8 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
         Info<<testU[i]<<endl;
     */
     
-    scalarList u_min_List(0);
+    DynamicList<scalar> u_min_List;
+    u_min_List.setCapacity(testU.size());
     scalar u_min;
     for(int i=0;i<testU.size();i++)
     {
@@ -130,7 +145,8 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint(vector point) const
         */
     }
     //Info<<"U_min: "<<u_min<<endl;
-    scalarList u_min_Dist(0);
+    DynamicList<scalar> u_min_Dist;
+    u_min_Dist.setCapacity(u_min_List.size());
     for(int i=0;i<u_min_List.size();i++)
     {
         u_min_Dist.append(euklidianNorm(Curve->Curve_Derivative(0,u_min_List[i])-point));

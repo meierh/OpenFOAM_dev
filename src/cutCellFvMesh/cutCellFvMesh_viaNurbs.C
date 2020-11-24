@@ -349,10 +349,25 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
     const pointField& points = this->points();
     pointDist = scalarList(points.size());
     
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::high_resolution_clock::time_point t3;
+    std::chrono::high_resolution_clock::time_point t4;
+    std::chrono::high_resolution_clock::time_point t5;
+    std::chrono::high_resolution_clock::time_point t6;
+    std::chrono::high_resolution_clock::time_point t7;
+    std::chrono::high_resolution_clock::time_point t8;
+    std::chrono::duration<double> time_span1(0);
+    std::chrono::duration<double> time_span2(0);
+    std::chrono::duration<double> time_span3(0);
+    std::chrono::duration<double> time_span4(0);
+    
     for(int i=0;i<points.size();i++)
     {
         //Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
         
+        
+        t1 = std::chrono::high_resolution_clock::now();
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
         if(firstOrderNearNurbs->size() == 0)
         {
@@ -361,7 +376,10 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             continue;
         }
         //Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span1 += t2-t1;
         
+        t3 = std::chrono::high_resolution_clock::now();
         DynamicList<scalar> distToNurbsSurface;
         distToNurbsSurface.setCapacity(10);
         DynamicList<scalar> paraToNurbsSurface;
@@ -369,6 +387,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         bool outSideNurbsBox = false;
         for(int k=0;k<firstOrderNearNurbs->size();k++)
         {
+            t5 = std::chrono::high_resolution_clock::now();
             label thisNurbs = (*firstOrderNearNurbs)[k];
             scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(points[i]);
             //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
@@ -378,8 +397,14 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
                 outSideNurbsBox = true;
                 continue;
             }
+            t6 = std::chrono::high_resolution_clock::now();
+            time_span3 += t6-t5; 
+            
+            t7 = std::chrono::high_resolution_clock::now();
             paraToNurbsSurface.append(thisNodePara);
             distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,points[i]));
+            t8 = std::chrono::high_resolution_clock::now();
+            time_span4 += t8-t7; 
         }
         if(outSideNurbsBox)
             continue;
@@ -390,6 +415,9 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             if(distToNurbsSurface[k] < minDistToNurbsSurface)
                 minDistToNurbsSurface = distToNurbsSurface[k];
         }
+        t4 = std::chrono::high_resolution_clock::now();
+        time_span2 += t4-t3;
+        
         pointDist[i] = minDistToNurbsSurface;
         
         //Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
@@ -402,7 +430,12 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         }
         */
     }
-    
+    Info<<endl;
+    Info<<"Kd-Tree took \t\t\t\t" << time_span1.count() << " seconds."<<endl;
+    Info<<"BsTree took \t\t\t\t" << time_span3.count() << " seconds."<<endl;
+    Info<<"Newton took \t\t\t\t" << time_span4.count() << " seconds."<<endl;
+    Info<<"BsTree + Newton took \t\t\t" << time_span2.count() << " seconds."<<endl;
+
     /*
     Info<<"Final point writing"<<endl;
     for(int i=0;i<points.size();i++)

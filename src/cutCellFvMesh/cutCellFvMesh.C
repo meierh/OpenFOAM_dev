@@ -914,7 +914,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                 FatalErrorInFunction
                 << "A face cannot have "<< thisFacePoints.size()
                 << " cut points while one or more "
-                << "cut points are not old points! "
+                << "cut points are not old points! "<<endl
+                << "Maybe the method was started on an already cut Mesh."
                 << exit(FatalError);
             }
             bool allPointsBelongToOldEdges = true;

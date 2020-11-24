@@ -35,7 +35,7 @@ class BsTree
         );
         ~BsTree();
         
-        scalarList nearestPoints(vector point) const;
+        DynamicList<scalar> nearestPoints(vector point) const;
         scalar closestParaOnNurbsToPoint(vector point) const;
                 
     private:
@@ -48,7 +48,7 @@ class BsTree
         (
             Node* currentNode,
             vector point,
-            scalarList& coordNurbs
+            DynamicList<scalar>& coordNurbs
         ) const;
         
         friend void UnitTest_BsTree();
