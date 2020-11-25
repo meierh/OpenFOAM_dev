@@ -280,6 +280,18 @@ class cutCellFvMesh   :   public fvMesh
             std::unordered_set<label> cellReserved
         );
         
+        labelList searchDown_rec
+        (
+            scalarListList& possibleMergeFaceArea,
+            labelListList& possibleMergeFaces,
+            labelListList& possibleMergeCells,
+            boolList& oneMergeFaceSufficient,
+            boolList& mergeNecessary,
+            label count,
+            DynamicList<DynamicList<label>>& blockedCells,
+            std::unordered_set<label>& cellReserved
+        );
+        
         //test data for new Mesh creation
         void testNewMeshData
         (
