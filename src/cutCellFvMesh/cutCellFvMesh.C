@@ -3699,13 +3699,17 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
-    /*
+    Info<<endl;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        Info<<"cell:"<<i<<" merged via face:"<<mergeFaceOfCell[i]<<endl;
+        if(mergeFaceOfCell[i] != -1)
+        {
+            Info<<"cell:"<<i<<" merged via face:"<<mergeFaceOfCell[i]<<endl;
+            Info<<"Center of cell: "<<i<<" is "<<newCells[i].centre(points,faces)<<" and merged via face center "<<faces[mergeFaceOfCell[i]].centre(points)<<endl;
+        }
     }
     
-    
+    /*
     FatalErrorInFunction
     << "Temporary stop"
     << exit(FatalError);
@@ -4132,11 +4136,11 @@ labelList Foam::cutCellFvMesh::searchDown
 
 labelList Foam::cutCellFvMesh::searchDown_rec
 (
-    scalarListList& possibleMergeFaceArea,
-    labelListList& possibleMergeFaces,
-    labelListList& possibleMergeCells,
-    boolList& oneMergeFaceSufficient,
-    boolList& mergeNecessary,
+    DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+    DynamicList<DynamicList<label>>& possibleMergeFaces,
+    DynamicList<DynamicList<label>>& possibleMergeCells,
+    DynamicList<bool>& oneMergeFaceSufficient,
+    DynamicList<bool>& mergeNecessary,
     label count,
     DynamicList<DynamicList<label>>& blockedCells,
     std::unordered_set<label>& cellReserved
@@ -4172,9 +4176,9 @@ labelList Foam::cutCellFvMesh::searchDown_rec
                     cellReserved.insert(oneCell);
                     blockedCells[count].append(oneCell);
 
-                    retList = searchDown
+                    retList = searchDown_rec
                     (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
-                     oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+                     oneMergeFaceSufficient,mergeNecessary,count+1,blockedCells,cellReserved);
                     if(retList.size() != 0)
                     {
                         labelList returnList = {oneFace};
@@ -4202,9 +4206,9 @@ labelList Foam::cutCellFvMesh::searchDown_rec
             labelList returnList = {-1};
             //Info<<" 1"<<endl;
             labelList retList;
-            retList = searchDown
+            retList = searchDown_rec
             (possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,
-             oneMergeFaceSufficient,mergeNecessary,count+1,cellReserved);
+             oneMergeFaceSufficient,mergeNecessary,count+1,blockedCells,cellReserved);
             //Info<<"Recursion"<<endl;
             if(retList.size() != 0)
             {
