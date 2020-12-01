@@ -294,6 +294,15 @@ class cutCellFvMesh   :   public fvMesh
             std::unordered_set<label>& cellReserved
         );
         
+        labelList searchDown_iter
+        (
+            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+            DynamicList<DynamicList<label>>& possibleMergeFaces,
+            DynamicList<DynamicList<label>>& possibleMergeCells,
+            DynamicList<bool>& oneMergeFaceSufficient,
+            DynamicList<bool>& mergeNecessary
+        );
+        
         //test data for new Mesh creation
         void testNewMeshData
         (
@@ -303,6 +312,9 @@ class cutCellFvMesh   :   public fvMesh
             const labelList& patchStarts,
             const labelList& patchSizes
         );
+        
+        void testForCellSize()
+
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }

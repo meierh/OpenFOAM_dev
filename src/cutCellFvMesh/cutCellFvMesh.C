@@ -4083,7 +4083,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     Foam::clone(newNeighbour__),
                     patchSizes,
                     patchStarts,
-                    true);    
+                    true);
+    testForCellSize();
+    
 }
 
 labelList Foam::cutCellFvMesh::searchDown
@@ -4361,6 +4363,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
             for(int i=tryedCells[count];i<possibleMergeCells[count].size();
                 i++,tryedCells[count]++)
             {
+                tryedCells[count]++;
                 if(cellReserved.find(possibleMergeCells[count][i])
                     == cellReserved.end())
                 {
@@ -4369,7 +4372,6 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                     cellReserved.insert(possibleMergeCells[count][i]);
                     blockedCells[count].append(possibleMergeCells[count][i]);
                     assignList[count] = possibleMergeFaces[count][i];
-                    tryedCells[count]++;
                     break;
                 }
             }
@@ -4378,25 +4380,31 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                 int backtracingIndex = -1;
                 for(int cntBck=count-1;cntBck>=0;cntBck--;)
                 {
-                    if(assignList[cntBck] != -1 && mergeNecessary[cntBck])
+                    if( assignList[cntBck] != -1 && mergeNecessary[cntBck] &&
+                        tryedCells[cntBck]<possibleMergeCells[cntBck].size())
                     {
-                        if(tryedCells[cntBck]<possibleMergeCells[cntBck].size())
+                        //Clean backtracking cells from cellReserved map
+                        for(int k=cntBck; k<blockedCells.size();k++)
                         {
-                            for(int k=cntBck; k<blockedCells.size();k++)
+                            for(int l=0;l<blockedCells[k].size();l++)
                             {
-                                for(int l=0;l<blockedCells[k].size();l++)
-                                {
-                                    cellReserved.erase(blockedCells[k][l]);
-                                }
+                                cellReserved.erase(blockedCells[k][l]);
                             }
-                            blockedCells.setSize(cntBck);
-                            
                         }
-                        else
-                        {
-                        }
-                    }   
+                        //Clean list of blockedCells
+                        blockedCells.setSize(cntBck);
+                        backtracingIndex = cntBck;
+                        break;
+                    }
                 }
+                if(backtracingIndex != -1)
+                {
+                    count = backtracingIndex;
+                }
+            }
+            else
+            {
+                count++;
             }
         }
         else
@@ -4468,4 +4476,67 @@ void Foam::cutCellFvMesh::testNewMeshData
             }
         }
     }    
+}
+
+void Foam::cutCellFvMesh::testForCellSize()
+{
+    const cellList& cell = this->cells();
+    const faceList& face = this->faces();
+    const labelList& owner   = this->faceOwner();
+    const labelList& neighbour = this->faceNeighbour();
+    const pointField& point = this->points();
+    
+    scalar minCellVol = cell[0].mag(point,face);
+    label minCellInd = 0;
+    scalar maxCellVol = cell[0].mag(point,face);
+    label maxCellInd = 0;
+    scalar CellVolAvg = 0;
+    
+    scalar vol;
+    for(int i=0;i<cell.size();i++)
+    {
+        vol = cell[i].mag(point,face);
+        CellVolAvg += vol;
+        if(vol > maxCellVol)
+        {
+            maxCellVol = vol;
+            maxCellInd = i;
+        }
+        if(vol < minCellVol)
+        {
+            minCellVol = vol;
+            minCellInd = i;
+        }
+    }
+    CellVolAvg /= cell.size();
+    
+    if((minCellVol*4) < maxCellVol)
+    {
+        Info<<"Minimum cell vol:"<<minCellVol<<" is more than four times smaller than Maximum "
+        <<"cell vol:"<<maxCellVol<<endl;
+        scalar vol;
+        
+        Info<<"The following cells are too small:"<<endl;
+        for(int i=0;i<cell.size();i++)
+        {
+            vol = cell[i].mag(point,face);
+            if(2*vol < CellVolAvg)
+            {
+                Info<<"\tCell "<<i<<"with vol:"<<vol<<endl;
+            }
+        }
+        
+        Info<<"The following cells are too large:"<<endl;
+        for(int i=0;i<cell.size();i++)
+        {
+            vol = cell[i].mag(point,face);
+            if(0.5*vol > CellVolAvg)
+            {
+                Info<<"\tCell "<<i<<"with vol:"<<vol<<endl;
+            }
+        }
+        FatalErrorInFunction
+        << "Merge Face used twice!"
+        << exit(FatalError);  
+    }
 }
