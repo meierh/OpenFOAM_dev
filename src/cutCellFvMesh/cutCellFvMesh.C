@@ -3506,6 +3506,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     scalar partialThreeshold
 )
 {
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::duration<double> time_span;
+    
+    Info<<endl;
+    Info<<"Preprocessing of small cells ";
+    t1 = std::chrono::high_resolution_clock::now();
     /*
     for(int i=0;i<oldCellVolume.size();i++)
     {
@@ -3617,26 +3624,34 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     }
                     //Info<<endl<<"\t"<<newCells[i][k]<<"("<<k<<")->"<<neighbourCell<<",";
                     neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
-                    //Info<<endl<<"\t"<<" partialVol:"<<neighbourCellPartialVolume;
+                    
+                    /*
+                    Info<<endl<<"\t"<<" partialVol:"<<neighbourCellPartialVolume;
                     possibleMergeFaces[i].append(newCells[i][k]);
                     //Info<<endl<<"\t"<<" mergeFace:"<<possibleMergeFaces[i][possibleMergeFaces[i].size()-1];
                     possibleMergeCells[i].append(neighbourCell);
                     //Info<<endl<<"\t"<<" mergeCells:"<<possibleMergeCells[i][possibleMergeCells[i].size()-1];
                     possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1]].mag(points));
                     //Info<<endl<<"\t"<<" mergeFaceArea:"<<possibleMergeFaceArea[i][possibleMergeFaceArea[i].size()-1];
-                    if(neighbourCellPartialVolume + partialVolumeScale[i] > partialThreeshold)
+                    */
+                    if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
                     {
+                        possibleMergeFaces[i].append(newCells[i][k]);
+                        possibleMergeCells[i].append(neighbourCell);
+                        possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1]].mag(points));
+                        
                         possibleMergeFaceSufficient[i].append(true);
                     }
                     else
                     {
-                        possibleMergeFaceSufficient[i].append(false);
+                        //possibleMergeFaceSufficient[i].append(false);
                     }
 
                     //Info<<endl<<"\t"<<" sufficientFace:"<<possibleMergeFaceSufficient[i][possibleMergeFaceSufficient[i].size()-1];
                 }
             }
             //Info<<endl;
+            /*
             oneMergeFaceSufficient[i] = false;
             for(int k=0;k<possibleMergeFaceSufficient.size();k++)
             {
@@ -3645,6 +3660,34 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     oneMergeFaceSufficient[i] = true;
                     break;
                 }
+            }
+            */
+            if(possibleMergeCells[i].size() == 0)
+            {
+                Info<<endl<<"Problem in cell "<<i<<" with partial volume "<< partialVolumeScale[i]<<endl;
+                Info<<"\tNeighbours are:"<<endl;
+                for(int k=0;k<newCells[i].size();k++)
+                {
+                    if(newCells[i][k] < neighbour.size())
+                    {
+                        if(owner[newCells[i][k]] == i)
+                        {
+                            neighbourCell = neighbour[newCells[i][k]];
+                        }
+                        else if(neighbour[newCells[i][k]] == i)
+                        {   
+                            neighbourCell = owner[newCells[i][k]];
+                        }
+                        neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
+                        
+                        Info<<"\tCell:"<<neighbourCell<<" partialVol:"<<neighbourCellPartialVolume<<
+                            " combinedPartialVol:"<<(neighbourCellPartialVolume + partialVolumeScale[i])<<" with threshold:"<<partialThreeshold
+                            <<endl;
+                    }
+                }
+                FatalErrorInFunction
+                << "Agglomeration cell not found for all cells!"
+                << exit(FatalError);
             }
         }
         /*
@@ -3703,15 +3746,36 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     */
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
     
-    Info<<endl;
-    
+    Info<<"Processing of small cells ";
+    t1 = std::chrono::high_resolution_clock::now(); 
+
+    /*
     std::unordered_set<label> cellReserved;
     DynamicList<DynamicList<label>> blockedCells;
     blockedCells.setSize(possibleMergeCells.size());
     
+    
     labelList mergeFaceOfCell = searchDown_rec(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,0,blockedCells,cellReserved);
+    */
 
+    
+    labelList mergeFaceOfCell = searchDown_iter(possibleMergeFaceArea,possibleMergeFaces,
+                                                possibleMergeCells,oneMergeFaceSufficient,
+                                                mergeNecessary
+                                               );
+    
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Postprocessing of small cells ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
     std::unordered_set<label> usedFace;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
@@ -3734,7 +3798,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
-    Info<<endl;
+    //Info<<endl;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
         if(mergeFaceOfCell[i] != -1)
@@ -4084,8 +4148,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     patchSizes,
                     patchStarts,
                     true);
-    testForCellSize();
     
+    testForCellSize
+    (
+        possibleMergeFaceArea,possibleMergeFaces, possibleMergeCells,
+        oneMergeFaceSufficient, mergeNecessary, mergeFaceOfCell,partialThreeshold
+    );
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
 }
 
 labelList Foam::cutCellFvMesh::searchDown
@@ -4344,6 +4416,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     DynamicList<bool>& mergeNecessary
 )
 {
+    //Info<<endl;
     label count = 0;
     DynamicList<DynamicList<label>> blockedCells;
     blockedCells.setSize(possibleMergeCells.size());
@@ -4354,8 +4427,10 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     
     for(;count<possibleMergeCells.size();)
     {
+        //Info<<"->"<<count;
         if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
         {
+            //Info<<"-> merge";
             cellReserved.insert(count);
             blockedCells[count].append(count);
             //Info<<" merge"<<endl;
@@ -4372,13 +4447,15 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                     cellReserved.insert(possibleMergeCells[count][i]);
                     blockedCells[count].append(possibleMergeCells[count][i]);
                     assignList[count] = possibleMergeFaces[count][i];
+                    //Info<<" with cell "<<possibleMergeFaces[count][i]<<endl;
                     break;
                 }
             }
             if(MergeFaceFound == false)
             {
+                //Info<<"One way merge failed"<<endl;
                 int backtracingIndex = -1;
-                for(int cntBck=count-1;cntBck>=0;cntBck--;)
+                for(int cntBck=count-1;cntBck>=0;cntBck--)
                 {
                     if( assignList[cntBck] != -1 && mergeNecessary[cntBck] &&
                         tryedCells[cntBck]<possibleMergeCells[cntBck].size())
@@ -4409,10 +4486,14 @@ labelList Foam::cutCellFvMesh::searchDown_iter
         }
         else
         {
+            //Info<<"-> not merge"<<endl;
             assignList[count] = -1;
             tryedCells[count] = -1;
+            count++;
         }
     }
+    
+    return assignList;
 }
 
 void Foam::cutCellFvMesh::testNewMeshData
@@ -4478,12 +4559,20 @@ void Foam::cutCellFvMesh::testNewMeshData
     }    
 }
 
-void Foam::cutCellFvMesh::testForCellSize()
+void Foam::cutCellFvMesh::testForCellSize
+(
+    DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+    DynamicList<DynamicList<label>>& possibleMergeFaces,
+    DynamicList<DynamicList<label>>& possibleMergeCells,
+    DynamicList<bool>& oneMergeFaceSufficient,
+    DynamicList<bool>& mergeNecessary,
+    labelList& mergeFaceOfCell,
+    scalar partialThreeshold
+)
 {
+    scalar factor = (1+partialThreeshold)/partialThreeshold;
     const cellList& cell = this->cells();
     const faceList& face = this->faces();
-    const labelList& owner   = this->faceOwner();
-    const labelList& neighbour = this->faceNeighbour();
     const pointField& point = this->points();
     
     scalar minCellVol = cell[0].mag(point,face);
@@ -4510,19 +4599,23 @@ void Foam::cutCellFvMesh::testForCellSize()
     }
     CellVolAvg /= cell.size();
     
-    if((minCellVol*4) < maxCellVol)
+    if((minCellVol*factor) < maxCellVol)
     {
-        Info<<"Minimum cell vol:"<<minCellVol<<" is more than four times smaller than Maximum "
-        <<"cell vol:"<<maxCellVol<<endl;
+        Info<<endl<<"Minimum cell "<<minCellInd<<" vol:"<<minCellVol
+        <<" is more than four times smaller than Maximum "
+        <<"cell "<<maxCellInd<<" vol:"<<maxCellVol<<endl;
+        Info<<" Average vol was:"<<CellVolAvg<<endl;        
+        
         scalar vol;
         
+        /*
         Info<<"The following cells are too small:"<<endl;
         for(int i=0;i<cell.size();i++)
         {
             vol = cell[i].mag(point,face);
-            if(2*vol < CellVolAvg)
+            if(4*vol < maxCellVol)
             {
-                Info<<"\tCell "<<i<<"with vol:"<<vol<<endl;
+                Info<<"\tCell "<<i<<" with vol:"<<vol<<endl;
             }
         }
         
@@ -4530,13 +4623,14 @@ void Foam::cutCellFvMesh::testForCellSize()
         for(int i=0;i<cell.size();i++)
         {
             vol = cell[i].mag(point,face);
-            if(0.5*vol > CellVolAvg)
+            if(0.25*vol > minCellVol)
             {
-                Info<<"\tCell "<<i<<"with vol:"<<vol<<endl;
+                Info<<"\tCell "<<i<<" with vol:"<<vol<<endl;
             }
         }
+        */
         FatalErrorInFunction
-        << "Merge Face used twice!"
+        << "Cell size problem"
         << exit(FatalError);  
     }
 }

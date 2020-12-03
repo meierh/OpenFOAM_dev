@@ -268,7 +268,7 @@ class cutCellFvMesh   :   public fvMesh
         (
             scalarList& newCellVolume,
             scalarList& oldCellVolume,
-            scalar partialThreeshold = 0.5
+            scalar partialThreeshold = 0.25
         );
         
         labelList searchDown
@@ -313,8 +313,16 @@ class cutCellFvMesh   :   public fvMesh
             const labelList& patchSizes
         );
         
-        void testForCellSize()
-
+        void testForCellSize
+        (
+            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+            DynamicList<DynamicList<label>>& possibleMergeFaces,
+            DynamicList<DynamicList<label>>& possibleMergeCells,
+            DynamicList<bool>& oneMergeFaceSufficient,
+            DynamicList<bool>& mergeNecessary,
+            labelList& mergeFaceOfCell,
+            scalar partialThreeshold
+        );
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }
