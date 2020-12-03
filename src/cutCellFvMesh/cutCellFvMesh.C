@@ -3773,7 +3773,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
     
-    Info<<"Postprocessing of small cells ";
+    Info<<"Test for duplicate merging selection ";
     t1 = std::chrono::high_resolution_clock::now();
     
     std::unordered_set<label> usedFace;
@@ -3798,6 +3798,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Test for -1 merging selection ";
+    t1 = std::chrono::high_resolution_clock::now();
     //Info<<endl;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
@@ -3825,13 +3831,19 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
         else
         {
+            /*
             label cellNbr = i;
             point cellCentre = newCells[i].centre(points,faces);
             scalar cellVolume = newCells[i].mag(points,faces);
         
-            //Info<<"Cell "<<cellNbr<<" Centre: "<<cellCentre<<" Vol: "<<cellVolume<<endl;
+            Info<<"Cell "<<cellNbr<<" Centre: "<<cellCentre<<" Vol: "<<cellVolume<<endl;
+            */
         }
     }
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
     
     /*
     FatalErrorInFunction
@@ -3852,6 +3864,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         << exit(FatalError);  
     }    
     
+    
+    Info<<"Remove merged cell from list ";
+    t1 = std::chrono::high_resolution_clock::now();
     // Remove agglomerated cell with too low volume for merging
     faceList newFaces_ = faces;
     labelList newOwner_ = owner;
@@ -3968,7 +3983,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             }            
         }
     }
-    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
     /*
     for(int i=0;i<newFaces_.size();i++)
     {
@@ -3989,6 +4006,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             Info<<endl;
     }
     */
+    
+    Info<<"Recompute faces, owner, neighbor ";
+    t1 = std::chrono::high_resolution_clock::now();
     
     faceList newFaces__(newFaces_.size()-countDeleteFaces);
     labelList newOwner__(newOwner_.size()-countDeleteFaces);
@@ -4138,7 +4158,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
     }
-
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Test reset and test ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
     testNewMeshData(newFaces__,newOwner__,newNeighbour__,patchStarts,patchSizes);
     
     resetPrimitives(Foam::clone(points),
@@ -4157,7 +4183,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
 }
 
 labelList Foam::cutCellFvMesh::searchDown
