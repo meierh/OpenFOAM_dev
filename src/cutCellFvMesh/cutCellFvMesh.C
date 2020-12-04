@@ -2980,17 +2980,33 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     
     //reduce for empty cells
     labelList cellReductionNumb(meshCells.size());
+    mapOldCellsToNewCells = labelList(meshCells.size());
     label count = 0;
+    label newCells = 0;
     for(int i=0;i<cellReductionNumb.size();i++)
     {
         if(deletedCellsList[i] == 1)
         {
             count++;
             cellReductionNumb[i] = -1;
+            mapOldCellsToNewCells[i] = -1;
         }
         else
+        {
             cellReductionNumb[i] = count;
+            mapOldCellsToNewCells[i] = newCells;
+            newCells++;
+        }
     }
+    mapNewCellsToOldCells = labelList(meshCells.size()-cellReductionNumb.last());
+    for(int i=0;i<mapOldCellsToNewCells.size();i++)
+    {
+        if(mapOldCellsToNewCells[i] != -1)
+        {
+            mapNewCellsToOldCells[mapOldCellsToNewCells[i]] = i;
+        }
+    }
+    
     
     for(int i=0;i<addedCutFaces.size();i++)
     {
@@ -3551,7 +3567,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     {
         if(reducedOldToNewCellRelation[i] >= 0)
         {
-            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[i];
+            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[mapNewCellsToOldCells[i]];
         }
         else
         {
@@ -3723,6 +3739,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    
     /*
     for(int i=0;i<mergeNecessary.size();i++)
     {
@@ -3796,6 +3813,39 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << "Merge Face used twice!"
             << exit(FatalError);  
         }
+    }
+    
+    {
+        scalar factor = (1+partialThreeshold)/partialThreeshold;
+        const cellList& cell = this->cells();
+        const faceList& face = this->faces();
+        const pointField& point = this->points();
+    
+        scalar minCellVol = cell[0].mag(point,face);
+        label minCellInd = 0;
+        scalar maxCellVol = cell[0].mag(point,face);
+        label maxCellInd = 0;
+        scalar CellVolAvg = 0;
+    
+        scalar vol;
+        for(int i=0;i<cell.size();i++)
+        {
+            vol = cell[i].mag(point,face);
+            CellVolAvg += vol;
+            if(vol > maxCellVol)
+            {
+                maxCellVol = vol;
+                maxCellInd = i;
+            }
+            if(vol < minCellVol)
+            {
+                minCellVol = vol;
+                minCellInd = i;
+            }
+        }
+        CellVolAvg /= cell.size();
+        
+        
     }
     
     t2 = std::chrono::high_resolution_clock::now();
@@ -4175,11 +4225,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     patchStarts,
                     true);
     
+    
     testForCellSize
     (
         possibleMergeFaceArea,possibleMergeFaces, possibleMergeCells,
         oneMergeFaceSufficient, mergeNecessary, mergeFaceOfCell,partialThreeshold
     );
+    
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -4596,6 +4648,12 @@ void Foam::cutCellFvMesh::testForCellSize
     scalar partialThreeshold
 )
 {
+    const cellList& newCells = this->cells();
+    const faceList& faces = this->faces();
+    const labelList& owner   = this->faceOwner();
+    const labelList& neighbour = this->faceNeighbour();
+    const pointField& points = this->points();
+    
     scalar factor = (1+partialThreeshold)/partialThreeshold;
     const cellList& cell = this->cells();
     const faceList& face = this->faces();
@@ -4632,9 +4690,34 @@ void Foam::cutCellFvMesh::testForCellSize
         <<"cell "<<maxCellInd<<" vol:"<<maxCellVol<<endl;
         Info<<" Average vol was:"<<CellVolAvg<<endl;        
         
-        scalar vol;
+        label neighbourCell;
+        scalar neighbourCellVolume;
+        scalar smallCellVolume = newCells[minCellInd].mag(points,faces);
         
+        Info<<endl<<"Problem in cell "<<minCellInd<<" with volume "<<smallCellVolume<<endl;
+        Info<<"\tNeighbours are:"<<endl;
+        
+        for(int k=0;k<newCells[minCellInd].size();k++)
+        {
+            if(newCells[minCellInd][k] < neighbour.size())
+            {
+                if(owner[newCells[minCellInd][k]] == minCellInd)
+                {
+                    neighbourCell = neighbour[newCells[minCellInd][k]];
+                }
+                else if(neighbour[newCells[minCellInd][k]] == minCellInd)
+                {   
+                    neighbourCell = owner[newCells[minCellInd][k]];
+                }
+                neighbourCellVolume = newCells[neighbourCell].mag(points,faces);
+                
+                Info<<"\tCell:"<<neighbourCell<<" partialVol:"<<neighbourCellVolume<<
+                    " combinedPartialVol:"<<(neighbourCellVolume + smallCellVolume)<<endl;
+            }
+        }
         /*
+        scalar vol;
+
         Info<<"The following cells are too small:"<<endl;
         for(int i=0;i<cell.size();i++)
         {

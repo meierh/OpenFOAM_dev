@@ -362,6 +362,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
     std::chrono::duration<double> time_span3(0);
     std::chrono::duration<double> time_span4(0);
     
+    //Info<<endl;
     for(int i=0;i<points.size();i++)
     {
         //Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
@@ -372,9 +373,11 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         if(firstOrderNearNurbs->size() == 0)
         {
             pointDist[i] = 1;
-            //Info<<"\tSkipped because far away"<<endl;
+            //Info<<"\tSkipped because far away: "<<points[i]<<endl;
             continue;
         }
+        //Info<<"\tIs inside: "<<points[i]<<endl;
+
         //Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
         t2 = std::chrono::high_resolution_clock::now();
         time_span1 += t2-t1;

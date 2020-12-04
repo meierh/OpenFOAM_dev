@@ -166,6 +166,10 @@ class cutCellFvMesh   :   public fvMesh
             labelList oldSplittedCellToNewPlusCell;
             //list of all cells that have been deleted
             labelList deletedCellsList;
+            //list of labels to map old cell index to new plus side cut cell index; deleted Cells are set to -1
+            labelList mapOldCellsToNewCells;
+            //list of labels to map new cell index to old cells
+            labelList mapNewCellsToOldCells;
       //End
             
         //Data for solidFraction Computation
