@@ -3739,6 +3739,98 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+//Test for correct merge candidates
+    scalar factor = 1/partialThreeshold;
+    scalar minCellVol = newCells[0].mag(points,faces);
+    label minCellInd = 0;
+    scalar maxCellVol = newCells[0].mag(points,faces);
+    label maxCellInd = 0;
+    scalar CellVolAvg = 0;
+    
+    scalar vol,neighborVol;
+    for(int i=0;i<newCells.size();i++)
+    {
+        vol = newCells[i].mag(points,faces);
+        CellVolAvg += vol;
+        if(vol > maxCellVol)
+        {
+            maxCellVol = vol;
+            maxCellInd = i;
+        }
+        if(vol < minCellVol)
+        {
+            minCellVol = vol;
+            minCellInd = i;
+        }
+    }
+    CellVolAvg /= newCells.size();
+
+    
+    Info<<endl<<"Minimum cell "<<minCellInd<<" vol:"<<minCellVol
+    <<endl<<"Maximum cell "<<maxCellInd<<" vol:"<<maxCellVol<<endl;
+    Info<<" Average vol was:"<<CellVolAvg<<endl;    
+    
+    for(int i=0;i<newCells.size();i++)
+    {
+        vol = newCells[i].mag(points,faces); 
+        if((vol*factor) < maxCellVol)
+        {
+            if(mergeNecessary[i] == false)
+            {
+                FatalErrorInFunction
+                << "Not to merge but necessary"
+                << exit(FatalError);
+            }
+            if(possibleMergeCells[i].size() == 0)
+            {
+                FatalErrorInFunction
+                << "No merge data available"
+                << exit(FatalError);
+            }            
+            for(int k=0;k<possibleMergeCells[i].size();k++)
+            {
+                neighborVol = newCells[possibleMergeCells[i][k]].mag(points,faces);
+                if((neighborVol+vol)*factor < maxCellVol)
+                {
+                    FatalErrorInFunction
+                    << "Not sufficient merge data"
+                    << exit(FatalError);
+                }
+            }
+        }
+    }
+    
+    for(int i=0;i<newCells.size();i++)
+    {
+        if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
+        {
+            if(possibleMergeCells[i].size()==0)
+            {
+                FatalErrorInFunction
+                << "Merge Face "<<i<<" with no merge partners!"
+                << exit(FatalError);  
+            }
+            if( (possibleMergeFaces[i].size()!=possibleMergeCells[i].size())&&
+                (possibleMergeCells[i].size()!=possibleMergeFaceArea[i].size()))
+            {
+                FatalErrorInFunction
+                << "Data error"
+                << exit(FatalError);  
+            }
+            for(int k=0;k<possibleMergeCells[i].size();k++)
+            {
+                if((partialVolumeScale[i] + partialVolumeScale[possibleMergeCells[i][k]]
+                    < partialThreeshold))
+                {
+                    FatalErrorInFunction
+                    << "Data 2 error"
+                    << exit(FatalError);  
+                }
+            }
+        }
+    }
+//End: Test for correct merge candidates
+
     
     /*
     for(int i=0;i<mergeNecessary.size();i++)
@@ -3816,10 +3908,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     }
     
     {
-        scalar factor = (1+partialThreeshold)/partialThreeshold;
+        scalar factor = 1/partialThreeshold;
         const cellList& cell = this->cells();
         const faceList& face = this->faces();
         const pointField& point = this->points();
+        const labelList& owner   = this->faceOwner();
+        const labelList& neighbour = this->faceNeighbour();
     
         scalar minCellVol = cell[0].mag(point,face);
         label minCellInd = 0;
@@ -3827,7 +3921,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         label maxCellInd = 0;
         scalar CellVolAvg = 0;
     
-        scalar vol;
+        scalar vol,neighbourVol;
         for(int i=0;i<cell.size();i++)
         {
             vol = cell[i].mag(point,face);
@@ -3845,7 +3939,69 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
         CellVolAvg /= cell.size();
         
+        Info<<endl;
+        Info<<"MinCell "<<minCellInd<<" vol: "<<minCellVol<<endl;
+        Info<<"MaxCell "<<maxCellInd<<" vol: "<<maxCellVol<<endl;
+        Info<<"Average cell vol "<<CellVolAvg<<endl;
+        scalar MAXCELLVOL = maxCellVol;
+        minCellVol = cell[0].mag(point,face);
+        minCellInd = 0;
+        maxCellVol = cell[0].mag(point,face);
+        maxCellInd = 0;
+        CellVolAvg = 0;
         
+        label mergeFace,mergeCell;
+        for(int i=0;i<cell.size();i++)
+        {
+            vol = cell[i].mag(points,faces);
+            if((vol*factor) < maxCellVol)
+            {
+                mergeFace = mergeFaceOfCell[i];
+                if(owner[mergeFace] == i)
+                    mergeCell = neighbour[mergeFace];
+                else if(neighbour[mergeFace] == i)
+                    mergeCell = owner[mergeFace];
+                neighbourVol = cell[mergeCell].mag(points,faces);
+                if((neighbourVol+vol)*factor < MAXCELLVOL)
+                {
+                    Info<<endl;
+                    Info<<"Cell "<<i<<" merged with "<<mergeCell<<" but not sufficient"<<
+                    " because vol cell:"<<vol<<" and vol neighbor:"<<neighbourVol<<endl;
+                    FatalErrorInFunction
+                    << "Not sufficient merge data"
+                    << exit(FatalError);
+                }
+                CellVolAvg += neighbourVol+vol;
+                if(neighbourVol+vol > maxCellVol)
+                {
+                    maxCellVol = neighbourVol+vol;
+                    maxCellInd = i;
+                }
+                if(neighbourVol+vol < minCellVol)
+                {
+                    minCellVol = neighbourVol+vol;
+                    minCellInd = i;
+                }
+            }
+            else
+            {
+                CellVolAvg += vol;
+                if(vol > maxCellVol)
+                {
+                    maxCellVol = vol;
+                    maxCellInd = i;
+                }
+                if(vol < minCellVol)
+                {
+                    minCellVol = vol;
+                    minCellInd = i;
+                }
+            }
+        }
+        CellVolAvg /= cell.size();
+        Info<<"MinCell "<<minCellInd<<" vol: "<<minCellVol<<endl;
+        Info<<"MaxCell "<<maxCellInd<<" vol: "<<maxCellVol<<endl;
+        Info<<"Average cell vol "<<CellVolAvg<<endl;
     }
     
     t2 = std::chrono::high_resolution_clock::now();
