@@ -3906,7 +3906,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);  
         }
     }
-    
+
+//TestSection
     {
         scalar factor = 1/partialThreeshold;
         const cellList& cell = this->cells();
@@ -4003,7 +4004,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         Info<<"MaxCell "<<maxCellInd<<" vol: "<<maxCellVol<<endl;
         Info<<"Average cell vol "<<CellVolAvg<<endl;
     }
-    
+//End:TestSection
+
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t" << time_span.count() << " seconds."<<endl;
@@ -4101,6 +4103,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     }
     */
     
+    DynamicList<label> oldCellNumToNewCellNum;
+    oldCellNumToNewCellNum.setSize(newCells.size(),-1);
+    
     labelList deletedCells(newCells.size());
     for(int i=0;i<deletedCells.size();i++)
     {
@@ -4125,6 +4130,22 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 << "No Merge Cell found. That can not happen!"
                 << exit(FatalError);
             }
+            if(oldCellNumToNewCellNum[i] != -1)
+            {
+                FatalErrorInFunction
+                << "oldCell to new Cell already taken: own"
+                << exit(FatalError);
+            }
+            oldCellNumToNewCellNum[i] = i;
+            if(oldCellNumToNewCellNum[mergedWithCell] != -1 && 
+               oldCellNumToNewCellNum[mergedWithCell] != mergedWithCell)
+            {
+                FatalErrorInFunction
+                << "oldCell already used to new Cell already taken: own"
+                << exit(FatalError);
+            }
+            oldCellNumToNewCellNum[mergedWithCell] = i;
+            
             if(deletedCells[mergedWithCell] == 1)
             {
                 FatalErrorInFunction
@@ -4188,7 +4209,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 }                    
             }            
         }
+        else
+        {
+            if(oldCellNumToNewCellNum[i] == -1)
+                oldCellNumToNewCellNum[i] = i;
+        }
     }
+    
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
@@ -4220,6 +4247,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     labelList newOwner__(newOwner_.size()-countDeleteFaces);
     labelList newNeighbour__(newNeighbour_.size()-countDeleteFaces);
     //Info<<"Created Data Struc"<<endl;
+
     
     int countDel = 0;
     for(int i=0;i<newFaces_.size();i++)
@@ -4310,8 +4338,32 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             cellReductionNumb[i] = -1;
         }
         else
+        {
+            //Info<<"One none deleted"<<endl;
             cellReductionNumb[i] = count;
+        }
     }
+    label delNum = 0;
+    for(int i=0;i<oldCellNumToNewCellNum.size();i++)
+    {
+        if(cellReductionNumb[i] != -1)
+        {
+            oldCellNumToNewCellNum[i] -= cellReductionNumb[i];
+        }
+        else
+        {
+            oldCellNumToNewCellNum[i] -= cellReductionNumb[oldCellNumToNewCellNum[i]];
+            delNum++;
+        }
+    }
+    Info<<"delNum:"<<delNum<<endl;
+    label numDeletedCells = 0;
+    for(int i=0;i<deletedCells.size();i++)
+    {
+        if(deletedCells[i] == 1)
+            numDeletedCells++;
+    }
+    Info<<"numDeletedCells: "<<numDeletedCells<<endl;
     
     for(int i=0;i<newNeighbour__.size();i++)
     {
@@ -4364,6 +4416,48 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
     }
+    
+    Info<<"cellReductionNumb.size() ="<<cellReductionNumb.size()<<endl;
+    DynamicList<DynamicList<label>> newCellNumToOldCellNum;
+    label numberDeletedCells = -1;
+    for(int i=cellReductionNumb.size()-1;i>=0;i--)
+    {
+        if(cellReductionNumb[i] != -1)
+        {
+            Info<<"Non deleted:"<<i<<endl;
+            numberDeletedCells = cellReductionNumb[i];
+            Info<<"numberDeletedCells:"<<numberDeletedCells<<endl;
+            break;
+        }
+    }
+    if(numberDeletedCells == -1)
+    {
+        FatalErrorInFunction
+        << "All cells deleted!"
+        << exit(FatalError);  
+    }
+    newCellNumToOldCellNum.setSize(newCells.size()-numberDeletedCells);
+    for(int i=0;i<oldCellNumToNewCellNum.size();i++)
+    {
+        if(oldCellNumToNewCellNum[i] >= newCellNumToOldCellNum.size())
+        {
+            Info<<"oldCellNumToNewCellNum["<<i<<"]:"<<oldCellNumToNewCellNum[i]<<" newCellNumToOldCellNum.size():"<<newCellNumToOldCellNum.size()<<endl;
+            FatalErrorInFunction
+            << "Wrong assignment!"
+            << exit(FatalError); 
+        }
+        else
+        {
+            newCellNumToOldCellNum[oldCellNumToNewCellNum[i]].append(i);
+        }
+    }
+    
+    Info<<"newCell: "<<50491<<" was "<<newCellNumToOldCellNum[50941]<<endl;
+    Info<<"mergeFaceOfCell:"<<mergeFaceOfCell[newCellNumToOldCellNum[50941][0]]
+    <<" mergeNecessary: "<<mergeNecessary[newCellNumToOldCellNum[50941][0]]<<" with "<<
+    "partialVolumeScale: "<<partialVolumeScale[newCellNumToOldCellNum[50941][0]]<<endl;
+        
+    
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
@@ -4650,7 +4744,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     DynamicList<bool>& mergeNecessary
 )
 {
-    //Info<<endl;
+    Info<<endl;
     label count = 0;
     DynamicList<DynamicList<label>> blockedCells;
     blockedCells.setSize(possibleMergeCells.size());
@@ -4661,11 +4755,26 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     
     for(;count<possibleMergeCells.size();)
     {
+        if(count == 52363)
+        {
+            Info<<"assignList["<<count<<"] = "<<assignList[count]<<endl;
+        }
         //Info<<"->"<<count;
         if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
         {
+            if(count == 52363)
+            {
+                Info<<"Moved in because: mergeNecessary:"<<mergeNecessary[count]<<
+                " cellNotReserved:"<<(cellReserved.find(count) == cellReserved.end())<<" "
+                <<blockedCells[count]<<endl;
+            }
+            
             //Info<<"-> merge";
             cellReserved.insert(count);
+            if(count == 52363)
+            {
+                Info<<"Blocked own 52363"<<endl;
+            }
             blockedCells[count].append(count);
             //Info<<" merge"<<endl;
             MergeFaceFound = false;
@@ -4679,6 +4788,10 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                     MergeFaceFound = true;
                     //Info<<" -> "<<possibleMergeCells[count][i]<<endl;
                     cellReserved.insert(possibleMergeCells[count][i]);
+                    if(possibleMergeCells[count][i] == 52363)
+                    {
+                        Info<<"Blocked neighbor 52363"<<endl;
+                    }
                     blockedCells[count].append(possibleMergeCells[count][i]);
                     assignList[count] = possibleMergeFaces[count][i];
                     //Info<<" with cell "<<possibleMergeFaces[count][i]<<endl;
@@ -4699,18 +4812,30 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                         {
                             for(int l=0;l<blockedCells[k].size();l++)
                             {
+                                if(blockedCells[k][l] == 52363)
+                                {
+                                    Info<<"Unblocked 52363"<<endl;
+                                }
                                 cellReserved.erase(blockedCells[k][l]);
                             }
                         }
                         //Clean list of blockedCells
                         blockedCells.setSize(cntBck);
                         backtracingIndex = cntBck;
+                        Info<<"Set back from "<<count<<" to: "<<backtracingIndex;
+                        Info<<"||52363 is not reserved:"<<(cellReserved.find(52363) == cellReserved.end())<<endl;
                         break;
                     }
                 }
                 if(backtracingIndex != -1)
                 {
                     count = backtracingIndex;
+                }
+                else
+                {
+                    FatalErrorInFunction
+                    << " Failed in Merging Selection. Node with zero Nurbs inside forbidden!"<<endl
+                    << abort(FatalError);
                 }
             }
             else
@@ -4720,6 +4845,11 @@ labelList Foam::cutCellFvMesh::searchDown_iter
         }
         else
         {
+            if(count == 52363)
+            {
+                Info<<"Not merged because: mergeNecessary:"<<mergeNecessary[count]<<
+                " cellNotReserved:"<<(cellReserved.find(count) == cellReserved.end())<<" "<<blockedCells[count]<<endl;
+            }
             //Info<<"-> not merge"<<endl;
             assignList[count] = -1;
             tryedCells[count] = -1;

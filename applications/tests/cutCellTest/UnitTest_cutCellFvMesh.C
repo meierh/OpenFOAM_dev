@@ -18,7 +18,7 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     controlPoints = List<vector>(4);
     controlPoints[0]=vector(1,0,0.6); controlPoints[1]=vector(1,0,0);
     controlPoints[2]=vector(3,0,0); controlPoints[3]=vector(3,0,-0.6);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.3,0.1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.3,4)));
     Info<<"Created Nurbs"<<endl;
 
     /*
