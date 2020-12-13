@@ -3907,6 +3907,93 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
 
+    label selectedFace,selectedCell;
+    bool selectedFaceExists,selectedCellExists;
+    std::unordered_set<label> usedCells;
+    for(int i=0;i<mergeFaceOfCell.size();i++)
+    {
+        if(selectedFace == -2)
+        {
+            Info<<"Face is: "<<selectedFace<<endl;
+            
+            FatalErrorInFunction
+            << "One cell not treated by algorithm"
+            << exit(FatalError);  
+        }
+        
+        selectedFace = mergeFaceOfCell[i];
+        // Test that each cell to merge is merged
+        if(selectedFace == -1 && mergeNecessary[i])
+        {
+            Info<<"Selected Face is: "<<selectedFace<<" but mergeNecessary["<<i<<"]"<<mergeNecessary[i]<<endl;
+            
+            FatalErrorInFunction
+            << "Agglomeration cell not found but necessary!"
+            << exit(FatalError);  
+        }
+        if(selectedFace == -1)
+        {
+            continue;
+        }
+        
+        //Test that merge faces are legit faces
+        if(selectedFace > neighbour.size() || selectedFace < 0)
+        {
+            Info<<endl<<"Merging Face: "<<selectedFace<<endl;
+            FatalErrorInFunction
+            << "Merging face it not an existing face!"
+            << exit(FatalError);
+        }
+        
+        //Test that selected face is part of the possibleMergeFace
+        selectedFaceExists = false;
+        for(int k=0;k<possibleMergeFaces[i].size();k++)
+        {
+            if(selectedFace == possibleMergeFaces[i][k])
+                selectedFaceExists = true;
+        }
+        if(!selectedFaceExists)
+        {
+            FatalErrorInFunction
+            << "Merging face is not in the mergingFace list!"
+            << exit(FatalError);
+        }
+        
+        //Test that selected face is part of the possibleMergeFace
+        if(owner[selectedFace] == i)
+            selectedCell = neighbour[selectedFace];
+        else if(neighbour[selectedFace] == i)
+            selectedCell = owner[selectedFace];
+        else
+        {
+            FatalErrorInFunction
+            << "Merge Face does not neighbour nor owner of small cell "
+            << exit(FatalError);
+        }
+        selectedCellExists = false;
+        for(int k=0;k<possibleMergeCells[i].size();k++)
+        {
+            if(selectedCell == possibleMergeCells[i][k])
+                selectedCellExists = true;
+        }
+        if(!selectedCellExists)
+        {
+            FatalErrorInFunction
+            << "Merging cell is not in the mergingCell list!"
+            << exit(FatalError);
+        }
+        
+        if(usedCells.find(selectedCell) == usedCells.end())
+            usedCells.insert(selectedCell);
+        else
+        {
+            Info<<"Cell: "<<selectedCell<<" used twice"<<endl;
+            FatalErrorInFunction
+            << "Merge Cell used twice!"
+            << exit(FatalError);  
+        }
+    }
+    
 //TestSection
     {
         scalar factor = 1/partialThreeshold;
@@ -4063,13 +4150,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     {
         FatalErrorInFunction
         << "Agglomeration cell not found for all cells!"
-        << exit(FatalError);  
+        << abort(FatalError);  
     }
     if(mergeFaceOfCell.size() != newCells.size())
     {
         FatalErrorInFunction
         << "Agglomeration cell list size unequal to cell list size!"
-        << exit(FatalError);  
+        << abort(FatalError);  
     }    
     
     
@@ -4753,7 +4840,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     bool MergeFaceFound;
     label mergeFace;
     label mergeCell;
-    labelList assignList(possibleMergeCells.size(),-1);
+    labelList assignList(possibleMergeCells.size(),-2);
     labelList tryedCells(possibleMergeCells.size(),0);
     
     for(;count<possibleMergeCells.size();)
@@ -4858,9 +4945,10 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                 /* Decision C: The backtracking did not found a backtracking cell. The result is an abort.
                  */
                 {
+                    Info<<"Backtracking from cell: "<<count<<endl;
                     FatalErrorInFunction
-                    << " Failed in Merging Selection. Node with zero Nurbs inside forbidden!"<<endl
-                    << abort(FatalError);
+                    << " Failed in Merging Selection!"<<endl
+                    << exit(FatalError);
                 }
             }
             else
@@ -4871,7 +4959,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                 cellReserved.insert(count);
                 cellReserved.insert(mergeCell);
                 blockedCells[count].append(count);
-                blockedCells[count].append(mergCell);
+                blockedCells[count].append(mergeCell);
                 count++;
             }
         }
