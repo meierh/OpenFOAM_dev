@@ -3888,19 +3888,48 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     std::unordered_set<label> usedFace;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        if(mergeFaceOfCell[i] == -1)
+        if(mergeFaceOfCell[i] == -3)
+        {
+            Info<<endl<<endl;
+            label fc = mergeFaceOfCell[i];
+            label wnr = owner[fc];
+            label nghbr = neighbour[fc];
+            
+            Info<<"Cell: "<<i<<endl;
+            Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
+            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
+            FatalErrorInFunction
+            << "Too small cell was not treated by backtracking algorithm"
+            << exit(FatalError);  
+        }
+        if(mergeFaceOfCell[i] == -4)
+        {
+            Info<<endl<<endl;
+            label fc = mergeFaceOfCell[i];
+            label wnr = owner[fc];
+            label nghbr = neighbour[fc];
+            
+            Info<<"Cell: "<<i<<endl;
+            Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
+            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
+            FatalErrorInFunction
+            << "Some weird thing happended"
+            << exit(FatalError);  
+        }
+        if(mergeFaceOfCell[i] < 0)
             continue;
         
         if(usedFace.find(mergeFaceOfCell[i]) == usedFace.end())
             usedFace.insert(mergeFaceOfCell[i]);
         else
         {
+            Info<<endl<<endl;
             label fc = mergeFaceOfCell[i];
             label wnr = owner[fc];
             label nghbr = neighbour[fc];
             
             Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
-            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr]<<endl;
+            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
             FatalErrorInFunction
             << "Merge Face used twice!"
             << exit(FatalError);  
@@ -4840,7 +4869,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     bool MergeFaceFound;
     label mergeFace;
     label mergeCell;
-    labelList assignList(possibleMergeCells.size(),-2);
+    labelList assignList(possibleMergeCells.size(),-3);
     labelList tryedCells(possibleMergeCells.size(),0);
     
     for(;count<possibleMergeCells.size();)
@@ -4850,121 +4879,151 @@ labelList Foam::cutCellFvMesh::searchDown_iter
             Info<<"assignList["<<count<<"] = "<<assignList[count]<<endl;
         }
         //Info<<"->"<<count;
-        if(mergeNecessary[count] && cellReserved.find(count) == cellReserved.end())
-        /* Decision A: Enters if block if merge necessary and the cell is not already used for
+        if(mergeNecessary[count])
+        /* Decision A: Enters if block if merge is necessary and the cell is not already used for
          * a merge with another cell
          */
         {
-            if(count == 52363)
+            if(cellReserved.find(count) == cellReserved.end())
+            /* Decision B: Enters block if the cell is not already used for
+            * a merge with another cell
+            */
             {
+                if(count == 52363)
+                {
                 Info<<"Moved in because: mergeNecessary:"<<mergeNecessary[count]<<
                 " cellNotReserved:"<<(cellReserved.find(count) == cellReserved.end())<<" "
                 <<blockedCells[count]<<endl;
                 Info<<"Blocked own 52363"<<endl;
-            }
+                }
             
 
-            //Info<<" merge"<<endl;
-            MergeFaceFound = false;
-            mergeFace = -10;
-            mergeCell = -10;
+                //Info<<" merge"<<endl;
+                MergeFaceFound = false;
+                mergeFace = -4;
+                mergeCell = -4;
             
-            for(int i=tryedCells[count];i<possibleMergeCells[count].size();i++,tryedCells[count]++)
-            {
-                if(cellReserved.find(possibleMergeCells[count][i]) == cellReserved.end())
+                Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells["<<count<<"] = "<<possibleMergeCells[count].size()<<endl;
+                for(int i=tryedCells[count];i<possibleMergeCells[count].size();i++,tryedCells[count]++)
                 {
-                    MergeFaceFound = true;
-                    mergeFace = possibleMergeFaces[count][i];
-                    mergeCell = possibleMergeCells[count][i];
-                    if(possibleMergeCells[count][i] == 52363)
+                    if(cellReserved.find(possibleMergeCells[count][i]) == cellReserved.end())
                     {
-                        Info<<"Blocked neighbor 52363"<<endl;
+                        MergeFaceFound = true;
+                        Info<<"Found face for cell: "<<count<<"  ";
+                        Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells["<<count<<"] = "<<possibleMergeCells[count].size()<<endl;
+                        mergeFace = possibleMergeFaces[count][i];
+                        mergeCell = possibleMergeCells[count][i];
+                        if(possibleMergeCells[count][i] == 52363)
+                        {
+                            Info<<"Blocked neighbor 52363"<<endl;
+                        }
+                        tryedCells[count]++;
+                        break;
                     }
-                    break;
                 }
-            }
-            if(MergeFaceFound == false)
-            /* Decision B: The iteration across all possibleMergeCells failed. This happens if
-             * all the possible merge cells between tryed[count] und possibleMergeCells[count].size
-             * are already blocked.
-             * The result is a backtracking to the first previous cell where another selection was still
-             * possible
-             */
-            {
-                if(count == 52363)
+                if(MergeFaceFound == false)
+                /* Decision B: The iteration across all possibleMergeCells failed. This happens if
+                * all the possible merge cells between tryed[count] und possibleMergeCells[count].size
+                * are already blocked.
+                * The result is a backtracking to the first previous cell where another selection was still
+                * possible
+                */
                 {
-                    Info<<"No merge cell found for -----------------------------------"<<count<<endl;
-                }
-                //Info<<"One way merge failed"<<endl;
-                int backtracingIndex = -1;
-                for(int cntBck=count-1;cntBck>=0;cntBck--)
-                {
+                    Info<<"Merge face not found for "<<count<<endl;
+                    Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells["<<count<<"] = "<<possibleMergeCells[count].size()<<endl;
+                    Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCells["<<count-1<<"] = "<<possibleMergeCells[count-1].size()<<endl;
+                    
                     if(count == 52363)
                     {
-                        Info<<"Backtracking "<<count<<": Deleting data from "<<cntBck<<" assignList["<<cntBck<<"]:"<<assignList[cntBck]<<"  mergeNecessary["<<cntBck<<"]:"<<mergeNecessary[cntBck]<<"  tryedCells["<<cntBck<<"]"<<tryedCells[cntBck]<<"/possibleMergeCells["<<cntBck<<"]"<<possibleMergeCells[cntBck].size()<<endl;
+                        Info<<"No merge cell found for -----------------------------------"<<count<<endl;
                     }
-                    if( assignList[cntBck] != -1 && mergeNecessary[cntBck])
+                    //Info<<"One way merge failed"<<endl;
+                    int backtracingIndex = -1;
+                    for(int cntBck=count-1;cntBck>=0;cntBck--)
                     {
-                        if(tryedCells[cntBck]<possibleMergeCells[cntBck].size())
+                        if(count == 52363)
                         {
-                            //Clean backtracking cells from cellReserved map
-                            for(int k=cntBck; k<blockedCells.size();k++)
+                            Info<<"Backtracking "<<count<<": Deleting data from "<<cntBck<<"    assignList["<<cntBck<<"]:"<<assignList[cntBck]<<"  mergeNecessary["<<cntBck<<"]:"<<mergeNecessary[cntBck]<<"  tryedCells["<<cntBck<<"]"<<tryedCells[cntBck]<<"/possibleMergeCells["<<cntBck<<"]"<<possibleMergeCells[cntBck].size()<<endl;
+                        }
+                        if( assignList[cntBck] != -1 && mergeNecessary[cntBck])
+                        {
+                            if(tryedCells[cntBck]<possibleMergeCells[cntBck].size())
                             {
-                                for(int l=0;l<blockedCells[k].size();l++)
+                                //Clean backtracking cells from cellReserved map
+                                for(int k=cntBck; k<blockedCells.size();k++)
                                 {
-                                    if(count == 52363)
+                                    for(int l=0;l<blockedCells[k].size();l++)
                                     {
-                                        Info<<"Unblocked "<<blockedCells[k][l]<<endl;
+                                        if(count == 52363)
+                                        {
+                                            Info<<"Unblocked "<<blockedCells[k][l]<<endl;
+                                        }
+                                        cellReserved.erase(blockedCells[k][l]);
                                     }
-                                    cellReserved.erase(blockedCells[k][l]);
                                 }
-                            }
-                            //Clean list of blockedCells
-                            blockedCells.setSize(cntBck+1);
-                            for(int k=cntBck+1;k<=count;k++)
-                            {
-                                tryedCells[k] = 0;
-                            }
-                            backtracingIndex = cntBck;
+                                //Clean list of blockedCells
+                                blockedCells.setSize(cntBck+1);
+                                for(int k=cntBck+1;k<=count;k++)
+                                {
+                                    tryedCells[k] = 0;
+                                }
+                                backtracingIndex = cntBck;
                             
                             
-                            Info<<"Set back from "<<count<<" to: "<<backtracingIndex;
-                            Info<<"||52363 is not reserved:"<<(cellReserved.find(52363) == cellReserved.end())<<endl;
-                            break;
+                                Info<<"Set back from "<<count<<" to: "<<backtracingIndex;
+                                Info<<"||52363 is not reserved:"<<(cellReserved.find(52363) == cellReserved.end())<<endl;
+                                break;
+                            }
                         }
                     }
-                }
-                if(backtracingIndex != -1)
-                /* Decision C: If the backtracking resulted in a cell the backtracking was succesful.
-                 * The iteration continues with this specific cell. 
-                 */
-                {
-                    count = backtracingIndex;
+                    if(backtracingIndex != -1)
+                    /* Decision C: If the backtracking resulted in a cell the backtracking was succesful.
+                    * The iteration continues with this specific cell. 
+                    */
+                    {
+                        count = backtracingIndex;
+                        Info<<"Go to "<<count<<endl;
+                    }
+                    else
+                    /* Decision C: The backtracking did not found a backtracking cell. The result is an abort.
+                    */
+                    {
+                        Info<<"Backtracking from cell: "<<count<<endl;
+                        FatalErrorInFunction
+                        << " Failed in Merging Selection!"<<endl
+                        << exit(FatalError);
+                    }
                 }
                 else
-                /* Decision C: The backtracking did not found a backtracking cell. The result is an abort.
-                 */
+                /* Decision B: A possible merge cell was found. As a result the two cells to merge are
+                * inserted both in the cellReserved map as well as in the blockedCells list             * 
+                */
                 {
-                    Info<<"Backtracking from cell: "<<count<<endl;
-                    FatalErrorInFunction
-                    << " Failed in Merging Selection!"<<endl
-                    << exit(FatalError);
+                    cellReserved.insert(count);
+                    cellReserved.insert(mergeCell);
+                    blockedCells[count].append(count);
+                    blockedCells[count].append(mergeCell);
+                    assignList[count] = mergeFace;
+                    count++;
                 }
             }
             else
-            /* Decision B: A possible merge cell was found. As a result the two cells to merge are
-             * inserted both in the cellReserved map as well as in the blockedCells list             * 
-             */
+            /* Decision B: Enters else block for cells that are already used for merge.
+            */
             {
-                cellReserved.insert(count);
-                cellReserved.insert(mergeCell);
-                blockedCells[count].append(count);
-                blockedCells[count].append(mergeCell);
+                if(count == 52363)
+                {
+                    Info<<"Not merged because: mergeNecessary:"<<mergeNecessary[count]<<
+                    " cellNotReserved:"<<(cellReserved.find(count) == cellReserved.end())<<" "<<blockedCells[count]<<endl;
+                }
+                //Info<<"-> not merge"<<endl;
+                assignList[count] = -2;
+                tryedCells[count] = -2;
                 count++;
             }
         }
         else
-        /* Decision A: Enters else block for cells that will not search a merge cell. The assignList is
+        /* Decision A: Enters else block for cells that are not too small. The assignList is
          * filled with -1 for these cells.
          */
         {
@@ -4981,6 +5040,12 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     }
     
     return assignList;
+    /*
+    Label index
+    -1 : Cell is not too small
+    -2 : cell is already merged
+    -3 : No assignment
+    */
 }
 
 void Foam::cutCellFvMesh::testNewMeshData
