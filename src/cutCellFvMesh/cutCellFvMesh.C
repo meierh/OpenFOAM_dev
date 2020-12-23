@@ -4938,14 +4938,20 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                         Info<<"No merge cell found for -----------------------------------"<<count<<endl;
                     }
                     //Info<<"One way merge failed"<<endl;
-                    int backtracingIndex = -1;
+                    int backtrackingIndex = -1;
                     for(int cntBck=count-1;cntBck>=0;cntBck--)
                     {
                         if(count == 52363)
                         {
                             Info<<"Backtracking "<<count<<": Deleting data from "<<cntBck<<"    assignList["<<cntBck<<"]:"<<assignList[cntBck]<<"  mergeNecessary["<<cntBck<<"]:"<<mergeNecessary[cntBck]<<"  tryedCells["<<cntBck<<"]"<<tryedCells[cntBck]<<"/possibleMergeCells["<<cntBck<<"]"<<possibleMergeCells[cntBck].size()<<endl;
                         }
-                        if( assignList[cntBck] != -1 && mergeNecessary[cntBck])
+                        if(assignList[cntBck] == -3)
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking to untreated cell!"<<endl
+                            << exit(FatalError);
+                        }
+                        if( assignList[cntBck] != -1 && assignList[cntBck] != -2  && mergeNecessary[cntBck])
                         {
                             if(tryedCells[cntBck]<possibleMergeCells[cntBck].size())
                             {
@@ -4967,21 +4973,52 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                                 {
                                     tryedCells[k] = 0;
                                 }
-                                backtracingIndex = cntBck;
+                                backtrackingIndex = cntBck;
                             
                             
-                                Info<<"Set back from "<<count<<" to: "<<backtracingIndex;
+                                Info<<"Set back from "<<count<<" to: "<<backtrackingIndex;
                                 Info<<"||52363 is not reserved:"<<(cellReserved.find(52363) == cellReserved.end())<<endl;
                                 break;
                             }
                         }
                     }
-                    if(backtracingIndex != -1)
+                    if(backtrackingIndex != -1)
                     /* Decision C: If the backtracking resulted in a cell the backtracking was succesful.
                     * The iteration continues with this specific cell. 
                     */
                     {
-                        count = backtracingIndex;
+                        if(!mergeNecessary[count])
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking to none merge cell!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(assignList[backtrackingIndex] < 0)
+                        {
+                            Info<<endl<<"assignList["<<backtrackingIndex<<"]="<<assignList[backtrackingIndex]<<endl;
+                            FatalErrorInFunction
+                            << " Backtracking to cell with assign list < 0!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(tryedCells[backtrackingIndex] <= 0)
+                        {
+                            Info<<"tryedCells["<<backtrackingIndex<<"]="<<tryedCells[backtrackingIndex]<<endl;
+                            FatalErrorInFunction
+                            << " Backtracking to cell tryedCells <= 0!"<<endl
+                            << exit(FatalError);
+                        }
+                        for(int o=backtrackingIndex+1;o<=count;o++)
+                        {
+                            if(tryedCells[o] != 0)
+                            {
+                                Info<<endl<<endl<<"Backtracking from "<<count<<" to "<<backtrackingIndex<<endl;
+                                Info<<"tryedCells["<<o<<"]="<<tryedCells[o]<<endl;
+                                FatalErrorInFunction
+                                << " Backtracking to cell while tryedCells is unequal 0!"<<endl
+                                << exit(FatalError);
+                            }
+                        }
+                        count = backtrackingIndex;
                         Info<<"Go to "<<count<<endl;
                     }
                     else
@@ -5018,7 +5055,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
                 }
                 //Info<<"-> not merge"<<endl;
                 assignList[count] = -2;
-                tryedCells[count] = -2;
+                tryedCells[count] = 0;
                 count++;
             }
         }
@@ -5034,7 +5071,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
             }
             //Info<<"-> not merge"<<endl;
             assignList[count] = -1;
-            tryedCells[count] = -1;
+            tryedCells[count] = 0;
             count++;
         }
     }
