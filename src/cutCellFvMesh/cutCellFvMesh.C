@@ -5066,9 +5066,22 @@ Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCe
                         }
                         trackBackPoints[s] = keyIt->second;
                     }
+
+                    label bestTrackBackPoint = trackBackPoints[0];
+                    for(int s=0;s<possibleMergeCells_red[count].size();s++)
+                    {
+                        if(bestTrackBackPoint < possibleMergeCells_red[count][s])
+                            bestTrackBackPoint = possibleMergeCells_red[count][s];
+                    }
+                    bestTrackBackPoint = cellToRedInd[bestTrackBackPoint];
                     
-                    ///////////////////////// Continue here; find the best backtracking point""
-                    
+                    if(bestTrackBackPoint >= count || bestTrackBackPoint < 0)
+                    {
+                        FatalErrorInFunction
+                        << " Track Back Point is wrong!"<<endl
+                        << exit(FatalError);
+                    }
+                    //////////////////////////////////////////----------------------------
 
                     int backtrackingIndex = -1;
                     for(int cntBck=count-1;cntBck>=0;cntBck--)
