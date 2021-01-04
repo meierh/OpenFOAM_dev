@@ -3941,7 +3941,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     std::unordered_set<label> usedCells;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        if(selectedFace == -2)
+        selectedFace = mergeFaceOfCell[i];
+        if(selectedFace == -3)
         {
             Info<<"Face is: "<<selectedFace<<endl;
             
@@ -3950,7 +3951,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);  
         }
         
-        selectedFace = mergeFaceOfCell[i];
         // Test that each cell to merge is merged
         if(selectedFace == -1 && mergeNecessary[i])
         {
@@ -3960,7 +3960,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << "Agglomeration cell not found but necessary!"
             << exit(FatalError);  
         }
-        if(selectedFace == -1)
+        if(selectedFace == -1 || selectedFace == -2)
         {
             continue;
         }
@@ -3970,7 +3970,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         {
             Info<<endl<<"Merging Face: "<<selectedFace<<endl;
             FatalErrorInFunction
-            << "Merging face it not an existing face!"
+            << "Merging face is not an existing face!"
             << exit(FatalError);
         }
         
@@ -3996,7 +3996,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         else
         {
             FatalErrorInFunction
-            << "Merge Face does not neighbour nor owner of small cell "
+            << "Merge Face does not neighbour nor own of small cell "
             << exit(FatalError);
         }
         selectedCellExists = false;
@@ -4131,7 +4131,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     //Info<<endl;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        if(mergeFaceOfCell[i] != -1)
+        if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
         {
             label cellNbr = i;
             point cellCentre = newCells[i].centre(points,faces);
@@ -4142,9 +4142,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             else if(cellNbr == neighbour[mergeFaceOfCell[i]])
                 mergeCellNeighbor = owner[mergeFaceOfCell[i]];
             else
+            {
+                Info<<endl;
+                Info<<"mergeFaceOfCell["<<i<<"]:"<<mergeFaceOfCell[i]<<endl;
                 FatalErrorInFunction
                 << "Must not happen!"
-                << exit(FatalError); 
+                << exit(FatalError);
+            }
 
             /*
             point mergecellCentre = newCells[mergeCellNeighbor].centre(points,faces);
@@ -4188,7 +4192,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         << abort(FatalError);  
     }    
     
-    
     Info<<"Remove merged cell from list ";
     t1 = std::chrono::high_resolution_clock::now();
     // Remove agglomerated cell with too low volume for merging
@@ -4230,7 +4233,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     int countDeleteFaces = 0;
     for(int i=0;i<newCells.size();i++)
     {
-        if(mergeFaceOfCell[i] != -1)
+        if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
         {
             countDeleteFaces++;
             //label viaFace = mergeFaceOfCell[i];
@@ -4568,11 +4571,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    /*
     Info<<"newCell: "<<50491<<" was "<<newCellNumToOldCellNum[50941]<<endl;
     Info<<"mergeFaceOfCell:"<<mergeFaceOfCell[newCellNumToOldCellNum[50941][0]]
     <<" mergeNecessary: "<<mergeNecessary[newCellNumToOldCellNum[50941][0]]<<" with "<<
     "partialVolumeScale: "<<partialVolumeScale[newCellNumToOldCellNum[50941][0]]<<endl;
-        
+    */
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
