@@ -3591,9 +3591,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     const labelList& neighbour = this->faceNeighbour();
     const pointField& points = this->points();
     
-    DynamicList<DynamicList<label>> possibleMergeFaces;
+    DynamicList<DynamicList<DynamicList<label>>> possibleMergeFaces;
     possibleMergeFaces.setSize(newCellVolume.size());
-    DynamicList<DynamicList<label>> possibleMergeCells;
+    DynamicList<DynamicList<DynamicList<label>>> possibleMergeCells;
     possibleMergeCells.setSize(newCellVolume.size());
     DynamicList<DynamicList<scalar>> possibleMergeFaceArea;
     possibleMergeFaceArea.setSize(newCellVolume.size());
@@ -3652,9 +3652,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     */
                     if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
                     {
-                        possibleMergeFaces[i].append(newCells[i][k]);
-                        possibleMergeCells[i].append(neighbourCell);
-                        possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1]].mag(points));
+                        DynamicList<label> temp;
+                        temp.append(newCells[i][k]);
+                        possibleMergeFaces[i].append(temp);
+                        
+                        temp.setSize(0);
+                        temp.append(neighbourCell);
+                        possibleMergeCells[i].append(temp);
+
+                        possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1][0]].mag(points));
                         
                         possibleMergeFaceSufficient[i].append(true);
                     }
@@ -3715,7 +3721,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     {
         int j;
         scalar keyArea;
-        label keyFaces,keyCells;
+        DynamicList<label> keyFaces,keyCells;
         bool keySuff;
         for(int k=1;k<possibleMergeFaceArea[i].size();k++)
         {
@@ -3789,7 +3795,11 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             }            
             for(int k=0;k<possibleMergeCells[i].size();k++)
             {
-                neighborVol = newCells[possibleMergeCells[i][k]].mag(points,faces);
+                neighborVol = 0;
+                for(int s=0;s<possibleMergeCells[i][k].size();s++)
+                {
+                    neighborVol += newCells[possibleMergeCells[i][k][s]].mag(points,faces);
+                }
                 if((neighborVol+vol)*factor < maxCellVol)
                 {
                     FatalErrorInFunction
@@ -3800,6 +3810,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
     
+    scalar partialVol;
     for(int i=0;i<newCells.size();i++)
     {
         if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
@@ -3819,8 +3830,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             }
             for(int k=0;k<possibleMergeCells[i].size();k++)
             {
-                if((partialVolumeScale[i] + partialVolumeScale[possibleMergeCells[i][k]]
-                    < partialThreeshold))
+                partialVol = partialVolumeScale[i];
+                for(int s=0;s<possibleMergeCells[i][k].size();s++)
+                {
+                    partialVol += partialVolumeScale[possibleMergeCells[i][k][s]]
+                }
+                if(partialVol < partialThreeshold)
                 {
                     FatalErrorInFunction
                     << "Data 2 error"
@@ -4858,8 +4873,8 @@ labelList Foam::cutCellFvMesh::searchDown_rec
 labelList Foam::cutCellFvMesh::searchDown_iter
 (
     DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-    DynamicList<DynamicList<label>>& possibleMergeFaces,
-    DynamicList<DynamicList<label>>& possibleMergeCells,
+    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
     DynamicList<bool>& oneMergeFaceSufficient,
     DynamicList<bool>& mergeNecessary
 )
@@ -4885,9 +4900,9 @@ labelList Foam::cutCellFvMesh::searchDown_iter
         }
     }
     Info<<"mergeCounter:"<<mergeCounter<<endl;
-    DynamicList<DynamicList<label>> possibleMergeFaces_red;
+    DynamicList<DynamicList<DynamicList<label>>> possibleMergeFaces_red;
     possibleMergeFaces_red.setSize(mergeCounter);
-    DynamicList<DynamicList<label>> possibleMergeCells_red;
+    DynamicList<DynamicList<DynamicList<label>>> possibleMergeCells_red;
     possibleMergeCells_red.setSize(mergeCounter);
     DynamicList<bool> mergeNecessary_red;
     mergeNecessary_red.setSize(mergeCounter);
@@ -4937,7 +4952,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     Info<<"possibleMergeCells["<<3753<<"].size():"<<possibleMergeCells[3753].size()<<endl;
     Info<<"mergeNecessary["<<3753<<"][0]:"<<mergeNecessary[3753]<<endl;
     */
-    
+    /*
     for(int i=0;i<possibleMergeCells.size();i++)
     {
         bool mayMerge = false;
@@ -4954,7 +4969,7 @@ labelList Foam::cutCellFvMesh::searchDown_iter
             Info<<"possibleMergeCells["<<i<<"][0]:"<<possibleMergeCells[i][0]<<endl;
         }
     }
-    /*
+
     FatalErrorInFunction
     << " Temporary stop!"<<endl
     << exit(FatalError);
@@ -5025,6 +5040,8 @@ Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_
                 for(int i=tryedCells[count];i<possibleMergeCells_red[count].size();i++,tryedCells[count]++)
                 {
 Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
+
+
                     if(cellReserved.count(possibleMergeCells_red[count][i]) == 0)
                     {
                         MergeFaceFound = true;
