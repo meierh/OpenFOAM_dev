@@ -4935,9 +4935,11 @@ labelList Foam::cutCellFvMesh::searchDown_iter
     blockedCells.setSize(possibleMergeCells_red.size());
     std::unordered_map<label,label> cellReserved;
     bool MergeFaceFound;
-    label mergeFace;
-    label mergeCell;
-    labelList assignList(possibleMergeCells.size(),-3);
+    DynamicList<label> mergeFace;
+    DynamicList<label> mergeCell;
+    DynamicList<label> temp;
+    temp.append(-3);
+    List<DynamicList<label>> assignList(possibleMergeCells.size(),temp);
     labelList tryedCells(possibleMergeCells_red.size(),0);
     
     label maxDepth = 0;
@@ -5031,9 +5033,11 @@ Info<<"----------------------------"<<count<<"--------------------"<<"tryedCells
             * a merge with another cell
             */
             {
+                DynamicList<label> temp;
+                temp.append(-4);
                 MergeFaceFound = false;
-                mergeFace = -4;
-                mergeCell = -4;
+                mergeFace = temp;
+                mergeCell = temp;
             
 Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
 
@@ -5041,8 +5045,13 @@ Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_
                 {
 Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
 
-
-                    if(cellReserved.count(possibleMergeCells_red[count][i]) == 0)
+                    bool cellsNotBlocked = true;
+                    for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
+                    {
+                        if(cellReserved.count(possibleMergeCells_red[count][i][s]) != 0)
+                            cellsNotBlocked = false;
+                    }
+                    if(cellsNotBlocked)
                     {
                         MergeFaceFound = true;
 
