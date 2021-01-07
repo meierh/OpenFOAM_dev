@@ -299,11 +299,11 @@ class cutCellFvMesh   :   public fvMesh
             std::unordered_set<label>& cellReserved
         );
         
-        labelList searchDown_iter
+        List<DynamicList<label>> searchDown_iter
         (
             DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-            DynamicList<DynamicList<label>>& possibleMergeFaces,
-            DynamicList<DynamicList<label>>& possibleMergeCells,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
             DynamicList<bool>& oneMergeFaceSufficient,
             DynamicList<bool>& mergeNecessary
         );

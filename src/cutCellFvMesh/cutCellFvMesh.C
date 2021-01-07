@@ -3833,7 +3833,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 partialVol = partialVolumeScale[i];
                 for(int s=0;s<possibleMergeCells[i][k].size();s++)
                 {
-                    partialVol += partialVolumeScale[possibleMergeCells[i][k][s]]
+                    partialVol += partialVolumeScale[possibleMergeCells[i][k][s]];
                 }
                 if(partialVol < partialThreeshold)
                 {
@@ -3887,7 +3887,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     */
 
     
-    labelList mergeFaceOfCell = searchDown_iter(possibleMergeFaceArea,possibleMergeFaces,
+    List<DynamicList<label>> mergeFaceOfCell = searchDown_iter(possibleMergeFaceArea,possibleMergeFaces,
                                                 possibleMergeCells,oneMergeFaceSufficient,
                                                 mergeNecessary
                                                );
@@ -3903,7 +3903,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     std::unordered_set<label> usedFace;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        if(mergeFaceOfCell[i] == -3)
+        if(mergeFaceOfCell[i].size() == 0)
+        {
+            FatalErrorInFunction
+            << ""
+            << exit(FatalError);  
+        }
+        if(mergeFaceOfCell[i][0] == -3)
         {
             Info<<endl<<endl;
             label fc = mergeFaceOfCell[i];
@@ -3917,7 +3923,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << "Too small cell was not treated by backtracking algorithm"
             << exit(FatalError);  
         }
-        if(mergeFaceOfCell[i] == -4)
+        if(mergeFaceOfCell[i][0] == -4)
         {
             Info<<endl<<endl;
             label fc = mergeFaceOfCell[i];
@@ -3931,23 +3937,26 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << "Some weird thing happended"
             << exit(FatalError);  
         }
-        if(mergeFaceOfCell[i] < 0)
+        if(mergeFaceOfCell[i][0] < 0)
             continue;
         
-        if(usedFace.find(mergeFaceOfCell[i]) == usedFace.end())
-            usedFace.insert(mergeFaceOfCell[i]);
-        else
+        for(int s=0;s<mergeFaceOfCell[i].size();s++)
         {
-            Info<<endl<<endl;
-            label fc = mergeFaceOfCell[i];
-            label wnr = owner[fc];
-            label nghbr = neighbour[fc];
+            if(usedFace.find(mergeFaceOfCell[i][s]) == usedFace.end())
+                usedFace.insert(mergeFaceOfCell[i][s]);
+            else
+            {
+                Info<<endl<<endl;
+                label fc = mergeFaceOfCell[i][s];
+                label wnr = owner[fc];
+                label nghbr = neighbour[fc];
             
-            Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
-            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
-            FatalErrorInFunction
-            << "Merge Face used twice!"
-            << exit(FatalError);  
+                Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
+                "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
+                FatalErrorInFunction
+                << "Merge Face used twice!"
+                << exit(FatalError);  
+            }
         }
     }
 
@@ -3956,44 +3965,58 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     std::unordered_set<label> usedCells;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
-        selectedFace = mergeFaceOfCell[i];
-        if(selectedFace == -3)
+        for(int s=0;s<mergeFaceOfCell[i].size();s++)
         {
-            Info<<"Face is: "<<selectedFace<<endl;
+            selectedFace = mergeFaceOfCell[i][s];
+            if(selectedFace == -3)
+            {
+                Info<<"Face is: "<<selectedFace<<endl;
             
-            FatalErrorInFunction
-            << "One cell not treated by algorithm"
-            << exit(FatalError);  
+                FatalErrorInFunction
+                << "One cell not treated by algorithm"
+                << exit(FatalError);  
+            }
+        
+            // Test that each cell to merge is merged
+            if(selectedFace == -1 && mergeNecessary[i])
+            {
+                Info<<"Selected Face is: "<<selectedFace<<" but mergeNecessary["<<i<<"]"<<mergeNecessary[i]<<endl;
+            
+                FatalErrorInFunction
+                << "Agglomeration cell not found but necessary!"
+                << exit(FatalError);  
+            }
+            
+            if((selectedFace == -1 || selectedFace == -2) && mergeFaceOfCell[i].size() != 1)
+            {
+                FatalErrorInFunction
+                << "Not merged or merged by other cell but size of mergeList is not one!"
+                << exit(FatalError);  
+            }
         }
         
-        // Test that each cell to merge is merged
-        if(selectedFace == -1 && mergeNecessary[i])
-        {
-            Info<<"Selected Face is: "<<selectedFace<<" but mergeNecessary["<<i<<"]"<<mergeNecessary[i]<<endl;
-            
-            FatalErrorInFunction
-            << "Agglomeration cell not found but necessary!"
-            << exit(FatalError);  
-        }
-        if(selectedFace == -1 || selectedFace == -2)
+        if(mergeFaceOfCell[i][0] == -1 || mergeFaceOfCell[i][0] == -2)
         {
             continue;
         }
         
-        //Test that merge faces are legit faces
-        if(selectedFace > neighbour.size() || selectedFace < 0)
+        for(int s=0;s<mergeFaceOfCell[i].size();s++)
         {
-            Info<<endl<<"Merging Face: "<<selectedFace<<endl;
-            FatalErrorInFunction
-            << "Merging face is not an existing face!"
-            << exit(FatalError);
+            selectedFace = mergeFaceOfCell[i][s];
+            //Test that merge faces are legit faces
+            if(selectedFace > neighbour.size() || selectedFace < 0)
+            {
+                Info<<endl<<"Merging Face: "<<selectedFace<<endl;
+                FatalErrorInFunction
+                << "Merging face is not an existing face!"
+                << exit(FatalError);
+            }
         }
         
-        //Test that selected face is part of the possibleMergeFace
-        selectedFaceExists = false;
-        for(int k=0;k<possibleMergeFaces[i].size();k++)
+        bool selectedFaceExists = false;
+        for(int s=0;s<possibleMergeFaces[i].size();s++)
         {
-            if(selectedFace == possibleMergeFaces[i][k])
+            if(possibleMergeFaces[i][s] == mergeFaceOfCell[i])
                 selectedFaceExists = true;
         }
         if(!selectedFaceExists)
@@ -4003,38 +4026,69 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
         
-        //Test that selected face is part of the possibleMergeFace
-        if(owner[selectedFace] == i)
-            selectedCell = neighbour[selectedFace];
-        else if(neighbour[selectedFace] == i)
-            selectedCell = owner[selectedFace];
+        for(int s=0;s<mergeFaceOfCell[i].size();s++)
+        {
+            selectedFace = mergeFaceOfCell[i][s];
+            //Test that selected face is part of the possibleMergeFace
+            if(owner[selectedFace] == i)
+                selectedCell = neighbour[selectedFace];
+            else if(neighbour[selectedFace] == i)
+                selectedCell = owner[selectedFace];
+            else
+            {
+                if(mergeFaceOfCell[i].size() == 1)
+                {
+                    FatalErrorInFunction
+                    << "Single merge Face does not neighbour nor own of small cell "
+                    << exit(FatalError);
+                }
+                else
+                {
+                    /* Better version of cell checking necessary 
+                     */
+                }
+            }
+        }
+
+        
+        if(mergeFaceOfCell[i].size() == 1)
+        {
+            selectedCellExists = false;
+            for(int k=0;k<possibleMergeCells[i].size();k++)
+            {
+                if(possibleMergeCells[i][k].size()==1 && selectedCell == possibleMergeCells[i][k][0])
+                    selectedCellExists = true;
+            }
+            if(!selectedCellExists)
+            {
+                FatalErrorInFunction
+                << "Merging cell is not in the mergingCell list!"
+                << exit(FatalError);
+            }
+        }
         else
         {
-            FatalErrorInFunction
-            << "Merge Face does not neighbour nor own of small cell "
-            << exit(FatalError);
-        }
-        selectedCellExists = false;
-        for(int k=0;k<possibleMergeCells[i].size();k++)
-        {
-            if(selectedCell == possibleMergeCells[i][k])
-                selectedCellExists = true;
-        }
-        if(!selectedCellExists)
-        {
-            FatalErrorInFunction
-            << "Merging cell is not in the mergingCell list!"
-            << exit(FatalError);
+            /* Better version of cell checking necessary 
+            */
         }
         
-        if(usedCells.find(selectedCell) == usedCells.end())
-            usedCells.insert(selectedCell);
+        
+        if(mergeFaceOfCell[i].size() == 1)
+        {
+            if(usedCells.find(selectedCell) == usedCells.end())
+                usedCells.insert(selectedCell);
+            else
+            {
+                Info<<"Cell: "<<selectedCell<<" used twice"<<endl;
+                FatalErrorInFunction
+                << "Merge Cell used twice!"
+                << exit(FatalError);
+            }
+        }
         else
         {
-            Info<<"Cell: "<<selectedCell<<" used twice"<<endl;
-            FatalErrorInFunction
-            << "Merge Cell used twice!"
-            << exit(FatalError);  
+            /* Better version of cell checking necessary 
+            */
         }
     }
     
@@ -4610,12 +4664,14 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     patchStarts,
                     true);
     
-    
+    /*
+     * Uncomment later!!!
     testForCellSize
     (
         possibleMergeFaceArea,possibleMergeFaces, possibleMergeCells,
         oneMergeFaceSufficient, mergeNecessary, mergeFaceOfCell,partialThreeshold
     );
+    */
     
     
     t2 = std::chrono::high_resolution_clock::now();
@@ -4870,7 +4926,7 @@ labelList Foam::cutCellFvMesh::searchDown_rec
     }
 }
 
-labelList Foam::cutCellFvMesh::searchDown_iter
+List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter
 (
     DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
@@ -5085,9 +5141,34 @@ Info<<"Size2:"<<trackBackPoints.size()<<endl;
                     for(int s=0;s<possibleMergeCells_red[count].size();s++)
                     {
 Info<<"s1:"<<s<<endl;
-                        auto keyIt = cellReserved.find(possibleMergeCells_red[count][s]);
-                        if(keyIt == cellReserved.end())
+                        if(possibleMergeCells_red[count][s].size() == 0)
+                        {
+                            FatalErrorInFunction
+                            << " Zero length merge section!"<<endl
+                            << exit(FatalError);
+                        }
+                        bool blockedBecausThis = true;
+                        for(int z=0;z<possibleMergeCells_red[count][s].size();z++)
+                        {
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyIt == cellReserved.end())
+                                blockedBecausThis = false;
+                        }
+                        if(!blockedBecausThis)
                             continue;
+                        
+                        auto keyItZ = cellReserved.find(possibleMergeCells_red[count][s][0]);
+                        for(int z=1;z<possibleMergeCells_red[count][s].size();z++)
+                        {
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyItZ->second != keyIt->second)
+                            {
+                                FatalErrorInFunction
+                                << " Non matching backtracking index for blocked cells!"<<endl
+                                << exit(FatalError);
+                            }
+                        }
+                        
 Info<<"s2:"<<s<<endl;
                         /*
                         if(keyIt == cellReserved.end())
@@ -5099,14 +5180,18 @@ Info<<"s2:"<<s<<endl;
                             << exit(FatalError);
                         }
                         */
-                        if(keyIt->first != possibleMergeCells_red[count][s])
+                        for(int z=1;z<possibleMergeCells_red[count][s].size();z++)
                         {
-                            FatalErrorInFunction
-                            << " Something is wrong here!"<<endl
-                            << exit(FatalError);
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyIt->first != possibleMergeCells_red[count][s][z])
+                            {
+                                FatalErrorInFunction
+                                << " Something is wrong here!"<<endl
+                                << exit(FatalError);
+                            }
                         }
 Info<<"s3:"<<s<<endl;
-                        trackBackPoints.append(keyIt->second);
+                        trackBackPoints.append(keyItZ->second);
                     }
 Info<<"Con"<<endl;
                     
@@ -5157,19 +5242,30 @@ Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;
                     int backtrackingIndex = -1;                    
                     for(int cntBck = bestTrackBackPoint; cntBck>=0; cntBck--)
                     {
-                        if(assignList[redIndToCell[cntBck]] == -3)
+                        if(assignList[redIndToCell[cntBck]].size() == 1 &&
+                           assignList[redIndToCell[cntBck]][0] == -3)
                         {
                             FatalErrorInFunction
                             << " Backtracking to untreated cell!"<<endl
                             << exit(FatalError);
                         }
-                        if(assignList[redIndToCell[cntBck]] == -1 || !mergeNecessary_red[cntBck])
+                        if((assignList[redIndToCell[cntBck]].size() == 1 && 
+                            assignList[redIndToCell[cntBck]][0] == -1)   ||
+                            !mergeNecessary_red[cntBck])
                         {
                             FatalErrorInFunction
                             << " Backtracking to nonmerge Cell or -1 assign cell!"<<endl
                             << exit(FatalError);
                         }
-                        if(assignList[redIndToCell[cntBck]] != -2 && tryedCells[cntBck]<possibleMergeCells_red[cntBck].size())
+                        if(assignList[redIndToCell[cntBck]].size() == 0)
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking empty assign list!"<<endl
+                            << exit(FatalError);
+                        }
+                        
+                        if((assignList[redIndToCell[cntBck]].size() > 0 && 
+                            assignList[redIndToCell[cntBck]][0] != -2) && tryedCells[cntBck]<possibleMergeCells_red[cntBck].size())
                         {
                             backtrackingIndex = cntBck;
                             break;
@@ -5186,9 +5282,15 @@ Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;
                             << " Backtracking to none merge cell!"<<endl
                             << exit(FatalError);
                         }
-                        if(assignList[redIndToCell[backtrackingIndex]] < 0)
+                        if(assignList[redIndToCell[backtrackingIndex]].size()==0)
                         {
-                            Info<<endl<<"assignList["<<backtrackingIndex<<"]="<<assignList[backtrackingIndex]<<endl;
+                            FatalErrorInFunction
+                            << " Backtracking to zero length assign List can not happen!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(assignList[redIndToCell[backtrackingIndex]][0] < 0)
+                        {
+                            Info<<endl<<"assignList["<<backtrackingIndex<<"][0]="<<assignList[backtrackingIndex][0]<<endl;
                             FatalErrorInFunction
                             << " Backtracking to cell with assign list < 0!"<<endl
                             << exit(FatalError);
@@ -5259,11 +5361,15 @@ Info<<"Go to "<<count<<endl;
                 */
                 {
                     std::pair<label,label> ins1(redIndToCell[count],redIndToCell[count]);
-                    std::pair<label,label> ins2(mergeCell,redIndToCell[count]);
                     cellReserved.insert(ins1);
-                    cellReserved.insert(ins2);
                     blockedCells[count].append(redIndToCell[count]);
-                    blockedCells[count].append(mergeCell);
+
+                    for(int u=0;u<mergeCell.size();u++)
+                    {
+                        std::pair<label,label> ins2(mergeCell[u],redIndToCell[count]);
+                        cellReserved.insert(ins2);
+                        blockedCells[count].append(mergeCell[u]);
+                    }
 /*
 Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<<endl;
 */
@@ -5275,7 +5381,9 @@ Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<
             /* Decision B: Enters else block for cells that are already used for merge.
             */
             {
-                assignList[redIndToCell[count]] = -2;
+                DynamicList<label> temp;
+                temp.append(-2);
+                assignList[redIndToCell[count]] = temp;
                 tryedCells[count] = 0;
                 count++;
             }
@@ -5285,7 +5393,9 @@ Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<
          * filled with -1 for these cells.
          */
         {
-            assignList[redIndToCell[count]] = -1;
+            DynamicList<label> temp;
+            temp.append(-1);
+            assignList[redIndToCell[count]] = temp;
             tryedCells[count] = 0;
             count++;
         }
@@ -5297,14 +5407,20 @@ Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<
     {
         if(mergeNecessary[i])
         {
-            if(assignList[i] == -3)
+            if(assignList[i].size()==0)
+            {
+                FatalErrorInFunction
+                << " Error empty assign List at i:"<<i<<endl
+                << exit(FatalError);
+            }
+            if(assignList[i][0] == -3)
             {
                 FatalErrorInFunction
                 << " Too small cell was not treated by backtracking algorithm!"<<endl
                 << exit(FatalError);
             }
             
-            if(assignList[i] == -1)
+            if(assignList[i][0] == -1)
             {
                 FatalErrorInFunction
                 << " Too small cell was listed as large enough!"<<endl
@@ -5313,16 +5429,42 @@ Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<
         }
         else
         {
-            if(assignList[i] != -3)
+            if(assignList[i].size()==0)
+            {
+                FatalErrorInFunction
+                << " Error empty assign List at i:"<<i<<endl
+                << exit(FatalError);
+            }
+            if(assignList[i].size()!=1)
+            {
+                FatalErrorInFunction
+                << " Error overfull assign List at i:"<<i<<endl
+                << exit(FatalError);
+            }
+            if(assignList[i][0] != -3)
             {
                 FatalErrorInFunction
                 << " Backtracking algorithm wrote inside large enough cell. Something is wrong here!"<<endl
                 << exit(FatalError);
             }
-            assignList[i] = -1;
+            assignList[i][0] = -1;
         }
     }
     
+    /*
+    labelList assList(assignList.size());
+    for(int i=0;i<assignList.size();i++)
+    {
+        if(assignList[i].size() != 1)
+        {
+            FatalErrorInFunction
+            << " Error!"<<endl
+            << exit(FatalError);
+        }
+        assList[i] = assignList[i][0];
+    }
+    return assList;
+    */
     return assignList;
     /*
     Label index
