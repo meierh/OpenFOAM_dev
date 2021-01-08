@@ -3906,35 +3906,19 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         if(mergeFaceOfCell[i].size() == 0)
         {
             FatalErrorInFunction
-            << ""
+            << "Cell with unwanted results"
             << exit(FatalError);  
         }
         if(mergeFaceOfCell[i][0] == -3)
         {
-            Info<<endl<<endl;
-            label fc = mergeFaceOfCell[i];
-            label wnr = owner[fc];
-            label nghbr = neighbour[fc];
-            
-            Info<<"Cell: "<<i<<endl;
-            Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
-            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
             FatalErrorInFunction
             << "Too small cell was not treated by backtracking algorithm"
             << exit(FatalError);  
         }
         if(mergeFaceOfCell[i][0] == -4)
         {
-            Info<<endl<<endl;
-            label fc = mergeFaceOfCell[i];
-            label wnr = owner[fc];
-            label nghbr = neighbour[fc];
-            
-            Info<<"Cell: "<<i<<endl;
-            Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
-            "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
             FatalErrorInFunction
-            << "Some weird thing happended"
+            << "Cell with unwanted results"
             << exit(FatalError);  
         }
         if(mergeFaceOfCell[i][0] < 0)
@@ -4337,6 +4321,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             }
             
             countDeleteFaces += mergeFaceOfCell[i].size();
+            label myCell = i;
+            
             //label viaFace = mergeFaceOfCell[i];
             /*
             label myCell = i;
@@ -4361,16 +4347,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             oldCellNumToNewCellNum[i] = i;
             for(int s=0;s<mergeCells.size();s++)
             {
-                if(oldCellNumToNewCellNum[allCells[s]] != -1 && 
-                   oldCellNumToNewCellNum[allCells[s]] != allCells[s])
+                if(oldCellNumToNewCellNum[mergeCells[s]] != -1 && 
+                   oldCellNumToNewCellNum[mergeCells[s]] != mergeCells[s])
                 {
                     FatalErrorInFunction
                     << "oldCell already used to new Cell already taken: own"
                     << exit(FatalError);
                 }
-                oldCellNumToNewCellNum[allCells[s]] = i;
+                oldCellNumToNewCellNum[mergeCells[s]] = i;
             
-                if(deletedCells[allCells[s]] == 1)
+                if(deletedCells[mergeCells[s]] == 1)
                 {
                     FatalErrorInFunction
                     << "Cell is multiple times deleted!"
@@ -4378,32 +4364,40 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 }
                 else
                 {
-                    deletedCells[allCells[s]] = 1;
+                    deletedCells[mergeCells[s]] = 1;
                 }
             }
 
-            newFaces_[mergeFaceOfCell[i]] = face(); // Only viable if empty face is doable
-            if(newOwner_[mergeFaceOfCell[i]] == -1)
+            // set informations of faces to delete to -1
+            for(int s=0;s<mergeFaceOfCell[i].size();s++)
             {
-                FatalErrorInFunction
-                << "Deletion Face has already owner -1!"
-                << exit(FatalError);
+                newFaces_[mergeFaceOfCell[i][s]] = face(); // Only viable if empty face is doable
+                if(newOwner_[mergeFaceOfCell[i][s]] == -1)
+                {
+                    FatalErrorInFunction
+                    << "Deletion Face has already owner -1!"
+                    << exit(FatalError);
+                }
+                newOwner_[mergeFaceOfCell[i][s]] = -1;
+                if(mergeFaceOfCell[i][s] >= newNeighbour_.size())
+                {
+                    FatalErrorInFunction
+                    << "Merge Face is has no neighbour that can not happen!"
+                    << exit(FatalError);
+                }
+                newNeighbour_[mergeFaceOfCell[i][s]] = -1;
             }
-            newOwner_[mergeFaceOfCell[i]] = -1;
-            if(mergeFaceOfCell[i] >= newNeighbour_.size())
-            {
-                FatalErrorInFunction
-                << "Merge Face is has no neighbour that can not happen!"
-                << exit(FatalError);
-            }
-            newNeighbour_[mergeFaceOfCell[i]] = -1;
             
+            std::unordered_set<label> mergeFaces;
+            for(int s=0;s<mergeFaceOfCell[i].size();s++)
+            {
+                mergeFaces.insert(mergeFaceOfCell[i][s]);
+            }
+            // Renumber faces of main Cell
             labelList facesMyCell = newCells[myCell];
-            labelList facesMergeCell = newCells[mergedWithCell];
-            
             for(int k=0;k<facesMyCell.size();k++)
             {
-                if(facesMyCell[k] == mergeFaceOfCell[i])
+                if(mergeFaces.count(facesMyCell[k]) != 0)
                     continue;
 
                 if(owner[facesMyCell[k]] == myCell)
@@ -4417,22 +4411,27 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     << exit(FatalError);
                 }
             }
-            for(int k=0;k<facesMergeCell.size();k++)
+            
+            for(int s=0;s<mergeCells.size();s++)
             {
-                if(facesMergeCell[k] == mergeFaceOfCell[i])
-                    continue;
-                
-                if(owner[facesMergeCell[k]] == mergedWithCell)
-                   newOwner_[facesMergeCell[k]] = myCell;
-                else if(neighbour[facesMergeCell[k]] == mergedWithCell)
-                    newNeighbour_[facesMergeCell[k]] = myCell;
-                else
+                labelList facesMergeCell = newCells[mergeCells[s]];
+                for(int k=0;k<facesMergeCell.size();k++)
                 {
-                    FatalErrorInFunction
-                    << "Face of merging cells is neither in owner nor in neighbour cell!"
-                    << exit(FatalError);
-                }                    
-            }            
+                    if(mergeFaces.count(facesMergeCell[k]) != 0)
+                        continue;
+                
+                    if(owner[facesMergeCell[k]] == mergeCells[s])
+                        newOwner_[facesMergeCell[k]] = myCell;
+                    else if(neighbour[facesMergeCell[k]] == mergeCells[s])
+                        newNeighbour_[facesMergeCell[k]] = myCell;
+                    else
+                    {
+                        FatalErrorInFunction
+                        << "Face of merging cells is neither in owner nor in neighbour cell!"
+                        << exit(FatalError);
+                    }                    
+                }
+            }
         }
         else
         {
