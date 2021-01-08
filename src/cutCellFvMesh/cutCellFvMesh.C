@@ -4026,69 +4026,100 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
         
+        label numMergFaces = possibleMergeFaces[i].size();
+        if(numMergFaces!=1 || numMergFaces!=4 || numMergFaces!=12)
+        {
+            FatalErrorInFunction
+            << "Number of merging faces does not match!"
+            << exit(FatalError);
+        }
+        
+        //Test that merging faces are the correct ones
+        std::unordered_multiset<label> cellSet;
+        DynamicList<label> allCells;
         for(int s=0;s<mergeFaceOfCell[i].size();s++)
         {
             selectedFace = mergeFaceOfCell[i][s];
-            //Test that selected face is part of the possibleMergeFace
-            if(owner[selectedFace] == i)
-                selectedCell = neighbour[selectedFace];
-            else if(neighbour[selectedFace] == i)
-                selectedCell = owner[selectedFace];
-            else
-            {
-                if(mergeFaceOfCell[i].size() == 1)
-                {
-                    FatalErrorInFunction
-                    << "Single merge Face does not neighbour nor own of small cell "
-                    << exit(FatalError);
-                }
-                else
-                {
-                    /* Better version of cell checking necessary 
-                     */
-                }
-            }
-        }
-
-        
-        if(mergeFaceOfCell[i].size() == 1)
-        {
-            selectedCellExists = false;
-            for(int k=0;k<possibleMergeCells[i].size();k++)
-            {
-                if(possibleMergeCells[i][k].size()==1 && selectedCell == possibleMergeCells[i][k][0])
-                    selectedCellExists = true;
-            }
-            if(!selectedCellExists)
+            if(neighbour.size() >= selectedFace)
             {
                 FatalErrorInFunction
-                << "Merging cell is not in the mergingCell list!"
+                << "Merge via boundary face not possible "
+                << exit(FatalError);
+            }
+            if(cellSet.count(neighbour[selectedFace]) == 0)
+                allCells.append(neighbour[selectedFace]);
+            if(cellSet.count(owner[selectedFace]) == 0)
+                allCells.append(owner[selectedFace]);
+            cellSet.insert(neighbour[selectedFace]);
+            cellSet.insert(owner[selectedFace]);
+        }
+        
+        label cellMult;
+        if(numMergFaces==1)
+        {
+            cellMult = 1; //two cell merge
+        }
+        if(numMergFaces==4)
+        {
+            cellMult = 2; //four cell merge
+        }
+        if(numMergFaces==12)
+        {
+            cellMult = 3; //eight cell merge
+        }
+        
+        for(int s=0;s<allCells.size();s++)
+        {
+            if(cellSet.count(allCells[s])!=cellMult)
+            {
+                FatalErrorInFunction
+                << "Wrong number of cell count "
                 << exit(FatalError);
             }
         }
-        else
+        
+        bool cellsMatch = false;
+        bool partMatch;
+        for(int s=0;s<possibleMergeCells[i].size();s++)
         {
-            /* Better version of cell checking necessary 
-            */
+            partMatch = false;
+            if(possibleMergeCells[i][s].size() == allCells.size())
+            {
+                partMatch = true;
+                bool match;
+                for(int w=0;w<allCells.size();w++)
+                {
+                    match = false;
+                    for(int x=0;x<possibleMergeCells[i][s].size();x++)
+                    {
+                        if(possibleMergeCells[i][s][x] == allCells[w])
+                            match = true;                            
+                    }
+                    if(match == false)
+                        partMatch = false;
+                }
+            }
+            if(partMatch)
+                cellsMatch = true;
+        }
+        if(!cellsMatch)
+        {
+            FatalErrorInFunction
+            << "Cells do not match "
+            << exit(FatalError);
         }
         
-        
-        if(mergeFaceOfCell[i].size() == 1)
+        for(int s=0;s<allCells.size();s++)
         {
-            if(usedCells.find(selectedCell) == usedCells.end())
-                usedCells.insert(selectedCell);
+            if(usedCells.find(allCells[s]) == usedCells.end())
+                usedCells.insert(allCells[s]);
             else
             {
-                Info<<"Cell: "<<selectedCell<<" used twice"<<endl;
+                Info<<"Cell: "<<allCells[s]<<" used twice"<<endl;
                 FatalErrorInFunction
                 << "Merge Cell used twice!"
                 << exit(FatalError);
             }
-        }
-        else
-        {
-            /* Better version of cell checking necessary 
-            */
         }
     }
     
@@ -4142,16 +4173,35 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             vol = cell[i].mag(points,faces);
             if((vol*factor) < maxCellVol)
             {
-                mergeFace = mergeFaceOfCell[i];
-                if(owner[mergeFace] == i)
-                    mergeCell = neighbour[mergeFace];
-                else if(neighbour[mergeFace] == i)
-                    mergeCell = owner[mergeFace];
-                neighbourVol = cell[mergeCell].mag(points,faces);
+                std::unordered_multiset<label> cellSet;
+                DynamicList<label> allCells;
+                for(int s=0;s<mergeFaceOfCell[i].size();s++)
+                {
+                    selectedFace = mergeFaceOfCell[i][s];
+                    if(neighbour.size() >= selectedFace)
+                    {
+                        FatalErrorInFunction
+                        << "Merge via boundary face not possible "
+                        << exit(FatalError);
+                    }
+                    if(cellSet.count(neighbour[selectedFace]) == 0)
+                        allCells.append(neighbour[selectedFace]);
+                    if(cellSet.count(owner[selectedFace]) == 0)
+                        allCells.append(owner[selectedFace]);
+                    cellSet.insert(neighbour[selectedFace]);
+                    cellSet.insert(owner[selectedFace]);
+                }
+                
+                neighbourVol = 0;
+                for(int s=0;s<allCells.size();s++)
+                {
+                    neighbourVol += cell[allCells[s]].mag(points,faces);
+                }
+                
                 if((neighbourVol+vol)*factor < MAXCELLVOL)
                 {
                     Info<<endl;
-                    Info<<"Cell "<<i<<" merged with "<<mergeCell<<" but not sufficient"<<
+                    Info<<"Cell "<<i<<" merged with "<<allCells<<" but not sufficient"<<
                     " because vol cell:"<<vol<<" and vol neighbor:"<<neighbourVol<<endl;
                     FatalErrorInFunction
                     << "Not sufficient merge data"
@@ -4197,46 +4247,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     
     Info<<"Test for -1 merging selection ";
     t1 = std::chrono::high_resolution_clock::now();
-    //Info<<endl;
-    for(int i=0;i<mergeFaceOfCell.size();i++)
-    {
-        if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
-        {
-            label cellNbr = i;
-            point cellCentre = newCells[i].centre(points,faces);
-            scalar cellVolume = newCells[i].mag(points,faces);
-            label mergeCellNeighbor;
-            if(cellNbr == owner[mergeFaceOfCell[i]])
-                mergeCellNeighbor = neighbour[mergeFaceOfCell[i]];
-            else if(cellNbr == neighbour[mergeFaceOfCell[i]])
-                mergeCellNeighbor = owner[mergeFaceOfCell[i]];
-            else
-            {
-                Info<<endl;
-                Info<<"mergeFaceOfCell["<<i<<"]:"<<mergeFaceOfCell[i]<<endl;
-                FatalErrorInFunction
-                << "Must not happen!"
-                << exit(FatalError);
-            }
-
-            /*
-            point mergecellCentre = newCells[mergeCellNeighbor].centre(points,faces);
-            scalar mergecellVolume = newCells[mergeCellNeighbor].mag(points,faces);
-        
-            Info<<"Cell "<<cellNbr<<" Centre: "<<cellCentre<<" Vol: "<<cellVolume<<" merged with "<<"Cell "<<mergeCellNeighbor<<" Centre: "<<mergecellCentre<<" Vol: "<<mergecellVolume<<endl;
-            */
-        }
-        else
-        {
-            /*
-            label cellNbr = i;
-            point cellCentre = newCells[i].centre(points,faces);
-            scalar cellVolume = newCells[i].mag(points,faces);
-        
-            Info<<"Cell "<<cellNbr<<" Centre: "<<cellCentre<<" Vol: "<<cellVolume<<endl;
-            */
-        }
-    }
+    
+    // Remove function
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -4302,10 +4314,31 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     int countDeleteFaces = 0;
     for(int i=0;i<newCells.size();i++)
     {
-        if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
+        //if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
+        if(mergeFaceOfCell[i].size() > 1)
         {
-            countDeleteFaces++;
+            std::unordered_multiset<label> cellSet;
+            DynamicList<label> mergeCells;
+            for(int s=0;s<mergeFaceOfCell[i].size();s++)
+            {
+                selectedFace = mergeFaceOfCell[i][s];
+                if(neighbour.size() >= selectedFace)
+                {
+                    FatalErrorInFunction
+                    << "Merge via boundary face not possible "
+                    << exit(FatalError);
+                }
+                if(cellSet.count(neighbour[selectedFace]) == 0 && neighbour[selectedFace] != i)
+                    mergeCells.append(neighbour[selectedFace]);
+                if(cellSet.count(owner[selectedFace]) == 0 && owner[selectedFace] != i)
+                    mergeCells.append(owner[selectedFace]);
+                cellSet.insert(neighbour[selectedFace]);
+                cellSet.insert(owner[selectedFace]);
+            }
+            
+            countDeleteFaces += mergeFaceOfCell[i].size();
             //label viaFace = mergeFaceOfCell[i];
+            /*
             label myCell = i;
             label mergedWithCell = -1;
             if(owner[mergeFaceOfCell[i]] == i)
@@ -4318,6 +4351,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 << "No Merge Cell found. That can not happen!"
                 << exit(FatalError);
             }
+            */
             if(oldCellNumToNewCellNum[i] != -1)
             {
                 FatalErrorInFunction
@@ -4325,24 +4359,27 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 << exit(FatalError);
             }
             oldCellNumToNewCellNum[i] = i;
-            if(oldCellNumToNewCellNum[mergedWithCell] != -1 && 
-               oldCellNumToNewCellNum[mergedWithCell] != mergedWithCell)
+            for(int s=0;s<mergeCells.size();s++)
             {
-                FatalErrorInFunction
-                << "oldCell already used to new Cell already taken: own"
-                << exit(FatalError);
-            }
-            oldCellNumToNewCellNum[mergedWithCell] = i;
+                if(oldCellNumToNewCellNum[allCells[s]] != -1 && 
+                   oldCellNumToNewCellNum[allCells[s]] != allCells[s])
+                {
+                    FatalErrorInFunction
+                    << "oldCell already used to new Cell already taken: own"
+                    << exit(FatalError);
+                }
+                oldCellNumToNewCellNum[allCells[s]] = i;
             
-            if(deletedCells[mergedWithCell] == 1)
-            {
-                FatalErrorInFunction
-                << "Cell is multiple times deleted!"
-                << exit(FatalError);
-            }
-            else
-            {
-                deletedCells[mergedWithCell] = 1;
+                if(deletedCells[allCells[s]] == 1)
+                {
+                    FatalErrorInFunction
+                    << "Cell is multiple times deleted!"
+                    << exit(FatalError);
+                }
+                else
+                {
+                    deletedCells[allCells[s]] = 1;
+                }
             }
 
             newFaces_[mergeFaceOfCell[i]] = face(); // Only viable if empty face is doable
