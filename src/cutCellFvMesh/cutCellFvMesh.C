@@ -3606,8 +3606,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     DynamicList<label> MergeCell;
     label neighbourCell = -1;
     scalar neighbourCellPartialVolume;
+    Info<<"Create merge Cells"<<endl;
     for(int i=0;i<newCellVolume.size();i++)
     {
+        Info<<i<<endl;
         mergeNecessary[i] = false;
         if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
         {
@@ -3624,6 +3626,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             /*
              * Find merging cells for one to one merging
              */
+            Info<<"1-1"<<endl;
             for(int k=0;k<newCells[i].size();k++)
             {
                 if(newCells[i][k] < neighbour.size())
@@ -3657,6 +3660,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             /*
              * Find merging cells for one to four merging
              */
+            Info<<"1-4"<<endl;
             for(int a=0;a<newCells[i].size();a++)
             {
                 if(newCells[i][a] < neighbour.size())
@@ -3665,12 +3669,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     {
                         if(newCells[i][b] < neighbour.size())
                         {
+                            Info<<"Try at :"<<a<<" "<<b<<endl;
                             label face_a,face_b;
                             DynamicList<label> mergeFace;
                             label neighbour_a,neighbour_b,fourthCell_a,fourthCell_b,fourthCell_F,neighbour_c;
                             
-                            label face_a = newCells[i][a];
-                            label face_b = newCells[i][b];
+                            face_a = newCells[i][a];
+                            face_b = newCells[i][b];
                             
                             if(owner[face_a] == i)
                                 neighbour_a = neighbour[face_a];
@@ -3686,8 +3691,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                             else
                                 FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);  
 
+                            Info<<"Cell "<<i<<" has neighbours:"<<neighbour_a<<" "<<neighbour_b<<endl;
                             for(int x=0;x<newCells[neighbour_a].size();x++)
                             {
+                                Info<<"x:"<<x<<endl;
                                 if(newCells[neighbour_a][x]==face_a ||
                                    newCells[neighbour_a][x] >= neighbour.size())
                                     continue;
@@ -3699,19 +3706,21 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                 else
                                     FatalErrorInFunction<< "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);
                                 
-                                for(int y=0;y<newCells[neighbour_b].size();x++)
-                                {                                
+                                for(int y=0;y<newCells[neighbour_b].size();y++)
+                                {
+                                    Info<<"y:"<<y<<endl;
                                     if(newCells[neighbour_b][y]==face_b ||
                                        newCells[neighbour_b][y] >= neighbour.size())
                                         continue;
                                         
                                     if(owner[newCells[neighbour_b][y]]==neighbour_b)
                                         fourthCell_b = neighbour[newCells[neighbour_b][y]];
-                                    else if(neighbour[newCells[neighbour_b][y]==neighbour_b)
+                                    else if(neighbour[newCells[neighbour_b][y]]==neighbour_b)
                                         fourthCell_b = owner[newCells[neighbour_b][y]];
                                     else
                                         FatalErrorInFunction<< "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);  
 
+                                    Info<<"Fourth cell candidates: "<<fourthCell_a<<" "<<fourthCell_b<<endl;
                                     if(fourthCell_a==fourthCell_b)
                                     {
                                         mergeFace.append(newCells[neighbour_a][x]);
@@ -3720,6 +3729,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                     }
                                 }
                             }
+                            Info<<mergeFace<<endl;
                             if(mergeFace.size()==0)
                                 continue;
                             if(mergeFace.size()!=2)
@@ -3738,10 +3748,19 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                             temp.append(face_b);
                             temp.append(mergeFace);
                             
-                            possibleMergeFaces[i].append(temp);
-                            possibleMergeCells[i].append(mergeCells);
-                            possibleMergeFaceArea[i].append(0.0) // Set to zero to make the merge last priority
-                            possibleMergeFaceSufficient[i].append(true);
+                            neighbourCellPartialVolume = 0;
+                            for(int p=0;p<mergeCells.size();p++)
+                            {
+                                neighbourCellPartialVolume += partialVolumeScale[mergeCells[p]];
+                            }
+                    
+                            if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
+                            {                         
+                                possibleMergeFaces[i].append(temp);
+                                possibleMergeCells[i].append(mergeCells);
+                                possibleMergeFaceArea[i].append(0.0); // Set to zero to make the merge last priority
+                                possibleMergeFaceSufficient[i].append(true);
+                            }
                         }
                     }
                 }
@@ -3750,6 +3769,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             /*
              * Find merging cells for one to eight merging
              */
+            Info<<"1-8"<<endl;
             for(int a=0;a<newCells[i].size();a++)
             {
                 if(newCells[i][a] < neighbour.size())
@@ -3758,20 +3778,21 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                     {
                         if(newCells[i][b] < neighbour.size())
                         {
-                            for(int c=b+1;b<newCells[i].size();b++)
+                            for(int c=b+1;c<newCells[i].size();c++)
                             {
                                 if(newCells[i][c] < neighbour.size())
                                 {
+                                    Info<<"Try at :"<<a<<" "<<b<<" "<<c<<endl;
                                     label face_a,face_b,face_c;
                                     DynamicList<label> mergeFace;
                                     label neighbour_a,neighbour_b,fourthCell_a,fourthCell_b,
-                                          fourthCell_F,neighbour_c,sixthCell_b,sixthCell_b,sixthCell_F,
+                                          fourthCell_F,neighbour_c,sixthCell_a,sixthCell_b,sixthCell_F,
                                           seventhCell_a,seventhCell_b,seventhCell_F,
                                           eightCell_a,eightCell_b,eightCell_c,eightCell_F;
 
-                                    label face_a = newCells[i][a];
-                                    label face_b = newCells[i][b];
-                                    label face_c = newCells[i][c];                                    
+                                    face_a = newCells[i][a];
+                                    face_b = newCells[i][b];
+                                    face_c = newCells[i][c];                                    
                             
                                     if(owner[face_a] == i)
                                         neighbour_a = neighbour[face_a];
@@ -3815,7 +3836,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                             {
                                                 fourthCell_b = neighbour[newCells[neighbour_b][y]];
                                             }
-                                            else if(neighbour[newCells[neighbour_b][y]==neighbour_b)
+                                            else if(neighbour[newCells[neighbour_b][y]]==neighbour_b)
                                             {   
                                                 fourthCell_b = owner[newCells[neighbour_b][y]];
                                             }
@@ -3850,12 +3871,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                     mergeFaces.append(face_b);
                                     mergeFaces.append(mergeFace);
                                     
+                                    Info<<"newCells["<<i<<"]: "<<newCells[i]<<endl;
+                                    Info<<"i:"<<i<<endl;
+                                    Info<<"owner["<<face_c<<"]:"<<owner[face_c]<<endl;
+                                    Info<<"neighbour["<<face_c<<"]:"<<neighbour[face_c]<<endl;
                                     if(owner[face_c] == i)
                                         neighbour_c = neighbour[face_c];
                                     else if(neighbour[face_c] == i)
                                         neighbour_c = owner[face_c];
                                     else
-                                        FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
+                                        FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
                                     
                                     mergeCells.append(neighbour_c);
                                     mergeFaces.append(face_c);
@@ -3871,9 +3896,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                             continue;
                                             
                                         if(owner[newCells[neighbour_a][x]]==neighbour_a)
-                                            sithCell_a = neighbour[newCells[neighbour_a][x]];
+                                            sixthCell_a = neighbour[newCells[neighbour_a][x]];
                                         else if(neighbour[newCells[neighbour_a][x]]==neighbour_a) 
-                                            sithCell_a = owner[newCells[neighbour_a][x]];
+                                            sixthCell_a = owner[newCells[neighbour_a][x]];
                                         else
                                             FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
                             
@@ -3885,16 +3910,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                                 
                                             if(owner[newCells[neighbour_c][y]]==neighbour_c)
                                                 sixthCell_b = neighbour[newCells[neighbour_c][y]];
-                                            else if(neighbour[newCells[neighbour_c][y]==neighbour_c) 
+                                            else if(neighbour[newCells[neighbour_c][y]]==neighbour_c) 
                                                 sixthCell_b = owner[newCells[neighbour_c][y]];
                                             else
                                                 FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
                                             
-                                            if(sithCell_a==sixthCell_b)
+                                            if(sixthCell_a==sixthCell_b)
                                             {
                                                 mergeFace.append(newCells[neighbour_a][x]);
                                                 mergeFace.append(newCells[neighbour_c][y]);
-                                                sixthCell_F = sithCell_a;
+                                                sixthCell_F = sixthCell_a;
                                             }
                                         }
                                     }
@@ -3934,7 +3959,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                                 
                                             if(owner[newCells[neighbour_c][y]]==neighbour_c)
                                                 seventhCell_b = neighbour[newCells[neighbour_c][y]];
-                                            else if(neighbour[newCells[neighbour_c][y]==neighbour_c) 
+                                            else if(neighbour[newCells[neighbour_c][y]]==neighbour_c) 
                                                 seventhCell_b = owner[newCells[neighbour_c][y]];
                                             else
                                                 FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
@@ -3966,10 +3991,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                     {
                                         if(newCells[fourthCell_F][x] >= neighbour.size())
                                             continue;
-                                            
+                                        
+                                        Info<<"newCells["<<fourthCell_F<<"]: "<<newCells[fourthCell_F]<<endl;
+                                        Info<<"i:"<<fourthCell_F<<endl;
+                                        Info<<"owner["<<newCells[fourthCell_F][x]<<"]:"<<owner[newCells[fourthCell_F][x]]<<endl;
+                                        Info<<"neighbour["<<newCells[fourthCell_F][x]<<"]:"<<neighbour[newCells[fourthCell_F][x]]<<endl;
+                                        
                                         if(owner[newCells[fourthCell_F][x]]==fourthCell_F)
                                             eightCell_a = neighbour[newCells[fourthCell_F][x]];
-                                        else if(neighbour[newCells[fourthCell_F][x]]==neighbour_b) 
+                                        else if(neighbour[newCells[fourthCell_F][x]]==fourthCell_F) 
                                             eightCell_a = owner[newCells[fourthCell_F][x]];
                                         else
                                             FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
@@ -3981,7 +4011,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                                 
                                             if(owner[newCells[sixthCell_F][y]]==sixthCell_F)
                                                 eightCell_b = neighbour[newCells[sixthCell_F][y]];
-                                            else if(neighbour[newCells[sixthCell_F][y]==sixthCell_F) 
+                                            else if(neighbour[newCells[sixthCell_F][y]]==sixthCell_F) 
                                                 eightCell_b = owner[newCells[sixthCell_F][y]];
                                             else
                                                 FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
@@ -3991,10 +4021,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                                 if(newCells[seventhCell_F][y] >= neighbour.size())
                                                     continue;
                                                 
-                                                if(owner[newCells[seventhCell_F][y]]==seventhCell_F)
-                                                    eightCell_c = neighbour[newCells[seventhCell_F][y]];
-                                                else if(neighbour[newCells[seventhCell_F][y]==seventhCell_F) 
-                                                    eightCell_c = owner[newCells[seventhCell_F][y]];
+                                                if(owner[newCells[seventhCell_F][z]]==seventhCell_F)
+                                                    eightCell_c = neighbour[newCells[seventhCell_F][z]];
+                                                else if(neighbour[newCells[seventhCell_F][z]]==seventhCell_F) 
+                                                    eightCell_c = owner[newCells[seventhCell_F][z]];
                                                 else
                                                     FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
                                             
@@ -4012,8 +4042,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                     }
                                     if(mergeFace.size()==0)
                                         continue;
-                                    if(mergeFace.size()!=2)
+                                    if(mergeFace.size()!=3)
                                     {
+                                        Info<<"mergeFace.size():"<<mergeFace.size()<<endl;
                                         FatalErrorInFunction
                                         << "Agglomeration cell not found for all cells!"
                                         << exit(FatalError);
@@ -4021,10 +4052,20 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                     mergeCells.append(eightCell_F);
                                     mergeFaces.append(mergeFace);
                                     
-                                    possibleMergeFaces[i].append(mergeFaces);
-                                    possibleMergeCells[i].append(mergeCells);
-                                    possibleMergeFaceArea[i].append(0.0) // Set to zero to make the merge last priority
-                                    possibleMergeFaceSufficient[i].append(true);
+                                    neighbourCellPartialVolume = 0;
+                                    for(int p=0;p<mergeCells.size();p++)
+                                    {
+                                        neighbourCellPartialVolume += partialVolumeScale[mergeCells[p]];
+                                    }
+                    
+                                    if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
+                                    { 
+                                        Info<<"Merge Cells at :"<<a<<" "<<b<<" "<<c<<endl;
+                                        possibleMergeFaces[i].append(mergeFaces);
+                                        possibleMergeCells[i].append(mergeCells);
+                                        possibleMergeFaceArea[i].append(0.0); // Set to zero to make the merge last priority
+                                        possibleMergeFaceSufficient[i].append(true);
+                                    }
                                 }
                             }
                         }
@@ -4076,6 +4117,54 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         Info<<"cell:"<<i<<" mergeNecessary:"<<mergeNecessary[i]<<" partialVolumeScale:"<<partialVolumeScale[i]<<endl;
         */
     }
+    
+    Info<<"Created merge Cells"<<endl;
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        for(int j=0;j<possibleMergeFaces[i].size();j++)
+        {
+            label numCellMerge;
+            if(possibleMergeFaces[i][j].size() == 1)
+                numCellMerge = 2;
+            else if(possibleMergeFaces[i][j].size() == 4)
+                numCellMerge = 4;
+            else if(possibleMergeFaces[i][j].size() == 12)
+                numCellMerge = 8;
+            else
+                FatalErrorInFunction<<"Wrong number of merge faces"<< exit(FatalError);
+            
+            if(possibleMergeCells[i][j].size()+1 != numCellMerge)
+            {
+                Info<<"numCellMerge: "<<numCellMerge<<endl;
+                Info<<"possibleMergeCells[i][j].size(): "<<possibleMergeCells[i][j].size()<<endl;
+                Info<<"possibleMergeFaces[i][j].size(): "<<possibleMergeFaces[i][j].size()<<endl;
+                Info<<"possibleMergeCells[i][j]: "<<possibleMergeCells[i][j]<<endl;
+                Info<<"possibleMergeFaces[i][j]: "<<possibleMergeFaces[i][j]<<endl;
+                FatalErrorInFunction<<"Number of merge cells does not match"<< exit(FatalError);
+            }
+
+
+            std::unordered_multiset<label> cellSet;
+            for(int k=0;k<possibleMergeFaces[i][j].size();k++)
+            {
+                cellSet.insert(owner[possibleMergeFaces[i][j][k]]);
+                cellSet.insert(neighbour[possibleMergeFaces[i][j][k]]);
+            }
+            
+            label cellDuplicationNum;
+            if(numCellMerge==2) cellDuplicationNum = 1;
+            else if(numCellMerge==4) cellDuplicationNum = 2;
+            else if(numCellMerge==8) cellDuplicationNum = 3;
+            else FatalErrorInFunction<<"Somethings wrong here"<< exit(FatalError);
+            
+            for(int k=0;k<possibleMergeCells[i][j].size();k++)
+            {
+                if(cellSet.count(possibleMergeCells[i][j][k])!=cellDuplicationNum)
+                    FatalErrorInFunction<<"Merge Cells and Faces do not match!"<< exit(FatalError);
+            }
+        }
+    }
+    
     // Sort possible merging cell by respect to face area biggest to smallest
     for(int i=0;i<possibleMergeFaceArea.size();i++)
     {
@@ -4102,6 +4191,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             possibleMergeFaces[i][j+1] = keyFaces;
             possibleMergeCells[i][j+1] = keyCells;
             possibleMergeFaceSufficient[i][j+1] = keySuff;
+        }
+    }
+    Info<<"Sorted merge Cells"<<endl;
+    
+    for(int i=0;i<possibleMergeFaces.size();i++)
+    {
+        for(int j=1;j<possibleMergeFaces[i].size();j++)
+        {
+            if(possibleMergeFaces[i][j-1].size() > possibleMergeFaces[i][j].size())
+                FatalErrorInFunction<<"Invalid sorting"<<exit(FatalError);
         }
     }
     
@@ -5591,6 +5690,26 @@ Info<<"s1:"<<s<<endl;
                             auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
                             if(keyItZ->second != keyIt->second)
                             {
+                                Info<<endl;
+                                Info<<"possibleMergeCells_red["<<redIndToCell[count]<<"][s]: "<<possibleMergeCells_red[count][s]<<endl;
+                                for(int q=0;q<possibleMergeCells_red[count][s].size();q++)
+                                {
+                                    auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][q]);
+                                    Info<<"  "<<keyIt->second;
+                                }
+                                Info<<endl;
+                                Info<<"possibleMergeCells_red[count][s][0]:"<<possibleMergeCells_red[count][s][0]<<endl;
+                                Info<<"keyItZ->second:"<<keyItZ->second<<endl;
+                                Info<<"keyIt->second:"<<keyIt->second<<endl;
+                                
+                                Info<<endl<<"possibleMergeCells_red["<<redIndToCell[count]<<"]:"<<possibleMergeCells_red[count];
+                                Info<<endl<<"possibleMergeCells_red["<<3270<<"]:"<<possibleMergeCells_red[cellToRedInd[3270]];
+                                
+                                Info<<endl<<"assignList[[3270]:"<<assignList[3270]<<endl;
+                                label face = assignList[3270][0];
+                                Info<<"owner["<<face<<"]:"<<this->owner()[face]<<" neighbour["<<face<<"]:"<<this->neighbour()[face]<<endl;
+
+                                
                                 FatalErrorInFunction
                                 << " Non matching backtracking index for blocked cells!"<<endl
                                 << exit(FatalError);
@@ -5968,8 +6087,8 @@ void Foam::cutCellFvMesh::testNewMeshData
 void Foam::cutCellFvMesh::testForCellSize
 (
     DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-    DynamicList<DynamicList<label>>& possibleMergeFaces,
-    DynamicList<DynamicList<label>>& possibleMergeCells,
+    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
     DynamicList<bool>& oneMergeFaceSufficient,
     DynamicList<bool>& mergeNecessary,
     labelList& mergeFaceOfCell,

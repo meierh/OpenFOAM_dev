@@ -321,8 +321,8 @@ class cutCellFvMesh   :   public fvMesh
         void testForCellSize
         (
             DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-            DynamicList<DynamicList<label>>& possibleMergeFaces,
-            DynamicList<DynamicList<label>>& possibleMergeCells,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
             DynamicList<bool>& oneMergeFaceSufficient,
             DynamicList<bool>& mergeNecessary,
             labelList& mergeFaceOfCell,
