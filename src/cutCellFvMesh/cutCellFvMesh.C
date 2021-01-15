@@ -5684,6 +5684,15 @@ Info<<"s1:"<<s<<endl;
                         if(!blockedBecausThis)
                             continue;
                         
+                        DynamicList<label> trackPointsForMergeOption;
+                        for(int z=0;z<possibleMergeCells_red[count][s].size();z++)
+                        {
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyIt != cellReserved.end())
+                                trackPointsForMergeOption.append(keyIt->second);
+                        }
+                        
+                        /*
                         auto keyItZ = cellReserved.find(possibleMergeCells_red[count][s][0]);
                         for(int z=1;z<possibleMergeCells_red[count][s].size();z++)
                         {
@@ -5708,13 +5717,19 @@ Info<<"s1:"<<s<<endl;
                                 Info<<endl<<"assignList[[3270]:"<<assignList[3270]<<endl;
                                 label face = assignList[3270][0];
                                 Info<<"owner["<<face<<"]:"<<this->owner()[face]<<" neighbour["<<face<<"]:"<<this->neighbour()[face]<<endl;
-
                                 
+                                for(int h=0;h<possibleMergeCells_red[count][s].size();h++)
+                                {
+                                    Info<<"possibleMergeCells_red["<<redIndToCell[count]<<"][s]: "<<possibleMergeCells_red[count][s]<<endl;
+
+                                }
+
                                 FatalErrorInFunction
                                 << " Non matching backtracking index for blocked cells!"<<endl
                                 << exit(FatalError);
                             }
                         }
+                        */
                         
 Info<<"s2:"<<s<<endl;
                         /*
@@ -5737,8 +5752,20 @@ Info<<"s2:"<<s<<endl;
                                 << exit(FatalError);
                             }
                         }
+                        if(trackPointsForMergeOption.size()==0)
+                        {
+                            FatalErrorInFunction
+                            << " Something is wrong here!"<<endl
+                            << exit(FatalError);
+                        }
+                        label min = possibleMergeCells.size();
+                        for(int z=0;z<trackPointsForMergeOption.size();z++)
+                        {
+                            if(min < trackPointsForMergeOption[z])
+                                min = trackPointsForMergeOption[z];
+                        }
 Info<<"s3:"<<s<<endl;
-                        trackBackPoints.append(keyItZ->second);
+                        trackBackPoints.append(min);
                     }
 Info<<"Con"<<endl;
                     
@@ -5780,6 +5807,8 @@ Info<<"Con"<<endl;
 Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;
                     if(bestTrackBackPoint >= count || bestTrackBackPoint < 0)
                     {
+                        Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;
+                        Info<<"count:"<<count<<endl;
                         FatalErrorInFunction
                         << " Track Back Point is wrong!"<<endl
                         << exit(FatalError);
