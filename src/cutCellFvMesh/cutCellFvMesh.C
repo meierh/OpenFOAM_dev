@@ -5453,6 +5453,48 @@ labelList Foam::cutCellFvMesh::searchDown_rec
     }
 }
 
+bool mergeCellSelectionBlocks
+(
+    const label cellInd_rec,
+    const label redCellInd_rec,
+    const DynamicList<label>& mergeCells_rec,
+    const label cellInd_block,
+    const label redCellInd_block,
+    const DynamicList<DynamicList<label>> mergeCells_block
+)
+{
+    bool blockCellIncluded = false;
+    for(int i=0;i<mergeCells_rec.size();i++)
+    {
+        if(mergeCells_rec[i]==cellInd_block)
+            blockCellIncluded = true;
+    }
+    if(blockCellIncluded)
+        return true;
+    
+    bool oneMergePossAtBlock = true;
+    std::unordered_set<label> blockedCells;
+    blockedCells.insert(cellInd_rec);
+    for(int i=0;i<mergeCells_red.size();i++)
+    {
+        blockedCells.insert(mergeCells_red[i]);
+    }
+    bool oneMergePossAtBlock = false;
+    bool nonBlocking;
+    for(int i=0;i<mergeCells_block.size();i++)
+    {
+        nonBlocking = true;
+        for(int ii=0;ii<mergeCells_block[i].size();ii++)
+        {
+            if(blockedCells.count(mergeCells_block[i][ii]) == 1)
+                nonBlocking = false;
+        }
+        if(nonBlocking)
+            oneMergePossAtBlock = true;
+    }
+    return oneMergePossAtBlock;
+}
+
 List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter
 (
     DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
