@@ -308,6 +308,15 @@ class cutCellFvMesh   :   public fvMesh
             DynamicList<bool>& mergeNecessary
         );
         
+        List<DynamicList<label>> searchDown_iter_preBlock
+        (
+            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
+            DynamicList<bool>& oneMergeFaceSufficient,
+            DynamicList<bool>& mergeNecessary
+        );
+        
         //test data for new Mesh creation
         void testNewMeshData
         (

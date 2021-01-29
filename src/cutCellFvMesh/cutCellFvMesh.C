@@ -5648,7 +5648,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter
     
     bool Change = false;
     
-    Info<<"index:90:"<<possibleMergeCells_red[90]<<endl;
+    Info<<"index:5404:"<<possibleMergeCells_red[5404]<<endl;
     
     DynamicList<label> problemCells;
     problemCells.setSize(possibleMergeCells_red.size());
@@ -5709,6 +5709,21 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter
         if(Change)
         {
             Info<<"minDepth:"<<minDepth<<" maxDepth:"<<maxDepth<<endl;
+            /*
+            Info<<" index:"<<maxDepth<<":"<<possibleMergeCells_red[maxDepth]<<endl;
+            for(int a=0;a<possibleMergeCells_red[maxDepth].size();a++)
+            {
+                for(int b=0;b<possibleMergeCells_red[maxDepth][a].size();b++)
+                {
+                    auto keyIt = cellReserved.find(possibleMergeCells_red[count][a][b]);
+                    if(keyIt != cellReserved.end())
+                    {
+                        Info<<"Cell: "<<possibleMergeCells_red[count][a][b]<<
+                        " blocked by: "<<cellToRedInd[keyIt->second]<<endl;
+                    }
+                }
+            }
+            */
             Change = false;
         }
     
@@ -5958,7 +5973,7 @@ Info<<"Red Track back: "<<count<<" Merge:"<<possibleMergeCells_red[count]<<"Cell
 Info<<"--------------------------------"<<endl;
 }
 */
-
+                    bool oneTrackBackPointUnblocks = false;
                     for(int s=0;s<trackBackPoints.size();s++)
                     {
                         bool trackBackCanFreeCount = false;
@@ -5977,6 +5992,7 @@ Info<<"--------------------------------"<<endl;
                             {
                                 trackBackCanFreeCount = true;
                                 tryedCells[redIntBackPoint] == ss;
+                                oneTrackBackPointUnblocks = true;
 //Info<<"Non block: "<<trackBackPoints[s]<<endl;
                                 break;
                             }
@@ -5989,6 +6005,48 @@ Info<<"--------------------------------"<<endl;
                     }
 //Info<<"btbp: "<<bestTrackBackPoint<<endl;
 //if(count == 90){ Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;}
+                    if(!oneTrackBackPointUnblocks && false)
+                    {
+                        for(;; bestTrackBackPoint--)
+                        {
+                            if(bestTrackBackPoint == -1)
+                            {
+                                Info<<"Backtracking from cell: "<<bestTrackBackPoint<<endl;
+                                FatalErrorInFunction
+                                << "Failed in Merging Selection! There is no found combination for all merging cells."<<endl
+                                << exit(FatalError);
+                            }
+                            label redIndCntBck = cellToRedInd[bestTrackBackPoint];
+                            if((redIndCntBck==-1 && assignList[bestTrackBackPoint][0]!=-3) || (assignList[bestTrackBackPoint][0]==-3 && redIndCntBck!=-1))
+                            {
+                                FatalErrorInFunction
+                                << " Can not happen!"<<endl
+                                << exit(FatalError);
+                            }
+                            if(redIndCntBck==-1)
+                                continue;
+                            
+                            bool trackBackCanFreeCount = false;
+                            label tryContPoint = tryedCells[redIndCntBck];
+                            for(int ss=tryContPoint;ss<possibleMergeCells_red[redIndCntBck].size();ss++)
+                            {
+                                bool oneMergePossAtBlock = mergeCellSelectionBlocks
+                                (bestTrackBackPoint,redIndCntBck,possibleMergeCells_red[redIndCntBck][ss],                                                                   redIndToCell[count],count,possibleMergeCells_red[count],cellReserved);
+                                                            
+                                if(oneMergePossAtBlock)
+                                {
+                                    trackBackCanFreeCount = true;
+                                    tryedCells[redIndCntBck] == ss;
+                                    break;
+                                }
+                            }
+                            if(trackBackCanFreeCount)
+                            {
+                                break;
+                            }
+                        }                        
+                    }
+                        
                     bestTrackBackPoint = cellToRedInd[bestTrackBackPoint];
 /*
 if(count == 90){ 
@@ -6260,6 +6318,845 @@ Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<
     -3 : No assignment
     */
 }
+
+List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
+(
+    DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
+    DynamicList<bool>& oneMergeFaceSufficient,
+    DynamicList<bool>& mergeNecessary
+)
+{
+    label mergeCounter = 0;
+    for(int i=0;i<possibleMergeCells.size();i++)
+    {
+        if(mergeNecessary[i])
+            mergeCounter++;
+        
+        if(possibleMergeFaces[i].size() != possibleMergeCells[i].size())
+        {
+            FatalErrorInFunction
+            << " Invalid Data 1!"<<endl
+            << exit(FatalError);
+        }
+        
+        if((mergeNecessary[i] && possibleMergeFaces[i].size() == 0) || (!mergeNecessary[i] && possibleMergeFaces[i].size() != 0))
+        {
+            FatalErrorInFunction
+            << " Invalid Data 2!"<<endl
+            << exit(FatalError);
+        }
+    }
+    Info<<"mergeCounter:"<<mergeCounter<<endl;
+    DynamicList<DynamicList<DynamicList<label>>> possibleMergeFaces_red;
+    possibleMergeFaces_red.setSize(mergeCounter);
+    DynamicList<DynamicList<DynamicList<label>>> possibleMergeCells_red;
+    possibleMergeCells_red.setSize(mergeCounter);
+    DynamicList<bool> mergeNecessary_red;
+    mergeNecessary_red.setSize(mergeCounter);
+    labelList cellToRedInd(mergeNecessary.size());
+    labelList redIndToCell(mergeCounter);
+    label k = 0;
+    
+    for(int i=0;i<mergeNecessary.size();i++)
+    {
+        if(mergeNecessary[i])
+        {
+            possibleMergeFaces_red[k] = possibleMergeFaces[i];
+            possibleMergeCells_red[k] = possibleMergeCells[i];
+            mergeNecessary_red[k] = mergeNecessary[i];
+            cellToRedInd[i] = k;
+            redIndToCell[k] = i;
+            k++;
+        }
+        else
+        {
+            cellToRedInd[i] = -1;
+        }
+    }
+    
+    for(int i=0;i<cellToRedInd.size();i++)
+    {
+        Info<<"i:"<<i<<endl;
+        if(cellToRedInd[i]>=possibleMergeFaces_red.size())
+        {
+            Info<<"cellToRedInd["<<i<<"]:"<<cellToRedInd[i]<<" / "<<possibleMergeFaces_red.size()<<endl;
+            Info<<"Bool:"<<(cellToRedInd[i]>=possibleMergeFaces_red.size())<<endl;
+            FatalErrorInFunction
+            << " Invalid Data 1!"<<endl
+            << exit(FatalError);
+        }
+        if(cellToRedInd[i] != -1 && redIndToCell[cellToRedInd[i]] != i)
+        {
+            Info<<"cellToRedInd["<<i<<"]:"<<cellToRedInd[i]<<" / "<<possibleMergeFaces_red.size()<<endl;
+            Info<<"redIndToCell["<<cellToRedInd[i]<<"]:"<<redIndToCell[cellToRedInd[i]]<<endl;
+            FatalErrorInFunction
+            << " Invalid Data 2!"<<endl
+            << exit(FatalError);
+        }
+    }
+    
+    Info<<mergeCounter<<"/"<<possibleMergeCells.size()<<endl;
+    
+    Info<<endl;
+    label count = 0;
+    DynamicList<DynamicList<label>> blockedCells;
+    blockedCells.setSize(possibleMergeCells_red.size());
+    std::unordered_map<label,label> cellReserved;
+    bool MergeFaceFound;
+    DynamicList<label> mergeFace;
+    DynamicList<label> mergeCell;
+    DynamicList<label> temp;
+    temp.append(-3);
+    List<DynamicList<label>> assignList(possibleMergeCells.size(),temp);
+    labelList tryedCells(possibleMergeCells_red.size(),0);
+    
+    std::unordered_multimap<label,std::pair<label,label>> cellPreBlock;
+    DynamicList<DynamicList<bool>> cellMergPosBlocked_red;
+    cellMergPosBlocked_red.setSize(possibleMergeCells_red.size());
+    List<bool> cellMergDone(possibleMergeCells_red.size(),false);
+    for(int a=0;a<possibleMergeCells_red.size();a++)
+    {
+        cellMergPosBlocked_red[a].setSize(possibleMergeCells_red[a].size(),false);
+        for(int b=0;b<possibleMergeCells_red[a].size();b++)
+        {
+            for(int c=0;c<possibleMergeCells_red[a][b].size();c++)
+            {
+                std::pair<label,label> index(a,b);
+                std::pair<label,std::pair<label,label>> data(possibleMergeCells_red[a][b][c],index);                
+                cellPreBlock.insert(data);
+            }
+        }
+    }
+    
+    label maxDepth = 0;
+    label minDepth = 0;
+    
+    /*
+    Info<<"possibleMergeCells["<<13016<<"].size():"<<possibleMergeCells[13016].size()<<endl;
+    Info<<"mergeNecessary["<<13016<<"][0]:"<<mergeNecessary[13016]<<endl;
+    Info<<"possibleMergeCells["<<13016<<"][0]:"<<possibleMergeCells[13016][0]<<endl;
+
+    
+    Info<<"possibleMergeCells["<<3753<<"].size():"<<possibleMergeCells[3753].size()<<endl;
+    Info<<"mergeNecessary["<<3753<<"][0]:"<<mergeNecessary[3753]<<endl;
+    */
+    /*
+    for(int i=0;i<possibleMergeCells.size();i++)
+    {
+        bool mayMerge = false;
+        for(int k=0;k<possibleMergeCells[i].size();k++)
+        {
+            if(possibleMergeCells[i][k] == 3753)
+                mayMerge = true;
+        }
+        if(mayMerge)
+        {
+            Info<<"-----------------------------------"<<endl;
+            Info<<"possibleMergeCells["<<i<<"].size():"<<possibleMergeCells[i].size()<<endl;
+            Info<<"mergeNecessary["<<i<<"]:"<<mergeNecessary[i]<<endl;
+            Info<<"possibleMergeCells["<<i<<"][0]:"<<possibleMergeCells[i][0]<<endl;
+        }
+    }
+
+    FatalErrorInFunction
+    << " Temporary stop!"<<endl
+    << exit(FatalError);
+    */
+    
+    bool Change = false;
+    
+    Info<<"index:5404:"<<possibleMergeCells_red[5404]<<endl;
+    
+    DynamicList<label> problemCells;
+    problemCells.setSize(possibleMergeCells_red.size());
+    for(int i=0;i<possibleMergeCells_red.size();i++)
+    {
+        
+    }
+    
+    Info<<"Start iterate count:"<<count<<"possibleMergeCells_red.size()"<<possibleMergeCells_red.size()<<endl;
+    for(;count<possibleMergeCells_red.size();)
+    {
+        for( const auto& n : cellReserved ) 
+        {
+            if(cellToRedInd[n.second] >= possibleMergeCells_red.size())
+            {
+                Info<< "Key:[" << n.first << "] Value:[" << n.second << "]"<<endl;
+                Info<<"possibleMergeCells_red.size():"<<possibleMergeCells_red.size()<<endl;
+                Info<<"TrackBackPoint:"<<n.second<<endl;
+                Info<<"TrackBackPointRed:"<<cellToRedInd[n.second]<<endl;
+                Info<<"count:"<<count<<endl;
+                FatalErrorInFunction
+                << " Invalid Data 2!"<<endl
+                << exit(FatalError);
+            }
+        }
+        
+        /*
+        if(redIndToCell[count] < minDepth)
+        {
+            minDepth = redIndToCell[count];
+            Change = true;
+        }
+        if(redIndToCell[count] > maxDepth)
+        {
+            maxDepth = redIndToCell[count];
+            minDepth = redIndToCell[count];
+            Change = true;
+        }
+        if(Change)
+        {
+            Info<<"minDepth:"<<minDepth<<" maxDepth:"<<maxDepth<<endl;
+            Change = false;
+        }
+        */
+        
+        
+        if(count < minDepth)
+        {
+            minDepth = count;
+            Change = true;
+        }
+        if(count > maxDepth)
+        {
+            maxDepth = count;
+            minDepth = count;
+            Change = true;
+        }
+        if(Change)
+        {
+            Info<<"minDepth:"<<minDepth<<" maxDepth:"<<maxDepth<<endl;
+            /*
+            Info<<" index:"<<maxDepth<<":"<<possibleMergeCells_red[maxDepth]<<endl;
+            for(int a=0;a<possibleMergeCells_red[maxDepth].size();a++)
+            {
+                for(int b=0;b<possibleMergeCells_red[maxDepth][a].size();b++)
+                {
+                    auto keyIt = cellReserved.find(possibleMergeCells_red[count][a][b]);
+                    if(keyIt != cellReserved.end())
+                    {
+                        Info<<"Cell: "<<possibleMergeCells_red[count][a][b]<<
+                        " blocked by: "<<cellToRedInd[keyIt->second]<<endl;
+                    }
+                }
+            }
+            */
+            Change = false;
+        }
+    
+
+
+//Info<<"------"<<count<<"------"<<redIndToCell[count]<<"-------"<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
+
+        if(mergeNecessary_red[count])
+        /* Decision A: Enters if block if merge is necessary and the cell is not already used for
+         * a merge with another cell
+         */
+        {
+            if(cellReserved.count(redIndToCell[count]) == 0)
+            /* Decision B: Enters block if the cell is not already used for
+            * a merge with another cell
+            */
+            {
+                DynamicList<label> temp;
+                temp.append(-4);
+                MergeFaceFound = false;
+                mergeFace = temp;
+                mergeCell = temp;
+            
+//Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
+
+                for(int i=tryedCells[count];i<possibleMergeCells_red[count].size();i++,tryedCells[count]++)
+                {
+//Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
+
+                    bool cellsNotBlocked = true;
+                    DynamicList<label> blockedBecausOf;
+                    for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
+                    {
+                        if(cellReserved.count(possibleMergeCells_red[count][i][s]) != 0)
+                        {
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][i][s]);
+                            if(keyIt == cellReserved.end())
+                            {
+                                FatalErrorInFunction
+                                << " Error1 !"<<endl
+                                << exit(FatalError); 
+                            }
+                            blockedBecausOf.append(keyIt->second);
+                            if(keyIt->second>=mergeNecessary.size())
+                            {
+                                Info<<"cell: "<<keyIt->first<<endl;
+                                FatalErrorInFunction
+                                << " Error!"<<endl
+                                << exit(FatalError);
+                            }
+                            cellsNotBlocked = false;
+                        }
+                    }
+                    if(cellsNotBlocked)
+                    {
+//Info<<" not blocked"<<endl;
+                        MergeFaceFound = true;
+
+//Info<<"Found face for cell: "<<count<<"  ";
+//Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells["<<count<<"] = "<<possibleMergeCells[count].size()<<endl;
+
+                        mergeFace = possibleMergeFaces_red[count][i];
+                        mergeCell = possibleMergeCells_red[count][i];
+
+                        tryedCells[count]++;
+                        break;
+                    }
+                    else
+                    {
+//Info<<" blocked because ";
+                        for(int x=0;x<blockedBecausOf.size();x++)
+                        {
+//Info<<"("<<blockedBecausOf[x]<<"|"<<cellToRedInd[blockedBecausOf[x]]<<") ";
+                        }
+//Info<<endl;
+                    }
+                }
+                if(MergeFaceFound == false)
+                /* Decision B: The iteration across all possibleMergeCells failed. This happens if
+                * all the possible merge cells between tryed[count] und possibleMergeCells[count].size
+                * are already blocked.
+                * The result is a backtracking to the first previous cell where another selection was still
+                * possible
+                */
+                {
+//Info<<"Not found"<<endl;
+/*
+Info<<"Merge face not found for "<<count<<endl;
+Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells["<<count<<"] = "<<possibleMergeCells[count].size()<<" assignList["<<count<<"]:"<<assignList[count]<<"  mergeNecessary["<<count<<"]:"<<mergeNecessary[count]<<endl;
+Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCells["<<count-1<<"] = "<<possibleMergeCells[count-1].size()<<" assignList["<<count-1<<"]:"<<assignList[count-1]<<"  mergeNecessary["<<count-1<<"]:"<<mergeNecessary[count-1]<<endl;
+*/
+                    DynamicList<label> trackBackPoints;
+                    DynamicList<label> trackBackPointsMergeInd;
+//Info<<"Size:"<<possibleMergeCells_red[count].size()<<endl;
+//Info<<"Size2:"<<trackBackPoints.size()<<endl;
+                    for(int s=0;s<possibleMergeCells_red[count].size();s++)
+                    {
+//Info<<"s1:"<<s<<endl;
+                        if(possibleMergeCells_red[count][s].size() == 0)
+                        {
+                            FatalErrorInFunction
+                            << " Zero length merge section!"<<endl
+                            << exit(FatalError);
+                        }
+                        bool blockedBecausThis = false;
+                        for(int z=0;z<possibleMergeCells_red[count][s].size();z++)
+                        {
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyIt != cellReserved.end())
+                            {
+if(count == 90){
+//Info<<"-"<<s<<"-"<<"MergeCell: "<<possibleMergeCells_red[count][s][z]<<" blocked by "<<keyIt->second<<" from merge with "<<redIndToCell[count]<<endl;
+}
+                                blockedBecausThis = true;
+                            }
+                            else
+                            {
+if(count == 90){
+//Info<<"-"<<s<<"-"<<"MergeCell: "<<possibleMergeCells_red[count][s][z]<<" not blocked from merge with "<<redIndToCell[count]<<endl;
+}
+                            }
+                        }
+//Info<<"s2:"<<s<<endl;
+                        if(!blockedBecausThis)
+                            continue;
+//Info<<"s3:"<<s<<endl;
+                        DynamicList<label> trackPointsForMergeOption;
+                        for(int z=0;z<possibleMergeCells_red[count][s].size();z++)
+                        {
+//Info<<z<<"/"<<possibleMergeCells_red[count][s].size()<<":"<<possibleMergeCells_red[count][s][z]<<endl;
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyIt != cellReserved.end())
+                            {
+                                trackPointsForMergeOption.append(keyIt->second);
+                            }
+                            else
+                                continue;
+                            if(cellToRedInd[keyIt->second] >= count || cellToRedInd[keyIt->second] < 0)
+                            {
+                                Info<<"possibleMergeCells_red.size():"<<possibleMergeCells_red.size()<<endl;
+                                Info<<"TrackBackPoint:"<<keyIt->second<<endl;
+                                Info<<"TrackBackPointRed:"<<cellToRedInd[keyIt->second]<<endl;
+                                Info<<"count:"<<count<<endl;
+                                FatalErrorInFunction
+                                << " More general possible Track Back Point is wrong!"<<endl
+                                << exit(FatalError);
+                            }           
+                        }
+                        
+//Info<<"s4:"<<s<<endl;
+                        /*
+                        if(keyIt == cellReserved.end())
+                        {
+                            Info<<"s:"<<s<<endl;
+                            Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
+                            FatalErrorInFunction
+                            << " Merge possiblity not taken but cell is not blocked!"<<endl
+                            << exit(FatalError);
+                        }
+                        */
+                        for(int z=1;z<possibleMergeCells_red[count][s].size();z++)
+                        {
+                            auto keyIt = cellReserved.find(possibleMergeCells_red[count][s][z]);
+                            if(keyIt != cellReserved.end() && keyIt->first != possibleMergeCells_red[count][s][z])
+                            {
+                                FatalErrorInFunction
+                                << " Something is wrong here!"<<endl
+                                << exit(FatalError);
+                            }
+                        }
+//Info<<"s6:"<<s<<endl;
+                        if(trackPointsForMergeOption.size()==0)
+                        {
+                            FatalErrorInFunction
+                            << " Something is wrong here!"<<endl
+                            << exit(FatalError);
+                        }
+//Info<<"s7:"<<s<<endl;
+                        label min = trackPointsForMergeOption[0];
+                        for(int z=0;z<trackPointsForMergeOption.size();z++)
+                        {
+                            if(min > trackPointsForMergeOption[z])
+                                min = trackPointsForMergeOption[z];
+                        }
+//Info<<"s8:"<<s<<endl;
+                        if(cellToRedInd[min] >= count || cellToRedInd[min] < 0)
+                        {
+                            Info<<"possibleMergeCells_red.size():"<<possibleMergeCells_red.size()<<endl;
+                            Info<<"TrackBackPoint:"<<min<<endl;
+                            Info<<"TrackBackPointRed:"<<cellToRedInd[min]<<endl;
+                            Info<<"count:"<<count<<endl;
+                            FatalErrorInFunction
+                            << " Possible Track Back Point is wrong!"<<endl
+                            << exit(FatalError);
+                        }
+//Info<<"Append"<<endl;
+                        trackBackPoints.append(min);
+                        trackBackPointsMergeInd.append(s);
+                    }                    
+/*                    
+Info<<"trackBackPoints:";
+for(int s=0;s<trackBackPoints.size();s++) Info<<"  "<<trackBackPoints[s]<<"/"<<cellToRedInd[trackBackPoints[s]];
+Info<<endl;
+*/
+                    if(trackBackPoints.size() < 1)
+                    {
+                        FatalErrorInFunction
+                        << " Something wrong!"<<endl
+                        << exit(FatalError);
+                    }
+
+                    int js;
+                    label keyMergeInd,keyBackPoint;
+                    for(int s=1;s<trackBackPoints.size();s++)
+                    {
+                        keyBackPoint = trackBackPoints[s];
+                        keyMergeInd = trackBackPointsMergeInd[s];
+                        js = s-1;
+                        while(js>=0 && trackBackPoints[js] < keyBackPoint)
+                        {
+                            trackBackPoints[js+1] = trackBackPoints[js];
+                            trackBackPointsMergeInd[js+1] = trackBackPointsMergeInd[js];
+                            js--;
+                        }
+                        trackBackPoints[js+1] = keyBackPoint;
+                        trackBackPointsMergeInd[js+1] = keyMergeInd;
+                    }
+/*
+for(int ijk=0;ijk<=count;ijk++)
+{
+    Info<<"redInd:"<<ijk<<" cellInd:"<<redIndToCell[ijk]<<" "<<tryedCells[ijk]<<"/"<<possibleMergeCells_red[ijk].size()<<endl;
+}
+*/                    
+//Info<<"Sort: tBP:"<<trackBackPoints<<" tBPMI:"<<trackBackPointsMergeInd<<endl;
+
+                    label bestTrackBackPoint = trackBackPoints[trackBackPoints.size()-1];
+/*
+if(count == 90){
+for(int s=0;s<trackBackPoints.size();s++)
+{
+Info<<"----------"<<s<<"----------------------"<<endl;
+Info<<"Red Track back: "<<cellToRedInd[trackBackPoints[s]]<<" Merge:"<<possibleMergeCells_red[cellToRedInd[trackBackPoints[s]]]<<" tryed:"<<tryedCells[cellToRedInd[trackBackPoints[s]]]<<endl<<"Cell:"<<trackBackPoints[s]<<endl;
+Info<<"----------"<<s<<"----------------------"<<endl;
+}
+Info<<"--------------------------------"<<endl;
+Info<<"Red Track back: "<<count<<" Merge:"<<possibleMergeCells_red[count]<<"Cell:"<<redIndToCell[count]<<endl;
+Info<<"--------------------------------"<<endl;
+}
+*/
+                    bool oneTrackBackPointUnblocks = false;
+                    for(int s=0;s<trackBackPoints.size();s++)
+                    {
+                        bool trackBackCanFreeCount = false;
+                        label redIntBackPoint = cellToRedInd[trackBackPoints[s]];
+                        label cellBackPoint = trackBackPoints[s];
+                        label tryContPoint = tryedCells[redIntBackPoint];
+//Info<<"redInt"<<redIntBackPoint<<" tryContPoint:"<<tryContPoint<<" possibleMergeCells_red["<<redIntBackPoint<<"].size()="<<possibleMergeCells_red[redIntBackPoint].size()<<endl;
+                        for(int ss=tryContPoint;ss<possibleMergeCells_red[redIntBackPoint].size();ss++)
+                        {
+                            bool oneMergePossAtBlock = mergeCellSelectionBlocks
+                                (cellBackPoint,redIntBackPoint,possibleMergeCells_red[redIntBackPoint][ss],                                                                   redIndToCell[count],count,possibleMergeCells_red[count],cellReserved);
+                                
+//Info<<ss<<" Blocks: "<<trackBackPoints[s]<<" Bool:"<<oneMergePossAtBlock<<endl;
+                            
+                            if(oneMergePossAtBlock)
+                            {
+                                trackBackCanFreeCount = true;
+                                tryedCells[redIntBackPoint] == ss;
+                                oneTrackBackPointUnblocks = true;
+//Info<<"Non block: "<<trackBackPoints[s]<<endl;
+                                break;
+                            }
+                        }
+                        if(trackBackCanFreeCount)
+                        {
+                            bestTrackBackPoint = trackBackPoints[s];
+                            break;
+                        }
+                    }
+//Info<<"btbp: "<<bestTrackBackPoint<<endl;
+//if(count == 90){ Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;}
+                    if(!oneTrackBackPointUnblocks && false)
+                    {
+                        for(;; bestTrackBackPoint--)
+                        {
+                            if(bestTrackBackPoint == -1)
+                            {
+                                Info<<"Backtracking from cell: "<<bestTrackBackPoint<<endl;
+                                FatalErrorInFunction
+                                << "Failed in Merging Selection! There is no found combination for all merging cells."<<endl
+                                << exit(FatalError);
+                            }
+                            label redIndCntBck = cellToRedInd[bestTrackBackPoint];
+                            if((redIndCntBck==-1 && assignList[bestTrackBackPoint][0]!=-3) || (assignList[bestTrackBackPoint][0]==-3 && redIndCntBck!=-1))
+                            {
+                                FatalErrorInFunction
+                                << " Can not happen!"<<endl
+                                << exit(FatalError);
+                            }
+                            if(redIndCntBck==-1)
+                                continue;
+                            
+                            bool trackBackCanFreeCount = false;
+                            label tryContPoint = tryedCells[redIndCntBck];
+                            for(int ss=tryContPoint;ss<possibleMergeCells_red[redIndCntBck].size();ss++)
+                            {
+                                bool oneMergePossAtBlock = mergeCellSelectionBlocks
+                                (bestTrackBackPoint,redIndCntBck,possibleMergeCells_red[redIndCntBck][ss],                                                                   redIndToCell[count],count,possibleMergeCells_red[count],cellReserved);
+                                                            
+                                if(oneMergePossAtBlock)
+                                {
+                                    trackBackCanFreeCount = true;
+                                    tryedCells[redIndCntBck] == ss;
+                                    break;
+                                }
+                            }
+                            if(trackBackCanFreeCount)
+                            {
+                                break;
+                            }
+                        }                        
+                    }
+                        
+                    bestTrackBackPoint = cellToRedInd[bestTrackBackPoint];
+/*
+if(count == 90){ 
+    Info<<"bestTrackBackPointRed:"<<bestTrackBackPoint<<endl;
+    FatalErrorInFunction<<"Temporary stop!"<<endl<<exit(FatalError);
+}
+*/
+
+//Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;
+                    if(bestTrackBackPoint >= count || bestTrackBackPoint < 0)
+                    {
+                        Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;
+                        Info<<"count:"<<count<<endl;
+                        FatalErrorInFunction
+                        << " Track Back Point is wrong!"<<endl
+                        << exit(FatalError);
+                    }
+                    //////////////////////////////////////////----------------------------
+
+                    int backtrackingIndex = -1;                    
+                    for(int cntBck = bestTrackBackPoint; cntBck>=0; cntBck--)
+                    {
+                        if(assignList[redIndToCell[cntBck]].size() == 1 &&
+                           assignList[redIndToCell[cntBck]][0] == -3)
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking to untreated cell!"<<endl
+                            << exit(FatalError);
+                        }
+                        if((assignList[redIndToCell[cntBck]].size() == 1 && 
+                            assignList[redIndToCell[cntBck]][0] == -1)   ||
+                            !mergeNecessary_red[cntBck])
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking to nonmerge Cell or -1 assign cell!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(assignList[redIndToCell[cntBck]].size() == 0)
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking empty assign list!"<<endl
+                            << exit(FatalError);
+                        }
+                        
+                        if((assignList[redIndToCell[cntBck]].size() > 0 && 
+                            assignList[redIndToCell[cntBck]][0] != -2) && tryedCells[cntBck]<possibleMergeCells_red[cntBck].size())
+                        {
+                            backtrackingIndex = cntBck;
+                            break;
+                        }
+                    }
+                    if(backtrackingIndex != -1)
+                    /* Decision C: If the backtracking resulted in a cell the backtracking was succesful.
+                    * The iteration continues with this specific cell. 
+                    */
+                    {
+                        if(!mergeNecessary_red[count])
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking to none merge cell!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(assignList[redIndToCell[backtrackingIndex]].size()==0)
+                        {
+                            FatalErrorInFunction
+                            << " Backtracking to zero length assign List can not happen!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(assignList[redIndToCell[backtrackingIndex]][0] < 0)
+                        {
+                            Info<<endl<<"assignList["<<backtrackingIndex<<"][0]="<<assignList[backtrackingIndex][0]<<endl;
+                            FatalErrorInFunction
+                            << " Backtracking to cell with assign list < 0!"<<endl
+                            << exit(FatalError);
+                        }
+                        if(tryedCells[backtrackingIndex] <= 0)
+                        {
+                            Info<<"tryedCells["<<backtrackingIndex<<"]="<<tryedCells[backtrackingIndex]<<endl;
+                            FatalErrorInFunction
+                            << " Backtracking to cell tryedCells <= 0!"<<endl
+                            << exit(FatalError);
+                        }
+                        
+                        for(int k=backtrackingIndex; k<=count;k++)
+                        {
+/*
+Info<<"<<<<<";
+*/
+                            for(int l=0;l<blockedCells[k].size();l++)
+                            {
+                                cellReserved.erase(blockedCells[k][l]);
+/*
+Info<<">>>>>>>>>>>Cleared["<<k<<"]:"<<blockedCells[k][l]<<endl;
+*/
+                            }
+                        }
+                        //Clean list of blockedCells
+                        for(int k=backtrackingIndex+1;k<=count;k++)
+                        {
+                            tryedCells[k] = 0;
+                            blockedCells[k].setSize(0);
+/*
+Info<<"Clear tryedCells and blockedCells ["<<k<<"]"<<endl;
+*/
+                                    
+                        }
+                        for(int o=backtrackingIndex+1;o<=count;o++)
+                        {
+                            if(tryedCells[o] != 0)
+                            {
+                                Info<<endl<<endl<<"Backtracking from "<<redIndToCell[count]<<" to "<<redIndToCell[backtrackingIndex]<<endl;
+                                Info<<"tryedCells["<<o<<"]="<<tryedCells[o]<<endl;
+                                FatalErrorInFunction
+                                << " Backtracking to cell while tryedCells is unequal 0!"<<endl
+                                << exit(FatalError);
+                            }
+                        }
+                        
+                        blockedCells[backtrackingIndex].setSize(0);
+                        
+                        count = backtrackingIndex;
+/*
+Info<<"Go to "<<count<<endl;
+*/
+                    }
+                    else
+                    /* Decision C: The backtracking did not found a backtracking cell. The result is an abort.
+                    */
+                    {
+                        Info<<"Backtracking from cell: "<<redIndToCell[count]<<endl;
+                        FatalErrorInFunction
+                        << " Failed in Merging Selection! There is no found combination for all merging cells."<<endl
+                        << exit(FatalError);
+                    }
+                }
+                else
+                /* Decision B: A possible merge cell was found. As a result the two cells to merge are
+                * inserted both in the cellReserved map as well as in the blockedCells list             * 
+                */
+                {
+                    if(redIndToCell[count]>=mergeNecessary.size() || count>=possibleMergeCells_red.size())
+                    {
+                        Info<<"Inserted Backtracking number from count: "<<count<<endl;
+                        Info<<"redIndToCell[count]: "<<redIndToCell[count]<<endl;
+                        Info<<"Inversion: "<<cellToRedInd[redIndToCell[count]]<<endl;
+                        FatalErrorInFunction
+                        << " Temporary stop."<<endl
+                        << exit(FatalError);
+                    }
+                    std::pair<label,label> ins1(redIndToCell[count],redIndToCell[count]);
+                    cellReserved.insert(ins1);
+                    blockedCells[count].append(redIndToCell[count]);
+
+                    for(int u=0;u<mergeCell.size();u++)
+                    {
+                        if(redIndToCell[count]>=mergeNecessary.size() || count>=possibleMergeCells_red.size())
+                        {
+                            Info<<"Inserted Backtracking number from count: "<<count<<endl;
+                            Info<<"redIndToCell[count]: "<<redIndToCell[count]<<endl;
+                            Info<<"Inversion: "<<cellToRedInd[redIndToCell[count]]<<endl;
+                            FatalErrorInFunction
+                            << " Temporary stop."<<endl
+                            << exit(FatalError);
+                        }
+                        std::pair<label,label> ins2(mergeCell[u],redIndToCell[count]);
+                        cellReserved.insert(ins2);
+                        blockedCells[count].append(mergeCell[u]);
+                    }
+                    
+                    for(int u=0;u<mergeCell.size();u++)
+                    {
+                        for(auto keyIter=cellPreBlock.find(mergeCell[u]); keyIter!=cellPreBlock.end(); keyIter++)
+                        {
+                            label cellCount_red = (keyIter->second).first;
+                            label mergeSelectionCount = (keyIter->second).second;
+                            
+                            // Add blocking in cellMergPosBlocked_red
+                            // Add cellMergDone if cell does need merge anymore
+                        }
+                    }
+                    
+                    tryedCells
+                    
+                    DynamicList<DynamicList<bool>> cellMergPosBlocked_red;
+                    cellMergPosBlocked_red.setSize(possibleMergeCells_red.size());
+                    List<bool> cellMergDone(possibleMergeCells_red.size(),false);
+                    
+/*
+Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<<endl;
+*/
+                    assignList[redIndToCell[count]] = mergeFace;
+                    count++;
+                }
+            }
+            else
+            /* Decision B: Enters else block for cells that are already used for merge.
+            */
+            {
+                DynamicList<label> temp;
+                temp.append(-2);
+                assignList[redIndToCell[count]] = temp;
+                tryedCells[count] = 0;
+                count++;
+            }
+        }
+        else
+        /* Decision A: Enters else block for cells that are not too small. The assignList is
+         * filled with -1 for these cells.
+         */
+        {
+            DynamicList<label> temp;
+            temp.append(-1);
+            assignList[redIndToCell[count]] = temp;
+            tryedCells[count] = 0;
+            count++;
+        }
+    }
+    
+    Info<<"Fin"<<endl;
+    
+    for(int i=0;i<assignList.size();i++)
+    {
+        if(mergeNecessary[i])
+        {
+            if(assignList[i].size()==0)
+            {
+                FatalErrorInFunction
+                << " Error empty assign List at i:"<<i<<endl
+                << exit(FatalError);
+            }
+            if(assignList[i][0] == -3)
+            {
+                FatalErrorInFunction
+                << " Too small cell was not treated by backtracking algorithm!"<<endl
+                << exit(FatalError);
+            }
+            
+            if(assignList[i][0] == -1)
+            {
+                FatalErrorInFunction
+                << " Too small cell was listed as large enough!"<<endl
+                << exit(FatalError);
+            }
+        }
+        else
+        {
+            if(assignList[i].size()==0)
+            {
+                FatalErrorInFunction
+                << " Error empty assign List at i:"<<i<<endl
+                << exit(FatalError);
+            }
+            if(assignList[i].size()!=1)
+            {
+                FatalErrorInFunction
+                << " Error overfull assign List at i:"<<i<<endl
+                << exit(FatalError);
+            }
+            if(assignList[i][0] != -3)
+            {
+                FatalErrorInFunction
+                << " Backtracking algorithm wrote inside large enough cell. Something is wrong here!"<<endl
+                << exit(FatalError);
+            }
+            assignList[i][0] = -1;
+        }
+    }
+    
+    /*
+    labelList assList(assignList.size());
+    for(int i=0;i<assignList.size();i++)
+    {
+        if(assignList[i].size() != 1)
+        {
+            FatalErrorInFunction
+            << " Error!"<<endl
+            << exit(FatalError);
+        }
+        assList[i] = assignList[i][0];
+    }
+    return assList;
+    */
+    return assignList;
+    /*
+    Label index
+    -1 : Cell is not too small
+    -2 : cell is already merged by other cell
+    -3 : No assignment
+    */
+}
+
 
 void Foam::cutCellFvMesh::testNewMeshData
 (
