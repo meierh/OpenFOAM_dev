@@ -1,0 +1,35 @@
+for all cell in posMergeCell_red
+{
+    mergeFound = false;
+    for all posMergeCells in cell
+    {
+        willBlock = willBlock?(posMergeCells)
+        isBlocked = isBlocked?(posMergeCells)
+        
+        if(!willBlock && !isBlocked)
+        {
+            add posMergeCells to MergeList
+            for all mergeCells in posMergeCells
+            {
+                block MergeOption elsewhere using mergeCells
+                set toMergeCell to done if part of posMergeCells
+            }
+            mergeFound = true
+            break;
+        }
+    }
+    if(!mergeFound)
+    {
+        for all posMergeCells in cell
+        {
+            isBlockedArrayBy
+            if(isBlocked?(posMergeCells))
+            {
+                isBlockedArrayBy.add(blockedBy(posMergeCells))
+            }
+            else if(willBlock?(posMergeCells))
+            {
+            }
+        }
+    }
+}

@@ -6492,27 +6492,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
                 << " Invalid Data 2!"<<endl
                 << exit(FatalError);
             }
-        }
-        
-        /*
-        if(redIndToCell[count] < minDepth)
-        {
-            minDepth = redIndToCell[count];
-            Change = true;
-        }
-        if(redIndToCell[count] > maxDepth)
-        {
-            maxDepth = redIndToCell[count];
-            minDepth = redIndToCell[count];
-            Change = true;
-        }
-        if(Change)
-        {
-            Info<<"minDepth:"<<minDepth<<" maxDepth:"<<maxDepth<<endl;
-            Change = false;
-        }
-        */
-        
+        }        
         
         if(count < minDepth)
         {
@@ -6555,7 +6535,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
          * a merge with another cell
          */
         {
-            if(cellReserved.count(redIndToCell[count]) == 0)
+            if(cellReserved.count(redIndToCell[count]) == 0 && !cellMergDone[count])
             /* Decision B: Enters block if the cell is not already used for
             * a merge with another cell
             */
@@ -6596,7 +6576,50 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
                             cellsNotBlocked = false;
                         }
                     }
-                    if(cellsNotBlocked)
+                    bool cellsWillNotBlock = true;
+                    // Iterate across all selected mergeCells in one mergeOptions
+                    for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
+                    {
+                        std::unordered_multimap<label,label> mergeOptionLocation;
+                        DynamicList<label> cellToBeBlocked;
+                        for(auto keyIt = cellPreBlock.find(possibleMergeCells_red[count][i][s]);
+                            keyIt != cellPreBlock.end();
+                            keyIt++)
+                        {
+                            if(mergeOptionLocation.find((keyIt->second).first)==mergeOptionLocation.end())
+                                cellToBeBlocked.append((keyIt->second).first);
+                            mergeOptionLocation.insert(keyIt->second);
+                        }
+                        
+                        //Iterate across all cells that might be totally blocked
+                        for(int ss=0;ss<cellToBeBlocked.size();ss++)
+                        {
+                            // select the specific merge option that might be blocked
+                            DynamicList<bool>& posBlocked = cellMergPosBlocked_red[cellToRedInd[cellToBeBlocked[ss]]];
+                            allBlocked = true;
+                            auto iter = mergeOptionLocation.find(cellToBeBlocked[ss]);
+                            std::unordered_set<label> optionsBlocking;
+                            for(auto iter = mergeOptionLocation.find(cellToBeBlocked[ss]);
+                                iter != mergeOptionLocation.end();
+                                iter++)
+                            {
+                                optionsBlocking.insert(iter->second);
+                            }
+                            //Iterate across all mergeOptions and test if blocked
+                            for(int sss=0;sss<posBlocked.size();sss++)
+                            {
+                                if(!posBlocked[sss] && optionsBlocking.find(sss)==optionsBlocking.end())
+                                {
+                                    allBlocked = false;
+                                }
+                            }
+                            if(allBlocked)
+                            {
+                                cellsWillNotBlock = false
+                            }
+                        }
+                    }
+                    if(cellsNotBlocked && cellsWillNotBlock)
                     {
 //Info<<" not blocked"<<endl;
                         MergeFaceFound = true;
