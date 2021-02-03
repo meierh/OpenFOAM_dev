@@ -6415,10 +6415,16 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
     std::unordered_multimap<label,std::pair<label,label>> cellPreBlock;
     DynamicList<DynamicList<bool>> cellMergPosBlocked_red;
     cellMergPosBlocked_red.setSize(possibleMergeCells_red.size());
-    List<bool> cellMergDone(possibleMergeCells_red.size(),false);
+    DynamicList<DynamicList<label>> cellMergPosBlockedMulti_red;
+    cellMergPosBlockedMulti_red.setSize(possibleMergeCells_red.size());
+    List<bool> cellMergDone_red(possibleMergeCells_red.size(),false);
+    List<label> cellMergDoneMult_red(possibleMergeCells_red.size(),0)
+    List<DynamicList<std::pair<label,label>>> preBlockedOptions_red(possibleMergeCells_red.size());
+    List<DynamicList<label>> preCellMergDone_red(possibleMergeCells_red.size());
     for(int a=0;a<possibleMergeCells_red.size();a++)
     {
         cellMergPosBlocked_red[a].setSize(possibleMergeCells_red[a].size(),false);
+        cellMergPosBlockedMulti_red[a].setSize(possibleMergeCells_red[a].size(),0);
         for(int b=0;b<possibleMergeCells_red[a].size();b++)
         {
             for(int c=0;c<possibleMergeCells_red[a][b].size();c++)
@@ -6535,7 +6541,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
          * a merge with another cell
          */
         {
-            if(cellReserved.count(redIndToCell[count]) == 0 && !cellMergDone[count])
+            if(cellReserved.count(redIndToCell[count]) == 0 && !cellMergDone_red[count])
             /* Decision B: Enters block if the cell is not already used for
             * a merge with another cell
             */
@@ -6984,6 +6990,34 @@ Info<<"<<<<<";
 Info<<">>>>>>>>>>>Cleared["<<k<<"]:"<<blockedCells[k][l]<<endl;
 */
                             }
+                            for(int l=0;l<preBlockedOptions_red[k].size();l++)
+                            {
+                                label cellCount_red = preBlockedOptions_red[k][l].first;
+                                label mergeSelectionCount = preBlockedOptions_red[k][l].second;
+                                
+                                if(!cellMergPosBlocked_red[cellCount_red][mergeSelectionCount])
+                                {
+                                    FatalErrorInFunction
+                                    << "Can not happen!"<<endl
+                                    << exit(FatalError);
+                                }
+                            
+                                cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount]--;
+                                if(cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount] == 0)
+                                    cellMergPosBlocked_red[cellCount_red][mergeSelectionCount] = false;
+                            }
+                            for(int l=0;l<preCellMergDone_red[k].size();l++)
+                            {
+                                if(!cellMergDone_red[preCellMergDone_red[k][l]])
+                                {
+                                    FatalErrorInFunction
+                                    << "Can not happen!"<<endl
+                                    << exit(FatalError);
+                                }
+                                cellMergDoneMult_red[preCellMergDone_red[k][l]]--;
+                                if(cellMergDoneMult_red[preCellMergDone_red[k][l]] == 0)
+                                    cellMergDone_red[preCellMergDone_red[k][l]] = false;                                
+                            }
                         }
                         //Clean list of blockedCells
                         for(int k=backtrackingIndex+1;k<=count;k++)
@@ -7006,6 +7040,8 @@ Info<<"Clear tryedCells and blockedCells ["<<k<<"]"<<endl;
                                 << exit(FatalError);
                             }
                         }
+                        
+                        
                         
                         blockedCells[backtrackingIndex].setSize(0);
                         
@@ -7065,17 +7101,32 @@ Info<<"Go to "<<count<<endl;
                             label cellCount_red = (keyIter->second).first;
                             label mergeSelectionCount = (keyIter->second).second;
                             
-                            // Add blocking in cellMergPosBlocked_red
-                            // Add cellMergDone if cell does need merge anymore
+                            cellMergPosBlocked_red[cellCount_red][mergeSelectionCount] = true;
+                            cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount]++;
+                            preBlockedOptions[count].append(keyIter->second);
+                        }
+                        if(cellToRedInd[mergeCell[u]] != -1)
+                        {
+                            cellMergDone_red[cellToRedInd[mergeCell[u]]] = true;
+                            cellMergDoneMult_red[cellToRedInd[mergeCell[u]]]++;
+                            preCellMergDone_red[count].append(mergeCell[u]);
                         }
                     }
-                    
-                    tryedCells
-                    
-                    DynamicList<DynamicList<bool>> cellMergPosBlocked_red;
-                    cellMergPosBlocked_red.setSize(possibleMergeCells_red.size());
-                    List<bool> cellMergDone(possibleMergeCells_red.size(),false);
-                    
+                    for(auto keyIter=cellPreBlock.find(redIndToCell[count]); keyIter!=cellPreBlock.end(); keyIter++)
+                    {
+                        label cellCount_red = (keyIter->second).first;
+                        label mergeSelectionCount = (keyIter->second).second;
+                            
+                        cellMergPosBlocked_red[cellCount_red][mergeSelectionCount] = true;
+                        cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount]++;
+                        preBlockedOptions[count].append(keyIter->second);
+                    }
+                    if(cellToRedInd[redIndToCell[count]] != -1)
+                    {
+                        cellMergDone_red[cellToRedInd[redIndToCell[count]]] = true;
+                        cellMergDoneMult_red[cellToRedInd[redIndToCell[count]]]++;
+                        preCellMergDone_red[count].append(redIndToCell[count]);
+                    }
 /*
 Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<<endl;
 */
