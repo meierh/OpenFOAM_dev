@@ -1,0 +1,15 @@
+std::unordered_multimap<label,std::pair<label,label>>               cellPreBlock;
+
+//Remark for every mergeOption for every mergeCell if the Option is blocked and the multiplcity of block?
+DynamicList<DynamicList<bool>>                                      cellMergPosBlocked_red;                                         ///Has to be cleaned!
+DynamicList<DynamicList<label>>                                     cellMergPosBlockedMulti_red;                                    ///Has to be cleaned!
+
+//Remark for every mergeCell if the merge is already done!
+List<bool>                                                          cellMergDone_red(possibleMergeCells_red.size(),false);
+List<label>                                                         cellMergDoneMult_red(possibleMergeCells_red.size(),0);
+
+//Remark for every mergeCell with cell; mergeOption combination was blocked!
+List<DynamicList<std::pair<label,label>>>                           preBlockedOptions_red(possibleMergeCells_red.size()); //List of all blocked cells
+
+//Remark which mergeCells are already done by current mergeCell
+List<DynamicList<label>>                                            preCellMergDone_red(possibleMergeCells_red.size());
