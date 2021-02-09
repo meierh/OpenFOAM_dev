@@ -6378,7 +6378,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
     
     for(int i=0;i<cellToRedInd.size();i++)
     {
-        Info<<"i:"<<i<<endl;
+        //Info<<"i:"<<i<<endl;
         if(cellToRedInd[i]>=possibleMergeFaces_red.size())
         {
             Info<<"cellToRedInd["<<i<<"]:"<<cellToRedInd[i]<<" / "<<possibleMergeFaces_red.size()<<endl;
@@ -6439,60 +6439,18 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
     label maxDepth = 0;
     label minDepth = 0;
     
-    /*
-    Info<<"possibleMergeCells["<<13016<<"].size():"<<possibleMergeCells[13016].size()<<endl;
-    Info<<"mergeNecessary["<<13016<<"][0]:"<<mergeNecessary[13016]<<endl;
-    Info<<"possibleMergeCells["<<13016<<"][0]:"<<possibleMergeCells[13016][0]<<endl;
-
-    
-    Info<<"possibleMergeCells["<<3753<<"].size():"<<possibleMergeCells[3753].size()<<endl;
-    Info<<"mergeNecessary["<<3753<<"][0]:"<<mergeNecessary[3753]<<endl;
-    */
-    /*
-    for(int i=0;i<possibleMergeCells.size();i++)
-    {
-        bool mayMerge = false;
-        for(int k=0;k<possibleMergeCells[i].size();k++)
-        {
-            if(possibleMergeCells[i][k] == 3753)
-                mayMerge = true;
-        }
-        if(mayMerge)
-        {
-            Info<<"-----------------------------------"<<endl;
-            Info<<"possibleMergeCells["<<i<<"].size():"<<possibleMergeCells[i].size()<<endl;
-            Info<<"mergeNecessary["<<i<<"]:"<<mergeNecessary[i]<<endl;
-            Info<<"possibleMergeCells["<<i<<"][0]:"<<possibleMergeCells[i][0]<<endl;
-        }
-    }
-
-    FatalErrorInFunction
-    << " Temporary stop!"<<endl
-    << exit(FatalError);
-    */
-    
     bool Change = false;
-    
-    Info<<"index:5404:"<<possibleMergeCells_red[5404]<<endl;
-    
+        
     DynamicList<label> problemCells;
     problemCells.setSize(possibleMergeCells_red.size());
-    for(int i=0;i<possibleMergeCells_red.size();i++)
-    {
-        
-    }
     
     Info<<"Start iterate count:"<<count<<" possibleMergeCells_red.size() "<<possibleMergeCells_red.size()<<endl;
     for(;count<possibleMergeCells_red.size();)
-    {
-        Info<<"a"<<endl;
-        
+    {   
         for( const auto n : cellReserved ) 
         {
-            Info<<"b"<<endl;
             if(cellToRedInd[n.second] >= possibleMergeCells_red.size())
             {
-                Info<<"c"<<endl;
                 Info<< "Key:[" << n.first << "] Value:[" << n.second << "]"<<endl;
                 Info<<"possibleMergeCells_red.size():"<<possibleMergeCells_red.size()<<endl;
                 Info<<"TrackBackPoint:"<<n.second<<endl;
@@ -6504,7 +6462,6 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
             }
         }
         
-        Info<<"b"<<endl;
         if(count < minDepth)
         {
             minDepth = count;
@@ -6536,9 +6493,6 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
             */
             Change = false;
         }
-        Info<<"c"<<endl;
-    
-
 
 //Info<<"------"<<count<<"------"<<redIndToCell[count]<<"-------"<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
 
@@ -6562,11 +6516,11 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
 
                 for(int i=tryedCells[count];i<possibleMergeCells_red[count].size();i++,tryedCells[count]++)
                 {
-Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
+//Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
 
                     bool cellsNotBlocked = true;
                     DynamicList<label> blockedBecausOf;
-Info<<" test Non Blocking "<<endl;
+//Info<<" test Non Blocking "<<endl;
                     for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
                     {
                         if(cellReserved.count(possibleMergeCells_red[count][i][s]) != 0)
@@ -6590,11 +6544,12 @@ Info<<" test Non Blocking "<<endl;
                         }
                     }
                     bool cellsWillNotBlock = true;
+                    DynamicList<label> willBlock;
 //Info<<" test will Block "<<endl;
                     // Iterate across all selected mergeCells in one mergeOptions
                     for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
                     {
-//Info<<" Test if "<<possibleMergeCells_red[count][i][s]<<" will block"<<endl;
+//Info<<"count:"<<count<<" Test if "<<possibleMergeCells_red[count][i][s]<<" will block for merge with "<<redIndToCell[count]<<endl;
                         std::unordered_multimap<label,label> mergeOptionLocation; //Cells and mergeOptions that are blocked 
                         DynamicList<label> cellToBeBlocked; //List of cells that might be preBlocked
                     
@@ -6602,11 +6557,12 @@ Info<<" test Non Blocking "<<endl;
                             keyIt != cellPreBlock.end() && keyIt->first == possibleMergeCells_red[count][i][s];
                             keyIt++)
                         {
-                            if(mergeOptionLocation.find((keyIt->second).first)==mergeOptionLocation.end())
+                            if(((keyIt->second).first > count) && 
+                               (mergeOptionLocation.find((keyIt->second).first)==mergeOptionLocation.end()))
                                 cellToBeBlocked.append((keyIt->second).first);
                             mergeOptionLocation.insert(keyIt->second);
 //Info<<" Insert Cell:"<<(keyIt->second).first<<" Option:"<<(keyIt->second).second<<" from "<<keyIt->first<<endl;
-//Info<<"       "<<possibleMergeCells_red[(keyIt->second).first][(keyIt->second).second]<<endl;
+//Info<<"   "<<redIndToCell[(keyIt->second).first]<<"    "<<possibleMergeCells_red[(keyIt->second).first][(keyIt->second).second]<<endl;
                         }
                         
 //Info<<" cellToBeBlocked "<<cellToBeBlocked<<endl;
@@ -6614,7 +6570,7 @@ Info<<" test Non Blocking "<<endl;
                         //Iterate across all cells that might be totally blocked
                         for(int ss=0;ss<cellToBeBlocked.size();ss++)
                         {
-//Info<<" Is cell "<<cellToBeBlocked[ss]<<" blocked? ";
+//Info<<" Is cell "<<cellToBeBlocked[ss]<<"/"<<redIndToCell[cellToBeBlocked[ss]]<<" blocked? ";
                             // select the specific merge option that might be blocked
                             DynamicList<bool> posBlocked = cellMergPosBlocked_red[cellToBeBlocked[ss]];
 //Info<<posBlocked<<endl;
@@ -6631,15 +6587,16 @@ Info<<" test Non Blocking "<<endl;
                             //Iterate across all mergeOptions and test if blocked
                             for(int sss=0;sss<posBlocked.size();sss++)
                             {
-//Info<<"sss:"<<sss<<endl;
+//Info<<"sss:"<<sss<<" posBlocked[sss]:"<<posBlocked[sss]<<" optionsBlocking:"<<!(optionsBlocking.find(sss)==optionsBlocking.end())<<" blocked:"<<allBlocked<<endl;
+
                                 if(!posBlocked[sss] && (optionsBlocking.find(sss)==optionsBlocking.end()))
                                 {
-//Info<<"sss:"<<sss<<" posBlocked[sss]:"<<posBlocked[sss]<<" optionsBlocking:"<<(optionsBlocking.find(sss)==optionsBlocking.end())<<endl;
                                     allBlocked = false;
                                 }
                             }
                             if(allBlocked)
                             {
+//Info<<"Set to Block"<<endl;
                                 cellsWillNotBlock = false;
                             }
                         }
@@ -6662,12 +6619,22 @@ Info<<" test Non Blocking "<<endl;
                     }
                     else
                     {
-Info<<" blocked because ";
+//Info<<"  "<<redIndToCell[count]<<"  "<<possibleMergeCells_red[count][i];
+if(!cellsNotBlocked){
+//Info<<" blocked because ";
                         for(int x=0;x<blockedBecausOf.size();x++)
                         {
-Info<<"("<<blockedBecausOf[x]<<"|"<<cellToRedInd[blockedBecausOf[x]]<<") ";
+//Info<<"("<<blockedBecausOf[x]<<"|"<<cellToRedInd[blockedBecausOf[x]]<<") ";
                         }
-Info<<endl;
+}
+                        if(!cellsWillNotBlock)
+                        {
+//Info<<" will block-----------------------------------------------------------------------"<<endl;
+                        }
+                        else
+                        {
+//Info<<endl;
+                        }
                     }
                 }
                 if(MergeFaceFound == false)
@@ -7196,9 +7163,10 @@ Info<<"Go to "<<count<<endl;
                         cellMergDoneMult_red[cellToRedInd[redIndToCell[count]]]++;
                         preCellMergDone_red[count].append(redIndToCell[count]);
                     }
-/*
-Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<<endl;
-*/
+
+//Info<<"count:"<<count<<" Cell :"<<redIndToCell[count]<<" merged with: "<<mergeCell<<endl;
+//Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<<endl;
+
                     assignList[redIndToCell[count]] = mergeFace;
                     count++;
                 }
