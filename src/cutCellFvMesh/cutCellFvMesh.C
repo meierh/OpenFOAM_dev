@@ -6856,7 +6856,7 @@ Info<<"--------------------------------"<<endl;
 //Info<<"btbp: "<<bestTrackBackPoint<<endl;
 //if(count == 90){ Info<<"bestTrackBackPoint:"<<bestTrackBackPoint<<endl;}
                     if(!oneTrackBackPointUnblocks && false)
-                    {
+                    {e
                         for(;; bestTrackBackPoint--)
                         {
                             if(bestTrackBackPoint == -1)
