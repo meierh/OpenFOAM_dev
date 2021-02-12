@@ -6507,6 +6507,8 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
                 bool allCellsWillBlock  = true;
                 DynamicList<bool> cellsAreBlocked;
                 DynamicList<bool> cellsWillBlock;
+                DynamicList<DynamicList<DynamicList<label>>> cellsThatWillBeBlocked;
+                cellsThatWillBeBlocked.setSize(possibleMergeCells_red[count].size()-tryedCells[count]);
                 label tryedCellsStartPoint = tryedCells[count];
                 
 //Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
@@ -6545,6 +6547,7 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
                     
                     bool cellsWillNotBlock = true;
                     DynamicList<label> willBlock;
+                    cellsThatWillBeBlocked[i].setSize(possibleMergeCells_red[count][i].size());
 //Info<<" test will Block "<<endl;
                     // Iterate across all selected mergeCells in one mergeOptions
                     for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
@@ -6597,6 +6600,7 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
                             if(allBlocked)
                             {
 //Info<<"Set to Block"<<endl;
+                                cellsThatWillBeBlocked[i][s].append(cellToBeBlocked[ss]);
                                 cellsWillNotBlock = false;
                             }
                         }
@@ -6675,9 +6679,11 @@ Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCe
 //Info<<"Size2:"<<trackBackPoints.size()<<endl;
                     int z=0;
 Info<<"tryedCellsStartPoint:"<<tryedCellsStartPoint<<endl;
+Info<<"cellsAreBlocked "<<cellsAreBlocked<<endl;
+Info<<"cellsWillBlock "<<cellsWillBlock<<endl;
                     for(int s=tryedCellsStartPoint;s<possibleMergeCells_red[count].size();s++,z++)
                     {
-Info<<"s1:"<<s<<endl;
+Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<endl;
                         if(possibleMergeCells_red[count][s].size() == 0)
                         {
                             FatalErrorInFunction
@@ -6727,10 +6733,10 @@ Info<<"s1:"<<s<<endl;
                                 << exit(FatalError);
                             }                            
                             minTrackBackPointFromBlocked = trackPointsForMergeOption[0];
-                            for(int z=0;z<trackPointsForMergeOption.size();z++)
+                            for(int zz=0;zz<trackPointsForMergeOption.size();zz++)
                             {
-                                if(minTrackBackPointFromBlocked > trackPointsForMergeOption[z])
-                                    minTrackBackPointFromBlocked = trackPointsForMergeOption[z];
+                                if(minTrackBackPointFromBlocked > trackPointsForMergeOption[zz])
+                                    minTrackBackPointFromBlocked = trackPointsForMergeOption[zz];
                             }                        
                             if(cellToRedInd[minTrackBackPointFromBlocked] >= count ||
                                cellToRedInd[minTrackBackPointFromBlocked] < 0)
@@ -6747,9 +6753,55 @@ Info<<"s1:"<<s<<endl;
                         label minTrackBackPointFromWillBlock = -1;
                         if(cellsWillBlock[z])
                         {
-                            minTrackBackPointFromWillBlock = 
-                                cellMergPosBlocked_red_Reason[count][z];
+                            //Iterate across all mergeCells of the mergeOption 
+                            for(int zz=0;zz<cellsThatWillBeBlocked[z].size();zz++)
+                            {
+                                //Iterate across the cells that will be blocked by each mergeCell
+                                for(int zzz=0;zzz<cellsThatWillBeBlocked[z][zz].size();zzz+)
+                                {
+                                    DynamicList<label> nonBlockedMergeOption;
+                                    label blockedCell = cellsThatWillBeBlocked[z][zz][zzz];
+                                    bool allOptionsBlocked = true;
+                                    for(int g=0;g<cellMergPosBlocked_red[blockedCell];g++)
+                                    {
+                                        if(!cellMergPosBlocked_red[blockedCell][g])
+                                        {
+                                            nonBlockedMergeOption.append(g);
+                                            allOptionsBlocked = false;
+                                        }
+                                        if(allOptionsBlocked)
+                                        {
+                                            FatalErrorInFunction
+                                            << " It can not happen that all options are already blocked! That should be prevented!"<<endl
+                                            << exit(FatalError);  
+                                        }
+                                    }
+                                    for(int g=0;g<nonBlockedMergeOption.size();g++)
+                                    {
+                                        // All options in nonBlockedMergeOption that are not already blocked
+                                        // have to be blocked by the current mergeOption.
+                                        // If not: failure
+                                    }
+                                    
+                                    label bestWillBlockReasonTrackBackPoint=-1;
+                                    
+                                }
+                            }
+                            if(cellsThatWillBeBlocked[z].size() == 0)
 
+                            
+                            minTrackBackPointFromWillBlock = 
+                                cellMergPosBlocked_red_Reason[count][s];
+                            if(minTrackBackPointFromWillBlock == possibleMergeCells.size())
+                            {
+                                Info<<endl;
+                                Info<<"cellMergPosBlocked_red["<<count<<"]["<<s<<"]:"<<                       cellMergPosBlocked_red_Reason[count][s]<<endl;
+                                Info<<"cellMergPosBlockedMulti_red["<<count<<"]["<<s<<"]:"<<                       cellMergPosBlockedMulti_red[count][s]<<endl;
+                                
+                                FatalErrorInFunction
+                                << " Will block Reason is set on initial value! Can not happen."<<endl
+                                << exit(FatalError);  
+                            }
                         }
                         
                         if(minTrackBackPointFromBlocked == -1 && minTrackBackPointFromWillBlock == -1)
@@ -7004,16 +7056,29 @@ Info<<">>>>>>>>>>>Cleared["<<k<<"]:"<<blockedCells[k][l]<<endl;
                                 label cellCount_red = preBlockedOptions_red[k][l].first;
                                 label mergeSelectionCount = preBlockedOptions_red[k][l].second;
                                 
-                                if(!cellMergPosBlocked_red[cellCount_red][mergeSelectionCount])
+                                if(!cellMergPosBlocked_red[cellCount_red][mergeSelectionCount] ||
+                                    (cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount] <= 0))
                                 {
                                     FatalErrorInFunction
-                                    << "Can not happen!"<<endl
+                                    << "Cell is either not blocked or the mergePos multiplcity is smaller than one! Can not happen"<<endl
                                     << exit(FatalError);
                                 }
-                            
+                                if(cellMergPosBlocked_red_Reason[cellCount_red][mergeSelectionCount] == 
+                                    possibleMergeCells.size())
+                                {
+                                    FatalErrorInFunction
+                                    << "mergePos multiplcity is set to initial value! Can not happend."<<endl
+                                    << exit(FatalError);
+                                }
+                                
+                                
+                                
                                 cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount]--;
                                 if(cellMergPosBlockedMulti_red[cellCount_red][mergeSelectionCount] == 0)
+                                {
                                     cellMergPosBlocked_red[cellCount_red][mergeSelectionCount] = false;
+                                    cellMergPosBlocked_red_Reason[cellCount_red][mergeSelectionCount] = possibleMergeCells.size();
+                                }
                             }
                             preBlockedOptions_red[k].setSize(0);
                             for(int l=0;l<preCellMergDone_red[k].size();l++)
