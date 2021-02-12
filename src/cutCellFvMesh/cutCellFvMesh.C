@@ -6591,11 +6591,21 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
                             for(int sss=0;sss<posBlocked.size();sss++)
                             {
 //Info<<"sss:"<<sss<<" posBlocked[sss]:"<<posBlocked[sss]<<" optionsBlocking:"<<!(optionsBlocking.find(sss)==optionsBlocking.end())<<" blocked:"<<allBlocked<<endl;
-
                                 if(!posBlocked[sss] && (optionsBlocking.find(sss)==optionsBlocking.end()))
                                 {
-                                    // Test for cellReserved blocking in the option!!!
-                                    allBlocked = false;
+                                    cellsNotBlocked = true;
+                                    for(int ssss=0;ssss<possibleMergeCells_red[cellToBeBlocked[ss]][sss].size();ssss++)
+                                    {
+                                        if(cellReserved.count(possibleMergeCells_red[cellToBeBlocked[ss]][sss][ssss]) != 0)
+                                        {
+                                            cellsNotBlocked = false;
+                                        }
+                                    }
+                                    if(cellsNotBlocked)
+                                    {
+                                        // Test for cellReserved blocking in the option!!!
+                                        allBlocked = false;
+                                    }
                                 }
                             }
                             if(allBlocked)
