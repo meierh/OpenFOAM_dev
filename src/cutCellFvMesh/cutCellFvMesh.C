@@ -6594,6 +6594,7 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
 
                                 if(!posBlocked[sss] && (optionsBlocking.find(sss)==optionsBlocking.end()))
                                 {
+                                    // Test for cellReserved blocking in the option!!!
                                     allBlocked = false;
                                 }
                             }
@@ -6782,7 +6783,7 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                         // have to be blocked by the current mergeOption.
                                         // If not: failure
                                     }
-                                    
+                                    // Consider will block for track Back and is blocked for track back
                                     label bestWillBlockReasonTrackBackPoint=-1;
                                     
                                 }
