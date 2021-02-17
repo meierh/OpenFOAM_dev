@@ -6764,15 +6764,19 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                         label minTrackBackPointFromWillBlock = -1;
                         if(cellsWillBlock[z])
                         {
-                            //Iterate across all mergeCells of the mergeOption 
+                            //Iterate across all mergeCells of the mergeOption
+                            label minBackTrackingForMergeOption = possibleMergeCells.size();
                             for(int zz=0;zz<cellsThatWillBeBlocked[z].size();zz++)
                             {
+                                label minBackTrackingForOneMergeCell = possibleMergeCells.size();
                                 //Iterate across the cells that will be blocked by each mergeCell
                                 for(int zzz=0;zzz<cellsThatWillBeBlocked[z][zz].size();zzz+)
                                 {
+                                //Begin testing if not all are blocked and the current object blocks
                                     DynamicList<label> nonBlockedMergeOption;
                                     label blockedCell = cellsThatWillBeBlocked[z][zz][zzz];
                                     bool allOptionsBlocked = true;
+                                    //Iterate across all options of cells that will be blocked
                                     for(int g=0;g<cellMergPosBlocked_red[blockedCell];g++)
                                     {
                                         if(!cellMergPosBlocked_red[blockedCell][g])
@@ -6780,24 +6784,113 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                             nonBlockedMergeOption.append(g);
                                             allOptionsBlocked = false;
                                         }
-                                        if(allOptionsBlocked)
-                                        {
-                                            FatalErrorInFunction
-                                            << " It can not happen that all options are already blocked! That should be prevented!"<<endl
-                                            << exit(FatalError);  
-                                        }
                                     }
+                                    if(allOptionsBlocked)
+                                    {
+                                        FatalErrorInFunction
+                                        << " It can not happen that all options are already blocked! That should be prevented previously!"<<endl
+                                        << exit(FatalError);  
+                                    }
+                                    bool allNonBlockedOptionsWillBeBlocked = true;
                                     for(int g=0;g<nonBlockedMergeOption.size();g++)
                                     {
+                                        std::unordered_multimap<label,label> mergeOptionLocation; //Cells and mergeOptions that are blocked 
+                                        DynamicList<label> cellToBeBlocked; //List of cells that might be preBlocked
+                    
+                                        for(auto keyIt = cellPreBlock.find(possibleMergeCells_red[count][s][z]);
+                                            keyIt != cellPreBlock.end() && keyIt->first == possibleMergeCells_red[count][s][z];
+                                            keyIt++)
+                                            {
+                                                if(((keyIt->second).first > count) && 
+                                                    (mergeOptionLocation.find((keyIt->second).first)==mergeOptionLocation.end()))
+                                                    cellToBeBlocked.append((keyIt->second).first);
+                                                mergeOptionLocation.insert(keyIt->second);
+                                            }
+                                        bool oneBlocks = false;
+                                        for(auto keyIt = mergeOptionLocation.find(blockedCell);
+                                            keyIt != mergeOptionLocation.end() && keyIt->first == blockedCell;
+                                            keyIt++)
+                                            {
+                                                if(keyIt->second == nonBlockedMergeOption[g])
+                                                    oneBlocks = true;
+                                            }
+                                        if(!oneBlocks)
+                                        {
+                                            for(int gg=0;gg<possibleMergeCells_red[blockedCell][nonBlockedMergeOption[g]].size();gg++)
+                                            {
+                                                if(cellReserved.count(possibleMergeCells_red[blockedCell][nonBlockedMergeOption[g]][gg]) != 0)
+                                                {
+                                                    allNonBlockedOptionsWillBeBlocked = false;
+                                                }
+                                            }
+                                        }
                                         // All options in nonBlockedMergeOption that are not already blocked
                                         // have to be blocked by the current mergeOption.
                                         // If not: failure
                                     }
-                                    // Consider will block for track Back and is blocked for track back
-                                    label bestWillBlockReasonTrackBackPoint=-1;
-                                    
+                                    if(!allNonBlockedOptionsWillBeBlocked)
+                                    {
+                                        FatalErrorInFunction
+                                        << " It can not happen that the non blocked options will not be blocked by the current cell!"<<endl
+                                        << exit(FatalError);  
+                                    }
+                                //End testing
+
+                                //Start finding trackBackPoints
+                                    //Iterate across all merging options of the willBeBlocked cell
+                                    label willBeBlockedCellTrackBack = -1;
+                                    for(int g=0;g<possibleMergeCells_red[blockedCell].size();g++)
+                                    {
+                                        label mergeOptionTrackBack = -1;
+                                        DynamicList<label> reservedBackPoints;
+                                        for(int gg=0;gg<possibleMergeCells_red[blockedCell][g];gg++)
+                                        {
+                                            auto keyIt = cellReserved.find(possibleMergeCells_red[blockedCell][g][gg]);
+                                            if(keyIt != cellReserved.end())
+                                            {
+                                                reservedBackPoints.append(keyIt->second);
+                                            }
+                                        }
+                                        label reservedBackPoint = possibleMergeCells.size();
+                                        for(int gg=0;gg<reservedBackPoints.size();gg++)
+                                        {
+                                            if(reservedBackPoints[gg]<reservedBackPoint)
+                                                reservedBackPoint = reservedBackPoints[gg];
+                                        }
+                                        label blockedBackPoint = cellMergPosBlocked_red_Reason[blockedCell][g];
+                                        mergeOptionTrackBack = (reservedBackPoint<blockedBackPoint)?reservedBackPoint:blockedBackPoint;
+                                        if(mergeOptionTrackBack>=possibleMergeCells.size() || mergeOptionTrackBack<0)
+                                        {
+                                            FatalErrorInFunction
+                                            << " Track Back Point across merging Option of willBeBlocked cell is out of range! "<<endl
+                                            << exit(FatalError);
+                                        }
+                                        willBeBlockedCellTrackBack = (willBeBlockedCellTrackBack<mergeOptionTrackBack)?mergeOptionTrackBack:willBeBlockedCellTrackBack;
+                                    }
+                                    if(willBeBlockedCellTrackBack>=possibleMergeCells.size() || willBeBlockedCellTrackBack<0)
+                                    {
+                                        FatalErrorInFunction
+                                        << " Track Back Point of willBeBlocked cell is out of range! "<<endl
+                                        << exit(FatalError);
+                                    }
+                                    minBackTrackingForOneMergeCell = (minBackTrackingForOneMergeCell>willBeBlockedCellTrackBack)?willBeBlockedCellTrackBack:minBackTrackingForOneMergeCell;
                                 }
+                                if(minBackTrackingForOneMergeCell>=possibleMergeCells.size() || minBackTrackingForOneMergeCell<0)
+                                {
+                                    FatalErrorInFunction
+                                    << " Track Back Point of all willBeBlocked cell is out of range! "<<endl
+                                    << exit(FatalError);
+                                }
+                                minBackTrackingForMergeOption = (minBackTrackingForMergeOption<minBackTrackingForOneMergeCell)?minBackTrackingForMergeOption:minBackTrackingForOneMergeCell;
                             }
+                            if(minBackTrackingForMergeOption>=possibleMergeCells.size() || minBackTrackingForMergeOption<0)
+                            {
+                                FatalErrorInFunction
+                                << " Track Back Point of all mergeOption is out of range! "<<endl
+                                << exit(FatalError);
+                            }
+                            
+                            // Continue to work with minBackTrackingForMergeOption
                             if(cellsThatWillBeBlocked[z].size() == 0)
 
                             
@@ -6806,8 +6899,8 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                             if(minTrackBackPointFromWillBlock == possibleMergeCells.size())
                             {
                                 Info<<endl;
-                                Info<<"cellMergPosBlocked_red["<<count<<"]["<<s<<"]:"<<                       cellMergPosBlocked_red_Reason[count][s]<<endl;
-                                Info<<"cellMergPosBlockedMulti_red["<<count<<"]["<<s<<"]:"<<                       cellMergPosBlockedMulti_red[count][s]<<endl;
+                                Info<<"cellMergPosBlocked_red["<<count<<"]["<<s<<"]:"<<cellMergPosBlocked_red_Reason[count][s]<<endl;
+                                Info<<"cellMergPosBlockedMulti_red["<<count<<"]["<<s<<"]:"<<cellMergPosBlockedMulti_red[count][s]<<endl;
                                 
                                 FatalErrorInFunction
                                 << " Will block Reason is set on initial value! Can not happen."<<endl
