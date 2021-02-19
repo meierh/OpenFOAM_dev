@@ -3672,8 +3672,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                             Info<<"Try at :"<<a<<" "<<b<<endl;
                             label face_a,face_b;
                             DynamicList<label> mergeFace;
-                            label neighbour_a,neighbour_b,fourthCell_a,fourthCell_b,fourthCell_F,neighbour_c;
+                            label neighbour_a,neighbour_b,fourthCell_a,fourthCell_b,fourthCell_F;
                             
+                            neighbour_a=-1;
+                            neighbour_b=-1;
+                            fourthCell_a=-1;
+                            fourthCell_b=-1;
+                            fourthCell_F=-1;
                             face_a = newCells[i][a];
                             face_b = newCells[i][b];
                             
@@ -3735,10 +3740,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                             if(mergeFace.size()!=2)
                             {
                                 FatalErrorInFunction
+                                << "Agglomeration cell not found for fourthCell_F!"
+                                << exit(FatalError);
+                            }
+                            if(fourthCell_F==-1)
+                            {
+                                FatalErrorInFunction
                                 << "Agglomeration cell not found for all cells!"
                                 << exit(FatalError);
                             }
-                            
                             DynamicList<label> mergeCells;
                             mergeCells.append(neighbour_a);
                             mergeCells.append(neighbour_b);
@@ -3789,10 +3799,26 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                           fourthCell_F,neighbour_c,sixthCell_a,sixthCell_b,sixthCell_F,
                                           seventhCell_a,seventhCell_b,seventhCell_F,
                                           eightCell_a,eightCell_b,eightCell_c,eightCell_F;
-
+                                    fourthCell_a=-1;
+                                    fourthCell_b=-1;
+                                    sixthCell_a=-1;
+                                    sixthCell_b=-1;
+                                    seventhCell_a=-1;
+                                    seventhCell_b=-1;
+                                    seventhCell_F=-1;
+                                    sixthCell_F=-1;
+                                    neighbour_c=-1;
+                                    fourthCell_F=-1;
+                                    neighbour_a=-1;
+                                    neighbour_b=-1;
+                                    eightCell_a=-1;
+                                    eightCell_b=-1;
+                                    eightCell_c=-1;
+                                    eightCell_F=-1;
+                                    
                                     face_a = newCells[i][a];
                                     face_b = newCells[i][b];
-                                    face_c = newCells[i][c];                                    
+                                    face_c = newCells[i][c];                               
                             
                                     if(owner[face_a] == i)
                                         neighbour_a = neighbour[face_a];
@@ -3807,6 +3833,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                         neighbour_b = owner[face_b];
                                     else
                                         FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
+                                    
+                                    if(neighbour_a==-1||neighbour_b==-1)
+                                    {
+                                        FatalErrorInFunction
+                                        << "Agglomeration cell not found for neighbour_a and neighbour_b!"
+                                        << exit(FatalError);
+                                    }
                                     
                                     for(int x=0;x<newCells[neighbour_a].size();x++)
                                     {
@@ -3862,6 +3895,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                         << "Agglomeration cell not found for all cells!"
                                         << exit(FatalError);
                                     }
+                                    if(fourthCell_F==-1)
+                                    {
+                                        FatalErrorInFunction
+                                        << "Agglomeration cell not found for fourthCell_F!"
+                                        << exit(FatalError);
+                                    }   
+                                    
                                     DynamicList<label> mergeCells;
                                     mergeCells.append(neighbour_a);
                                     mergeCells.append(neighbour_b);
@@ -3881,6 +3921,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                         neighbour_c = owner[face_c];
                                     else
                                         FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
+                                    
+                                    if(neighbour_c==-1)
+                                    {
+                                        FatalErrorInFunction
+                                        << "Agglomeration cell not found for neighbour_c!"
+                                        << exit(FatalError);
+                                    }   
                                     
                                     mergeCells.append(neighbour_c);
                                     mergeFaces.append(face_c);
@@ -3929,6 +3976,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                     {
                                         FatalErrorInFunction
                                         << "Agglomeration cell not found for all cells!"
+                                        << exit(FatalError);
+                                    }
+                                    if(sixthCell_F==-1)
+                                    {
+                                        FatalErrorInFunction
+                                        << "Agglomeration cell not found for sixthCell_F!"
                                         << exit(FatalError);
                                     }
                                     mergeCells.append(sixthCell_F);
@@ -3980,6 +4033,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                                         << "Agglomeration cell not found for all cells!"
                                         << exit(FatalError);
                                     }
+                                    if(seventhCell_F==-1)
+                                    {
+                                        FatalErrorInFunction
+                                        << "Agglomeration cell not found for seventhCell_F!"
+                                        << exit(FatalError);
+                                    }                                    
                                     mergeCells.append(seventhCell_F);
                                     mergeFaces.append(mergeFace);
                                     
@@ -4123,7 +4182,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     {
         for(int j=0;j<possibleMergeFaces[i].size();j++)
         {
-            label numCellMerge;
+            label numCellMerge=-1;
             if(possibleMergeFaces[i][j].size() == 1)
                 numCellMerge = 2;
             else if(possibleMergeFaces[i][j].size() == 4)
@@ -4151,7 +4210,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 cellSet.insert(neighbour[possibleMergeFaces[i][j][k]]);
             }
             
-            label cellDuplicationNum;
+            label cellDuplicationNum=-1;
             if(numCellMerge==2) cellDuplicationNum = 1;
             else if(numCellMerge==4) cellDuplicationNum = 2;
             else if(numCellMerge==8) cellDuplicationNum = 3;
@@ -4159,7 +4218,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             
             for(int k=0;k<possibleMergeCells[i][j].size();k++)
             {
-                if(cellSet.count(possibleMergeCells[i][j][k])!=cellDuplicationNum)
+                if(cellSet.count(possibleMergeCells[i][j][k])!=static_cast<long unsigned int>(cellDuplicationNum))
                     FatalErrorInFunction<<"Merge Cells and Faces do not match!"<< exit(FatalError);
             }
         }
@@ -4403,8 +4462,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         }
     }
 
-    label selectedFace,selectedCell;
-    bool selectedFaceExists,selectedCellExists;
+    label selectedFace;
     std::unordered_set<label> usedCells;
     for(int i=0;i<mergeFaceOfCell.size();i++)
     {
@@ -4508,7 +4566,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             << exit(FatalError);
         }
         
-        label cellMult;
+        label cellMult=-1;
         if(numMergFaces==1)
         {
             cellMult = 1; //two cell merge
@@ -4521,10 +4579,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         {
             cellMult = 3; //eight cell merge
         }
+        else
+            FatalErrorInFunction<<"Number of merge faces is wrong!"<< exit(FatalError);
         
         for(int s=0;s<allCells.size();s++)
         {
-            if(cellSet.count(allCells[s])!=cellMult)
+            if(cellSet.count(allCells[s])!=static_cast<long unsigned int>(cellMult))
             {
                 FatalErrorInFunction
                 << "Wrong number of cell count "
@@ -4541,7 +4601,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             if(possibleMergeCells[i][s].size() == allCells.size()-1)
             {
                 partMatch = true;
-                bool match;
+                bool match=false;
                 for(int w=0;w<allCells.size();w++)
                 {
                     Info<<allCells[w]<<"|"<<match<<"|"<<partMatch<<endl;
@@ -4631,7 +4691,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         maxCellInd = 0;
         CellVolAvg = 0;
         Info<<"di dumm"<<endl;
-        label mergeFace,mergeCell;
+        //label mergeFace,mergeCell;
         for(int i=0;i<cell.size();i++)
         {
             if(mergeFaceOfCell[i][0] < 0)
@@ -5991,7 +6051,7 @@ Info<<"--------------------------------"<<endl;
                             if(oneMergePossAtBlock)
                             {
                                 trackBackCanFreeCount = true;
-                                tryedCells[redIntBackPoint] == ss;
+                                tryedCells[redIntBackPoint] = ss;
                                 oneTrackBackPointUnblocks = true;
 //Info<<"Non block: "<<trackBackPoints[s]<<endl;
                                 break;
@@ -6036,7 +6096,7 @@ Info<<"--------------------------------"<<endl;
                                 if(oneMergePossAtBlock)
                                 {
                                     trackBackCanFreeCount = true;
-                                    tryedCells[redIndCntBck] == ss;
+                                    tryedCells[redIndCntBck] = ss;
                                     break;
                                 }
                             }
@@ -6683,6 +6743,9 @@ Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCe
                         << " Must not happen!"<<endl
                         << exit(FatalError);
                     }
+                    if(allCellsWillBlock)
+                    {
+                    }
 
                     DynamicList<label> trackBackPoints;
                     DynamicList<label> trackBackPointsMergeInd;
@@ -6770,14 +6833,14 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                             {
                                 label minBackTrackingForOneMergeCell = possibleMergeCells.size();
                                 //Iterate across the cells that will be blocked by each mergeCell
-                                for(int zzz=0;zzz<cellsThatWillBeBlocked[z][zz].size();zzz+)
+                                for(int zzz=0;zzz<cellsThatWillBeBlocked[z][zz].size();zzz++)
                                 {
                                 //Begin testing if not all are blocked and the current object blocks
                                     DynamicList<label> nonBlockedMergeOption;
                                     label blockedCell = cellsThatWillBeBlocked[z][zz][zzz];
                                     bool allOptionsBlocked = true;
                                     //Iterate across all options of cells that will be blocked
-                                    for(int g=0;g<cellMergPosBlocked_red[blockedCell];g++)
+                                    for(int g=0;g<cellMergPosBlocked_red[blockedCell].size();g++)
                                     {
                                         if(!cellMergPosBlocked_red[blockedCell][g])
                                         {
@@ -6843,7 +6906,7 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                     {
                                         label mergeOptionTrackBack = -1;
                                         DynamicList<label> reservedBackPoints;
-                                        for(int gg=0;gg<possibleMergeCells_red[blockedCell][g];gg++)
+                                        for(int gg=0;gg<possibleMergeCells_red[blockedCell][g].size();gg++)
                                         {
                                             auto keyIt = cellReserved.find(possibleMergeCells_red[blockedCell][g][gg]);
                                             if(keyIt != cellReserved.end())
@@ -6889,23 +6952,7 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                 << " Track Back Point of all mergeOption is out of range! "<<endl
                                 << exit(FatalError);
                             }
-                            
-                            // Continue to work with minBackTrackingForMergeOption
-                            if(cellsThatWillBeBlocked[z].size() == 0)
-
-                            
-                            minTrackBackPointFromWillBlock = 
-                                cellMergPosBlocked_red_Reason[count][s];
-                            if(minTrackBackPointFromWillBlock == possibleMergeCells.size())
-                            {
-                                Info<<endl;
-                                Info<<"cellMergPosBlocked_red["<<count<<"]["<<s<<"]:"<<cellMergPosBlocked_red_Reason[count][s]<<endl;
-                                Info<<"cellMergPosBlockedMulti_red["<<count<<"]["<<s<<"]:"<<cellMergPosBlockedMulti_red[count][s]<<endl;
-                                
-                                FatalErrorInFunction
-                                << " Will block Reason is set on initial value! Can not happen."<<endl
-                                << exit(FatalError);  
-                            }
+                            minTrackBackPointFromWillBlock = minBackTrackingForMergeOption;
                         }
                         
                         if(minTrackBackPointFromBlocked == -1 && minTrackBackPointFromWillBlock == -1)
@@ -6931,6 +6978,12 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                             min = minTrackBackPointFromWillBlock;
                         }
 Info<<"minTrackBackPointFromWillBlock:"<<minTrackBackPointFromWillBlock<<"  minTrackBackPointFromBlocked:"<<minTrackBackPointFromBlocked<<endl;
+                        if(min==-1)
+                        {
+                            FatalErrorInFunction
+                            << " To append set back point is -1. Can not happen!"<<endl
+                            << exit(FatalError);
+                        }
                         trackBackPoints.append(min);
                         trackBackPointsMergeInd.append(s);
                     }
@@ -7004,7 +7057,7 @@ Info<<"--------------------------------"<<endl;
                             if(oneMergePossAtBlock)
                             {
                                 trackBackCanFreeCount = true;
-                                tryedCells[redIntBackPoint] == ss;
+                                tryedCells[redIntBackPoint] = ss;
                                 oneTrackBackPointUnblocks = true;
 //Info<<"Non block: "<<trackBackPoints[s]<<endl;
                                 break;
@@ -7049,7 +7102,7 @@ Info<<"--------------------------------"<<endl;
                                 if(oneMergePossAtBlock)
                                 {
                                     trackBackCanFreeCount = true;
-                                    tryedCells[redIndCntBck] == ss;
+                                    tryedCells[redIndCntBck] = ss;
                                     break;
                                 }
                             }
@@ -7600,7 +7653,7 @@ void Foam::cutCellFvMesh::testForCellSize
         <<"cell "<<maxCellInd<<" vol:"<<maxCellVol<<endl;
         Info<<" Average vol was:"<<CellVolAvg<<endl;        
         
-        label neighbourCell;
+        label neighbourCell=-1;
         scalar neighbourCellVolume;
         scalar smallCellVolume = newCells[minCellInd].mag(points,faces);
         
@@ -7619,6 +7672,9 @@ void Foam::cutCellFvMesh::testForCellSize
                 {   
                     neighbourCell = owner[newCells[minCellInd][k]];
                 }
+                else
+                    FatalErrorInFunction<<"Found no neighbour cell in testForCellSize"<< exit(FatalError);
+                
                 neighbourCellVolume = newCells[neighbourCell].mag(points,faces);
                 
                 Info<<"\tCell:"<<neighbourCell<<" partialVol:"<<neighbourCellVolume<<
