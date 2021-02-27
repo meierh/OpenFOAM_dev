@@ -4362,32 +4362,84 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
             }
         }
     }
-//End: Test for correct merge candidates
-
     
-    /*
-    for(int i=0;i<mergeNecessary.size();i++)
+    for(int i=0;i<possibleMergeFaces.size();i++)
     {
-        if(mergeNecessary[i])
+        for(int j=0;j<possibleMergeFaces[i].size();j++)
         {
-            Info<<"new Cell "<<i<<" is signed for merge via faces ";
-            for(int k=0;k<newCells[i].size();k++)
+            // Test one option
+            std::unordered_multiset<label> optionMergeCellsSet;
+            DynamicList<label> optionMergeCellsList;
+            for(int k=0;k<possibleMergeFaces[i][j].size();k++)
             {
-                Info<<newCells[i][k]<<",";
+                if(possibleMergeFaces[i][j][k] >= neighbour.size())
+                {
+                    FatalErrorInFunction<<"Boundary face is merge face"<<exit(FatalError);
+                }
+                label ownerCell = owner[possibleMergeFaces[i][j][k]];
+                label neighborCell = neighbour[possibleMergeFaces[i][j][k]];
+                if(optionMergeCellsSet.find(ownerCell) == optionMergeCellsSet.end())
+                    optionMergeCellsList.append(ownerCell);
+                if(optionMergeCellsSet.find(neighborCell) == optionMergeCellsSet.end())
+                    optionMergeCellsList.append(neighborCell);
+                optionMergeCellsSet.insert(ownerCell);
+                optionMergeCellsSet.insert(neighborCell);
             }
-            Info<<" with cells:";
-            for(int k=0;k<possibleMergeFaces[i].size();k++)
+            if(optionMergeCellsList.size()<=0)
+                FatalErrorInFunction<<"Merging option with no cells!"<<exit(FatalError);
+            
+            label mergeCellMult = optionMergeCellsSet.count(optionMergeCellsList[0]);
+            for(int k=1;k<optionMergeCellsList.size();k++)
             {
-                Info<<endl<<"\t"<<"mergeFace:"<<possibleMergeFaces[i][k];
-                Info<<endl<<"\t"<<"mergeCells:"<<possibleMergeCells[i][k];
-                Info<<endl<<"\t"<<" partialVol:"<<partialVolumeScale[possibleMergeCells[i][k]];
-                Info<<endl<<"\t"<<" mergeFaceArea:"<<possibleMergeFaceArea[i][k];
-                Info<<endl<<"\t"<<" sufficientFace:"<<possibleMergeFaceSufficient[i][k];
+                if(optionMergeCellsSet.count(optionMergeCellsList[k]) != static_cast<long unsigned int>(mergeCellMult))
+                {
+                    FatalErrorInFunction<<"Different multiplcity of cells in "<<
+                    optionMergeCellsList.size()<<" cell merging "<<exit(FatalError);
+                }
             }
-            Info<<endl;
+            
+            if(mergeCellMult==1 && optionMergeCellsList.size() == 2)
+            {
+                //2 Cell merging
+                if(possibleMergeFaces[i][j].size() != 1)
+                    FatalErrorInFunction<<"Error in 2 Cell merging! "<<exit(FatalError);
+            }
+            else if(mergeCellMult==2 && optionMergeCellsList.size() == 4)
+            {
+                //4 Cell merging
+                if(possibleMergeFaces[i][j].size() != 4)
+                    FatalErrorInFunction<<"Error in 4 Cell merging! "<<exit(FatalError);
+            }
+            else if(mergeCellMult==3 && optionMergeCellsList.size() == 8)
+            {
+                //4 Cell merging
+                if(possibleMergeFaces[i][j].size() != 12)
+                    FatalErrorInFunction<<"Error in 8 Cell merging! "<<exit(FatalError);
+            }
+            else
+            {
+                Info<<"mergeCellMult: "<<mergeCellMult<<endl;
+                Info<<"optionMergeCellsList.size() == "<<optionMergeCellsList.size()<<endl;
+                Info<<"possibleMergeFaces[i][j].size() == "<<possibleMergeFaces[i][j].size()<<endl;
+                FatalErrorInFunction<<"Inconsistent merge Option!"<<exit(FatalError);
+            }
+            std::unordered_set<label> avoidCellDuplicates;
+            for(int k=0;k<possibleMergeCells[i][j].size();k++)
+            {
+                if(avoidCellDuplicates.find(possibleMergeCells[i][j][k]) == avoidCellDuplicates.end())
+                    avoidCellDuplicates.insert(possibleMergeCells[i][j][k]);
+                else
+                    FatalErrorInFunction<<"Duplicate cell in Merge option!"<<exit(FatalError);
+            }
+            for(int k=0;k<possibleMergeCells[i][j].size();k++)
+            {
+                if(optionMergeCellsSet.count(possibleMergeCells[i][j][k]) != static_cast<long unsigned int>(mergeCellMult))
+                    FatalErrorInFunction<<"Non matching mergeCell in Merge option!"<<exit(FatalError);
+            }
         }
     }
-    */
+//End: Test for correct merge candidates
+
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
@@ -4405,7 +4457,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     */
 
     
-    List<DynamicList<label>> mergeFaceOfCell = searchDown_iter_preBlock(possibleMergeFaceArea,possibleMergeFaces,
+    List<DynamicList<label>> mergeFaceOfCell = searchDown_iter_preBlock(owner,neighbour,
+                                                possibleMergeFaceArea, possibleMergeFaces,
                                                 possibleMergeCells,oneMergeFaceSufficient,
                                                 mergeNecessary
                                                );
@@ -4571,16 +4624,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         {
             cellMult = 1; //two cell merge
         }
-        if(numMergFaces==4)
+        else if(numMergFaces==4)
         {
             cellMult = 2; //four cell merge
         }
-        if(numMergFaces==12)
+        else if(numMergFaces==12)
         {
             cellMult = 3; //eight cell merge
         }
         else
-            FatalErrorInFunction<<"Number of merge faces is wrong!"<< exit(FatalError);
+            FatalErrorInFunction<<"Number of merge faces is wrong: "<<numMergFaces<<"! "<< exit(FatalError);
         
         for(int s=0;s<allCells.size();s++)
         {
@@ -4639,6 +4692,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
                 usedCells.insert(allCells[s]);
             else
             {
+                Info<<"All Cells:"<<allCells<<endl;
                 Info<<"Cell: "<<allCells[s]<<" used twice"<<endl;
                 FatalErrorInFunction
                 << "Merge Cell used twice!"
@@ -6381,6 +6435,8 @@ Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<
 
 List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
 (
+    const labelList& owner,
+    const labelList& neighbour,
     DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
@@ -7465,6 +7521,8 @@ Info<<"Go to "<<count<<endl;
     
     Info<<"Fin"<<endl;
     
+//Test
+    std::unordered_set<label> allUsedCells;
     for(int i=0;i<assignList.size();i++)
     {
         if(mergeNecessary[i])
@@ -7480,13 +7538,81 @@ Info<<"Go to "<<count<<endl;
                 FatalErrorInFunction
                 << " Too small cell was not treated by backtracking algorithm!"<<endl
                 << exit(FatalError);
-            }
-            
+            }            
             if(assignList[i][0] == -1)
             {
                 FatalErrorInFunction
                 << " Too small cell was listed as large enough!"<<endl
                 << exit(FatalError);
+            }
+            
+            std::unordered_multiset<label> mergeCellsSet;
+            DynamicList<label> mergeCellsList;
+            for(int k=0;k<assignList[i].size();k++)
+            {
+                if(assignList[i][k] >= neighbour.size())
+                {
+                    FatalErrorInFunction<<"Boundary face is merge face"<<exit(FatalError);
+                }
+                label ownerCell = owner[assignList[i][k]];
+                label neighborCell = neighbour[assignList[i][k]];
+                if(mergeCellsSet.find(ownerCell) == mergeCellsSet.end())
+                    mergeCellsList.append(ownerCell);
+                if(mergeCellsSet.find(neighborCell) == mergeCellsSet.end())
+                    mergeCellsList.append(neighborCell);
+                mergeCellsSet.insert(ownerCell);
+                mergeCellsSet.insert(neighborCell);
+            }
+            if(mergeCellsList.size()<=0)
+                FatalErrorInFunction<<"Merging option with no cells!"<<exit(FatalError);
+            
+            label mergeCellMult = mergeCellsSet.count(mergeCellsList[0]);
+            for(int k=1;k<mergeCellsList.size();k++)
+            {
+                if(mergeCellsSet.count(mergeCellsList[k]) != static_cast<long unsigned int>(mergeCellMult))
+                {
+                    FatalErrorInFunction<<"Different multiplcity of cells in "<<
+                    mergeCellsList.size()<<" cell merging "<<exit(FatalError);
+                }
+            }
+            
+            if(mergeCellMult==1 && mergeCellsList.size() == 2)
+            {
+                //2 Cell merging
+                if(assignList[i].size() != 1)
+                    FatalErrorInFunction<<"Error in 2 Cell merging! "<<exit(FatalError);
+            }
+            else if(mergeCellMult==2 && mergeCellsList.size() == 4)
+            {
+                //4 Cell merging
+                if(assignList[i].size() != 4)
+                    FatalErrorInFunction<<"Error in 4 Cell merging! "<<exit(FatalError);
+            }
+            else if(mergeCellMult==3 && mergeCellsList.size() == 8)
+            {
+                //4 Cell merging
+                if(assignList[i].size() != 12)
+                    FatalErrorInFunction<<"Error in 8 Cell merging! "<<exit(FatalError);
+            }
+            else
+            {
+                Info<<"mergeCellMult: "<<mergeCellMult<<endl;
+                Info<<"optionMergeCellsList.size() == "<<mergeCellsList.size()<<endl;
+                Info<<"possibleMergeFaces[i][j].size() == "<<assignList[i].size()<<endl;
+                FatalErrorInFunction<<"Inconsistent merge Option!"<<exit(FatalError);
+            }
+            for(int k=0;k<mergeCellsList.size();k++)
+            {
+                if(allUsedCells.find(mergeCellsList[k]) != allUsedCells.end())
+                {
+                    Info<<"All Cells: "<<mergeCellsList<<endl;
+                    Info<<"Cell: "<<mergeCellsList[k]<<" used twice!"<<endl;
+                    FatalErrorInFunction<<"Merging cell already taken!"<<exit(FatalError);
+                }
+                else
+                {
+                    allUsedCells.insert(mergeCellsList[k]);
+                }
             }
         }
         else
@@ -7512,6 +7638,7 @@ Info<<"Go to "<<count<<endl;
             assignList[i][0] = -1;
         }
     }
+//Ende Test
     
     /*
     labelList assList(assignList.size());

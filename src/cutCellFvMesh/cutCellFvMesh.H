@@ -310,6 +310,8 @@ class cutCellFvMesh   :   public fvMesh
         
         List<DynamicList<label>> searchDown_iter_preBlock
         (
+            const labelList& owner,
+            const labelList& neighbour,
             DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
             DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
             DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
