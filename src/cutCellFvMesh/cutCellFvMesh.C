@@ -6628,10 +6628,10 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
                 label tryedCellsStartPoint = tryedCells[count];
                 
 //Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells_red["<<count<<"] = "<<possibleMergeCells_red[count].size()<<endl;
-
+Info<<"---------------------------------------------_________________-------"<<endl;
                 for(int i=tryedCells[count];i<possibleMergeCells_red[count].size();i++,tryedCells[count]++)
                 {
-Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
+Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
 
                     bool cellsNotBlocked = true;
                     DynamicList<label> blockedBecausOf;
@@ -6656,10 +6656,19 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
                                 << exit(FatalError);
                             }
                             cellsNotBlocked = false;
+                            Info<<"possibleMergeCells_red[count][i][s]:"<<possibleMergeCells_red[count][i][s]<<endl;
+                            Info<<"blocked:"<<cellReserved.count(possibleMergeCells_red[count][i][s])<<endl;
+                            Info<<"cellsNotBlocked:"<<cellsNotBlocked<<endl;
+                        }
+                        else
+                        {
+                            Info<<"possibleMergeCells_red[count][i][s]:"<<possibleMergeCells_red[count][i][s]<<endl;
+                            Info<<"not blocked:"<<cellReserved.count(possibleMergeCells_red[count][i][s])<<endl;
                         }
                     }
+Info<<"1 cellsNotBlocked:"<<cellsNotBlocked<<endl;
                     cellsAreBlocked.append(!cellsNotBlocked);
-                    if(!cellsNotBlocked) Info<<" are blocked ";
+                    if(!cellsNotBlocked) Info<<" are blocked "<<endl;
                     
                     bool cellsWillNotBlock = true;
                     DynamicList<label> willBlock;
@@ -6709,15 +6718,15 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
 //Info<<"sss:"<<sss<<" posBlocked[sss]:"<<posBlocked[sss]<<" optionsBlocking:"<<!(optionsBlocking.find(sss)==optionsBlocking.end())<<" blocked:"<<allBlocked<<endl;
                                 if(!posBlocked[sss] && (optionsBlocking.find(sss)==optionsBlocking.end()))
                                 {
-                                    cellsNotBlocked = true;
+                                    bool localcellsNotBlocked = true;
                                     for(int ssss=0;ssss<possibleMergeCells_red[cellToBeBlocked[ss]][sss].size();ssss++)
                                     {
                                         if(cellReserved.count(possibleMergeCells_red[cellToBeBlocked[ss]][sss][ssss]) != 0)
                                         {
-                                            cellsNotBlocked = false;
+                                            localcellsNotBlocked = false;
                                         }
                                     }
-                                    if(cellsNotBlocked)
+                                    if(localcellsNotBlocked)
                                     {
                                         // Test for cellReserved blocking in the option!!!
                                         allBlocked = false;
@@ -6734,7 +6743,8 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
 //Info<<"cellsWillNotBlock: "<<cellsWillNotBlock<<endl;
                     }
                     cellsWillBlock.append(!cellsWillNotBlock);
-                    if(!cellsWillNotBlock) Info<<" will block ";
+                    if(!cellsWillNotBlock) Info<<" will block "<<endl;
+Info<<"2 cellsNotBlocked:"<<cellsNotBlocked<<endl;
                     Info<<endl;
 //Info<<" Ende"<<endl;
                     if(cellsNotBlocked)
@@ -6755,6 +6765,12 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i];
 
                         mergeFace = possibleMergeFaces_red[count][i];
                         mergeCell = possibleMergeCells_red[count][i];
+                        Info<<"Set new "<<count<<endl;
+                        Info<<"Merge Face:"<<mergeFace<<endl;
+                        Info<<"Merge Cell:"<<mergeCell<<endl;
+                        
+                        Info<<"3 cellsNotBlocked:"<<cellsNotBlocked<<endl;
+                        Info<<"cellsWillNotBlock:"<<cellsWillNotBlock<<endl;
 
                         tryedCells[count]++;
                         break;
@@ -7492,6 +7508,20 @@ Info<<"Go to "<<count<<endl;
 //Info<<">>>> Added "<<count<<" and "<<mergeCell<<" to blockedCells["<<count<<"]"<<endl;
 
                     assignList[redIndToCell[count]] = mergeFace;
+                    
+                    if(redIndToCell[count] == 838)
+                    {
+                        Info<<endl;
+                        Info<<"Merge Face:"<<mergeFace<<endl;
+                        //Info<<"possibleMergeFace_red["<<count<<"]:"<<possibleMergeFaces_red[count]<<endl;
+                        
+                        Info<<endl;
+                        Info<<"Merge Cell:"<<mergeCell<<endl;
+                        //Info<<"possibleMergeCells_red["<<count<<"]:"<<possibleMergeCells_red[count]<<endl;
+                        
+                        FatalErrorInFunction<< "Temporary stop!"<<exit(FatalError);
+                    }
+                    
                     count++;
                 }
             }
@@ -7607,6 +7637,7 @@ Info<<"Go to "<<count<<endl;
                 {
                     Info<<"All Cells: "<<mergeCellsList<<endl;
                     Info<<"Cell: "<<mergeCellsList[k]<<" used twice!"<<endl;
+                    Info<<"Error at Indx:"<<i<<endl;
                     FatalErrorInFunction<<"Merging cell already taken!"<<exit(FatalError);
                 }
                 else
