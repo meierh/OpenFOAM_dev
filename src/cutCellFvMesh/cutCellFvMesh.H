@@ -268,6 +268,9 @@ class cutCellFvMesh   :   public fvMesh
         // project level set function on Points
         void projectLevelSet();
         
+        // correct the point order in faces to correct the normal dir 
+        void correctFaceNormalDir(const pointField& points,faceList& faces,const labelList& owner,const labelList& neighbour);
+        
         //cell agglomeration
         void agglomerateSmallCells_cutNeg
         (

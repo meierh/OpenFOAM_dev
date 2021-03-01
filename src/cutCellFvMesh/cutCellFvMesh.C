@@ -3407,16 +3407,19 @@ void Foam::cutCellFvMesh::selfTestMesh()
         vector faceCentreToOwnerCentre = meshCells[ownerCell].centre(meshPoints,meshFaces)-centreFace;
         if((faceCentreToOwnerCentre && normalFace)>=0)
         {
-            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+            Info<<endl<<endl;
+            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
             if(i < neighbour.size())
                 Info<<"Neighbor:"<<neighbour[i]<<" ";
             for(int k=0;k<meshFaces[i].size();k++)
             {
                 Info<<meshPoints[meshFaces[i][k]]<<"->";
             }
-            Info<<" with centre:"<<centreFace;
-            Info<<" and normal vector:"<<normalFace;
-            Info<<" and area:"<<area<<endl;
+            Info<<endl<<" with face centre:"<<centreFace;
+            Info<<endl<<" and face normal vector:"<<normalFace;
+            Info<<endl<<" and area:"<<area<<endl;
+            
+            Info<<"Cell centre is: "<<meshCells[ownerCell].centre(meshPoints,meshFaces)<<endl;
             
             FatalErrorInFunction
             <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
@@ -7509,18 +7512,20 @@ Info<<"Go to "<<count<<endl;
 
                     assignList[redIndToCell[count]] = mergeFace;
                     
-                    if(redIndToCell[count] == 838)
-                    {
-                        Info<<endl;
-                        Info<<"Merge Face:"<<mergeFace<<endl;
-                        //Info<<"possibleMergeFace_red["<<count<<"]:"<<possibleMergeFaces_red[count]<<endl;
+/*
+if(redIndToCell[count] == 838)
+{
+    Info<<endl;
+    Info<<"Merge Face:"<<mergeFace<<endl;
+    //Info<<"possibleMergeFace_red["<<count<<"]:"<<possibleMergeFaces_red[count]<<endl;
                         
-                        Info<<endl;
-                        Info<<"Merge Cell:"<<mergeCell<<endl;
-                        //Info<<"possibleMergeCells_red["<<count<<"]:"<<possibleMergeCells_red[count]<<endl;
+    Info<<endl;
+    Info<<"Merge Cell:"<<mergeCell<<endl;
+    //Info<<"possibleMergeCells_red["<<count<<"]:"<<possibleMergeCells_red[count]<<endl;
                         
-                        FatalErrorInFunction<< "Temporary stop!"<<exit(FatalError);
-                    }
+    FatalErrorInFunction<< "Temporary stop!"<<exit(FatalError);
+}
+*/
                     
                     count++;
                 }
@@ -7865,5 +7870,93 @@ void Foam::cutCellFvMesh::testForCellSize
         FatalErrorInFunction
         << "Cell size problem"
         << exit(FatalError);  
+    }
+}
+
+void Foam::cutCellFvMesh::correctFaceNormalDir
+(
+    const pointField& points,
+    faceList& faces,
+    const labelList& owner,
+    const labelList& neighbour
+)
+{
+    Info<<"owner.size()="<<owner.size()<<endl;
+    Info<<"neighbour.size()="<<neighbour.size()<<endl;
+    label neighbourSize=0;
+    for(int i=0;i<neighbour.size();i++)
+    {
+        if(neighbour[i] == -1)
+        {
+            neighbourSize = i;
+            break;
+        }
+    }
+    Info<<"Correct1"<<endl;
+    label numCells = 0;
+    for(int i=0;i<owner.size();i++)
+    {
+        numCells = std::max(numCells,owner[i]);
+    }
+    numCells++;
+    List<DynamicList<label>> cellsFaces(numCells);
+
+    Info<<"Correct2::"<<cellsFaces.size()<<endl;
+
+    Info<<"Correct2"<<endl;
+    
+    for(int i=0;i<neighbourSize;i++)
+    {
+        //Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+        cellsFaces[owner[i]].append(i);
+        cellsFaces[neighbour[i]].append(i);
+    }
+    for(int i=neighbourSize;i<owner.size();i++)
+    {
+        cellsFaces[owner[i]].append(i);
+    }
+    DynamicList<cell> cellList;
+    cellList.setSize(numCells);
+    
+    Info<<"Correct3"<<endl;
+    
+    for(int i=0;i<numCells;i++)
+    {
+        labelList cellFaces = cellsFaces[i];
+        cell oneCell(cellFaces);
+        cellList[i] = oneCell;
+    }
+    
+    Info<<"Correct4"<<endl;
+
+    for(int i=0;i<faces.size();i++)
+    {
+        //Info<<"Test face "<<i<<endl;
+        point centreFace = faces[i].centre(points);
+        vector normalFace = faces[i].normal(points);
+        scalar area = faces[i].mag(points);
+    
+        vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
+        if((faceCentreToOwnerCentre && normalFace)>=0)
+        {
+            Info<<endl<<endl;
+            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
+            if(i < neighbour.size())
+                Info<<"Neighbor:"<<neighbour[i]<<" ";
+            for(int k=0;k<faces[i].size();k++)
+            {
+                Info<<points[faces[i][k]]<<"->";
+            }
+            Info<<endl<<" with face centre:"<<centreFace;
+            Info<<endl<<" and face normal vector:"<<normalFace;
+            Info<<endl<<" and area:"<<area<<endl;
+            
+            Info<<"Cell centre is: "<<cellList[owner[i]].centre(points,faces)<<endl;
+            
+            FatalErrorInFunction
+            <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
+            <<" They must have a opposite direction"
+            << exit(FatalError); 
+        }
     }
 }

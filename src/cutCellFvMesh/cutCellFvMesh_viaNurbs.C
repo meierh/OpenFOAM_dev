@@ -301,6 +301,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
     }
     //printMesh();
+    correctFaceNormalDir(newMeshPoints_,faces,owner,neighbour);
     
     const pointField& oldPoints = this->points();
     const faceList& oldFaceList = this->faces();
@@ -314,6 +315,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
+    
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -321,6 +323,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     patchSizes,
                     patchStarts,
                     true);
+    selfTestMesh();
     
     const cellList& newCells = this->cells();
     newCellVolume = scalarList(newCells.size());
@@ -341,7 +344,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     this->write();
     Info<<"Written"<<endl;
     //printMesh();
-    //selfTestMesh();
+    selfTestMesh();
 }
  
 void Foam::cutCellFvMesh::projectNurbsSurface()
