@@ -904,16 +904,33 @@ void Foam::cutCellFvMesh::newMeshEdges
         if(thisFacePoints.size() > 2)
         {
             bool allPointsOld = true;
+            label oldPointsNum = 0;
             for(int k=0;k<thisFacePoints.size();k++)
             {
                 if(thisFacePoints[k] >= nbrOfPrevPoints)
+                {
                     allPointsOld = false;
+                    oldPointsNum++;
+                }
             }
             if(!allPointsOld)
             {
+                Info<<endl<<endl;
+                Info<<"face: "<<basisFaces[i]<<endl<<"   ";
+                for(int j=0;j<basisFaces[i].size();j++)
+                {
+                    Info<<newMeshPoints_[basisFaces[i][j]]<<"--";
+                }
+                Info<<endl;
+                Info<<"thisFacePoints: "<<thisFacePoints<<endl<<"   ";
+                for(int j=0;j<thisFacePoints.size();j++)
+                {
+                    Info<<newMeshPoints_[thisFacePoints[j]]<<"--";
+                }
+                Info<<endl;
                 FatalErrorInFunction
                 << "A face cannot have "<< thisFacePoints.size()
-                << " cut points while one or more "
+                << " cut points while "<<oldPointsNum<<" "
                 << "cut points are not old points! "<<endl
                 << "Maybe the method was started on an already cut Mesh."
                 << exit(FatalError);
@@ -4905,7 +4922,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     int countDeleteFaces = 0;
     for(int i=0;i<newCells.size();i++)
     {
-        Info<<"newCell:"<<i<<endl;
+        //Info<<"newCell:"<<i<<endl;
         //if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
         if(mergeFaceOfCell[i].size() > 1)
         {
@@ -7929,6 +7946,29 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
     
     Info<<"Correct4"<<endl;
 
+    for(int i=0;i<faces.size();i++)
+    {
+        //Info<<"Test face "<<i<<endl;
+        point centreFace = faces[i].centre(points);
+        vector normalFace = faces[i].normal(points);
+    
+        vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
+        if((faceCentreToOwnerCentre && normalFace)>=0)
+        {
+            faces[i].flip();
+            /*
+            DynamicList<label> reversedFaceList;
+            for(int k=faces[i].size()-1;k>=0;k++)
+            {
+                reversedFaceList.append(faces[i][k]);
+            }
+            face newFace(reversedFaceList);
+            face[i] = newFace;
+            */
+        }
+    }
+    Info<<"Correct5"<<endl;
+    
     for(int i=0;i<faces.size();i++)
     {
         //Info<<"Test face "<<i<<endl;
