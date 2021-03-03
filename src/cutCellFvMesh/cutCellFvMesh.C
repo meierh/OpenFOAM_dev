@@ -901,6 +901,67 @@ void Foam::cutCellFvMesh::newMeshEdges
     for(int i=0;i<basisFaces.size();i++)
     {
         thisFacePoints = faceToPoints_[i];
+        if(thisFacePoints.size() > 4)
+        {
+            FatalErrorInFunction
+            << "Five vertice face not implemented!"
+            << exit(FatalError);
+        }
+        else if(thisFacePoints.size() == 4)
+        {            
+            bool allPointsOld = true;
+            label newPointsNum = 0;
+            for(int k=0;k<thisFacePoints.size();k++)
+            {
+                if(thisFacePoints[k] >= nbrOfPrevPoints)
+                {
+                    allPointsOld = false;
+                    newPointsNum++;
+                }
+            }
+            if(allPointsOld)
+            {
+                bool allPointsBelongToOldEdges = true;
+                for(int k=0;k<thisFacePoints.size();k++)
+                {
+                    label localIndx = basisFaces[i].which(thisFacePoints[k]);
+                    label nextGlobalIndx = basisFaces[i].nextLabel(localIndx);
+                    label prevGlobalIndx = basisFaces[i].prevLabel(localIndx);
+                    if(pointsToSide_[nextGlobalIndx] != 0 && pointsToSide_[prevGlobalIndx] != 0)
+                    {
+                        allPointsBelongToOldEdges = false;
+                    }
+                }
+                if(!allPointsBelongToOldEdges)
+                {
+                    FatalErrorInFunction
+                    << "Face has "<< thisFacePoints.size()
+                    << " cut points while one or more "
+                    << "cut points are connected to the other ones! "
+                    << exit(FatalError);
+                }    
+            }
+            else if(newPointsNum == 3)
+            {
+                FatalErrorInFunction
+                << "Face with four cut point but three of them are old ones and one is new! This can not happen "<<exit(FatalError);
+            }
+            else if(newPointsNum == 2)
+            {
+                FatalErrorInFunction
+                << "Face with four cut point but two of them are old ones and two are new! This can not happen "<<exit(FatalError);
+            }
+            else if(newPointsNum == 3)
+            {
+                FatalErrorInFunction
+                << "Face with four cut point but one is an old ones and three are new! This can not happen "<<exit(FatalError);
+            }
+            else if(newPointsNum == 4)
+            {
+
+            }
+        }
+            
         if(thisFacePoints.size() > 2)
         {
             bool allPointsOld = true;
