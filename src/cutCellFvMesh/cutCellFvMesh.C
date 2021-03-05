@@ -941,7 +941,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     << exit(FatalError);
                 }    
             }
-            else if(newPointsNum == 3)
+            else if(newPointsNum == 1)
             {
                 FatalErrorInFunction
                 << "Face with four cut point but three of them are old ones and one is new! This can not happen "<<exit(FatalError);
@@ -958,63 +958,181 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
             else if(newPointsNum == 4)
             {
-
+                labelList edg(4);
+                edg[0] = pointToEgde_[thisFacePoints[0]];
+                edg[1] = pointToEgde_[thisFacePoints[1]];
+                edg[2] = pointToEgde_[thisFacePoints[2]];
+                edg[3] = pointToEgde_[thisFacePoints[3]];
+                
+                labelList edgeOrder(4,-1);
+                edgeOrder[0] = 0;
+                for(int a_1 = 1;a_1<edgeOrder.size();a_1++)
+                {
+                    if(edgeOrder[a_1-1]<0||edgeOrder[a_1-1]>3)
+                    {
+                        FatalErrorInFunction<< "Invalid edge ordering!"<<exit(FatalError);
+                    }
+                    edge pivEdg = newMeshEdges_[edgeOrder[a_1-1]];
+                    for(int a_2 = 0;a_2<edg.size();a_2++)
+                    {
+                        if(edgeOrder[0]==a_2||edgeOrder[1]==a_2||edgeOrder[2]==a_2||edgeOrder[3]==a_2)
+                            continue;
+                        edge testEdg = newMeshEdges_[edg[a_2]];
+                        label connectPt = pivEdg.commonVertex(testEdg);
+                        if(connectPt == -1)
+                            continue;
+                        edgeOrder[a_1] = a_2;
+                        break;
+                    }
+                }
+                label pt0 = thisFacePoints[edgeOrder[0]];
+                label pt1 = thisFacePoints[edgeOrder[1]];
+                label pt2 = thisFacePoints[edgeOrder[2]];
+                label pt3 = thisFacePoints[edgeOrder[3]];
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(edge(pt0,pt1));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));
+                newMeshEdges_.append(edge(pt1,pt2));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));
+                newMeshEdges_.append(edge(pt2,pt3));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));
+                newMeshEdges_.append(edge(pt3,pt0));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
             }
         }
-            
-        if(thisFacePoints.size() > 2)
+        else if(thisFacePoints.size() == 3)
         {
+            if(basisFaces[i].size() != 4)
+            {
+                FatalErrorInFunction<< "Faces with "<<basisFaces[i].size()<<" vertices not implemented!"<<exit(FatalError);
+            }
             bool allPointsOld = true;
-            label oldPointsNum = 0;
+            label newPointsNum = 0;
             for(int k=0;k<thisFacePoints.size();k++)
             {
                 if(thisFacePoints[k] >= nbrOfPrevPoints)
                 {
                     allPointsOld = false;
-                    oldPointsNum++;
+                    newPointsNum++;
                 }
             }
-            if(!allPointsOld)
+            if(allPointsOld)
             {
-                Info<<endl<<endl;
-                Info<<"face: "<<basisFaces[i]<<endl<<"   ";
-                for(int j=0;j<basisFaces[i].size();j++)
+                if(basisFaces[i].size() != 4)
                 {
-                    Info<<newMeshPoints_[basisFaces[i][j]]<<"--";
+                    FatalErrorInFunction<< "Faces with "<<basisFaces[i].size()<<" vertices not implemented!"<<exit(FatalError);
                 }
-                Info<<endl;
-                Info<<"thisFacePoints: "<<thisFacePoints<<endl<<"   ";
-                for(int j=0;j<thisFacePoints.size();j++)
+                label fourthVertice = -1;
+                std::unordered_set<label> cutPoints;
+                for(int k=0;k<thisFacePoints.size();k++)
                 {
-                    Info<<newMeshPoints_[thisFacePoints[j]]<<"--";
+                    cutPoints.insert(thisFacePoints[i]);
                 }
-                Info<<endl;
+                for(int k=0;k<basisFaces[i].size();k++)
+                {
+                    if(cutPoints.count(basisFaces[i])==0)
+                    {
+                        fourthVertice = basisFaces[i];
+                        break;
+                    }
+                }
+                if(fourthVertice==-1)
+                {
+                    FatalErrorInFunction<<"No fourth vertice assigned"<<exit(FatalError);
+                }
+                edge addingEdge;
+                for(int k=0;k<thisFacePoints.size();k++)
+                {
+                    label localIndx = basisFaces[i].which(thisFacePoints[k]);
+                    label nextGlobalIndx = basisFaces[i].nextLabel(localIndx);
+                    label prevGlobalIndx = basisFaces[i].prevLabel(localIndx);
+                    if(thisFacePoints[k]!=fourthVertice && nextGlobalIndx!=fourthVertice && prevGlobalIndx!=fourthVertice)
+                    {
+                        addingEdge = edge(prevGlobalIndx,prevGlobalIndx);
+                        fourthVertice = -1;
+                    }
+                }
+                if(fourthVertice==-1)
+                {
+                    FatalErrorInFunction<<"No added edge found"<<exit(FatalError);
+                }
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(addingEdge);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+            }
+            else if(newPointsNum == 1)
+            {
+                if(basisFaces[i].size() != 4)
+                {
+                    FatalErrorInFunction<< "Faces with "<<basisFaces[i].size()<<" vertices not implemented!"<<exit(FatalError);
+                }
+                label newPoint = -1;
+                for(int k=0;k<thisFacePoints.size();k++)
+                {
+                    if(thisFacePoints[k] >= nbrOfPrevPoints)
+                    {
+                        newPoint = thisFacePoints[k];
+                        break;
+                    }
+                }
+                edgeList addedEdges(2);
+                label ind = 0;
+                for(int k=0;k<thisFacePoints.size();k++)
+                {
+                    if(thisFacePoints[k] != newPoint)
+                    {
+                        addedEdges[ind] = edge(newPoint,thisFacePoints[k]);
+                        ind++;
+                    }
+                }
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(addedEdges[0]);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(addedEdges[1]);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+            }
+            else if(newPointsNum == 2)
+            {
+                edge addedEdge1(thisFacePoints[0],thisFacePoints[1]);
+                edge addedEdge2(thisFacePoints[1],thisFacePoints[2]);
+                edge addedEdge3(thisFacePoints[2],thisFacePoints[0]);
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(addedEdge1);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(addedEdge2);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(addedEdge3);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+            }
+            else if(newPointsNum == 3)
+            {
                 FatalErrorInFunction
-                << "A face cannot have "<< thisFacePoints.size()
-                << " cut points while "<<oldPointsNum<<" "
-                << "cut points are not old points! "<<endl
-                << "Maybe the method was started on an already cut Mesh."
-                << exit(FatalError);
+                << "Face with three cut point and three are new! This can not happen "<<exit(FatalError);
             }
-            bool allPointsBelongToOldEdges = true;
-            for(int k=0;k<thisFacePoints.size();k++)
-            {
-                label localIndx = basisFaces[i].which(thisFacePoints[k]);
-                label nextGlobalIndx = basisFaces[i].nextLabel(localIndx);
-                label prevGlobalIndx = basisFaces[i].prevLabel(localIndx);
-                if(pointsToSide_[nextGlobalIndx] != 0 && pointsToSide_[prevGlobalIndx] != 0)
-                {
-                    allPointsBelongToOldEdges = false;
-                }
-            }
-            if(!allPointsBelongToOldEdges)
-            {
-                FatalErrorInFunction
-                << "Face has "<< thisFacePoints.size()
-                << " cut points while one or more "
-                << "cut points are connected to the other ones! "
-                << exit(FatalError);
-            }            
         }
         else if(thisFacePoints.size() == 2)
         {
