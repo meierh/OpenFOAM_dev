@@ -1041,9 +1041,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 for(int k=0;k<basisFaces[i].size();k++)
                 {
-                    if(cutPoints.count(basisFaces[i])==0)
+                    if(cutPoints.count(basisFaces[i][k])==0)
                     {
-                        fourthVertice = basisFaces[i];
+                        fourthVertice = basisFaces[i][k];
                         break;
                     }
                 }
