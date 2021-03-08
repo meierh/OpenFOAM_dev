@@ -252,6 +252,8 @@ class cutCellFvMesh   :   public fvMesh
         // Add faces for cutting the cells and create dependency data for creating cut cells
         // Adds to faces_;
         void newMeshFaces();
+        void newMeshFaces_plus();
+
         
         // Splits all old faces being cut into too
         void cutOldFaces();
