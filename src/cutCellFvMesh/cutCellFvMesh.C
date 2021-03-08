@@ -1706,10 +1706,23 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
             DynamicList<DynamicList<label>> posEdgePaths(1);
             DynamicList<label> pathEndEdge(1);
             DynamicList<std::unordered_set<label>> usedEdges(1);
+            
             label startEdge = edgeOfCellList[j];
             posEdgePaths[0].append(startEdge);
             pathEndEdge.append(startEdge);
             
+            for(int k=0;k<posEdgePaths.size();k++)
+            {
+                edge currEdge = newMeshEdges_[pathEndEdge[k]];
+                DynamicList<label> nextEdges;
+                for(int l=0;l<edgeOfCellList.size();l++)
+                {
+                    if(currEdge.commonVertex(newMeshEdges_[edgeOfCellList[l]]) != -1 && usedEdges[k].count(edgeOfCellList[l]) == 0)
+                    {
+                        nextEdges.append(edgeOfCellList[l]); 
+                    }
+                }
+            }            
         }
     }
     for(int i=0;i<meshCells.size();i++)
