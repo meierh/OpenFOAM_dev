@@ -2388,7 +2388,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
             }
             else if(newZeroEdgesOfThisFace.size()==2)
             {
-                // Face is seperated into four triangles. One is a zero triangle.
+                // Face is seperated into three triangles. One is a zero triangle.
                 if(meshFaces[i].size()!=4)
                     FatalErrorInFunction<<"Face is not a quadrat. This must not happen!"<< exit(FatalError);
                 labelList zeroPointsOfFace = faceToPoints_[i];
@@ -2460,7 +2460,61 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
             }
             else if(newZeroEdgesOfThisFace.size()==1)
             {
-                //Continue here
+                // Face is seperated into two triangles. One is a zero triangle.
+                if(meshFaces[i].size()!=4)
+                    FatalErrorInFunction<<"Face is not a quadrat. This must not happen!"<< exit(FatalError);
+                labelList zeroPointsOfFace = faceToPoints_[i];
+                if(zeroPointsOfFace.size()!=3)
+                    FatalErrorInFunction<<"Face should have 3 zero Points but has not!"<< exit(FatalError);
+                
+                label nonZeroFacePoint = -1;
+                DynamicList<label> zeroBoundaryPoints
+                label centralZeroPoint = -1;
+                for(int j=0;j<meshFaces[i].size();j++)
+                {
+                    if(pointsToSide_[meshFaces[i][j]]!=0)
+                    {
+                        if(nonZeroFacePoint!=-1)
+                            FatalErrorInFunction<< "Face more than one nonZeroFacePoint!"<< exit(FatalError);
+                        nonZeroFacePoint = meshFaces[i][j];
+                    }
+                    else
+                    {
+                        label nextInd = (j+1)%meshFaces[i].size();
+                        label prevInd = (j-1)%meshFaces[i].size();
+                        if(pointsToSide_[meshFaces[i][nextInd]]==0 && pointsToSide_[meshFaces[i][prevInd]]==0 
+                           && pointsToSide_[meshFaces[i][j]]==0)
+                        {
+                            if(centralZeroPoint!=-1)
+                                FatalErrorInFunction<< "Face more than one centralZeroPoint!"<< exit(FatalError);
+                            centralZeroPoint = meshFaces[i][j];
+                            zeroBoundaryPoints.append(meshFaces[i][nextInd]);
+                            zeroBoundaryPoints.append(meshFaces[i][prevInd]);
+                        }
+                    }
+                }
+                if(nonZeroFacePoint==-1)
+                    FatalErrorInFunction<<"No nonZeroFacePoint found!"<< exit(FatalError);
+                if(centralZeroPoint==-1)
+                    FatalErrorInFunction<<"No centralZeroPoint found!"<< exit(FatalError);
+
+                oldFacesToCutFaces_[i].setCapacity(2);
+                
+                labelList face1(3);
+                face1[0] = centralZeroPoint;
+                face1[1] = zeroBoundaryPoints[0];
+                face1[2] = zeroBoundaryPoints[1];
+                cutFaces_.append(face(face1));
+                cutFacesToSide_.append(pointsToSide_[face1[1]]);
+                oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
+                
+                labelList face2(3);
+                face2[0] = zeroBoundaryPoints[0];
+                face2[1] = nonZeroFacePoint;
+                face2[2] = zeroBoundaryPoints[1];
+                cutFaces_.append(face(face2));
+                cutFacesToSide_.append(pointsToSide_[face2[1]]);
+                oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
             }
             else
             {
@@ -2469,11 +2523,73 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
         }
         else if(zeroEdgesOfThisFace.size()==2)
         {
+            if(newZeroEdgesOfThisFace.size()==2)
+            {
+                edge newEdge1 = newMeshEdges_[newZeroEdgesOfThisFace[0]]; 
+                edge faceEdge1_OfNewEdge1 = newMeshEdges_[pointToEgde_[newEdge1.start()]];
+                edge faceEdge2_OfNewEdge1 = newMeshEdges_[pointToEgde_[newEdge1.end()]];
+                
+                edge newEdge2 = newMeshEdges_[newZeroEdgesOfThisFace[1]]; 
+                edge faceEdge1_OfNewEdge2 = newMeshEdges_[pointToEgde_[newEdge2.start()]];
+                edge faceEdge2_OfNewEdge2 = newMeshEdges_[pointToEgde_[newEdge2.end()]];
+                
+                label thirdPointByNewEdge1 = -1;
+                thirdPointByNewEdge1 = faceEdge1_OfNewEdge1.commonVertex(faceEdge2_OfNewEdge1);
+                if(thirdPointByNewEdge1==-1)
+                    FatalErrorInFunction<< "thirdPointByNewEdge1 not found! "<< exit(FatalError);
+                
+                label thirdPointByNewEdge2 = -1;
+                thirdPointByNewEdge2 = faceEdge1_OfNewEdge2.commonVertex(faceEdge2_OfNewEdge2);
+                if(thirdPointByNewEdge2==-1)
+                    FatalErrorInFunction<< "thirdPointByNewEdge2 not found! "<< exit(FatalError);
+                
+                labelList face1(3);
+                face1[0] = newEdge1.start();
+                face1[1] = thirdPointByNewEdge1;
+                face1[2] = newEdge1.end();
+                cutFaces_.append(face(face1));
+                cutFacesToSide_.append(pointsToSide_[face1[1]]);
+                oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
+                
+                labelList face2(3);
+                face2[0] = newEdge2.start();
+                face2[1] = thirdPointByNewEdge2;
+                face2[2] = newEdge2.end();
+                cutFaces_.append(face(face2));
+                cutFacesToSide_.append(pointsToSide_[face2[1]]);
+                oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
+                
+                labelList face3(6);
+                face3[0] = newEdge1.start();
+                face3[1] = newEdge1.end();
+                face3[2] = faceEdge2_OfNewEdge1.otherVertex(thirdPointByNewEdge1);
+                face3[3] = -1;
+                face3[4] = -1;
+                if(faceEdge2_OfNewEdge1.connected(faceEdge1_OfNewEdge2))
+                {
+                    face3[3] = newEdge2.start();
+                    face3[4] = newEdge2.end();
+                }
+                else if(faceEdge2_OfNewEdge1.connected(faceEdge2_OfNewEdge2))
+                {
+                    face3[3] = newEdge2.end();
+                    face3[4] = newEdge2.start();
+                }
+                else
+                    FatalErrorInFunction<< "Fourth and fifth point not found! "<< exit(FatalError);
+                face3[5] = faceEdge1_OfNewEdge1.otherVertex(thirdPointByNewEdge1);
+
+                cutFaces_.append(face(face3));
+                cutFacesToSide_.append(pointsToSide_[face3[2]]);
+                oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
+            }
+            else
+            {
+                FatalErrorInFunction<< "Face has two zero edges but not all are new ones! "<< exit(FatalError);
+            }
         }
         else if(zeroEdgesOfThisFace.size()==1)
         {
-        }
-
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
         {
             edge        addedEdge = newMeshEdges_[faceToEdges_[i][0]];
@@ -2653,6 +2769,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
             cutFaces_.append(face(newFace2));
             cutFacesToSide_.append(newFace2Sign);
             oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
+        }
         }
     }
     cutFaces_.setCapacity(cutFaces_.size());
