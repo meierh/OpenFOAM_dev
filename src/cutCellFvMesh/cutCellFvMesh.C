@@ -3917,19 +3917,126 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
         else if(cellToFaces_[i].size() > 1)
         {
-            DynamicList<DynamicList> minusCells;
-            DynamicList<DynamicList> plusCells;
+            std::unordered_set<label> pointsTreated;
+            std::unordered_set<label> edgesTreated;
+            DynamicList<DynamicList<label>> minusCells;
+            DynamicList<DynamicList<label>> plusCells;
+            const labelListList& thisCellEdges = this->cellEdges();
             oldSplittedCellToNewPlusCell[i] = i;
             for(int j=0;j<cellToFaces_[i].size();j++)
             {
                 if(cellToFaces_[i][j] >= nbrOfPrevFaces)
                 {
-                    DynamicList<edge> facePointEdges;
+                    DynamicList<label> minusCell;
+                    DynamicList<label> plusCell;
+                    DynamicList<DynamicList<edge>> facePointEdges;
                     face cutFace = newMeshFaces_[cellToFaces_[i][j]];
                     for(int k=0;k<cutFace.size();k++)
                     {
                         label pointInd = cutFace[k];
-                        
+                        label edgeInd = pointToEgde_[pointInd];
+                        if(edgesTreated.count(edgeInd) == 0)
+                        {
+                            facePointEdges.append(newMeshEdges_[edgeInd]);
+                            edgesTreated.insert(edgeInd);
+                        }
+                        minusCell.append(pointInd);
+                        plusCell.append(pointInd);
+                        pointsTreated.insert(pointInd);
+                    }
+                    DynamicList<label> plusCellFrontPoints;
+                    DynamicList<label> minusCellFrontPoints;
+                    for(int l=0;l<facePointEdges.size();l++)
+                    {
+                        for(int m=0;m<facePointEdges[l].size();m++)
+                        {
+                            labelList edgePoints(2);
+                            edge oneEdge = facePointEdges[l][m];
+                            edgePoints[0] = oneEdge.start();
+                            edgePoints[1] = oneEdge.end();
+                            for(int n=0;n<edgePoints.size();n++)
+                            {
+                                if(pointsToSide_[edgePoints[n]] == 0)
+                                {
+                                    if(facePointEdges[l].size()>0)
+                                        FatalErrorInFunction<<"Invalid edge point Side."<<exit(FatalError);                                    
+                                }
+                                else if(pointsToSide_[edgePoints[n]] == 1)
+                                {
+                                    if(pointsTreated.count(edgePoints[n]) == 0)
+                                    {
+                                        plusCell.append(edgePoints[n]);
+                                        pointsTreated.insert(edgePoints[n]);
+                                        plusCellFrontPoints.append(edgePoints[n]);
+                                    }
+                                }
+                                else if(pointsToSide_[edgePoints[n]] ==-1)
+                                {
+                                    if(pointsTreated.count(edgePoints[n]) == 0)
+                                    {
+                                        minusCell.append(edgePoints[n]);
+                                        pointsTreated.insert(edgePoints[n]);
+                                        minusCellFrontPoints.append(edgePoints[n]);
+                                    }
+                                }
+                                else
+                                    FatalErrorInFunction<<"Point side must bei -1,0,1."<<exit(FatalError);                                    
+                            }
+                        }
+                    }
+                    while(plusCellFrontPoints.size() > 0)
+                    {
+                        DynamicList<label> temp = plusCellFrontPoints;
+                        plusCellFrontPoints.setSize(0);
+                        for(int l=0;l<temp.size();l++)
+                        {
+                            label frontPointInd = temp[l];
+                            for(int m=0;m<thisCellEdges.size();m++)
+                            {
+                                if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == 1)
+                                {
+                                    label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
+                                    if(otherPoint!=-1)
+                                    {
+                                        if(pointsToSide_[otherPoint] != 1)
+                                            FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<endl;                                        
+                                        if(pointsTreated.count(otherInd)!=0)
+                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<endl;
+                                        plusCell.append(otherInd);
+                                        plusCellFrontPoints.append(otherInd);
+                                        pointsTreated.insert(otherInd);
+                                        edgesTreated.insert(thisCellEdges[m]);
+                                    }
+                                }                                
+                            }
+                        }
+                    }
+                   while(minusCellFrontPoints.size() > 0)
+                    {
+                        DynamicList<label> temp = minusCellFrontPoints;
+                        minusCellFrontPoints.setSize(0);
+                        for(int l=0;l<temp.size();l++)
+                        {
+                            label frontPointInd = temp[l];
+                            for(int m=0;m<thisCellEdges.size();m++)
+                            {
+                                if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == -1)
+                                {
+                                    label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
+                                    if(otherPoint!=-1)
+                                    {
+                                        if(pointsToSide_[otherPoint] != -1)
+                                            FatalErrorInFunction<<"Edge with -1 side has non -1 point"<<endl;                                        
+                                        if(pointsTreated.count(otherInd)!=0)
+                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<endl;
+                                        minusCell.append(otherInd);
+                                        minusCellFrontPoints.append(otherInd);
+                                        pointsTreated.insert(otherInd);
+                                        edgesTreated.insert(thisCellEdges[m]);
+                                    }
+                                }                                
+                            }
+                        }
                     }
                     
                     oldCellsToAddedMinusSideCellIndex[i] = addedCellIndex+oldCellsToAddedMinusSideCellIndex.size();
