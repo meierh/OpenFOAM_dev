@@ -161,10 +161,10 @@ class cutCellFvMesh   :   public fvMesh
             // added boundary split faces neighbor
             DynamicList<label> splitAndUnsplitFaceBoundaryNeighbor;
             
-            //index of minus side cell of splitted cell or -1 if cell is not split
-            labelList oldSplittedCellToNewMinusCell;
-            //index of plus side cell of splitted cell or -1 if cell is not split
-            labelList oldSplittedCellToNewPlusCell;
+            //list of indexes of minus side cell of splitted cell or empty if cell is not split
+            List<DynamicList<label>> oldSplittedCellToNewMinusCell;
+            //list of indexes of plus side cell of splitted cell or empty if cell is not split
+            List<DynamicList<label>> oldSplittedCellToNewPlusCell;
             //list of all cells that have been deleted
             labelList deletedCellsList;
             //list of labels to map old cell index to new plus side cut cell index; deleted Cells are set to -1
@@ -257,6 +257,8 @@ class cutCellFvMesh   :   public fvMesh
         
         // Splits all old faces being cut into too
         void cutOldFaces();
+        void cutOldFaces_plus();
+
         
         //rebuild mesh by using cut data
         void createNewMeshData();
