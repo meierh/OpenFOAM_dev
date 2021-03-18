@@ -3940,8 +3940,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                             facePointEdges.append(newMeshEdges_[edgeInd]);
                             edgesTreated.insert(edgeInd);
                         }
-                        minusCell.append(pointInd);
-                        plusCell.append(pointInd);
+                        //minusCell.append(pointInd);
+                        //plusCell.append(pointInd);
                         pointsTreated.insert(pointInd);
                     }
                     DynamicList<label> plusCellFrontPoints;
@@ -4038,11 +4038,45 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                             }
                         }
                     }
-                    
-                    oldCellsToAddedMinusSideCellIndex[i] = addedCellIndex+oldCellsToAddedMinusSideCellIndex.size();
-
+                    if(minusCell.size()!=0)
+                        minusCells.append(minusCell);
+                    if(plusCell.size()!=0)
+                        plusCells.append(plusCell);
+                    if(plusCell.size()==0 && minusCell.size()==0)
+                        FatalErrorInFunction<<"Face does not create at least one cell."<<endl;                                        
                 }
             }
+            for(int j=0;j<meshCells[i].size();j++)
+            {
+                if(pointsTreated.count(meshCells[i][j])==0)
+                    FatalErrorInFunction<<"Untreated point remains"<<endl;
+            }
+            for(int j=0;j<thisCellEdges.size();j++)
+            {
+                if(edgesTreated.count(thisCellEdges[j])==0)
+                    FatalErrorInFunction<<"Untreated edge remains"<<endl;
+            }
+            if(minusCells.size()==0 || plusCells.size()==0)
+                FatalErrorInFunction<<"Zero plus or minus cells"<<endl;
+            if(minusCells.size()>1 && plusCells.size()>1)
+                FatalErrorInFunction<<"More than one plus and minus cells"<<endl;
+            if(!(minusCells.size()==1 || plusCells.size()==1))
+                FatalErrorInFunction<<"Not one plus or minus cells"<<endl;
+            if(minusCells.size()==1 && plusCells.size()==1)
+                FatalErrorInFunction<<"One plus and minus cell"<<endl;
+            if(minusCell.size()==1 && plusCell.size()>1)
+            {
+                
+            }
+            else if((minusCell.size()>1 && plusCell.size()==1)
+            {
+                
+            }
+            else
+                FatalErrorInFunction<<"This combination is not possible"<<endl;
+
+                
+            
         }
         if(cellsToSide_[i] == -1)
         {
