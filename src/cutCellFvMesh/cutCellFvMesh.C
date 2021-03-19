@@ -3909,9 +3909,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         deletedCellsList[i] = 0;
         if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
         {
-            oldCellsToAddedMinusSideCellIndex[i] = addedCellIndex+oldCellsToAddedMinusSideCellIndex.size();
-            oldSplittedCellToNewPlusCell[i] = i;
-            oldSplittedCellToNewMinusCell[i]= oldCellsToAddedMinusSideCellIndex[i];
+            oldCellsToAddedMinusSideCellIndex[i].append(addedCellIndex+oldCellsToAddedMinusSideCellIndex.size());
+            oldSplittedCellToNewPlusCell[i].append(i);
+            oldSplittedCellToNewMinusCell[i].append(oldCellsToAddedMinusSideCellIndex[i]);
             //Info<<i<<"->"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
             addedCellIndex++;
         }
@@ -3922,6 +3922,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             DynamicList<DynamicList<label>> minusCells;
             DynamicList<DynamicList<label>> plusCells;
             const labelListList& thisCellEdges = this->cellEdges();
+            const labelListList& thisCellPoints = this->cellPoints();
             oldSplittedCellToNewPlusCell[i] = i;
             for(int j=0;j<cellToFaces_[i].size();j++)
             {
@@ -4046,9 +4047,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         FatalErrorInFunction<<"Face does not create at least one cell."<<endl;                                        
                 }
             }
-            for(int j=0;j<meshCells[i].size();j++)
+            for(int j=0;j<thisCellPoints[i].size();j++)
             {
-                if(pointsTreated.count(meshCells[i][j])==0)
+                if(pointsTreated.count(thisCellPoints[i][j])==0)
                     FatalErrorInFunction<<"Untreated point remains"<<endl;
             }
             for(int j=0;j<thisCellEdges.size();j++)
@@ -4064,19 +4065,27 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 FatalErrorInFunction<<"Not one plus or minus cells"<<endl;
             if(minusCells.size()==1 && plusCells.size()==1)
                 FatalErrorInFunction<<"One plus and minus cell"<<endl;
+            
             if(minusCell.size()==1 && plusCell.size()>1)
             {
-                
+                for(int k=0;k<plusCell.size();k++)
+                {
+                    oldSplittedCellToNewPlusCell[i].append(addedCellIndex+meshCells.size());
+                    addedCellIndex++;                    
+                }
+                oldSplittedCellToNewMinusCell[i].append(i);
             }
             else if((minusCell.size()>1 && plusCell.size()==1)
             {
-                
+                for(int k=0;k<minusCell.size();k++)
+                {
+                    oldSplittedCellToNewMinusCell[i].append(addedCellIndex+meshCells.size());
+                    addedCellIndex++;                    
+                }
+                oldSplittedCellToNewPlusCell[i].append(i);
             }
             else
-                FatalErrorInFunction<<"This combination is not possible"<<endl;
-
-                
-            
+                FatalErrorInFunction<<"This combination is not possible"<<endl;            
         }
         if(cellsToSide_[i] == -1)
         {
