@@ -4074,6 +4074,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     addedCellIndex++;                    
                 }
                 oldSplittedCellToNewMinusCell[i].append(i);
+                deletedCellsList[i] = 1;
             }
             else if((minusCell.size()>1 && plusCell.size()==1)
             {
@@ -4117,50 +4118,43 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     addedCutFaceOwner.setCapacity(cellToFaces_.size());
     for(int i=0;i<cellToFaces_.size();i++)
     {
-        if(cellToFaces_[i].size() == 1 && cellToFaces_[i][0] >= nbrOfPrevFaces)
+        for(int j=0;j<cellToFaces_[i].size();j++)
         {
-            face addedFace = newMeshFaces_[cellToFaces_[i][0]];
-            
-            labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
-            cell thisCell = meshCells[i];
-            vector thisNormal = addedFace.normal(newMeshPoints_);
-            //Info<<"This Normal: "<<thisNormal<<endl;
-            point thisCentre = addedFace.centre(newMeshPoints_);
-            //Info<<"This Centre: "<<thisCentre<<endl;
-            
-            label testInd = -1;
-            for(int i=0;i<thisCellPointLabels.size();i++)
+            if(cellToFaces_[i][j] >= nbrOfPrevFaces)
             {
-                if(pointsToSide_[thisCellPointLabels[i]] == -1)
+                face addedFace = newMeshFaces_[cellToFaces_[i][j]];
+            
+                labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
+                cell thisCell = meshCells[i];
+                vector thisNormal = addedFace.normal(newMeshPoints_);
+                //Info<<"This Normal: "<<thisNormal<<endl;
+                point thisCentre = addedFace.centre(newMeshPoints_);
+                //Info<<"This Centre: "<<thisCentre<<endl;
+            
+                label testInd = -1;
+                for(int i=0;i<thisCellPointLabels.size();i++)
                 {
-                    testInd = thisCellPointLabels[i];
-                    break;
+                    if(pointsToSide_[thisCellPointLabels[i]] == -1)
+                    {
+                        testInd = thisCellPointLabels[i];
+                        break;
+                    }
                 }
+                //Info<<"test Point:"<<newMeshPoints_[testInd]<<endl;
+                vector centreToPointInd = newMeshPoints_[testInd] - thisCentre;
+                //centreToPointInd -= thisCentre;
+                //Info<<"centreToPointInd: "<<centreToPointInd<<endl;
+                scalar dir = centreToPointInd && thisNormal;
+                //Info<<"dir: "<<dir<<endl;
+                if(dir < 0)
+                    addedFace = addedFace.reverseFace();
+            
+                //Info<<centreToPointInd<<endl;
+            
+                addedCutFaces.append(addedFace);
+                addedCutFaceNeighbor.append(-1);
+                addedCutFaceOwner.append(i);
             }
-            //Info<<"test Point:"<<newMeshPoints_[testInd]<<endl;
-            vector centreToPointInd = newMeshPoints_[testInd] - thisCentre;
-            //centreToPointInd -= thisCentre;
-            //Info<<"centreToPointInd: "<<centreToPointInd<<endl;
-            scalar dir = centreToPointInd && thisNormal;
-            //Info<<"dir: "<<dir<<endl;
-            if(dir < 0)
-                addedFace = addedFace.reverseFace();
-            
-            //Info<<centreToPointInd<<endl;
-            
-            addedCutFaces.append(addedFace);
-            addedCutFaceNeighbor.append(-1);
-            addedCutFaceOwner.append(i);
-
-            /*
-            Info<<"+New: ";
-            pointField facePoints = addedFace.points(combinedPoints);
-            for(int j=0;j<facePoints.size();j++)
-                Info<<facePoints[j]<<"->";
-            Info<<"owner:"<<i;
-            Info<<" neighbour:"<<oldCellsToAddedMinusSideCellIndex[i]<<endl;
-            */
-            
         }
     }
 
