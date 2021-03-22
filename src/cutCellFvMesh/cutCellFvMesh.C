@@ -4214,7 +4214,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             face face1      = cutFaces_[oldFacesToCutFaces_[i][j]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][j]];
             
-            if(signFace1>0)
+            if(signFace1>=0)
             {
                 splitAndUnsplitFacesInterior.append(face1);
                 label oldOwnerCell = owner[i];
@@ -4311,38 +4311,24 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         }
                     }
                 }
-                if(newNeighborCell==-1)
-                    FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
-                                
-                splitAndUnsplitFaceInteriorNeighbor.append(newNeighborCell);
-                splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
-                    if(newOwnerCell!=owner[i] || newNeighborCell!=neighbour[i])
-                        FatalErrorInFunction<< "Mismatch in neighbour and owner indexes." << exit(FatalError);
-                }
-                else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
+                if((newNeighborCell==-1 && signFace1 != 0)||(signFace11==0 && newNeighborCell!=-1))
                 {
-                    addedCutFaces.append(addedFace);
-                    addedCutFaceNeighbor.append(-1);
-                    addedCutFaceOwner.append(i);
+                    FatalErrorInFunction<< "Zero face must have no neighbor" << exit(FatalError);
                 }
-                else if(oldSplittedCellToNewPlusCell[i].size()>1 && oldSplittedCellToNewMinusCell[i].size()==1)
-                {
-                    addedCutFaces.append(addedFace);
-                    addedCutFaceNeighbor.append(-1);
-                    addedCutFaceOwner.append(oldSplittedCellToNewPlusCell[i][j]);
-                }
+                if(signFace1==0)
+                    splitAndUnsplitFaceInteriorNeighbor.append(-1);
                 else
-                    FatalErrorInFunction<<"This combination is not possible"<<endl;
+                    splitAndUnsplitFaceInteriorNeighbor.append(newNeighborCell);
 
-                splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
-                splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
+
                 addedOneFace = true;
-            
                 addedSplitCellsInteriorNbr++;
             }
         }
         if(oldFacesToCutFaces_[i].size()==0)
         {
+        }
         
         addedOneFace = false;
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
