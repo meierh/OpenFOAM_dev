@@ -2295,7 +2295,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
         
         if(zeroEdgesOfThisFace.size()>4)
         {
-            FatalErrorInFunction<< "Face has four zero edges but not all are old ones! "<< exit(FatalError);
+            FatalErrorInFunction<< "Face has more than four zero edges! That can not happen"<< exit(FatalError);
         }
         else if(zeroEdgesOfThisFace.size()==4)
         {
@@ -3903,6 +3903,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     List<DynamicList<label>> oldCellsToAddedMinusSideCellIndex(meshCells.size());
     deletedCellsList = labelList(meshCells.size());
     label addedCellIndex = 0;
+    DynamicList<DynamicList<DynamicList<label>>> cellToNewMinusCellPointLabels(meshCells.size());
+    DynamicList<DynamicList<DynamicList<label>>> cellToNewPlusCellPointLabels(meshCells.size());
+    DynamicList<DynamicList<label>> cellToNewMinusCellIndexes(meshCells.size());
+    DynamicList<DynamicList<label>> cellToNewPlusCellIndexes(meshCells.size());
     //label deletedCellNumber = 0;
     for(int i=0;i<meshCells.size();i++)
     {
@@ -4066,24 +4070,39 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             if(minusCells.size()==1 && plusCells.size()==1)
                 FatalErrorInFunction<<"One plus and minus cell"<<endl;
             
-            if(minusCell.size()==1 && plusCell.size()>1)
+            cellToNewMinusCellPointLabels[i] = minusCells;
+            cellToNewPlusCellPointLabels[i] = plusCells;
+            
+            if(minusCells.size()==1 && plusCells.size()>1)
             {
-                for(int k=0;k<plusCell.size();k++)
+                for(int k=0;k<plusCells.size();k++)
                 {
                     oldSplittedCellToNewPlusCell[i].append(addedCellIndex+meshCells.size());
+                    cellToNewPlusCellIndexes[i].append(addedCellIndex+meshCells.size());
                     addedCellIndex++;                    
                 }
                 oldSplittedCellToNewMinusCell[i].append(i);
+                cellToNewMinusCellIndexes[i].append(i);
                 deletedCellsList[i] = 1;
             }
-            else if((minusCell.size()>1 && plusCell.size()==1)
+            else if((minusCells.size()>1 && plusCells.size()==1)
             {
-                for(int k=0;k<minusCell.size();k++)
+                for(int k=0;k<minusCells.size();k++)
                 {
                     oldSplittedCellToNewMinusCell[i].append(addedCellIndex+meshCells.size());
+                    cellToNewMinusCellIndexes[i].append(addedCellIndex+meshCells.size());
                     addedCellIndex++;                    
                 }
                 oldSplittedCellToNewPlusCell[i].append(i);
+                cellToNewPlusCellIndexes[i].append(i);
+            }
+            else if((minusCells.size()==1 && plusCells.size()==1)
+            {
+                oldSplittedCellToNewMinusCell[i].append(addedCellIndex+meshCells.size());
+                cellToNewMinusCellIndexes[i].append(addedCellIndex+meshCells.size());
+                addedCellIndex++;
+                oldSplittedCellToNewPlusCell[i].append(i);
+                cellToNewPlusCellIndexes[i].append(i);
             }
             else
                 FatalErrorInFunction<<"This combination is not possible"<<endl;            
@@ -4150,10 +4169,26 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     addedFace = addedFace.reverseFace();
             
                 //Info<<centreToPointInd<<endl;
-            
-                addedCutFaces.append(addedFace);
-                addedCutFaceNeighbor.append(-1);
-                addedCutFaceOwner.append(i);
+                if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()==1)
+                {
+                    addedCutFaces.append(addedFace);
+                    addedCutFaceNeighbor.append(-1);
+                    addedCutFaceOwner.append(i);
+                }
+                else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
+                {
+                    addedCutFaces.append(addedFace);
+                    addedCutFaceNeighbor.append(-1);
+                    addedCutFaceOwner.append(i);
+                }
+                else if(oldSplittedCellToNewPlusCell[i].size()>1 && oldSplittedCellToNewMinusCell[i].size()==1)
+                {
+                    addedCutFaces.append(addedFace);
+                    addedCutFaceNeighbor.append(-1);
+                    addedCutFaceOwner.append(oldSplittedCellToNewPlusCell[i][j]);
+                }
+                else
+                    FatalErrorInFunction<<"This combination is not possible"<<endl;
             }
         }
     }
@@ -4168,7 +4203,59 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     bool addedOneFace;
     for(int i=0;i<neighbour.size();i++)
     {
+        for(oldFacesToCutFaces_[i].size()==1 || oldFacesToCutFaces_[i].size()>4)
+        {
+            FatalErrorInFunction<< "Face cut in one or more than four cut faces."<< exit(FatalError);
+        }
         //Info<<"Face "<<i<<" size: "<<faceToEdges_[i].size()<<" on side: "<<facesToSide_[i]<<endl;
+
+        for(int j=0;j<oldFacesToCutFaces_[i].size();j++)
+        {
+            face face1      = cutFaces_[oldFacesToCutFaces_[i][j]];
+            label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][j]];
+            
+            if(signFace1>0)
+            {
+                splitAndUnsplitFacesInterior.append(face1);
+                label oldOwnerCell = owner[i];
+                label oldNeighbourCell = neighbour[i];
+                
+                if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()==1)
+                {
+                    cellToNewMinusCellPointLabels(meshCells.size());
+                    cellToNewPlusCellPointLabels(meshCells.size());
+                    cellToNewMinusCellIndexes(meshCells.size());
+                    cellToNewPlusCellIndexes(meshCells.size());
+                    //Continue here
+                    
+                    
+                    splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
+                    splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                }
+                else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
+                {
+                    addedCutFaces.append(addedFace);
+                    addedCutFaceNeighbor.append(-1);
+                    addedCutFaceOwner.append(i);
+                }
+                else if(oldSplittedCellToNewPlusCell[i].size()>1 && oldSplittedCellToNewMinusCell[i].size()==1)
+                {
+                    addedCutFaces.append(addedFace);
+                    addedCutFaceNeighbor.append(-1);
+                    addedCutFaceOwner.append(oldSplittedCellToNewPlusCell[i][j]);
+                }
+                else
+                    FatalErrorInFunction<<"This combination is not possible"<<endl;
+
+                splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
+                splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                addedOneFace = true;
+            
+                addedSplitCellsInteriorNbr++;
+            }
+        }
+        if(oldFacesToCutFaces_[i].size()==0)
+        {
         
         addedOneFace = false;
         if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
