@@ -3903,10 +3903,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     List<DynamicList<label>> oldCellsToAddedMinusSideCellIndex(meshCells.size());
     deletedCellsList = labelList(meshCells.size());
     label addedCellIndex = 0;
-    DynamicList<DynamicList<DynamicList<label>>> cellToNewMinusCellPointLabels(meshCells.size());
-    DynamicList<DynamicList<DynamicList<label>>> cellToNewPlusCellPointLabels(meshCells.size());
-    DynamicList<DynamicList<label>> cellToNewMinusCellIndexes(meshCells.size());
-    DynamicList<DynamicList<label>> cellToNewPlusCellIndexes(meshCells.size());
+    DynamicList<DynamicList<DynamicList<label>>> cellToNewMinusCellsPointLabels(meshCells.size());
+    DynamicList<DynamicList<DynamicList<label>>> cellToNewPlusCellsPointLabels(meshCells.size());
+    DynamicList<DynamicList<label>> cellToNewMinusCellsIndexes(meshCells.size());
+    DynamicList<DynamicList<label>> cellToNewPlusCellsIndexes(meshCells.size());
     //label deletedCellNumber = 0;
     for(int i=0;i<meshCells.size();i++)
     {
@@ -4070,19 +4070,19 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             if(minusCells.size()==1 && plusCells.size()==1)
                 FatalErrorInFunction<<"One plus and minus cell"<<endl;
             
-            cellToNewMinusCellPointLabels[i] = minusCells;
-            cellToNewPlusCellPointLabels[i] = plusCells;
+            cellToNewMinusCellsPointLabels[i] = minusCells;
+            cellToNewPlusCellsPointLabels[i] = plusCells;
             
             if(minusCells.size()==1 && plusCells.size()>1)
             {
                 for(int k=0;k<plusCells.size();k++)
                 {
                     oldSplittedCellToNewPlusCell[i].append(addedCellIndex+meshCells.size());
-                    cellToNewPlusCellIndexes[i].append(addedCellIndex+meshCells.size());
+                    cellToNewPlusCellsIndexes[i].append(addedCellIndex+meshCells.size());
                     addedCellIndex++;                    
                 }
-                oldSplittedCellToNewMinusCell[i].append(i);
-                cellToNewMinusCellIndexes[i].append(i);
+                oldSplittedCellsToNewMinusCell[i].append(i);
+                cellToNewMinusCellsIndexes[i].append(i);
                 deletedCellsList[i] = 1;
             }
             else if((minusCells.size()>1 && plusCells.size()==1)
@@ -4090,19 +4090,19 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 for(int k=0;k<minusCells.size();k++)
                 {
                     oldSplittedCellToNewMinusCell[i].append(addedCellIndex+meshCells.size());
-                    cellToNewMinusCellIndexes[i].append(addedCellIndex+meshCells.size());
+                    cellToNewMinusCellsIndexes[i].append(addedCellIndex+meshCells.size());
                     addedCellIndex++;                    
                 }
                 oldSplittedCellToNewPlusCell[i].append(i);
-                cellToNewPlusCellIndexes[i].append(i);
+                cellToNewPlusCellsIndexes[i].append(i);
             }
             else if((minusCells.size()==1 && plusCells.size()==1)
             {
                 oldSplittedCellToNewMinusCell[i].append(addedCellIndex+meshCells.size());
-                cellToNewMinusCellIndexes[i].append(addedCellIndex+meshCells.size());
+                cellToNewMinusCellsIndexes[i].append(addedCellIndex+meshCells.size());
                 addedCellIndex++;
                 oldSplittedCellToNewPlusCell[i].append(i);
-                cellToNewPlusCellIndexes[i].append(i);
+                cellToNewPlusCellsIndexes[i].append(i);
             }
             else
                 FatalErrorInFunction<<"This combination is not possible"<<endl;            
@@ -4220,17 +4220,23 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 label oldOwnerCell = owner[i];
                 label oldNeighbourCell = neighbour[i];
                 
+                DynamicList<DynamicList<label>> ownerNewMinusCellsPointLabels = cellToNewMinusCellsPointLabels[oldOwnerCell];
+                DynamicList<DynamicList<label>> ownerNewPlusCellsPointLabels = cellToNewPlusCellsPointLabels[oldOwnerCell];
+                DynamicList<DynamicList<label>> neighbourNewMinusCellsPointLabels = cellToNewMinusCellsPointLabels[oldNeighbourCell];
+                DynamicList<DynamicList<label>> neighbourNewPlusCellsPointLabels = cellToNewPlusCellsPointLabels[oldNeighbourCell];
+                   
+                DynamicList<label> ownerNewMinusCellsIndex = cellToNewMinusCellsIndexes[oldOwnerCell];
+                DynamicList<label> ownerNewPlusCellsIndex = cellToNewPlusCellsIndexes[oldOwnerCell];
+                DynamicList<label> neighbourNewMinusCellsIndex = cellToNewMinusCellsIndexes[oldNeighbourCell];
+                DynamicList<label> neighbourNewPlusCellsIndex = cellToNewPlusCellsIndexes[oldNeighbourCell];
+                
+                DynamicList<std::unordered_set<label>>
+                
                 if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()==1)
-                {
-                    cellToNewMinusCellPointLabels(meshCells.size());
-                    cellToNewPlusCellPointLabels(meshCells.size());
-                    cellToNewMinusCellIndexes(meshCells.size());
-                    cellToNewPlusCellIndexes(meshCells.size());
-                    //Continue here
-                    
-                    
+                {                    
                     splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
                     splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                    if(
                 }
                 else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
                 {
