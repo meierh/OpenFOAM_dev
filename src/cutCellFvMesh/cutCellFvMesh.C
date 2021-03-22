@@ -4230,13 +4230,94 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 DynamicList<label> neighbourNewMinusCellsIndex = cellToNewMinusCellsIndexes[oldNeighbourCell];
                 DynamicList<label> neighbourNewPlusCellsIndex = cellToNewPlusCellsIndexes[oldNeighbourCell];
                 
-                DynamicList<std::unordered_set<label>>
+                DynamicList<std::unordered_set<label>> ownerNewMinusCellsPointLabelsMap(ownerNewMinusCellsPointLabels.size());
+                for(int k=0;k<ownerNewMinusCellsPointLabels.size();k++)
+                    for(int l=0;l<ownerNewMinusCellsPointLabels[k].size();l++)
+                        ownerNewMinusCellsPointLabelsMap[k].insert(ownerNewMinusCellsPointLabels[k][l]);
+                    
+                DynamicList<std::unordered_set<label>> ownerNewPlusCellsPointLabelsMap(ownerNewPlusCellsPointLabels.size());
+                for(int k=0;k<ownerNewPlusCellsPointLabels.size();k++)
+                    for(int l=0;l<ownerNewPlusCellsPointLabels[k].size();l++)
+                        ownerNewPlusCellsPointLabelsMap[k].insert(ownerNewPlusCellsPointLabels[k][l]);
+
+                DynamicList<std::unordered_set<label>> neighbourNewMinusCellsPointLabelsMap(neighbourNewMinusCellsPointLabels.size());
+                for(int k=0;k<neighbourNewMinusCellsPointLabels.size();k++)
+                    for(int l=0;l<neighbourNewMinusCellsPointLabels[k].size();l++)
+                        neighbourNewMinusCellsPointLabelsMap[k].insert(neighbourNewMinusCellsPointLabels[k][l]);
+                    
+                DynamicList<std::unordered_set<label>> neighbourNewPlusCellsPointLabelsMap(neighbourNewPlusCellsPointLabels.size());
+                for(int k=0;k<neighbourNewPlusCellsPointLabels.size();k++)
+                    for(int l=0;l<neighbourNewPlusCellsPointLabels[k].size();l++)
+                        neighbourNewPlusCellsPointLabelsMap[k].insert(neighbourNewPlusCellsPointLabels[k][l]);
+                    
+                label newOwnerCell = -1;
+                for(int k=0;k<ownerNewMinusCellsPointLabelsMap.size();k++)
+                {
+                    bool thisFaceNeighbors = false;
+                    for(int l=0;l<face1.size();l++)
+                    {
+                        if(ownerNewMinusCellsPointLabelsMap[k].count(face1[l]))
+                        {
+                            if(newOwnerCell!=-1 && !thisFaceNeighbors)
+                                FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
+                            newOwnerCell = ownerNewMinusCellsIndex[k];
+                            thisFaceNeighbors = true;
+                        }
+                    }
+                }
+                for(int k=0;k<ownerNewPlusCellsPointLabelsMap.size();k++)
+                {
+                    bool thisFaceNeighbors = false;
+                    for(int l=0;l<face1.size();l++)
+                    {
+                        if(ownerNewPlusCellsPointLabelsMap[k].count(face1[l]))
+                        {
+                            if(newOwnerCell!=-1 && !thisFaceNeighbors)
+                                FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
+                            newOwnerCell = ownerNewPlusCellsIndex[k];
+                            thisFaceNeighbors = true;
+                        }
+                    }
+                }
+                if(newOwnerCell==-1)
+                    FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
                 
-                if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()==1)
-                {                    
-                    splitAndUnsplitFaceInteriorNeighbor.append(neighbour[i]);
-                    splitAndUnsplitFaceInteriorOwner.append(owner[i]);
-                    if(
+                label newNeighborCell = -1;
+                for(int k=0;k<neighbourNewMinusCellsPointLabelsMap.size();k++)
+                {
+                    bool thisFaceNeighbors = false;
+                    for(int l=0;l<face1.size();l++)
+                    {
+                        if(neighbourNewMinusCellsPointLabelsMap[k].count(face1[l]))
+                        {
+                            if(newNeighborCell!=-1 && !thisFaceNeighbors)
+                                FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
+                            newNeighborCell = neighbourNewMinusCellsIndex[k];
+                            thisFaceNeighbors = true;
+                        }
+                    }
+                }
+                for(int k=0;k<neighbourNewPlusCellsPointLabelsMap.size();k++)
+                {
+                    bool thisFaceNeighbors = false;
+                    for(int l=0;l<face1.size();l++)
+                    {
+                        if(neighbourNewPlusCellsPointLabelsMap[k].count(face1[l]))
+                        {
+                            if(newNeighborCell!=-1 && !thisFaceNeighbors)
+                                FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
+                            newNeighborCell = neighbourNewMinusCellsIndex[k];
+                            thisFaceNeighbors = true;
+                        }
+                    }
+                }
+                if(newNeighborCell==-1)
+                    FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
+                                
+                splitAndUnsplitFaceInteriorNeighbor.append(newNeighborCell);
+                splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
+                    if(newOwnerCell!=owner[i] || newNeighborCell!=neighbour[i])
+                        FatalErrorInFunction<< "Mismatch in neighbour and owner indexes." << exit(FatalError);
                 }
                 else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
                 {
