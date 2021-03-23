@@ -4310,6 +4310,15 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 addedSplitCellsInteriorNbr++;
                 //Info<<"Inserted Split face"<<endl;
             }
+            else if(facesToSide_[i] == 0)
+            {
+                splitAndUnsplitFacesInterior.append(meshFaces[i]);
+                splitAndUnsplitFaceInteriorNeighbor.append(-1);
+                splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                addedOneFace = true;
+                
+                addedSplitCellsInteriorNbr++;
+            }
             // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
             {
@@ -4342,51 +4351,78 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     splitAndUnsplitFaceBoundaryOwner.setCapacity(meshFaces.size()-neighbour.size());
     for(int i=neighbour.size();i<meshFaces.size();i++)
     {
-        //Info<<"Boundary face "<<i;
-        if(faceToEdges_[i].size() == 1 && faceToEdges_[i][0] >= nbrOfPrevEdges)
+        for(oldFacesToCutFaces_[i].size()==1 || oldFacesToCutFaces_[i].size()>4)
         {
-            face face1      = cutFaces_[oldFacesToCutFaces_[i][0]];
-            label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][0]];
-            face face2      = cutFaces_[oldFacesToCutFaces_[i][1]];
-            //label signFace2 = cutFacesToSide_[oldFacesToCutFaces_[i][1]];
-            
-            face sameCellFace;
-            face addedCellFace;
-            if(signFace1 > 0)
-            {
-                sameCellFace = face1;
-                addedCellFace = face2;
-            }
-            else
-            {
-                sameCellFace = face2;
-                addedCellFace = face1;
-            }
-            splitAndUnsplitFacesBoundary.append(sameCellFace);
-            splitAndUnsplitFaceBoundaryNeighbor.append(-1);
-            splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
-
-            /*
-            Info<<"+New: ";
-            pointField facePoints = sameCellFace.points(combinedPoints);
-            for(int j=0;j<facePoints.size();j++)
-                Info<<facePoints[j]<<"->";
-            Info<<"owner:"<<owner[i];
-            Info<<" neighbour:"<<-1<<endl;
-            */
-            
-            /*
-            Info<<"+New: ";
-            facePoints = addedCellFace.points(combinedPoints);
-            for(int j=0;j<facePoints.size();j++)
-                Info<<facePoints[j]<<"->";
-            Info<<"owner:"<<oldCellsToAddedMinusSideCellIndex[owner[i]];
-            Info<<" neighbour:"<<-1<<endl;
-            */
-            
-            countNewBoundaryFaces++;
+            FatalErrorInFunction<< "Face cut in one or more than four cut faces."<< exit(FatalError);
         }
-        else
+        
+        for(int j=0;j<oldFacesToCutFaces_[i].size();j++)
+        {
+            face face1      = cutFaces_[oldFacesToCutFaces_[i][j]];
+            label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][j]];
+            
+            if(signFace1>=0)
+            {
+                splitAndUnsplitFacesInterior.append(face1);
+                label oldOwnerCell = owner[i];
+                
+                DynamicList<DynamicList<label>> ownerNewMinusCellsPointLabels = cellToNewMinusCellsPointLabels[oldOwnerCell];
+                DynamicList<DynamicList<label>> ownerNewPlusCellsPointLabels = cellToNewPlusCellsPointLabels[oldOwnerCell];
+                   
+                DynamicList<label> ownerNewMinusCellsIndex = cellToNewMinusCellsIndexes[oldOwnerCell];
+                DynamicList<label> ownerNewPlusCellsIndex = cellToNewPlusCellsIndexes[oldOwnerCell];
+                
+                DynamicList<std::unordered_set<label>> ownerNewMinusCellsPointLabelsMap(ownerNewMinusCellsPointLabels.size());
+                for(int k=0;k<ownerNewMinusCellsPointLabels.size();k++)
+                    for(int l=0;l<ownerNewMinusCellsPointLabels[k].size();l++)
+                        ownerNewMinusCellsPointLabelsMap[k].insert(ownerNewMinusCellsPointLabels[k][l]);
+                    
+                DynamicList<std::unordered_set<label>> ownerNewPlusCellsPointLabelsMap(ownerNewPlusCellsPointLabels.size());
+                for(int k=0;k<ownerNewPlusCellsPointLabels.size();k++)
+                    for(int l=0;l<ownerNewPlusCellsPointLabels[k].size();l++)
+                        ownerNewPlusCellsPointLabelsMap[k].insert(ownerNewPlusCellsPointLabels[k][l]);
+                  
+                label newOwnerCell = -1;
+                for(int k=0;k<ownerNewMinusCellsPointLabelsMap.size();k++)
+                {
+                    bool thisFaceNeighbors = false;
+                    for(int l=0;l<face1.size();l++)
+                    {
+                        if(ownerNewMinusCellsPointLabelsMap[k].count(face1[l]))
+                        {
+                            if(newOwnerCell!=-1 && !thisFaceNeighbors)
+                                FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
+                            newOwnerCell = ownerNewMinusCellsIndex[k];
+                            thisFaceNeighbors = true;
+                        }
+                    }
+                }
+                for(int k=0;k<ownerNewPlusCellsPointLabelsMap.size();k++)
+                {
+                    bool thisFaceNeighbors = false;
+                    for(int l=0;l<face1.size();l++)
+                    {
+                        if(ownerNewPlusCellsPointLabelsMap[k].count(face1[l]))
+                        {
+                            if(newOwnerCell!=-1 && !thisFaceNeighbors)
+                                FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
+                            newOwnerCell = ownerNewPlusCellsIndex[k];
+                            thisFaceNeighbors = true;
+                        }
+                    }
+                }
+                if(newOwnerCell==-1)
+                    FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
+                
+                splitAndUnsplitFaceInteriorNeighbor.append(-1);
+                splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
+
+                addedOneFace = true;
+                addedSplitCellsInteriorNbr++;
+            }
+        }
+        //Info<<"Boundary face "<<i;
+        if(oldFacesToCutFaces_[i].size()==0)
         {            
             if(facesToSide_[i] == 1)
             {
@@ -4436,51 +4472,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         patchStarts[i] = patchStarts[i-1] + patchSizes[i-1]; 
     }
     
-
-    /*
-    Info<<"---------------------------------------Faces------------------------------------"<<endl;
-    Info<<"NbrFaces:"<<combinedFaces.size()<<endl;
-    Info<<"NbrOwner:"<<combinedOwner.size()<<endl;
-    Info<<"NbrNeighbor:"<<combinedNeighbor.size()<<endl;
-    for(int k=0;k<combinedFaces.size();k++)
-    {
-        Info<<"Face: -"<<k<<"-";
-        pointField facePoints = combinedFaces[k].points(combinedPoints);
-        for(int j=0;j<facePoints.size();j++)
-            Info<<facePoints[j]<<"->";
-        Info<<"owner:"<<combinedOwner[k];
-        Info<<" neighbour:"<<combinedNeighbor[k];
-        Info<<endl;
-    }
-    */
-    
-    /*
-    word boundName = "Cut Bound";
-    labelList patches(addedCutFaces.size());
-    label nbrFacesBeforeCutFaces =  splitAndUnsplitFacesInterior.size() 
-                                    + splitAndUnsplitFacesBoundary.size();
-    for(int i=0;i<patches.size();i++)
-    {
-        patches[i] = nbrFacesBeforeCutFaces + i;
-    }
-    boundMesh.setGroup(boundName,patches);
-    */
-    
-    /*
-    for(int i=0;i<boundMesh.size();i++)
-    {
-        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-    }
-    */
-    
-    /*
-    labelList posPoints(0);
-    for(int i=0;i<pointsToSide_.size();i++)
-    {
-        if(pointsToSide_[i] >= 0)
-            posPoints.append(
-    }
-    */
     
     //reduce for empty cells
     labelList cellReductionNumb(meshCells.size());
