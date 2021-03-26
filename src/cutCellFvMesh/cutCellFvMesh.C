@@ -4286,14 +4286,18 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     FatalErrorInFunction<< "Zero face must have no neighbor" << exit(FatalError);
                 }
                 if(signFace1==0)
+                {
                     splitAndUnsplitFaceInteriorNeighbor.append(-1);
+                }
                 else
+                {
                     splitAndUnsplitFaceInteriorNeighbor.append(newNeighborCell);
+                    addedSplitCellsInteriorNbr++;
+                }
 
                 splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
 
                 addedOneFace = true;
-                addedSplitCellsInteriorNbr++;
             }
         }
         if(oldFacesToCutFaces_[i].size()==0)
@@ -4317,7 +4321,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 splitAndUnsplitFaceInteriorOwner.append(owner[i]);
                 addedOneFace = true;
                 
-                addedSplitCellsInteriorNbr++;
             }
             // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
@@ -4475,30 +4478,53 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     
     //reduce for empty cells
     labelList cellReductionNumb(meshCells.size());
-    mapOldCellsToNewCells = labelList(meshCells.size());
+    mapOldCellsToNewCells = DynamicList<DynamicList<label>>(meshCells.size());
     label count = 0;
-    label newCells = 0;
     for(int i=0;i<cellReductionNumb.size();i++)
     {
         if(deletedCellsList[i] == 1)
         {
+            if(cellToNewPlusCellsIndexes[i].size()==0)
+            {            
+                mapOldCellsToNewCells[i].setSize(0);
+            }
+            else
+            {
+                if(!(cellToNewPlusCellsIndexes[i].size()>1))
+                    FatalErrorInFunction<<"Face neighbors or ownes deleted cell. This can not happen."<<exit(FatalError);
+                    
+                for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
+                {
+                    mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
+                }
+            }
             count++;
             cellReductionNumb[i] = -1;
-            mapOldCellsToNewCells[i] = -1;
         }
         else
         {
             cellReductionNumb[i] = count;
-            mapOldCellsToNewCells[i] = newCells;
-            newCells++;
+            mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
         }
     }
-    mapNewCellsToOldCells = labelList(meshCells.size()-cellReductionNumb.last());
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
-        if(mapOldCellsToNewCells[i] != -1)
+        if((mapOldCellsToNewCells[i].size()==0 && cellReductionNumb[i]!=-1)||(mapOldCellsToNewCells[i].size()!=0 && cellReductionNumb[i]==-1))
+            FatalErrorInFunction<<"Face neighbors or ownes deleted cell. This can not happen."<<exit(FatalError);
+        for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
         {
-            mapNewCellsToOldCells[mapOldCellsToNewCells[i]] = i;
+            mapOldCellsToNewCells[i][j] -= cellReductionNumb[i];                
+        }
+    }
+    
+    mapNewCellsToOldCells = labelList(meshCells.size()-cellReductionNumb.last(),-1);
+    for(int i=0;i<mapOldCellsToNewCells.size();i++)
+    {
+        for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
+        {
+            if(mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]]!=-1)
+                FatalErrorInFunction<<"Multiple assign to mapNewCellsToOldCells."<<exit(FatalError);
+            mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]] = i;                
         }
     }
     
@@ -4509,7 +4535,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
            cellReductionNumb[addedCutFaceNeighbor[i]] != -1)
         {
             addedCutFaceOwner[i] -= cellReductionNumb[addedCutFaceOwner[i]];
-            addedCutFaceNeighbor[i] -= cellReductionNumb[addedCutFaceNeighbor[i]];
         }
         else
         {
@@ -4524,7 +4549,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
            cellReductionNumb[splitAndUnsplitFaceInteriorNeighbor[i]] != -1)
         {
             splitAndUnsplitFaceInteriorOwner[i] -= cellReductionNumb[splitAndUnsplitFaceInteriorOwner[i]];
-            splitAndUnsplitFaceInteriorNeighbor[i] -= cellReductionNumb[splitAndUnsplitFaceInteriorNeighbor[i]];
+            if(splitAndUnsplitFaceInteriorNeighbor[i]!=-1)
+                splitAndUnsplitFaceInteriorNeighbor[i] -= cellReductionNumb[splitAndUnsplitFaceInteriorNeighbor[i]];
         }
         else
         {
@@ -4533,6 +4559,38 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             << exit(FatalError);
         }
     }
+    
+    DynamicList<face> tempFaceNonNeighb;
+    DynamicList<label> tempOwnerNonNeighb;
+    DynamicList<label> tempNeighbourNonNeighb;
+    DynamicList<face> tempFaceWithNeighb;
+    DynamicList<label> tempOwnerWithNeighb;
+    DynamicList<label> tempNeighbourWithNeighb;
+    for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
+    {
+        if(splitAndUnsplitFaceInteriorNeighbor[i] == -1)
+        {
+            tempFaceNonNeighb.append(splitAndUnsplitFacesInterior[i]);
+            tempOwnerNonNeighb.append(splitAndUnsplitFaceInteriorOwner[i]);
+            tempNeighbourNonNeighb.append(splitAndUnsplitFaceInteriorNeighbor[i]);
+        }
+        else
+        {
+            tempFaceWithNeighb.append(splitAndUnsplitFacesInterior[i]);
+            tempOwnerWithNeighb.append(splitAndUnsplitFaceInteriorOwner[i]);
+            tempNeighbourWithNeighb.append(splitAndUnsplitFaceInteriorNeighbor[i]);
+        }
+    }
+    splitAndUnsplitFacesInterior.setSize(0);
+    splitAndUnsplitFaceInteriorOwner.setSize(0);
+    splitAndUnsplitFaceInteriorNeighbor.setSize(0);
+    splitAndUnsplitFacesInterior.append(tempFaceWithNeighb);
+    splitAndUnsplitFaceInteriorOwner.append(tempOwnerWithNeighb);
+    splitAndUnsplitFaceInteriorNeighbor.append(tempNeighbourWithNeighb);
+    splitAndUnsplitFacesInterior.append(tempFaceNonNeighb);
+    splitAndUnsplitFaceInteriorOwner.append(tempOwnerNonNeighb);
+    splitAndUnsplitFaceInteriorNeighbor.append(tempNeighbourNonNeighb);
+    
     for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++)
     {
         if(cellReductionNumb[splitAndUnsplitFaceBoundaryOwner[i]] != -1)
