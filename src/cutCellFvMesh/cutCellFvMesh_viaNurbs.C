@@ -375,7 +375,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
         if(firstOrderNearNurbs->size() == 0)
         {
-            pointDist[i] = 1;
+            pointDist[i] = 1000;
             //Info<<"\tSkipped because far away: "<<points[i]<<endl;
             continue;
         }

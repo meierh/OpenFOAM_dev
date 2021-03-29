@@ -848,7 +848,7 @@ void Foam::cutCellFvMesh::newMeshEdges
 {
     //Info<<"Starting adding Edges"<<endl;
     const cellList& meshCells = this->cells();
-    //const pointField& basisPoints = this->points();
+    const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
     
@@ -958,38 +958,101 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
             else if(newPointsNum == 4)
             {
-                labelList edg(4);
-                edg[0] = pointToEgde_[thisFacePoints[0]];
-                edg[1] = pointToEgde_[thisFacePoints[1]];
-                edg[2] = pointToEgde_[thisFacePoints[2]];
-                edg[3] = pointToEgde_[thisFacePoints[3]];
+                labelList edgIndx(4);
+                edgIndx[0] = pointToEgde_[thisFacePoints[0]];
+                edgIndx[1] = pointToEgde_[thisFacePoints[1]];
+                edgIndx[2] = pointToEgde_[thisFacePoints[2]];
+                edgIndx[3] = pointToEgde_[thisFacePoints[3]];
+                
+                edgeList edgItem(4);
+                edgItem[0] = newMeshEdges_[edgIndx[0]];
+                edgItem[1] = newMeshEdges_[edgIndx[1]];
+                edgItem[2] = newMeshEdges_[edgIndx[2]];
+                edgItem[3] = newMeshEdges_[edgIndx[3]];
+                
+                labelList facePoints(4,-1);
                 
                 labelList edgeOrder(4,-1);
                 edgeOrder[0] = 0;
-                for(int a_1 = 1;a_1<edgeOrder.size();a_1++)
+                for(int a_1=1;a_1<edgeOrder.size();a_1++)
                 {
-                    if(edgeOrder[a_1-1]<0||edgeOrder[a_1-1]>3)
-                    {
-                        FatalErrorInFunction<< "Invalid edge ordering!"<<exit(FatalError);
-                    }
-                    edge pivEdg = newMeshEdges_[edgeOrder[a_1-1]];
-                    for(int a_2 = 0;a_2<edg.size();a_2++)
+                    edge pivEdg = edgItem[edgeOrder[a_1-1]];
+                    for(int a_2=0;a_2<edgItem.size();a_2++)
                     {
                         if(edgeOrder[0]==a_2||edgeOrder[1]==a_2||edgeOrder[2]==a_2||edgeOrder[3]==a_2)
                             continue;
-                        edge testEdg = newMeshEdges_[edg[a_2]];
-                        label connectPt = pivEdg.commonVertex(testEdg);
+                        label connectPt = pivEdg.commonVertex(edgItem[a_2]);
                         if(connectPt == -1)
                             continue;
+                        facePoints[a_1-1] = connectPt;
                         edgeOrder[a_1] = a_2;
                         break;
                     }
+                    if(facePoints[a_1-1] == -1)
+                        FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 }
+                if(edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]])==-1)
+                    FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
+                
+                point faceCentre = basisFaces[i].centre(basisPoints);
+                scalar centreDist;
+                std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(faceCentre);
+                if(firstOrderNearNurbs.size()==0)
+                    FatalErrorInFunction<<"No near Nurbs Curve found. This can not happen!"<<exit(FatalError);
+                DynamicList<scalar> distToNurbsSurface;
+                DynamicList<scalar> paraToNurbsSurface;
+                bool outSideNurbsBox = false;
+                for(int k=0;k<firstOrderNearNurbs->size();k++)
+                {
+                    label thisNurbs = (*firstOrderNearNurbs)[k];
+                    scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(faceCentre);
+                    //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+                    if(thisNodePara < this->Curves[thisNurbs]->min_U())
+                    {
+                        centreDist = 1;
+                        outSideNurbsBox = true;
+                        continue;
+                    }            
+                    paraToNurbsSurface.append(thisNodePara);
+                    distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,faceCentre));
+                }
+                if(outSideNurbsBox)
+                    FatalErrorInFunction<<"No near Nurbs Curve found. This can not happen!"<<exit(FatalError);
+                scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
+                for(int k=0;k<distToNurbsSurface.size();k++)
+                {
+                    if(distToNurbsSurface[k] < minDistToNurbsSurface)
+                        minDistToNurbsSurface = distToNurbsSurface[k];
+                }        
+                scalar centreDist = minDistToNurbsSurface;
+                label centrePtToSide;
+                if(centreDist > 0)
+                    centrePtToSide = 1;
+                else if(centreDist < 0)
+                    centrePtToSide = -1;
+                else
+                    centrePtToSide = 0;
+                
+                DynamicList<label> facePlusPoints;
+                DynamicList<label> faceMinusPoints;
+                for(int a=0;a<facePoints.size();a++)
+                {
+                    if(pointsToSide_[facePoints[a]]>0)
+                        facePlusPoints.append(facePoints[a]);
+                    else if(pointsToSide_[facePoints[a]]<0)
+                        faceMinusPoints.append(facePoints[a]);
+                    else
+                        FatalErrorInFunction<<"Zero point can not be here!"<<exit(FatalError);
+                }
+                if(facePlusPoints.size()!=2||faceMinusPoints.size()!=2)
+                    FatalErrorInFunction<<"Wrong number of plus and minus face points!"<<exit(FatalError);
+
+
                 label pt0 = thisFacePoints[edgeOrder[0]];
                 label pt1 = thisFacePoints[edgeOrder[1]];
                 label pt2 = thisFacePoints[edgeOrder[2]];
                 label pt3 = thisFacePoints[edgeOrder[3]];
-                
+                                
                 edgeToFaces_.append(DynamicList<label>(0));                
                 newMeshEdges_.append(edge(pt0,pt1));
                 edgesToSide_.append(0);
@@ -1163,6 +1226,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                 edgeToFaces_.append(DynamicList<label>(0));
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
             }
+        }
+        else
+        {
+            if(thisFacePoints[0]>=nbrOfPrevPoints)
+                FatalErrorInFunction
+                << "Face with one but three of them are old ones and one is new! This can not happen "<<exit(FatalError);
         }
     }
     
