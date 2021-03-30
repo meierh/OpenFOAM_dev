@@ -245,6 +245,9 @@ class cutCellFvMesh   :   public fvMesh
         // Adds to points_.
         void newMeshPoints();
         
+        scalar distToNurbs(point pnt,bool& foundFlag);
+        label sideToNurbs(point pnt,bool& foundFlag);
+        
         // Add edges for cutting the cells and create dependency data for creating cut cells
         // Adds to edges_;
         void newMeshEdges();

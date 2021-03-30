@@ -842,6 +842,67 @@ void Foam::cutCellFvMesh::printAddedPoints
     */    
 }
 
+scalar Foam::cutCellFvMesh::distToNurbs
+(
+    point pnt,
+    bool& foundFlag
+)
+{
+    scalar dist;
+    std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
+    if(firstOrderNearNurbs.size()==0)
+    {
+        foundFlag = false;
+        return -1;
+    }
+    DynamicList<scalar> distToNurbsSurface;
+    DynamicList<scalar> paraToNurbsSurface;
+    bool outSideNurbsBox = false;
+    for(int k=0;k<firstOrderNearNurbs->size();k++)
+    {
+        label thisNurbs = (*firstOrderNearNurbs)[k];
+        scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
+        //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+        if(thisNodePara < this->Curves[thisNurbs]->min_U())
+        {
+            dist = 1;
+            outSideNurbsBox = true;
+            continue;
+        }            
+        paraToNurbsSurface.append(thisNodePara);
+        distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
+    }
+    if(outSideNurbsBox)
+    {
+        foundFlag = false;
+        return -1;
+    }
+    scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
+    for(int k=0;k<distToNurbsSurface.size();k++)
+    {
+        if(distToNurbsSurface[k] < minDistToNurbsSurface)
+            minDistToNurbsSurface = distToNurbsSurface[k];
+    }
+    foundFlag = true;
+    dist = minDistToNurbsSurface;
+    return dist;
+}
+
+label Foam::cutCellFvMesh::sideToNurbs(point pnt,bool& foundFlag)
+{
+    scalar dist = distToNurbs(pnt,foundFlag);
+    
+    label side;
+    if(dist > 0)
+        side = 1;
+    else if(dist < 0)
+        side = -1;
+    else
+        side = 0;
+    return side;
+}
+
+
 void Foam::cutCellFvMesh::newMeshEdges
 (
 )
@@ -991,61 +1052,45 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(facePoints[a_1-1] == -1)
                         FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 }
-                if(edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]])==-1)
+                if(edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]])!=)
                     FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 
                 point faceCentre = basisFaces[i].centre(basisPoints);
-                scalar centreDist;
-                std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(faceCentre);
-                if(firstOrderNearNurbs.size()==0)
-                    FatalErrorInFunction<<"No near Nurbs Curve found. This can not happen!"<<exit(FatalError);
-                DynamicList<scalar> distToNurbsSurface;
-                DynamicList<scalar> paraToNurbsSurface;
-                bool outSideNurbsBox = false;
-                for(int k=0;k<firstOrderNearNurbs->size();k++)
-                {
-                    label thisNurbs = (*firstOrderNearNurbs)[k];
-                    scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(faceCentre);
-                    //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
-                    if(thisNodePara < this->Curves[thisNurbs]->min_U())
-                    {
-                        centreDist = 1;
-                        outSideNurbsBox = true;
-                        continue;
-                    }            
-                    paraToNurbsSurface.append(thisNodePara);
-                    distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,faceCentre));
-                }
-                if(outSideNurbsBox)
-                    FatalErrorInFunction<<"No near Nurbs Curve found. This can not happen!"<<exit(FatalError);
-                scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
-                for(int k=0;k<distToNurbsSurface.size();k++)
-                {
-                    if(distToNurbsSurface[k] < minDistToNurbsSurface)
-                        minDistToNurbsSurface = distToNurbsSurface[k];
-                }        
-                scalar centreDist = minDistToNurbsSurface;
-                label centrePtToSide;
-                if(centreDist > 0)
-                    centrePtToSide = 1;
-                else if(centreDist < 0)
-                    centrePtToSide = -1;
-                else
-                    centrePtToSide = 0;
+                bool foundFlag;
+                label centrePtToSide = sideToNurbs(faceCentre,foundFlag);
+                if(!foundFlag)
+                    FatalErrorInFunction<<"No Nurbs near point!"<<exit(FatalError);
                 
                 DynamicList<label> facePlusPoints;
                 DynamicList<label> faceMinusPoints;
                 for(int a=0;a<facePoints.size();a++)
                 {
                     if(pointsToSide_[facePoints[a]]>0)
-                        facePlusPoints.append(facePoints[a]);
+                        facePlusPoints.append(a);
                     else if(pointsToSide_[facePoints[a]]<0)
-                        faceMinusPoints.append(facePoints[a]);
+                        faceMinusPoints.append(a);
                     else
                         FatalErrorInFunction<<"Zero point can not be here!"<<exit(FatalError);
                 }
                 if(facePlusPoints.size()!=2||faceMinusPoints.size()!=2)
                     FatalErrorInFunction<<"Wrong number of plus and minus face points!"<<exit(FatalError);
+                if((facePlusPoints[0]+1)%4!=facePlusPoints[1] || (facePlusPoints[1]+1)%4!=facePlusPoints[0])
+                    FatalErrorInFunction<<"Plus point assignment must be wrong!"<<exit(FatalError);
+                if((faceMinusPoints[0]+1)%4!=faceMinusPoints[1] || (faceMinusPoints[1]+1)%4!=faceMinusPoints[0])
+                    FatalErrorInFunction<<"Plus point assignment must be wrong!"<<exit(FatalError);
+
+                if(centrePtToSide>0)
+                {
+                    for(int b=0;b<faceMinusPoints.size();b++)
+                    {
+                        
+                    }
+                }
+                else if(centrePtToSide<0)
+                {
+                }
+                else
+                    FatalErrorInFunction<<"Zero side Wrong number of plus and minus face points!"<<exit(FatalError);
 
 
                 label pt0 = thisFacePoints[edgeOrder[0]];
