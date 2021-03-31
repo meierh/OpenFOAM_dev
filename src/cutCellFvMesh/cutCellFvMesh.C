@@ -1093,10 +1093,45 @@ void Foam::cutCellFvMesh::newMeshEdges
                     FatalErrorInFunction<<"Zero side Wrong number of plus and minus face points!"<<exit(FatalError);
 
 
-                label pt0 = thisFacePoints[edgeOrder[0]];
-                label pt1 = thisFacePoints[edgeOrder[1]];
-                label pt2 = thisFacePoints[edgeOrder[2]];
-                label pt3 = thisFacePoints[edgeOrder[3]];
+                labelList pt(4);
+                pt[0] = thisFacePoints[edgeOrder[0]];
+                pt[1] = thisFacePoints[edgeOrder[1]];
+                pt[2] = thisFacePoints[edgeOrder[2]];
+                pt[3] = thisFacePoints[edgeOrder[3]];
+                
+                pointField pnt(4);
+                pnt[0] = newMeshPoints_[pt0];
+                pnt[1] = newMeshPoints_[pt1];
+                pnt[2] = newMeshPoints_[pt2];
+                pnt[3] = newMeshPoints_[pt3];
+
+                pointField pnt_(4);
+                point pnt_[0] = 0.5*(pnt0+pnt1);
+                point pnt_[1] = 0.5*(pnt1+pnt2);
+                point pnt_[2] = 0.5*(pnt2+pnt3);
+                point pnt_[3] = 0.5*(pnt3+pnt0);
+                
+                scalarList distPnt(4);
+                for(int a=0;a<4;a++)
+                {
+                    bool foundFlag;
+                    distPnt[a] = sideToNurbs(pnt_[a],foundFlag);
+                    if(!foundFlag)
+                        FatalErrorInFunction<<"No Nurbs near point!"<<exit(FatalError);
+                }
+                label maxAbsDistInd = -1;
+                scalar maxAbsDist = -1;
+                for(int a=0;a<4;a++)
+                {
+                    if(maxAbsDist<abs(distPnt[a]))
+                    {
+                        maxAbsDist = abs(distPnt[a]);
+                        maxAbsDistInd = a;
+                    }
+                }
+
+                
+                
                                 
                 edgeToFaces_.append(DynamicList<label>(0));                
                 newMeshEdges_.append(edge(pt0,pt1));
