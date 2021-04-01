@@ -1119,8 +1119,31 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(!foundFlag)
                         FatalErrorInFunction<<"No Nurbs near point!"<<exit(FatalError);
                 }
+                
+                scalar edgPnt_0_2 = distPnt[0]*distPnt[2];
+                scalar edgPnt_1_3 = distPnt[1]*distPnt[3];
+                
+                edgeList edgesToAdd(2);
+
+                if(edgPnt_0_2>0 && edgPnt_1_3=<0)
+                {
+                    edgesToAdd[0] = edge(pt[0],pt[1]);
+                    edgesToAdd[1] = edge(pt[2],pt[3]);
+                }
+                else if(edgPnt_0_2=<0 && edgPnt_1_3>0)
+                {
+                    edgesToAdd[0] = edge(pt[1],pt[2]);
+                    edgesToAdd[1] = edge(pt[3],pt[0]);
+                }
+                else if(edgPnt_0_2<0 && edgPnt_1_3<0)
+                    FatalErrorInFunction<<"No Nurbs near point!"<<exit(FatalError);
+                else if(edgPnt_0_2>0 && edgPnt_1_3>0)
+
+                    
+                
                 label maxAbsDistInd = -1;
                 scalar maxAbsDist = -1;
+                
                 for(int a=0;a<4;a++)
                 {
                     if(maxAbsDist<abs(distPnt[a]))
