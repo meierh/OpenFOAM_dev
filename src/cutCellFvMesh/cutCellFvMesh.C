@@ -1141,6 +1141,40 @@ void Foam::cutCellFvMesh::newMeshEdges
                     FatalErrorInFunction<<"Both twin midpoints are near a cut. This can not happen!"<<exit(FatalError);
                 else if(edgPnt_0_2>0 && edgPnt_1_3>0)
                 {
+                    if((pointsToSide_[facePoints[0]]*distPnt[0] <=0) &&
+                       (pointsToSide_[facePoints[1]]*distPnt[1] <=0) &&
+                       (pointsToSide_[facePoints[2]]*distPnt[2] <=0) &&
+                       (pointsToSide_[facePoints[3]]*distPnt[3] <=0))
+                    {
+                        //Fehler kann nicht sein
+                    }
+                    else 
+                    if((pointsToSide_[facePoints[0]]*distPnt[0] > 0) &&
+                       (pointsToSide_[facePoints[1]]*distPnt[1] <=0) &&
+                       (pointsToSide_[facePoints[2]]*distPnt[2] > 0) &&
+                       (pointsToSide_[facePoints[3]]*distPnt[3] <=0))
+                    {
+                        //One side
+                    }
+                    else
+                    if((pointsToSide_[facePoints[0]]*distPnt[0] <=0) &&
+                       (pointsToSide_[facePoints[1]]*distPnt[1] > 0) &&
+                       (pointsToSide_[facePoints[2]]*distPnt[2] <=0) &&
+                       (pointsToSide_[facePoints[3]]*distPnt[3] > 0))
+                    {
+                        //One side
+                    }
+                    else
+                    if((pointsToSide_[facePoints[0]]*distPnt[0] > 0) &&
+                       (pointsToSide_[facePoints[1]]*distPnt[1] > 0) &&
+                       (pointsToSide_[facePoints[2]]*distPnt[2] > 0) &&
+                       (pointsToSide_[facePoints[3]]*distPnt[3] > 0))
+                    {
+                        //Unclear sides... Cut edges bend inward
+                    }
+                    else
+                        //Can not happen because treated above
+                    
                     
                     label maxAbsDistInd = -1;
                     scalar maxAbsDist  = -1;
