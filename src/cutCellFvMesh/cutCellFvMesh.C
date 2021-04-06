@@ -1100,16 +1100,16 @@ void Foam::cutCellFvMesh::newMeshEdges
                 pt[3] = thisFacePoints[edgeOrder[3]];
                 
                 pointField pnt(4);
-                pnt[0] = newMeshPoints_[pt0];
-                pnt[1] = newMeshPoints_[pt1];
-                pnt[2] = newMeshPoints_[pt2];
-                pnt[3] = newMeshPoints_[pt3];
+                pnt[0] = newMeshPoints_[pt[0]];
+                pnt[1] = newMeshPoints_[pt[1]];
+                pnt[2] = newMeshPoints_[pt[2]];
+                pnt[3] = newMeshPoints_[pt[3]];
 
                 pointField pnt_(4);
-                point pnt_[0] = 0.5*(pnt0+pnt1);
-                point pnt_[1] = 0.5*(pnt1+pnt2);
-                point pnt_[2] = 0.5*(pnt2+pnt3);
-                point pnt_[3] = 0.5*(pnt3+pnt0);
+                point pnt_[0] = 0.5*(pnt[0]+pnt[1]);
+                point pnt_[1] = 0.5*(pnt[1]+pnt[2]);
+                point pnt_[2] = 0.5*(pnt[2]+pnt[3]);
+                point pnt_[3] = 0.5*(pnt[3]+pnt[0]);
                 
                 scalarList distPnt(4);
                 for(int a=0;a<4;a++)
@@ -1126,35 +1126,50 @@ void Foam::cutCellFvMesh::newMeshEdges
                 edgeList edgesToAdd(2);
 
                 if(edgPnt_0_2>0 && edgPnt_1_3=<0)
-                {
-                    edgesToAdd[0] = edge(pt[0],pt[1]);
-                    edgesToAdd[1] = edge(pt[2],pt[3]);
-                }
-                else if(edgPnt_0_2=<0 && edgPnt_1_3>0)
+                //the face cut edges is going through pnt 1-2 and 3-0 because the midpoints 1 and 3 multiplied is <= 0
                 {
                     edgesToAdd[0] = edge(pt[1],pt[2]);
                     edgesToAdd[1] = edge(pt[3],pt[0]);
                 }
-                else if(edgPnt_0_2<0 && edgPnt_1_3<0)
-                    FatalErrorInFunction<<"No Nurbs near point!"<<exit(FatalError);
-                else if(edgPnt_0_2>0 && edgPnt_1_3>0)
-
-                    
-                
-                label maxAbsDistInd = -1;
-                scalar maxAbsDist = -1;
-                
-                for(int a=0;a<4;a++)
+                else if(edgPnt_0_2=<0 && edgPnt_1_3>0)
+                //the face cut edges is going through pnt 0-1 and 2-3 because the midpoints 0 and 2 multiplied is <= 0                
                 {
-                    if(maxAbsDist<abs(distPnt[a]))
+                    edgesToAdd[0] = edge(pt[0],pt[1]);
+                    edgesToAdd[1] = edge(pt[2],pt[3]);
+                }
+                else if(edgPnt_0_2=<0 && edgPnt_1_3=<0)
+                    FatalErrorInFunction<<"Both twin midpoints are near a cut. This can not happen!"<<exit(FatalError);
+                else if(edgPnt_0_2>0 && edgPnt_1_3>0)
+                {
+                    
+                    label maxAbsDistInd = -1;
+                    scalar maxAbsDist  = -1;
+                    label secAbsDistInd = -1;
+                    scalar secAbsDist = -1;
+                    for(int a=0;a<4;a++)
                     {
-                        maxAbsDist = abs(distPnt[a]);
-                        maxAbsDistInd = a;
+                        if(maxAbsDist<abs(distPnt[a]))
+                        {
+                            maxAbsDist = abs(distPnt[a]);
+                            maxAbsDistInd = a;
+                        }
+                    }
+                    for(int a=0;a<4;a++)
+                    {
+                        if(secAbsDist<abs(distPnt[a]) && a!=maxAbsDistInd)
+                        {
+                            secAbsDist = abs(distPnt[a]);
+                            secAbsDistInd = a;
+                        }
+                    }
+                    if((secAbsDistInd+2)%4==maxAbsDistInd)
+                        FatalErrorInFunction<<"Inconclusive Edge Selection options!"<<exit(FatalError);
+                    if(maxAbsDistInd==0)
+                    {
+                        edgesToAdd[0] = edge(pt[1],pt[2]);
+                        edgesToAdd[1] = edge(pt[3],pt[0]);
                     }
                 }
-
-                
-                
                                 
                 edgeToFaces_.append(DynamicList<label>(0));                
                 newMeshEdges_.append(edge(pt0,pt1));
