@@ -850,7 +850,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
 {
     scalar dist;
     std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
-    if(firstOrderNearNurbs.size()==0)
+    if(firstOrderNearNurbs->size()==0)
     {
         foundFlag = false;
         return -1;
@@ -902,6 +902,10 @@ label Foam::cutCellFvMesh::sideToNurbs(point pnt,bool& foundFlag)
     return side;
 }
 
+scalar norm2(vector pnt)
+{
+    return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
+}
 
 void Foam::cutCellFvMesh::newMeshEdges
 (
@@ -1052,7 +1056,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(facePoints[a_1-1] == -1)
                         FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 }
-                if(edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]])!=)
+                if(edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]])==-1)
                     FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 
                 point faceCentre = basisFaces[i].centre(basisPoints);
@@ -1078,21 +1082,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     FatalErrorInFunction<<"Plus point assignment must be wrong!"<<exit(FatalError);
                 if((faceMinusPoints[0]+1)%4!=faceMinusPoints[1] || (faceMinusPoints[1]+1)%4!=faceMinusPoints[0])
                     FatalErrorInFunction<<"Plus point assignment must be wrong!"<<exit(FatalError);
-
-                if(centrePtToSide>0)
-                {
-                    for(int b=0;b<faceMinusPoints.size();b++)
-                    {
-                        
-                    }
-                }
-                else if(centrePtToSide<0)
-                {
-                }
-                else
-                    FatalErrorInFunction<<"Zero side Wrong number of plus and minus face points!"<<exit(FatalError);
-
-
+                
                 labelList pt(4);
                 pt[0] = thisFacePoints[edgeOrder[0]];
                 pt[1] = thisFacePoints[edgeOrder[1]];
@@ -1106,10 +1096,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                 pnt[3] = newMeshPoints_[pt[3]];
 
                 pointField pnt_(4);
-                point pnt_[0] = 0.5*(pnt[0]+pnt[1]);
-                point pnt_[1] = 0.5*(pnt[1]+pnt[2]);
-                point pnt_[2] = 0.5*(pnt[2]+pnt[3]);
-                point pnt_[3] = 0.5*(pnt[3]+pnt[0]);
+                pnt_[0] = 0.5*(pnt[0]+pnt[1]);
+                pnt_[1] = 0.5*(pnt[1]+pnt[2]);
+                pnt_[2] = 0.5*(pnt[2]+pnt[3]);
+                pnt_[3] = 0.5*(pnt[3]+pnt[0]);
                 
                 scalarList distPnt(4);
                 for(int a=0;a<4;a++)
@@ -1125,19 +1115,19 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 edgeList edgesToAdd(2);
 
-                if(edgPnt_0_2>0 && edgPnt_1_3=<0)
+                if(edgPnt_0_2>0 && edgPnt_1_3<=0)
                 //the face cut edges is going through pnt 1-2 and 3-0 because the midpoints 1 and 3 multiplied is <= 0
                 {
                     edgesToAdd[0] = edge(pt[1],pt[2]);
                     edgesToAdd[1] = edge(pt[3],pt[0]);
                 }
-                else if(edgPnt_0_2=<0 && edgPnt_1_3>0)
+                else if(edgPnt_0_2<=0 && edgPnt_1_3>0)
                 //the face cut edges is going through pnt 0-1 and 2-3 because the midpoints 0 and 2 multiplied is <= 0                
                 {
                     edgesToAdd[0] = edge(pt[0],pt[1]);
                     edgesToAdd[1] = edge(pt[2],pt[3]);
                 }
-                else if(edgPnt_0_2=<0 && edgPnt_1_3=<0)
+                else if(edgPnt_0_2<=0 && edgPnt_1_3<=0)
                     FatalErrorInFunction<<"Both twin midpoints are near a cut. This can not happen!"<<exit(FatalError);
                 else if(edgPnt_0_2>0 && edgPnt_1_3>0)
                 {
@@ -1146,7 +1136,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                        (pointsToSide_[facePoints[2]]*distPnt[2] <=0) &&
                        (pointsToSide_[facePoints[3]]*distPnt[3] <=0))
                     {
-                        //Fehler kann nicht sein
+                        FatalErrorInFunction<<"There seem to be four new cut edges in the face. This can not happen!"<<exit(FatalError);
                     }
                     else 
                     if((pointsToSide_[facePoints[0]]*distPnt[0] > 0) &&
@@ -1154,7 +1144,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                        (pointsToSide_[facePoints[2]]*distPnt[2] > 0) &&
                        (pointsToSide_[facePoints[3]]*distPnt[3] <=0))
                     {
-                        //One side
+                        edgesToAdd[0] = edge(pt[1],pt[2]);
+                        edgesToAdd[1] = edge(pt[3],pt[0]);
                     }
                     else
                     if((pointsToSide_[facePoints[0]]*distPnt[0] <=0) &&
@@ -1162,7 +1153,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                        (pointsToSide_[facePoints[2]]*distPnt[2] <=0) &&
                        (pointsToSide_[facePoints[3]]*distPnt[3] > 0))
                     {
-                        //One side
+                        edgesToAdd[0] = edge(pt[0],pt[1]);
+                        edgesToAdd[1] = edge(pt[2],pt[3]);
                     }
                     else
                     if((pointsToSide_[facePoints[0]]*distPnt[0] > 0) &&
@@ -1170,58 +1162,43 @@ void Foam::cutCellFvMesh::newMeshEdges
                        (pointsToSide_[facePoints[2]]*distPnt[2] > 0) &&
                        (pointsToSide_[facePoints[3]]*distPnt[3] > 0))
                     {
-                        //Unclear sides... Cut edges bend inward
+                        scalarList edgeLen(4);
+                        edgeLen[0] = norm2(pnt[0]-pnt[1]);
+                        edgeLen[1] = norm2(pnt[1]-pnt[2]);
+                        edgeLen[2] = norm2(pnt[2]-pnt[3]);
+                        edgeLen[3] = norm2(pnt[3]-pnt[0]);
+                        
+                        scalarList normedZeroDist(4);
+                        for(int a=0;a<4;a++)
+                            normedZeroDist[a] = abs(distPnt[a])/edgeLen[a];
+                        
+                        if((normedZeroDist[0]>normedZeroDist[1] && normedZeroDist[0]>normedZeroDist[3]) &&
+                           (normedZeroDist[2]>normedZeroDist[1] && normedZeroDist[2]>normedZeroDist[3]))
+                        {
+                            edgesToAdd[0] = edge(pt[0],pt[1]);
+                            edgesToAdd[1] = edge(pt[2],pt[3]);
+                        }
+                        else
+                        if((normedZeroDist[1]>normedZeroDist[0] && normedZeroDist[1]>normedZeroDist[2]) &&
+                           (normedZeroDist[3]>normedZeroDist[0] && normedZeroDist[3]>normedZeroDist[2]))
+                        {
+                            edgesToAdd[0] = edge(pt[1],pt[2]);
+                            edgesToAdd[1] = edge(pt[3],pt[0]);
+                        }
+                        else
+                            FatalErrorInFunction<<"Invalid distance. Can not determine the correct two edges !"<<normedZeroDist<<exit(FatalError);                            
                     }
                     else
-                        //Can not happen because treated above
-                    
-                    
-                    label maxAbsDistInd = -1;
-                    scalar maxAbsDist  = -1;
-                    label secAbsDistInd = -1;
-                    scalar secAbsDist = -1;
-                    for(int a=0;a<4;a++)
-                    {
-                        if(maxAbsDist<abs(distPnt[a]))
-                        {
-                            maxAbsDist = abs(distPnt[a]);
-                            maxAbsDistInd = a;
-                        }
-                    }
-                    for(int a=0;a<4;a++)
-                    {
-                        if(secAbsDist<abs(distPnt[a]) && a!=maxAbsDistInd)
-                        {
-                            secAbsDist = abs(distPnt[a]);
-                            secAbsDistInd = a;
-                        }
-                    }
-                    if((secAbsDistInd+2)%4==maxAbsDistInd)
-                        FatalErrorInFunction<<"Inconclusive Edge Selection options!"<<exit(FatalError);
-                    if(maxAbsDistInd==0)
-                    {
-                        edgesToAdd[0] = edge(pt[1],pt[2]);
-                        edgesToAdd[1] = edge(pt[3],pt[0]);
-                    }
+                        FatalErrorInFunction<<"Whatever happens here should have been treated above. This can not happen!"<<exit(FatalError);
                 }
                                 
                 edgeToFaces_.append(DynamicList<label>(0));                
-                newMeshEdges_.append(edge(pt0,pt1));
+                newMeshEdges_.append(edgesToAdd[0]);
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
                 
                 edgeToFaces_.append(DynamicList<label>(0));
-                newMeshEdges_.append(edge(pt1,pt2));
-                edgesToSide_.append(0);
-                edgeToFaces_[edgeToFaces_.size()-1].append(i);
-                
-                edgeToFaces_.append(DynamicList<label>(0));
-                newMeshEdges_.append(edge(pt2,pt3));
-                edgesToSide_.append(0);
-                edgeToFaces_[edgeToFaces_.size()-1].append(i);
-                
-                edgeToFaces_.append(DynamicList<label>(0));
-                newMeshEdges_.append(edge(pt3,pt0));
+                newMeshEdges_.append(edgesToAdd[1]);
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
             }
@@ -3049,8 +3026,8 @@ void Foam::cutCellFvMesh::createNewMeshData
     }
     Info<<"------------------------------------EndOldFaces---------------------------------"<<endl;
     
-    oldSplittedCellToNewPlusCell = labelList(meshCells.size());
-    oldSplittedCellToNewMinusCell = labelList(meshCells.size());
+    oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
+    oldSplittedCellToNewMinusCell = List<DynamicList<label>>(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
     {
         oldSplittedCellToNewPlusCell[i] = -1;
@@ -3646,8 +3623,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
         patchSizes[i] = boundMesh[i].faceCentres().size();
     }
     
-    oldSplittedCellToNewPlusCell = labelList(meshCells.size());
-    oldSplittedCellToNewMinusCell = labelList(meshCells.size());
+    oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
+    oldSplittedCellToNewMinusCell = List<DynamicList<label>>(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
     {
         oldSplittedCellToNewPlusCell[i] = -1;
@@ -3982,7 +3959,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     
     //reduce for empty cells
     labelList cellReductionNumb(meshCells.size());
-    mapOldCellsToNewCells = labelList(meshCells.size());
+    mapOldCellsToNewCells = List<DynamicList<label>>(meshCells.size());
     label count = 0;
     label newCells = 0;
     for(int i=0;i<cellReductionNumb.size();i++)
