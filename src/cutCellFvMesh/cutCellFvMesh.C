@@ -961,7 +961,6 @@ void Foam::cutCellFvMesh::newMeshEdges
         Info<<" Side:"<<edgesToSide_[i]<<endl;
     }
     */
-    
     labelList thisFacePoints;
     for(int i=0;i<basisFaces.size();i++)
     {
@@ -973,7 +972,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             << exit(FatalError);
         }
         else if(thisFacePoints.size() == 4)
-        {            
+        {
             bool allPointsOld = true;
             label newPointsNum = 0;
             for(int k=0;k<thisFacePoints.size();k++)
@@ -1056,7 +1055,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(facePoints[a_1-1] == -1)
                         FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 }
-                if(edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]])==-1)
+                if((facePoints[edgeOrder.size()-1]=edgItem[edgeOrder[0]].commonVertex(edgItem[edgeOrder[3]]))==-1)
                     FatalErrorInFunction<<"No connection point found!"<<exit(FatalError);
                 
                 point faceCentre = basisFaces[i].centre(basisPoints);
@@ -1074,8 +1073,22 @@ void Foam::cutCellFvMesh::newMeshEdges
                     else if(pointsToSide_[facePoints[a]]<0)
                         faceMinusPoints.append(a);
                     else
+                    {
+                        Info<<endl;
+                        Info<<nbrOfPrevPoints<<endl;
+                        Info<<thisFacePoints<<endl;
+                        Info<<facePoints<<endl;
                         FatalErrorInFunction<<"Zero point can not be here!"<<exit(FatalError);
+                    }
                 }
+                
+                Info<<endl;
+                Info<<nbrOfPrevPoints<<endl;
+                Info<<thisFacePoints<<endl;
+                Info<<facePoints<<endl;
+                Info<<basisFaces[i]<<endl;
+                FatalErrorInFunction<<"Zero point can not be here!"<<exit(FatalError);
+                
                 if(facePlusPoints.size()!=2||faceMinusPoints.size()!=2)
                     FatalErrorInFunction<<"Wrong number of plus and minus face points!"<<exit(FatalError);
                 if((facePlusPoints[0]+1)%4!=facePlusPoints[1] || (facePlusPoints[1]+1)%4!=facePlusPoints[0])
@@ -1356,7 +1369,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
             }
         }
-        else
+        else if(thisFacePoints.size() == 1)
         {
             if(thisFacePoints[0]>=nbrOfPrevPoints)
                 FatalErrorInFunction
@@ -1874,6 +1887,18 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
     for(int i=0;i<meshCells.size();i++)
     {
         labelList edgeOfCellList = cellToEdges_[i];
+        bool facesToAdd = false;
+        for(int j=0;j<edgeOfCellList.size();j++)
+        {
+            if(edgeOfCellList[j]>=nbrOfPrevEdges)
+            {
+                facesToAdd = true;
+                break;
+            }
+        }
+        if(!facesToAdd)
+            continue;
+            
         bool allEdgesDone = false;
         std::unordered_set<label> edgeTaken;
         DynamicList<DynamicList<label>> closedEdgeLoops;
@@ -1894,6 +1919,9 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
             }
             if(closedEdgeLoops[nbrFace].size() != 1)
             {
+                Info<<endl<<endl;
+                Info<<closedEdgeLoops<<endl;
+                Info<<edgeOfCellList<<endl;
                 FatalErrorInFunction<< "Starting Point not found"<< exit(FatalError);
             }
             
@@ -1941,9 +1969,17 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                 }
             }
             while(!faceClosed);
+            
+            if(closedEdgeLoops[nbrFace].size()<3)
+            {
+                Info<<endl<<endl;
+                Info<<closedEdgeLoops[nbrFace]<<endl;
+                Info<<edgeOfCellList<<endl;
+                FatalErrorInFunction<< "Closed edge with less than 3 edges"<<exit(FatalError);
+            }
 
             //Check if edges remain untreated
-            bool allDone = false;
+            bool allDone = true;
             label numNotDone = 0;
             for(int j=0;j<edgeOfCellList.size();j++)
             {
@@ -1953,8 +1989,16 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                     numNotDone++;
                 }
             }
-            if(numNotDone < 3)
+            if(numNotDone < 3 && !allDone)
             {
+                Info<<endl<<endl;
+                for (auto const& i: edgeTaken)
+                    Info<< i << " ";
+                for (auto const& i: edgeTaken)
+                    Info<< edgeTaken.count(i) << " ";
+                Info<<endl;
+                Info<<closedEdgeLoops[nbrFace]<<endl;
+                Info<<edgeOfCellList<<endl;
                 FatalErrorInFunction<< "Less than three edges remaining!"<< exit(FatalError);
             }
             if(allDone)
@@ -3980,9 +4024,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     mapNewCellsToOldCells = labelList(meshCells.size()-cellReductionNumb.last());
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
-        if(mapOldCellsToNewCells[i] != -1)
+        if(mapOldCellsToNewCells[i].size()!=0)
         {
-            mapNewCellsToOldCells[mapOldCellsToNewCells[i]] = i;
+            //Correction just to allow compiling
+            mapNewCellsToOldCells[mapOldCellsToNewCells[i][0]] = i;
         }
     }
     
@@ -4056,6 +4101,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     const labelList neighbour = this->faceNeighbour();    
     const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     const labelListList& pointToEdges = this->pointEdges();
+    const labelListList& cellToEdges = this->cellEdges();
+    const labelListList& cellToPoints = this->cellPoints();
     
     // Store old boundary patches
     patchStarts = labelList(boundMesh.size());
@@ -4091,8 +4138,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             std::unordered_set<label> edgesTreated;
             DynamicList<DynamicList<label>> minusCells;
             DynamicList<DynamicList<label>> plusCells;
-            const labelListList& thisCellEdges = this->cellEdges();
-            const labelListList& thisCellPoints = this->cellPoints();
+            const labelList& thisCellEdges = cellToEdges[i];
+            const labelList& thisCellPoints = cellToPoints[i];
             oldSplittedCellToNewPlusCell[i] = i;
             for(int j=0;j<cellToFaces_[i].size();j++)
             {
@@ -4100,25 +4147,25 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 {
                     DynamicList<label> minusCell;
                     DynamicList<label> plusCell;
-                    DynamicList<DynamicList<edge>> facePointEdges(cutFace.size());
                     face cutFace = newMeshFaces_[cellToFaces_[i][j]];
+                    DynamicList<DynamicList<edge>> facePointEdges(cutFace.size());
                     for(int k=0;k<cutFace.size();k++)
                     {
                         label pointInd = cutFace[k];
-                        DynamicList<label> edgeInds; = pointToEgde_[pointInd];
+                        DynamicList<label> edgeInds;
                         if((pointInd<nbrOfPrevPoints && pointToEgde_[pointInd]!=-1)||(pointToEgde_[pointInd]==-1 && pointInd>=nbrOfPrevPoints))
                             FatalErrorInFunction<<"Cut Point to edge assignment is wrong."<<endl;                                        
-                        if(pointInd<nbrOfPrevPoints)
+                        if(pointInd>=nbrOfPrevPoints)
                             edgeInds.append(pointToEgde_[pointInd]);
                         else
                             edgeInds.append(pointToEdges[pointInd]);
 
                         for(int l=0;l<edgeInds.size();l++)
                         {
-                            if(edgesTreated.count(edgeInd[l]) == 0)
+                            if(edgesTreated.count(edgeInds[l]) == 0)
                             {
                                 facePointEdges[k].append(newMeshEdges_[edgeInds[l]]);
-                                edgesTreated.insert(edgeInd[l]);
+                                edgesTreated.insert(edgeInds[l]);
                             }
                         }
                         pointsTreated.insert(pointInd);
@@ -4179,11 +4226,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                     {
                                         if(pointsToSide_[otherPoint] != 1)
                                             FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<endl;                                        
-                                        if(pointsTreated.count(otherInd)!=0)
+                                        if(pointsTreated.count(otherPoint)!=0)
                                             FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<endl;
-                                        plusCell.append(otherInd);
-                                        plusCellFrontPoints.append(otherInd);
-                                        pointsTreated.insert(otherInd);
+                                        plusCell.append(otherPoint);
+                                        plusCellFrontPoints.append(otherPoint);
+                                        pointsTreated.insert(otherPoint);
                                         edgesTreated.insert(thisCellEdges[m]);
                                     }
                                 }                                
@@ -4206,11 +4253,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                     {
                                         if(pointsToSide_[otherPoint] != -1)
                                             FatalErrorInFunction<<"Edge with -1 side has non -1 point"<<endl;                                        
-                                        if(pointsTreated.count(otherInd)!=0)
+                                        if(pointsTreated.count(otherPoint)!=0)
                                             FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<endl;
-                                        minusCell.append(otherInd);
-                                        minusCellFrontPoints.append(otherInd);
-                                        pointsTreated.insert(otherInd);
+                                        minusCell.append(otherPoint);
+                                        minusCellFrontPoints.append(otherPoint);
+                                        pointsTreated.insert(otherPoint);
                                         edgesTreated.insert(thisCellEdges[m]);
                                     }
                                 }                                
@@ -4223,9 +4270,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     plusCells.append(plusCell);                                      
                 }
             }
-            for(int j=0;j<thisCellPoints[i].size();j++)
+            for(int j=0;j<thisCellPoints.size();j++)
             {
-                if(pointsTreated.count(thisCellPoints[i][j])==0)
+                if(pointsTreated.count(thisCellPoints[j])==0)
                     FatalErrorInFunction<<"Untreated point remains"<<endl;
             }
             for(int j=0;j<thisCellEdges.size();j++)
@@ -4253,11 +4300,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     cellToNewPlusCellsIndexes[i].append(addedCellIndex+meshCells.size());
                     addedCellIndex++;                    
                 }
-                oldSplittedCellsToNewMinusCell[i].append(i);
+                oldSplittedCellToNewMinusCell[i].append(i);
                 cellToNewMinusCellsIndexes[i].append(i);
                 deletedCellsList[i] = 1;
             }
-            else if((minusCells.size()>1 && plusCells.size()==1)
+            else if(minusCells.size()>1 && plusCells.size()==1)
             {
                 for(int k=0;k<minusCells.size();k++)
                 {
@@ -4268,7 +4315,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 oldSplittedCellToNewPlusCell[i].append(i);
                 cellToNewPlusCellsIndexes[i].append(i);
             }
-            else if((minusCells.size()==1 && plusCells.size()==1)
+            else if(minusCells.size()==1 && plusCells.size()==1)
             {
                 oldSplittedCellToNewMinusCell[i].append(addedCellIndex+meshCells.size());
                 cellToNewMinusCellsIndexes[i].append(addedCellIndex+meshCells.size());
@@ -4371,7 +4418,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     bool addedOneFace;
     for(int i=0;i<neighbour.size();i++)
     {
-        for(oldFacesToCutFaces_[i].size()==1 || oldFacesToCutFaces_[i].size()>4)
+        if(oldFacesToCutFaces_[i].size()==1 || oldFacesToCutFaces_[i].size()>4)
         {
             FatalErrorInFunction<< "Face cut in one or more than four cut faces."<< exit(FatalError);
         }
@@ -4479,7 +4526,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         }
                     }
                 }
-                if((newNeighborCell==-1 && signFace1 != 0)||(signFace11==0 && newNeighborCell!=-1))
+                if((newNeighborCell==-1 && signFace1 != 0)||(signFace1==0 && newNeighborCell!=-1))
                 {
                     FatalErrorInFunction<< "Zero face must have no neighbor" << exit(FatalError);
                 }
@@ -4552,7 +4599,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     splitAndUnsplitFaceBoundaryOwner.setCapacity(meshFaces.size()-neighbour.size());
     for(int i=neighbour.size();i<meshFaces.size();i++)
     {
-        for(oldFacesToCutFaces_[i].size()==1 || oldFacesToCutFaces_[i].size()>4)
+        if(oldFacesToCutFaces_[i].size()==1 || oldFacesToCutFaces_[i].size()>4)
         {
             FatalErrorInFunction<< "Face cut in one or more than four cut faces."<< exit(FatalError);
         }
@@ -4702,7 +4749,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         else
         {
             cellReductionNumb[i] = count;
-            mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
+            mapOldCellsToNewCells[i].append(count);
         }
     }
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
@@ -5312,8 +5359,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     {
         if(deletedCellsList[i] != 1)
         {
-           reducedOldToNewCellRelation[k] = oldSplittedCellToNewPlusCell[i];
-           k++;
+            // corrected only to allow compiling
+            reducedOldToNewCellRelation[k] = oldSplittedCellToNewPlusCell[i][0];
+            k++;
         }
     }
     

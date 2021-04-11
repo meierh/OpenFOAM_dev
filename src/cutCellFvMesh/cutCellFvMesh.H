@@ -268,6 +268,7 @@ class cutCellFvMesh   :   public fvMesh
         
         //rebuild mesh deleting negative side
         void createNewMeshData_cutNeg();
+        void createNewMeshData_cutNeg_plus();
         
         // project distance from Nurbs Surface on Points
         void projectNurbsSurface();

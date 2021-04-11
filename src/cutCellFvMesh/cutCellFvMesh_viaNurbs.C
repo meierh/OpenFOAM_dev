@@ -216,22 +216,24 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
-
+    
     Info<<"Adding of cut edges";
     t1 = std::chrono::high_resolution_clock::now();
     newMeshEdges();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
-    
+        
     edgesToSide();
     
     Info<<"Adding of cut faces";
     t1 = std::chrono::high_resolution_clock::now();
-    newMeshFaces();
+    newMeshFaces_plus();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t"<< time_span.count() << " seconds."<<endl;
+    
+    FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
     
     Info<<"Cutting old faces";
     t1 = std::chrono::high_resolution_clock::now();
