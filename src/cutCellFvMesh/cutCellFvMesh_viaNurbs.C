@@ -232,20 +232,17 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t"<< time_span.count() << " seconds."<<endl;
-    
-    FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
-    
+        
     Info<<"Cutting old faces";
     t1 = std::chrono::high_resolution_clock::now();
-    cutOldFaces();
+    cutOldFaces_plus();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
-    
+        
     faceList faces(0);
     labelList owner(0);
-    labelList neighbour(0);
-        
+    labelList neighbour(0);        
     if(state == internalCut)
     {
         createNewMeshData();
@@ -267,7 +264,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         Info<<"-------------------------------------------"<<endl;
         Info<<"Create new Mesh data and cut negative cells";
         t1 = std::chrono::high_resolution_clock::now();
-        createNewMeshData_cutNeg();
+        createNewMeshData_cutNeg_plus();
         t2 = std::chrono::high_resolution_clock::now();
         time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
         Info<< " took \t"<< time_span.count() << " seconds."<<endl;
@@ -303,6 +300,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
     }
     //printMesh();
+    FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
     correctFaceNormalDir(newMeshPoints_,faces,owner,neighbour);
     
     const pointField& oldPoints = this->points();

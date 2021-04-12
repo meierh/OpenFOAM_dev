@@ -1082,19 +1082,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                 }
                 
-                Info<<endl;
-                Info<<nbrOfPrevPoints<<endl;
-                Info<<thisFacePoints<<endl;
-                Info<<facePoints<<endl;
-                Info<<basisFaces[i]<<endl;
-                FatalErrorInFunction<<"Zero point can not be here!"<<exit(FatalError);
-                
                 if(facePlusPoints.size()!=2||faceMinusPoints.size()!=2)
                     FatalErrorInFunction<<"Wrong number of plus and minus face points!"<<exit(FatalError);
-                if((facePlusPoints[0]+1)%4!=facePlusPoints[1] || (facePlusPoints[1]+1)%4!=facePlusPoints[0])
+                if((facePlusPoints[0]+1)%4==facePlusPoints[1] || (facePlusPoints[1]+1)%4==facePlusPoints[0])
                     FatalErrorInFunction<<"Plus point assignment must be wrong!"<<exit(FatalError);
-                if((faceMinusPoints[0]+1)%4!=faceMinusPoints[1] || (faceMinusPoints[1]+1)%4!=faceMinusPoints[0])
-                    FatalErrorInFunction<<"Plus point assignment must be wrong!"<<exit(FatalError);
+                if((faceMinusPoints[0]+1)%4==faceMinusPoints[1] || (faceMinusPoints[1]+1)%4==faceMinusPoints[0])
+                    FatalErrorInFunction<<"Minus point assignment must be wrong!"<<exit(FatalError);
                 
                 labelList pt(4);
                 pt[0] = thisFacePoints[edgeOrder[0]];
@@ -4131,6 +4124,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     DynamicList<DynamicList<label>> cellToNewPlusCellsIndexes(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
     {
+        Info<<"---------------------------------------------------"<<endl;
         deletedCellsList[i] = 0;
         if(cellToFaces_[i].size() > 0)
         {
@@ -4149,17 +4143,24 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     DynamicList<label> plusCell;
                     face cutFace = newMeshFaces_[cellToFaces_[i][j]];
                     DynamicList<DynamicList<edge>> facePointEdges(cutFace.size());
+                    
+                    //store the points around each cutFace cutted edge via facePointEdges
                     for(int k=0;k<cutFace.size();k++)
                     {
                         label pointInd = cutFace[k];
+                        Info<<pointInd<<"  ";
                         DynamicList<label> edgeInds;
-                        if((pointInd<nbrOfPrevPoints && pointToEgde_[pointInd]!=-1)||(pointToEgde_[pointInd]==-1 && pointInd>=nbrOfPrevPoints))
-                            FatalErrorInFunction<<"Cut Point to edge assignment is wrong."<<endl;                                        
+                        if((pointInd<nbrOfPrevPoints && pointToEgde_[pointInd]!=-1)||
+                           (pointToEgde_[pointInd]==-1 && pointInd>=nbrOfPrevPoints))
+                            FatalErrorInFunction<<"Cut Point to edge assignment is wrong."<<endl;
+                            
                         if(pointInd>=nbrOfPrevPoints)
                             edgeInds.append(pointToEgde_[pointInd]);
                         else
                             edgeInds.append(pointToEdges[pointInd]);
 
+                        Info<<edgeInds<<"  ";
+                        
                         for(int l=0;l<edgeInds.size();l++)
                         {
                             if(edgesTreated.count(edgeInds[l]) == 0)
@@ -4168,8 +4169,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                 edgesTreated.insert(edgeInds[l]);
                             }
                         }
+                        Info<<facePointEdges[k]<<endl;
                         pointsTreated.insert(pointInd);
                     }
+                    
+                    //store the front points from the cut edges of each cut face
                     DynamicList<label> plusCellFrontPoints;
                     DynamicList<label> minusCellFrontPoints;
                     for(int l=0;l<facePointEdges.size();l++)
@@ -4225,9 +4229,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                     if(otherPoint!=-1)
                                     {
                                         if(pointsToSide_[otherPoint] != 1)
-                                            FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<endl;                                        
+                                            FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<exit(FatalError);;                                        
                                         if(pointsTreated.count(otherPoint)!=0)
-                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<endl;
+                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<exit(FatalError);;
                                         plusCell.append(otherPoint);
                                         plusCellFrontPoints.append(otherPoint);
                                         pointsTreated.insert(otherPoint);
@@ -4252,9 +4256,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                     if(otherPoint!=-1)
                                     {
                                         if(pointsToSide_[otherPoint] != -1)
-                                            FatalErrorInFunction<<"Edge with -1 side has non -1 point"<<endl;                                        
+                                            FatalErrorInFunction<<"Edge with -1 side has non -1 point"<<exit(FatalError);                                     
                                         if(pointsTreated.count(otherPoint)!=0)
-                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<endl;
+                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<exit(FatalError);;
                                         minusCell.append(otherPoint);
                                         minusCellFrontPoints.append(otherPoint);
                                         pointsTreated.insert(otherPoint);
@@ -4265,7 +4269,21 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         }
                     }
                     if(plusCell.size()==0 || minusCell.size()==0)
-                        FatalErrorInFunction<<"Face does not create at least one cell."<<endl;                                        
+                    {
+                        Info<<endl<<endl;
+                        Info<<i<<endl;
+                        Info<<"facePointEdges:"<<facePointEdges<<endl;
+                        Info<<"cutFace:"<<cutFace<<endl;
+                        Info<<"cell:"<<meshCells[i]<<endl;
+                        Info<<"cellToFaces_:"<<cellToFaces_[i]<<endl;
+                        Info<<"nbrNewFaces:"<<newMeshFaces_.size()<<endl;
+                        Info<<"newMeshFace:"<<newMeshFaces_[cellToFaces_[i][0]]<<endl;
+                        Info<<plusCellFrontPoints<<endl;
+                        Info<<minusCellFrontPoints<<endl;
+                        Info<<plusCell<<endl;
+                        Info<<minusCell<<endl;
+                        FatalErrorInFunction<<"Face does not create at least one cell."<<exit(FatalError);
+                    }
                     minusCells.append(minusCell);
                     plusCells.append(plusCell);                                      
                 }
@@ -4273,21 +4291,21 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             for(int j=0;j<thisCellPoints.size();j++)
             {
                 if(pointsTreated.count(thisCellPoints[j])==0)
-                    FatalErrorInFunction<<"Untreated point remains"<<endl;
+                    FatalErrorInFunction<<"Untreated point remains"<<exit(FatalError);
             }
             for(int j=0;j<thisCellEdges.size();j++)
             {
                 if(edgesTreated.count(thisCellEdges[j])==0)
-                    FatalErrorInFunction<<"Untreated edge remains"<<endl;
+                    FatalErrorInFunction<<"Untreated edge remains"<<exit(FatalError);
             }
             if(minusCells.size()==0 || plusCells.size()==0)
-                FatalErrorInFunction<<"Zero plus or minus cells"<<endl;
+                FatalErrorInFunction<<"Zero plus or minus cells"<<exit(FatalError);
             if(minusCells.size()>1 && plusCells.size()>1)
-                FatalErrorInFunction<<"More than one plus and minus cells"<<endl;
+                FatalErrorInFunction<<"More than one plus and minus cells"<<exit(FatalError);
             if(!(minusCells.size()==1 || plusCells.size()==1))
-                FatalErrorInFunction<<"Not one plus or minus cells"<<endl;
+                FatalErrorInFunction<<"Not one plus or minus cells"<<exit(FatalError);
             if(minusCells.size()==1 && plusCells.size()==1)
-                FatalErrorInFunction<<"One plus and minus cell"<<endl;
+                FatalErrorInFunction<<"One plus and minus cell"<<exit(FatalError);
             
             cellToNewMinusCellsPointLabels[i] = minusCells;
             cellToNewPlusCellsPointLabels[i] = plusCells;
@@ -4324,7 +4342,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 cellToNewPlusCellsIndexes[i].append(i);
             }
             else
-                FatalErrorInFunction<<"This combination is not possible"<<endl;            
+                FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);            
         }
         if(cellsToSide_[i] == -1)
         {
@@ -4403,7 +4421,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     addedCutFaceOwner.append(oldSplittedCellToNewPlusCell[i][j]);
                 }
                 else
-                    FatalErrorInFunction<<"This combination is not possible"<<endl;
+                    FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
             }
         }
     }
