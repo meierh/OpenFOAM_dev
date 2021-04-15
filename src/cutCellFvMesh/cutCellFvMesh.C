@@ -4122,9 +4122,12 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     DynamicList<DynamicList<DynamicList<label>>> cellToNewPlusCellsPointLabels(meshCells.size());
     DynamicList<DynamicList<label>> cellToNewMinusCellsIndexes(meshCells.size());
     DynamicList<DynamicList<label>> cellToNewPlusCellsIndexes(meshCells.size());
+    
+    Info<<endl<<"cellToFaces_:"<<cellToFaces_<<endl;
+    
     for(int i=0;i<meshCells.size();i++)
     {
-        Info<<"---------------------------------------------------"<<endl;
+        //Info<<"---------------------------------------------------"<<endl;
         deletedCellsList[i] = 0;
         if(cellToFaces_[i].size() > 0)
         {
@@ -4142,13 +4145,14 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     DynamicList<label> minusCell;
                     DynamicList<label> plusCell;
                     face cutFace = newMeshFaces_[cellToFaces_[i][j]];
-                    DynamicList<DynamicList<edge>> facePointEdges(cutFace.size());
-                    
+                    DynamicList<DynamicList<edge>> facePointEdges;
+                    facePointEdges.setSize(cutFace.size());
+                    //Info<<"facePointEdges.size():"<<facePointEdges.size()<<endl;
                     //store the points around each cutFace cutted edge via facePointEdges
                     for(int k=0;k<cutFace.size();k++)
                     {
                         label pointInd = cutFace[k];
-                        Info<<pointInd<<"  ";
+                        //Info<<"point: "<<pointInd<<"  ";
                         DynamicList<label> edgeInds;
                         if((pointInd<nbrOfPrevPoints && pointToEgde_[pointInd]!=-1)||
                            (pointToEgde_[pointInd]==-1 && pointInd>=nbrOfPrevPoints))
@@ -4157,9 +4161,22 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         if(pointInd>=nbrOfPrevPoints)
                             edgeInds.append(pointToEgde_[pointInd]);
                         else
-                            edgeInds.append(pointToEdges[pointInd]);
+                        {
+                            labelList pointEdges = pointToEdges[pointInd];
+                            for(int l=0;l<pointEdges.size();l++)
+                            {
+                                labelList edgeCells = this->edgeCells(pointEdges[l]);
+                                for(int m=0;m<edgeCells.size();m++)
+                                {
+                                    if(edgeCells[m] == i)
+                                    {
+                                        edgeInds.append(pointEdges[l]);
+                                    }
+                                }
+                            }
+                        }
 
-                        Info<<edgeInds<<"  ";
+                        //Info<<"edge: "<<edgeInds<<"  ";
                         
                         for(int l=0;l<edgeInds.size();l++)
                         {
@@ -4169,13 +4186,20 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                 edgesTreated.insert(edgeInds[l]);
                             }
                         }
-                        Info<<facePointEdges[k]<<endl;
+                        //Info<<"facePointEdges[k]: "<<facePointEdges[k]<<endl;
                         pointsTreated.insert(pointInd);
                     }
+                    /*
+                    Info<<"pointsTreated: ";
+                    for(auto& i : pointsTreated)
+                        Info<<i<<" ";
+                    Info<<endl;
+                    */
                     
                     //store the front points from the cut edges of each cut face
                     DynamicList<label> plusCellFrontPoints;
                     DynamicList<label> minusCellFrontPoints;
+                    //Info<<"facePointEdges.size():"<<facePointEdges.size()<<endl;
                     for(int l=0;l<facePointEdges.size();l++)
                     {
                         for(int m=0;m<facePointEdges[l].size();m++)
@@ -4186,6 +4210,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                             edgePoints[1] = oneEdge.end();
                             for(int n=0;n<edgePoints.size();n++)
                             {
+                                //Info<<"Try point: "<<edgePoints[n]<<endl;
                                 if(pointsToSide_[edgePoints[n]] == 0)
                                 {
                                     if(facePointEdges[l].size()==1)
@@ -4214,8 +4239,20 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                             }
                         }
                     }
+                    /*
+                    Info<<endl;
+                    for(auto& i : pointsTreated)
+                        Info<<i<<" ";
+                    Info<<endl;
+                    Info<<"plusCell  "<<plusCell<<endl;
+                    Info<<"minusCell "<<minusCell<<endl;
+                    Info<<"plusCellFrontPoints  "<<plusCellFrontPoints<<endl;
+                    Info<<"minusCellFrontPoints "<<minusCellFrontPoints<<endl;
+                    */
+                    
                     while(plusCellFrontPoints.size() > 0)
                     {
+                        //Info<<"Step"<<endl;
                         DynamicList<label> temp = plusCellFrontPoints;
                         plusCellFrontPoints.setSize(0);
                         for(int l=0;l<temp.size();l++)
@@ -4226,23 +4263,25 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                 if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == 1)
                                 {
                                     label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
-                                    if(otherPoint!=-1)
+                                    //Info<<"startpoint:"<<frontPointInd<<" edge:"<<thisCellEdges[m]<<" otherPoint: "<<otherPoint;
+                                    if(otherPoint!=-1 && pointsTreated.count(otherPoint)==0)
                                     {
+                                        //Info<<" added";
                                         if(pointsToSide_[otherPoint] != 1)
                                             FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<exit(FatalError);;                                        
-                                        if(pointsTreated.count(otherPoint)!=0)
-                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<exit(FatalError);;
                                         plusCell.append(otherPoint);
                                         plusCellFrontPoints.append(otherPoint);
                                         pointsTreated.insert(otherPoint);
                                         edgesTreated.insert(thisCellEdges[m]);
                                     }
+                                    //Info<<endl;
                                 }                                
                             }
                         }
                     }
-                   while(minusCellFrontPoints.size() > 0)
+                    while(minusCellFrontPoints.size() > 0)
                     {
+                        //Info<<"Step"<<endl;
                         DynamicList<label> temp = minusCellFrontPoints;
                         minusCellFrontPoints.setSize(0);
                         for(int l=0;l<temp.size();l++)
@@ -4253,21 +4292,23 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                                 if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == -1)
                                 {
                                     label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
-                                    if(otherPoint!=-1)
+                                    //Info<<"startpoint:"<<frontPointInd<<" edge:"<<thisCellEdges[m]<<" otherPoint: "<<otherPoint;
+                                    if(otherPoint!=-1  && pointsTreated.count(otherPoint)==0)
                                     {
+                                        //Info<<" added";
                                         if(pointsToSide_[otherPoint] != -1)
                                             FatalErrorInFunction<<"Edge with -1 side has non -1 point"<<exit(FatalError);                                     
-                                        if(pointsTreated.count(otherPoint)!=0)
-                                            FatalErrorInFunction<<"Point already taken. This run should have been stopped earlier"<<exit(FatalError);;
                                         minusCell.append(otherPoint);
                                         minusCellFrontPoints.append(otherPoint);
                                         pointsTreated.insert(otherPoint);
                                         edgesTreated.insert(thisCellEdges[m]);
                                     }
+                                    //Info<<endl;
                                 }                                
                             }
                         }
                     }
+
                     if(plusCell.size()==0 || minusCell.size()==0)
                     {
                         Info<<endl<<endl;
@@ -4293,19 +4334,41 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 if(pointsTreated.count(thisCellPoints[j])==0)
                     FatalErrorInFunction<<"Untreated point remains"<<exit(FatalError);
             }
-            for(int j=0;j<thisCellEdges.size();j++)
+
+            label countOldPoints = 0;
+            for(int j=0;j<plusCells.size();j++)
+                countOldPoints+=plusCells[j].size();
+            for(int j=0;j<minusCells.size();j++)
+                countOldPoints+=minusCells[j].size();
+            labelList cellVerticeLabels = meshCells[i].labels(meshFaces);
+            for(int j=0;j<cellVerticeLabels.size();j++)
+                if(pointsToSide_[cellVerticeLabels[j]] == 0)
+                    countOldPoints++;         
+
+            if(countOldPoints!=8)
             {
-                if(edgesTreated.count(thisCellEdges[j])==0)
-                    FatalErrorInFunction<<"Untreated edge remains"<<exit(FatalError);
+                Info<<endl<<endl;
+                for(int j=0;j<cellToFaces_[i].size();j++)
+                    Info<<"cutface: "<<newMeshFaces_[cellToFaces_[i][0]]<<endl;
+                Info<<"cellVerticeLabels: "<<cellVerticeLabels<<endl;
+                Info<<"plusCells: "<<plusCells<<endl;
+                Info<<"minusCells: "<<minusCells<<endl;
+                FatalErrorInFunction<<"Old points unequal 8 but original cells have to be a cube"<<exit(FatalError);
             }
+
             if(minusCells.size()==0 || plusCells.size()==0)
                 FatalErrorInFunction<<"Zero plus or minus cells"<<exit(FatalError);
             if(minusCells.size()>1 && plusCells.size()>1)
                 FatalErrorInFunction<<"More than one plus and minus cells"<<exit(FatalError);
             if(!(minusCells.size()==1 || plusCells.size()==1))
                 FatalErrorInFunction<<"Not one plus or minus cells"<<exit(FatalError);
-            if(minusCells.size()==1 && plusCells.size()==1)
-                FatalErrorInFunction<<"One plus and minus cell"<<exit(FatalError);
+
+            label countNewSplitFaces=0;
+            for(int j=0;j<cellToFaces_[i].size();j++)
+                if(cellToFaces_[i][j] >= nbrOfPrevFaces)
+                    countNewSplitFaces++;
+            if((countNewSplitFaces+1)!=(minusCells.size()+plusCells.size()))
+                FatalErrorInFunction<<"Number of plus and minus cells does not match the number of cut faces"<<exit(FatalError);
             
             cellToNewMinusCellsPointLabels[i] = minusCells;
             cellToNewPlusCellsPointLabels[i] = plusCells;
@@ -4463,22 +4526,26 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 DynamicList<label> neighbourNewMinusCellsIndex = cellToNewMinusCellsIndexes[oldNeighbourCell];
                 DynamicList<label> neighbourNewPlusCellsIndex = cellToNewPlusCellsIndexes[oldNeighbourCell];
                 
-                DynamicList<std::unordered_set<label>> ownerNewMinusCellsPointLabelsMap(ownerNewMinusCellsPointLabels.size());
+                DynamicList<std::unordered_set<label>> ownerNewMinusCellsPointLabelsMap;
+                ownerNewMinusCellsPointLabelsMap.setSize(ownerNewMinusCellsPointLabels.size());
                 for(int k=0;k<ownerNewMinusCellsPointLabels.size();k++)
                     for(int l=0;l<ownerNewMinusCellsPointLabels[k].size();l++)
                         ownerNewMinusCellsPointLabelsMap[k].insert(ownerNewMinusCellsPointLabels[k][l]);
                     
-                DynamicList<std::unordered_set<label>> ownerNewPlusCellsPointLabelsMap(ownerNewPlusCellsPointLabels.size());
+                DynamicList<std::unordered_set<label>> ownerNewPlusCellsPointLabelsMap;
+                ownerNewPlusCellsPointLabelsMap.setSize(ownerNewPlusCellsPointLabels.size());
                 for(int k=0;k<ownerNewPlusCellsPointLabels.size();k++)
                     for(int l=0;l<ownerNewPlusCellsPointLabels[k].size();l++)
                         ownerNewPlusCellsPointLabelsMap[k].insert(ownerNewPlusCellsPointLabels[k][l]);
 
-                DynamicList<std::unordered_set<label>> neighbourNewMinusCellsPointLabelsMap(neighbourNewMinusCellsPointLabels.size());
+                DynamicList<std::unordered_set<label>> neighbourNewMinusCellsPointLabelsMap;
+                neighbourNewMinusCellsPointLabelsMap.setSize(neighbourNewMinusCellsPointLabels.size());
                 for(int k=0;k<neighbourNewMinusCellsPointLabels.size();k++)
                     for(int l=0;l<neighbourNewMinusCellsPointLabels[k].size();l++)
                         neighbourNewMinusCellsPointLabelsMap[k].insert(neighbourNewMinusCellsPointLabels[k][l]);
                     
-                DynamicList<std::unordered_set<label>> neighbourNewPlusCellsPointLabelsMap(neighbourNewPlusCellsPointLabels.size());
+                DynamicList<std::unordered_set<label>> neighbourNewPlusCellsPointLabelsMap;
+                neighbourNewPlusCellsPointLabelsMap.setSize(neighbourNewPlusCellsPointLabels.size());
                 for(int k=0;k<neighbourNewPlusCellsPointLabels.size();k++)
                     for(int l=0;l<neighbourNewPlusCellsPointLabels[k].size();l++)
                         neighbourNewPlusCellsPointLabelsMap[k].insert(neighbourNewPlusCellsPointLabels[k][l]);
@@ -4638,12 +4705,14 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 DynamicList<label> ownerNewMinusCellsIndex = cellToNewMinusCellsIndexes[oldOwnerCell];
                 DynamicList<label> ownerNewPlusCellsIndex = cellToNewPlusCellsIndexes[oldOwnerCell];
                 
-                DynamicList<std::unordered_set<label>> ownerNewMinusCellsPointLabelsMap(ownerNewMinusCellsPointLabels.size());
+                DynamicList<std::unordered_set<label>> ownerNewMinusCellsPointLabelsMap;
+                ownerNewMinusCellsPointLabelsMap.setSize(ownerNewMinusCellsPointLabels.size());
                 for(int k=0;k<ownerNewMinusCellsPointLabels.size();k++)
                     for(int l=0;l<ownerNewMinusCellsPointLabels[k].size();l++)
                         ownerNewMinusCellsPointLabelsMap[k].insert(ownerNewMinusCellsPointLabels[k][l]);
                     
-                DynamicList<std::unordered_set<label>> ownerNewPlusCellsPointLabelsMap(ownerNewPlusCellsPointLabels.size());
+                DynamicList<std::unordered_set<label>> ownerNewPlusCellsPointLabelsMap;
+                ownerNewPlusCellsPointLabelsMap.setSize(ownerNewPlusCellsPointLabels.size());
                 for(int k=0;k<ownerNewPlusCellsPointLabels.size();k++)
                     for(int l=0;l<ownerNewPlusCellsPointLabels[k].size();l++)
                         ownerNewPlusCellsPointLabelsMap[k].insert(ownerNewPlusCellsPointLabels[k][l]);
@@ -4741,8 +4810,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     
     //reduce for empty cells
     labelList cellReductionNumb(meshCells.size());
-    mapOldCellsToNewCells = DynamicList<DynamicList<label>>(meshCells.size());
+    mapOldCellsToNewCells.setSize(meshCells.size());
     label count = 0;
+    Info<<endl<<"cellReductionNumb.size(): "<<cellReductionNumb.size()<<endl;
+    Info<<endl<<"deletedCellsList: "<<deletedCellsList<<endl;
     for(int i=0;i<cellReductionNumb.size();i++)
     {
         if(deletedCellsList[i] == 1)
@@ -4770,6 +4841,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             mapOldCellsToNewCells[i].append(count);
         }
     }
+    Info<<endl<<"cellReductionNumb: "<<cellReductionNumb<<endl;
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
         if((mapOldCellsToNewCells[i].size()==0 && cellReductionNumb[i]!=-1)||(mapOldCellsToNewCells[i].size()!=0 && cellReductionNumb[i]==-1))
@@ -4806,6 +4878,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             << exit(FatalError);
         }
     }
+
+    Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor 1"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
+
+    
     for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
     {
         if(cellReductionNumb[splitAndUnsplitFaceInteriorOwner[i]] != -1 &&
@@ -4822,6 +4898,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             << exit(FatalError);
         }
     }
+    
+    Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor 2"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
+    
     
     DynamicList<face> tempFaceNonNeighb;
     DynamicList<label> tempOwnerNonNeighb;
@@ -4844,6 +4923,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             tempNeighbourWithNeighb.append(splitAndUnsplitFaceInteriorNeighbor[i]);
         }
     }
+    
+    //Info<<endl;
+    //Info<<"tempNeighbourWithNeighb:"<<tempNeighbourWithNeighb<<endl;
+    //Info<<"tempNeighbourNonNeighb:"<<tempNeighbourNonNeighb<<endl;
+    
     splitAndUnsplitFacesInterior.setSize(0);
     splitAndUnsplitFaceInteriorOwner.setSize(0);
     splitAndUnsplitFaceInteriorNeighbor.setSize(0);
@@ -4875,6 +4959,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     splitAndUnsplitFacesInterior.setCapacity(splitAndUnsplitFacesInterior.size());
     splitAndUnsplitFaceInteriorOwner.setCapacity(splitAndUnsplitFaceInteriorOwner.size());
     splitAndUnsplitFaceInteriorNeighbor.setCapacity(splitAndUnsplitFaceInteriorNeighbor.size());
+    
+    //Info<<endl<<splitAndUnsplitFaceInteriorNeighbor<<endl;
 
     splitAndUnsplitFacesBoundary.setCapacity(splitAndUnsplitFacesBoundary.size());
     splitAndUnsplitFaceBoundaryOwner.setCapacity(splitAndUnsplitFaceBoundaryOwner.size());
@@ -9700,15 +9786,7 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
 {
     Info<<"owner.size()="<<owner.size()<<endl;
     Info<<"neighbour.size()="<<neighbour.size()<<endl;
-    label neighbourSize=0;
-    for(int i=0;i<neighbour.size();i++)
-    {
-        if(neighbour[i] == -1)
-        {
-            neighbourSize = i;
-            break;
-        }
-    }
+
     Info<<"Correct1"<<endl;
     label numCells = 0;
     for(int i=0;i<owner.size();i++)
@@ -9722,16 +9800,23 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
 
     Info<<"Correct2"<<endl;
     
-    for(int i=0;i<neighbourSize;i++)
+    if(owner.size() != neighbour.size())
+        FatalErrorInFunction<<"Can not happen"<< exit(FatalError); 
+
+    
+    for(int i=0;i<owner.size();i++)
+        Info<<"i:"<<i<<" owner["<<i<<"]:"<<owner[i]<<" neighbour["<<i<<"]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+    
+    FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
+    
+    for(int i=0;i<owner.size();i++)
     {
-        //Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+        Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
         cellsFaces[owner[i]].append(i);
-        cellsFaces[neighbour[i]].append(i);
+        if(neighbour[i]!=-1)
+            cellsFaces[neighbour[i]].append(i);
     }
-    for(int i=neighbourSize;i<owner.size();i++)
-    {
-        cellsFaces[owner[i]].append(i);
-    }
+
     DynamicList<cell> cellList;
     cellList.setSize(numCells);
     
