@@ -275,34 +275,56 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
         faces.append(addedCutFaces);
+        faces.append(splitAndUnsplitFacesInteriorToBoundary);
     
         owner.append(splitAndUnsplitFaceInteriorOwner);
         owner.append(splitAndUnsplitFaceBoundaryOwner);
         owner.append(addedCutFaceOwner);
+        owner.append(splitAndUnsplitFaceInteriorToBoundaryOwner);
         
         neighbour.append(splitAndUnsplitFaceInteriorNeighbor);
         neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
         neighbour.append(addedCutFaceNeighbor);
+        neighbour.append(splitAndUnsplitFaceInteriorToBoundaryNeighbor);
         
-        patchStarts[patchStarts.size()-1] = (patchStarts.last()+patchSizes.last());
-        patchSizes[patchSizes.size()-1] = (addedCutFaces.size());
+        Info<<"3"<<endl;
+        for(int i=0;i<patchStarts.size();i++)
+        {
+            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        }
         
-        /*
+        patchStarts[patchStarts.size()-1] = patchStarts.last()+patchSizes.last();
+        patchSizes[patchSizes.size()-1] = addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size();
+        
+        Info<<endl;
+        //Info<<"faces: "<<faces<<endl;
+        //Info<<"owner: "<<owner<<endl;
+        //Info<<"neighbour: "<<neighbour<<endl;
+        
+        
         Info<<"--"<<endl;
         for(int i=0;i<patchStarts.size();i++)
         {
             Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
         }
-        */
+        Info<<"InteriorFacesSize: "<<splitAndUnsplitFacesInterior.size()<<endl;
+        Info<<"BoundaryFaceSize: "<<splitAndUnsplitFacesBoundary.size()+addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
 
+        Info<<"splitAndUnsplitFacesInterior: "<<splitAndUnsplitFacesInterior.size()<<endl;
+        Info<<"splitAndUnsplitFacesBoundary: "<<splitAndUnsplitFacesBoundary.size()<<endl;
+        Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
+        Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
+
+        
         t2 = std::chrono::high_resolution_clock::now();
         time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
         Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
     }
     //printMesh();
-    FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
+    //FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
+
     correctFaceNormalDir(newMeshPoints_,faces,owner,neighbour);
-    
+
     const pointField& oldPoints = this->points();
     const faceList& oldFaceList = this->faces();
     const cellList& oldCells = this->cells();
@@ -314,8 +336,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     }
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
-    
-    
+        
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -324,7 +345,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     patchStarts,
                     true);
     selfTestMesh();
-    
+        
     const cellList& newCells = this->cells();
     newCellVolume = scalarList(newCells.size());
     for(int i=0;i<newCellVolume.size();i++)

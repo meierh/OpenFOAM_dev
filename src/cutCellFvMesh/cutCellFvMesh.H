@@ -153,6 +153,14 @@ class cutCellFvMesh   :   public fvMesh
             // added interior split faces neighbor
             DynamicList<label> splitAndUnsplitFaceInteriorNeighbor;
             
+            //insert interior splitted faces
+            // added interior split faces
+            DynamicList<face> splitAndUnsplitFacesInteriorToBoundary;
+            // added interior split faces owner
+            DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryOwner;
+            // added interior split faces neighbor
+            DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryNeighbor;
+            
             //insert boundary splitted faces
             // added boundary split faces
             DynamicList<face> splitAndUnsplitFacesBoundary;

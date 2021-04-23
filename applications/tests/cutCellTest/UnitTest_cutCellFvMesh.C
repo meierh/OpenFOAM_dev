@@ -51,6 +51,6 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
         items
      );
     
-     Foam::Info<<"CUTCELLFVMESH Test done"<<Foam::endl;    
+     Foam::Info<<"CUTCELLFVMESH Test done"<<Foam::endl;
 
 }

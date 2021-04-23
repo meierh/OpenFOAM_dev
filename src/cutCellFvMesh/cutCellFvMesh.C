@@ -3658,6 +3658,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
     {
         patchStarts[i] = boundMesh[i].start();
         patchSizes[i] = boundMesh[i].faceCentres().size();
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
     
     oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
@@ -3948,51 +3949,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg
         patchStarts[i] = patchStarts[i-1] + patchSizes[i-1]; 
     }
     
-
-    /*
-    Info<<"---------------------------------------Faces------------------------------------"<<endl;
-    Info<<"NbrFaces:"<<combinedFaces.size()<<endl;
-    Info<<"NbrOwner:"<<combinedOwner.size()<<endl;
-    Info<<"NbrNeighbor:"<<combinedNeighbor.size()<<endl;
-    for(int k=0;k<combinedFaces.size();k++)
-    {
-        Info<<"Face: -"<<k<<"-";
-        pointField facePoints = combinedFaces[k].points(combinedPoints);
-        for(int j=0;j<facePoints.size();j++)
-            Info<<facePoints[j]<<"->";
-        Info<<"owner:"<<combinedOwner[k];
-        Info<<" neighbour:"<<combinedNeighbor[k];
-        Info<<endl;
-    }
-    */
-    
-    /*
-    word boundName = "Cut Bound";
-    labelList patches(addedCutFaces.size());
-    label nbrFacesBeforeCutFaces =  splitAndUnsplitFacesInterior.size() 
-                                    + splitAndUnsplitFacesBoundary.size();
-    for(int i=0;i<patches.size();i++)
-    {
-        patches[i] = nbrFacesBeforeCutFaces + i;
-    }
-    boundMesh.setGroup(boundName,patches);
-    */
-    
-    /*
-    for(int i=0;i<boundMesh.size();i++)
-    {
-        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-    }
-    */
-    
-    /*
-    labelList posPoints(0);
-    for(int i=0;i<pointsToSide_.size();i++)
-    {
-        if(pointsToSide_[i] >= 0)
-            posPoints.append(
-    }
-    */
     
     //reduce for empty cells
     labelList cellReductionNumb(meshCells.size());
@@ -4100,10 +4056,12 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     // Store old boundary patches
     patchStarts = labelList(boundMesh.size());
     patchSizes = labelList(boundMesh.size());
+    Info<<endl;
     for(int i=0;i<boundMesh.size();i++)
     {
         patchStarts[i] = boundMesh[i].start();
         patchSizes[i] = boundMesh[i].faceCentres().size();
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
     
     oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
@@ -4118,12 +4076,16 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     List<DynamicList<label>> oldCellsToAddedMinusSideCellIndex(meshCells.size());
     deletedCellsList = labelList(meshCells.size());
     label addedCellIndex = 0;
-    DynamicList<DynamicList<DynamicList<label>>> cellToNewMinusCellsPointLabels(meshCells.size());
-    DynamicList<DynamicList<DynamicList<label>>> cellToNewPlusCellsPointLabels(meshCells.size());
-    DynamicList<DynamicList<label>> cellToNewMinusCellsIndexes(meshCells.size());
-    DynamicList<DynamicList<label>> cellToNewPlusCellsIndexes(meshCells.size());
+    DynamicList<DynamicList<DynamicList<label>>> cellToNewMinusCellsPointLabels;
+    cellToNewMinusCellsPointLabels.setSize(meshCells.size());
+    DynamicList<DynamicList<DynamicList<label>>> cellToNewPlusCellsPointLabels;
+    cellToNewPlusCellsPointLabels.setSize(meshCells.size());
+    DynamicList<DynamicList<label>> cellToNewMinusCellsIndexes;
+    cellToNewMinusCellsIndexes.setSize(meshCells.size());
+    DynamicList<DynamicList<label>> cellToNewPlusCellsIndexes;
+    cellToNewPlusCellsIndexes.setSize(meshCells.size());
     
-    Info<<endl<<"cellToFaces_:"<<cellToFaces_<<endl;
+    //Info<<endl<<"cellToFaces_:"<<cellToFaces_<<endl;
     
     for(int i=0;i<meshCells.size();i++)
     {
@@ -4489,6 +4451,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
     }
 
+    //Info<<endl<<"cellToNewPlusCellsIndexes:"<<cellToNewPlusCellsIndexes<<endl;
+    //Info<<endl<<"cellToNewMinusCellsIndexes:"<<cellToNewMinusCellsIndexes<<endl;
     
     //Info<<"Insert split faces interior"<<endl;
     // Compute the List of new faces resulting from the splitting of old faces
@@ -4606,7 +4570,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         {
                             if(newNeighborCell!=-1 && !thisFaceNeighbors)
                                 FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
-                            newNeighborCell = neighbourNewMinusCellsIndex[k];
+                            newNeighborCell = neighbourNewPlusCellsIndex[k];
                             thisFaceNeighbors = true;
                         }
                     }
@@ -4669,10 +4633,15 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             << exit(FatalError);
         }
     }
-
+    
+    //Info<<endl<<"splitAndUnsplitFaceInteriorOwner"<<splitAndUnsplitFaceInteriorOwner<<endl;
+    //Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
+    
+    Info<<"New Boundary"<<endl;
     for(int i=0;i<boundMesh.size();i++)
     {
         patchStarts[i] += addedSplitCellsInteriorNbr-neighbour.size();
+        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
     
     //Info<<"Insert split faces boundary"<<endl;
@@ -4696,7 +4665,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             
             if(signFace1>=0)
             {
-                splitAndUnsplitFacesInterior.append(face1);
+                splitAndUnsplitFacesBoundary.append(face1);
                 label oldOwnerCell = owner[i];
                 
                 DynamicList<DynamicList<label>> ownerNewMinusCellsPointLabels = cellToNewMinusCellsPointLabels[oldOwnerCell];
@@ -4749,11 +4718,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 if(newOwnerCell==-1)
                     FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
                 
-                splitAndUnsplitFaceInteriorNeighbor.append(-1);
-                splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
+                splitAndUnsplitFaceBoundaryNeighbor.append(-1);
+                splitAndUnsplitFaceBoundaryOwner.append(newOwnerCell);
 
                 addedOneFace = true;
-                addedSplitCellsInteriorNbr++;
+                countNewBoundaryFaces++;
             }
         }
         //Info<<"Boundary face "<<i;
@@ -4768,6 +4737,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             }
             else if(facesToSide_[i] == 0)
             {
+                countNewBoundaryFaces++;
                 splitAndUnsplitFacesBoundary.append(meshFaces[i]);
                 splitAndUnsplitFaceBoundaryNeighbor.append(-1);
                 splitAndUnsplitFaceBoundaryOwner.append(owner[i]);
@@ -4796,6 +4766,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         if(patchSizes[currBoundaryPatch] <= countOldBoundaryFaces)
         {
             patchSizes[currBoundaryPatch] = countNewBoundaryFaces;
+            Info<<"NewPatchSize["<<currBoundaryPatch<<"]: "<<patchSizes[currBoundaryPatch]<<endl;
             currBoundaryPatch++;
             countNewBoundaryFaces = 0;
             countOldBoundaryFaces = 0;            
@@ -4803,21 +4774,31 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     }
     for(int i=1;i<patchStarts.size();i++)
     {
-        //Info<<i<<":"<<patchStarts[i-1]<<"+"<<patchSizes[i-1]<<"="<<patchStarts[i-1] + patchSizes[i-1]<<endl;
+        Info<<i<<":"<<patchStarts[i-1]<<"+"<<patchSizes[i-1]<<"="<<patchStarts[i-1] + patchSizes[i-1]<<endl;
         patchStarts[i] = patchStarts[i-1] + patchSizes[i-1]; 
     }
     
     
     //reduce for empty cells
-    labelList cellReductionNumb(meshCells.size());
+    DynamicList<label> cellReductionNumb;
+    cellReductionNumb.setSize(meshCells.size());
     mapOldCellsToNewCells.setSize(meshCells.size());
     label count = 0;
-    Info<<endl<<"cellReductionNumb.size(): "<<cellReductionNumb.size()<<endl;
-    Info<<endl<<"deletedCellsList: "<<deletedCellsList<<endl;
+    label countDel = 0;
+    //Info<<endl<<"cellReductionNumb.size(): "<<cellReductionNumb.size()<<endl;
+    //Info<<endl<<"deletedCellsList: "<<deletedCellsList<<endl;
     for(int i=0;i<cellReductionNumb.size();i++)
     {
         if(deletedCellsList[i] == 1)
         {
+            if(!(cellToNewPlusCellsIndexes[i].size()>1 && cellToNewMinusCellsIndexes[i].size()==1) &&
+               !(cellToNewPlusCellsIndexes[i].size()==0 && cellToNewMinusCellsIndexes[i].size()==0))
+            {
+                Info<<endl<<"cellToNewPlusCellsIndexes["<<i<<"].size():"<<cellToNewPlusCellsIndexes[i].size()<<endl;
+                Info<<endl<<"cellToNewMinusCellsIndexes["<<i<<"].size():"<<cellToNewMinusCellsIndexes[i].size()<<endl;
+                FatalErrorInFunction<<"Deleted Cell. Invalid cell splitting."<<exit(FatalError);
+            }
+
             if(cellToNewPlusCellsIndexes[i].size()==0)
             {            
                 mapOldCellsToNewCells[i].setSize(0);
@@ -4832,38 +4813,68 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
                 }
             }
-            count++;
             cellReductionNumb[i] = -1;
+            countDel++;
         }
         else
         {
-            cellReductionNumb[i] = count;
+            if(!(cellToNewPlusCellsIndexes[i].size()==1 && cellToNewMinusCellsIndexes[i].size()==1) &&
+               !(cellToNewPlusCellsIndexes[i].size()==1 && cellToNewMinusCellsIndexes[i].size()>1) &&
+               !(cellToNewPlusCellsIndexes[i].size()==0 && cellToNewMinusCellsIndexes[i].size()==0))
+            {
+                Info<<endl<<"cellToNewPlusCellsIndexes["<<i<<"].size():"<<cellToNewPlusCellsIndexes[i].size()<<endl;
+                Info<<endl<<"cellToNewMinusCellsIndexes["<<i<<"].size():"<<cellToNewMinusCellsIndexes[i].size()<<endl;
+                FatalErrorInFunction<<"Nondeleted Cell. Invalid cell splitting."<<exit(FatalError);
+            }
+                
+            cellReductionNumb[i] = countDel;
             mapOldCellsToNewCells[i].append(count);
         }
+        count++;
     }
-    Info<<endl<<"cellReductionNumb: "<<cellReductionNumb<<endl;
+    //Info<<endl<<"cellReductionNumb: "<<cellReductionNumb<<endl;
+    //Info<<endl<<"mapOldCellsToNewCells: "<<mapOldCellsToNewCells<<endl;
+
+
+    label maxNumOfNewCells = 0;
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
         if((mapOldCellsToNewCells[i].size()==0 && cellReductionNumb[i]!=-1)||(mapOldCellsToNewCells[i].size()!=0 && cellReductionNumb[i]==-1))
             FatalErrorInFunction<<"Face neighbors or ownes deleted cell. This can not happen."<<exit(FatalError);
         for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
         {
-            mapOldCellsToNewCells[i][j] -= cellReductionNumb[i];                
+            if(mapOldCellsToNewCells[i][j]<i)
+                FatalErrorInFunction<<"Old cells can only be mapped to new cells of higher index."<<exit(FatalError);
+            mapOldCellsToNewCells[i][j] -= cellReductionNumb[i];
+            if(maxNumOfNewCells<mapOldCellsToNewCells[i][j])
+                maxNumOfNewCells = mapOldCellsToNewCells[i][j];
+            
         }
     }
+    maxNumOfNewCells++;
+    //Info<<endl<<"mapOldCellsToNewCells: "<<mapOldCellsToNewCells<<endl;
+    //Info<<endl<<"maxNumOfNewCells: "<<maxNumOfNewCells<<endl;
     
-    mapNewCellsToOldCells = labelList(meshCells.size()-cellReductionNumb.last(),-1);
+    for(int i=cellReductionNumb.size();i<maxNumOfNewCells;i++)
+    {
+        cellReductionNumb.append(countDel);
+    }
+        
+    mapNewCellsToOldCells = labelList(maxNumOfNewCells,-1);
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
         for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
         {
             if(mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]]!=-1)
+            {
+                Info<<endl<<"mapOldCellsToNewCells["<<i<<"]["<<j<<"]:"<<mapOldCellsToNewCells[i][j]<<endl;
                 FatalErrorInFunction<<"Multiple assign to mapNewCellsToOldCells."<<exit(FatalError);
+            }
             mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]] = i;                
         }
     }
-    
-    
+    //Info<<endl<<"mapNewCellsToOldCells: "<<mapNewCellsToOldCells<<endl;
+        
     for(int i=0;i<addedCutFaces.size();i++)
     {
         if(cellReductionNumb[addedCutFaceOwner[i]] != -1 &&
@@ -4879,7 +4890,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
     }
 
-    Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor 1"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
+    //Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor 1"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
 
     
     for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
@@ -4899,7 +4910,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
     }
     
-    Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor 2"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
+    //Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor 2"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
     
     
     DynamicList<face> tempFaceNonNeighb;
@@ -4934,9 +4945,12 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     splitAndUnsplitFacesInterior.append(tempFaceWithNeighb);
     splitAndUnsplitFaceInteriorOwner.append(tempOwnerWithNeighb);
     splitAndUnsplitFaceInteriorNeighbor.append(tempNeighbourWithNeighb);
-    splitAndUnsplitFacesInterior.append(tempFaceNonNeighb);
-    splitAndUnsplitFaceInteriorOwner.append(tempOwnerNonNeighb);
-    splitAndUnsplitFaceInteriorNeighbor.append(tempNeighbourNonNeighb);
+    splitAndUnsplitFacesInteriorToBoundary.append(tempFaceNonNeighb);
+    splitAndUnsplitFaceInteriorToBoundaryOwner.append(tempOwnerNonNeighb);
+    splitAndUnsplitFaceInteriorToBoundaryNeighbor.append(tempNeighbourNonNeighb);
+    
+    for(int i=0;i<patchStarts.size()-1;i++)
+        patchStarts[i] -= splitAndUnsplitFacesInteriorToBoundary.size();
     
     for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++)
     {
@@ -4960,7 +4974,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     splitAndUnsplitFaceInteriorOwner.setCapacity(splitAndUnsplitFaceInteriorOwner.size());
     splitAndUnsplitFaceInteriorNeighbor.setCapacity(splitAndUnsplitFaceInteriorNeighbor.size());
     
-    //Info<<endl<<splitAndUnsplitFaceInteriorNeighbor<<endl;
+    //Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
 
     splitAndUnsplitFacesBoundary.setCapacity(splitAndUnsplitFacesBoundary.size());
     splitAndUnsplitFaceBoundaryOwner.setCapacity(splitAndUnsplitFaceBoundaryOwner.size());
@@ -5450,40 +5464,33 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
         if(deletedCellsList[i] == 1)
             deletedCellsCount++;
     }
+    Info<<"1"<<endl;
     if(newCellVolume.size()+deletedCellsCount != oldCellVolume.size())
     {
         FatalErrorInFunction
         << "Must not happen!"
         << exit(FatalError); 
     }
+    Info<<"2"<<endl;
     
-    labelList reducedOldToNewCellRelation(newCellVolume.size());
-    int k=0;
-    for(int i=0;i<oldSplittedCellToNewPlusCell.size();i++)
-    {
-        if(deletedCellsList[i] != 1)
-        {
-            // corrected only to allow compiling
-            reducedOldToNewCellRelation[k] = oldSplittedCellToNewPlusCell[i][0];
-            k++;
-        }
-    }
+    
+    Info<<endl<<"deletedCellsList: "<<deletedCellsList<<endl;
+    Info<<endl<<"oldSplittedCellToNewPlusCell: "<<oldSplittedCellToNewPlusCell<<endl;
+
+
+    Info<<"3"<<endl;
+    
+    if(newCellVolume.size() != mapNewCellsToOldCells.size())
+        FatalErrorInFunction<< "Must not happen!"<< exit(FatalError);
     
     for(int i=0;i<newCellVolume.size();i++)
     {
-        if(reducedOldToNewCellRelation[i] >= 0)
-        {
-            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[mapNewCellsToOldCells[i]];
-        }
-        else
-        {
+        if(mapNewCellsToOldCells[i] == -1)
             partialVolumeScale[i] = 1;
-        }
-        /*
-        Info<<"cell:"<<i<<" oldSplittedCellToNewPlusCell:"<<oldSplittedCellToNewPlusCell[i]<<" partialVolumeScale:"<<partialVolumeScale[i]<<endl;
-        */
+        else
+            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[mapNewCellsToOldCells[i]];
     }
-    
+    Info<<"4"<<endl;
     /*
     for(int i=0;i<newCellVolume.size();i++)
     {
@@ -8537,7 +8544,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
 Info<<"---------------------------------------------_________________-------"<<endl;
                 for(int i=tryedCells[count];i<possibleMergeCells_red[count].size();i++,tryedCells[count]++)
                 {
-Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
+Info<<"i: "<<i<<"  Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
 
                     bool cellsNotBlocked = true;
                     DynamicList<label> blockedBecausOf;
@@ -8572,17 +8579,20 @@ Info<<"Merge Cell:"<<possibleMergeCells_red[count][i]<<endl;
                             Info<<"not blocked:"<<cellReserved.count(possibleMergeCells_red[count][i][s])<<endl;
                         }
                     }
+Info<<"Hello"<<endl;
 Info<<"1 cellsNotBlocked:"<<cellsNotBlocked<<endl;
                     cellsAreBlocked.append(!cellsNotBlocked);
                     if(!cellsNotBlocked) Info<<" are blocked "<<endl;
+Info<<"Not hello"<<endl;
                     
                     bool cellsWillNotBlock = true;
                     DynamicList<label> willBlock;
-                    cellsThatWillBeBlocked[i].setSize(possibleMergeCells_red[count][i].size());
+                    cellsThatWillBeBlocked[i-tryedCellsStartPoint].setSize(possibleMergeCells_red[count][i].size());
 //Info<<" test will Block "<<endl;
                     // Iterate across all selected mergeCells in one mergeOptions
                     for(int s=0;s<possibleMergeCells_red[count][i].size();s++)
                     {
+                        Info<<"s:"<<s<<endl;
 //Info<<"count:"<<count<<" Test if "<<possibleMergeCells_red[count][i][s]<<" will block for merge with "<<redIndToCell[count]<<endl;
                         std::unordered_multimap<label,label> mergeOptionLocation; //Cells and mergeOptions that are blocked 
                         DynamicList<label> cellToBeBlocked; //List of cells that might be preBlocked
@@ -8599,12 +8609,12 @@ Info<<"1 cellsNotBlocked:"<<cellsNotBlocked<<endl;
 //Info<<"   "<<redIndToCell[(keyIt->second).first]<<"    "<<possibleMergeCells_red[(keyIt->second).first][(keyIt->second).second]<<endl;
                         }
                         
-//Info<<" cellToBeBlocked "<<cellToBeBlocked<<endl;
+Info<<" cellToBeBlocked "<<cellToBeBlocked<<endl;
                         
                         //Iterate across all cells that might be totally blocked
                         for(int ss=0;ss<cellToBeBlocked.size();ss++)
                         {
-//Info<<" Is cell "<<cellToBeBlocked[ss]<<"/"<<redIndToCell[cellToBeBlocked[ss]]<<" blocked? ";
+Info<<" Is cell "<<cellToBeBlocked[ss]<<"/"<<redIndToCell[cellToBeBlocked[ss]]<<" blocked? ";
                             // select the specific merge option that might be blocked
                             DynamicList<bool> posBlocked = cellMergPosBlocked_red[cellToBeBlocked[ss]];
 //Info<<posBlocked<<endl;
@@ -8617,7 +8627,7 @@ Info<<"1 cellsNotBlocked:"<<cellsNotBlocked<<endl;
                                 optionsBlocking.insert(iter->second);
 //Info<<"   Option added: "<<iter->second<<endl;
                             }
-//Info<<"End"<<endl;
+Info<<"End"<<endl;
                             //Iterate across all mergeOptions and test if blocked
                             for(int sss=0;sss<posBlocked.size();sss++)
                             {
@@ -8641,12 +8651,15 @@ Info<<"1 cellsNotBlocked:"<<cellsNotBlocked<<endl;
                             }
                             if(allBlocked)
                             {
-//Info<<"Set to Block"<<endl;
-                                cellsThatWillBeBlocked[i][s].append(cellToBeBlocked[ss]);
+Info<<"Set to Block"<<endl;
+Info<<"i: "<<i<<" s: "<<s<<endl<<"cellsThatWillBeBlocked: "<<cellsThatWillBeBlocked<<endl;
+Info<<"ss: "<<ss<<endl<<"cellToBeBlocked: "<<cellToBeBlocked<<endl;
+                                cellsThatWillBeBlocked[i-tryedCellsStartPoint][s].append(cellToBeBlocked[ss]);
                                 cellsWillNotBlock = false;
+Info<<"End"<<endl;
                             }
                         }
-//Info<<"cellsWillNotBlock: "<<cellsWillNotBlock<<endl;
+Info<<"cellsWillNotBlock: "<<cellsWillNotBlock<<endl;
                     }
                     cellsWillBlock.append(!cellsWillNotBlock);
                     if(!cellsWillNotBlock) Info<<" will block "<<endl;
@@ -8715,6 +8728,8 @@ Info<<"Merge face not found for "<<count<<endl;
 Info<<"tryedCells["<<count<<"] = "<<tryedCells[count]<<"/"<<"possibleMergeCells["<<count<<"] = "<<possibleMergeCells[count].size()<<" assignList["<<count<<"]:"<<assignList[count]<<"  mergeNecessary["<<count<<"]:"<<mergeNecessary[count]<<endl;
 Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCells["<<count-1<<"] = "<<possibleMergeCells[count-1].size()<<" assignList["<<count-1<<"]:"<<assignList[count-1]<<"  mergeNecessary["<<count-1<<"]:"<<mergeNecessary[count-1]<<endl;
 */
+/*
+ * Wrong code
                     if(allCellsAreBlocked)
                     {
                         FatalErrorInFunction
@@ -8724,6 +8739,7 @@ Info<<"tryedCells["<<count-1<<"] = "<<tryedCells[count-1]<<"/"<<"possibleMergeCe
                     if(allCellsWillBlock)
                     {
                     }
+*/
 
                     DynamicList<label> trackBackPoints;
                     DynamicList<label> trackBackPointsMergeInd;
@@ -8813,6 +8829,7 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                 //Iterate across the cells that will be blocked by each mergeCell
                                 for(int zzz=0;zzz<cellsThatWillBeBlocked[z][zz].size();zzz++)
                                 {
+                                    Info<<"zzz: "<<zzz<<endl;
                                 //Begin testing if not all are blocked and the current object blocks
                                     DynamicList<label> nonBlockedMergeOption;
                                     label blockedCell = cellsThatWillBeBlocked[z][zz][zzz];
@@ -8902,6 +8919,7 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                         mergeOptionTrackBack = (reservedBackPoint<blockedBackPoint)?reservedBackPoint:blockedBackPoint;
                                         if(mergeOptionTrackBack>=possibleMergeCells.size() || mergeOptionTrackBack<0)
                                         {
+                                            Info<<endl<<"mergeOptionTrackBack: "<<mergeOptionTrackBack<<endl;
                                             FatalErrorInFunction
                                             << " Track Back Point across merging Option of willBeBlocked cell is out of range! "<<endl
                                             << exit(FatalError);
@@ -8910,14 +8928,20 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                                     }
                                     if(willBeBlockedCellTrackBack>=possibleMergeCells.size() || willBeBlockedCellTrackBack<0)
                                     {
+                                        Info<<endl<<"willBeBlockedCellTrackBack: "<<willBeBlockedCellTrackBack<<endl;
+                                        Info<<"possibleMergeCells.size(): "<<possibleMergeCells.size()<<endl;
                                         FatalErrorInFunction
                                         << " Track Back Point of willBeBlocked cell is out of range! "<<endl
                                         << exit(FatalError);
                                     }
                                     minBackTrackingForOneMergeCell = (minBackTrackingForOneMergeCell>willBeBlockedCellTrackBack)?willBeBlockedCellTrackBack:minBackTrackingForOneMergeCell;
+                                    
+                                    Info<<endl<<"willBeBlockedCellTrackBack: "<<willBeBlockedCellTrackBack<<" | minBackTrackingForOneMergeCell: "<<minBackTrackingForOneMergeCell<<endl;
                                 }
                                 if(minBackTrackingForOneMergeCell>=possibleMergeCells.size() || minBackTrackingForOneMergeCell<0)
                                 {
+                                    Info<<endl<<"minBackTrackingForOneMergeCell: "<<minBackTrackingForOneMergeCell<<endl;
+                                    Info<<"possibleMergeCells.size(): "<<possibleMergeCells.size()<<endl;
                                     FatalErrorInFunction
                                     << " Track Back Point of all willBeBlocked cell is out of range! "<<endl
                                     << exit(FatalError);
@@ -8926,6 +8950,8 @@ Info<<"s:"<<s<<" possibleMergeCells_red:"<<possibleMergeCells_red[count][s]<<end
                             }
                             if(minBackTrackingForMergeOption>=possibleMergeCells.size() || minBackTrackingForMergeOption<0)
                             {
+                                Info<<endl<<"minBackTrackingForMergeOption: "<<minBackTrackingForMergeOption<<endl;
+                                Info<<"possibleMergeCells.size(): "<<possibleMergeCells.size()<<endl;
                                 FatalErrorInFunction
                                 << " Track Back Point of all mergeOption is out of range! "<<endl
                                 << exit(FatalError);
@@ -9784,10 +9810,10 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
     const labelList& neighbour
 )
 {
-    Info<<"owner.size()="<<owner.size()<<endl;
-    Info<<"neighbour.size()="<<neighbour.size()<<endl;
+    //Info<<"owner.size()="<<owner.size()<<endl;
+    //Info<<"neighbour.size()="<<neighbour.size()<<endl;
 
-    Info<<"Correct1"<<endl;
+    //Info<<"Correct1"<<endl;
     label numCells = 0;
     for(int i=0;i<owner.size();i++)
     {
@@ -9796,22 +9822,23 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
     numCells++;
     List<DynamicList<label>> cellsFaces(numCells);
 
-    Info<<"Correct2::"<<cellsFaces.size()<<endl;
+    //Info<<"Correct2::"<<cellsFaces.size()<<endl;
 
-    Info<<"Correct2"<<endl;
+    //Info<<"Correct2"<<endl;
     
     if(owner.size() != neighbour.size())
         FatalErrorInFunction<<"Can not happen"<< exit(FatalError); 
 
-    
+    /*
     for(int i=0;i<owner.size();i++)
         Info<<"i:"<<i<<" owner["<<i<<"]:"<<owner[i]<<" neighbour["<<i<<"]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+    */
     
-    FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
+    //FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
     
     for(int i=0;i<owner.size();i++)
     {
-        Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+        //Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
         cellsFaces[owner[i]].append(i);
         if(neighbour[i]!=-1)
             cellsFaces[neighbour[i]].append(i);
