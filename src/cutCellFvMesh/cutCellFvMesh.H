@@ -295,6 +295,13 @@ class cutCellFvMesh   :   public fvMesh
             scalar partialThreeshold = 0.25
         );
         
+        void agglomerateSmallCells_cutNeg_plus
+        (
+            scalarList& newCellVolume,
+            scalarList& oldCellVolume,
+            scalar partialThreeshold = 0.25
+        );
+        
         labelList searchDown
         (
             scalarListList& possibleMergeFaceArea,
@@ -328,6 +335,17 @@ class cutCellFvMesh   :   public fvMesh
         );
         
         List<DynamicList<label>> searchDown_iter_preBlock
+        (
+            const labelList& owner,
+            const labelList& neighbour,
+            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
+            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
+            DynamicList<bool>& oneMergeFaceSufficient,
+            DynamicList<bool>& mergeNecessary
+        );
+        
+        List<DynamicList<label>> assignMergeFaces
         (
             const labelList& owner,
             const labelList& neighbour,
