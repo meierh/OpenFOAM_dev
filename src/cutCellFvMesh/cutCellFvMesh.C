@@ -7749,7 +7749,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
                 label nghbr = neighbour[fc];
             
                 Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
-                "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
+                " cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
                 FatalErrorInFunction
                 << "Merge Face used twice!"
                 << exit(FatalError);  
@@ -11038,72 +11038,108 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
     List<label> cellRequestedMultiplicity(possibleMergeCells.size(),0);
     for(int i=0;i<cellRequestedMultiplicity.size();i++)
     {
-        if((mergeNecessary[i] && possibleMergeCells[i].size()!=0) || (!mergeNecessary[i] && possibleMergeCells[i].size()==0)
-            FatalErrorInFunction<<"Invalid input parameters!"<<exit(FatalError);
-
-        for(int j=0;j<possibleMergeCells[count].size();j++)
+        if((mergeNecessary[i] && possibleMergeCells[i].size()==0) || (!mergeNecessary[i] && possibleMergeCells[i].size()!=0))
         {
-            if(possibleMergeCells[count][j].size()!=1)
+            Info<<endl;
+            Info<<"mergeNecessary["<<i<<"]:"<<mergeNecessary[i]<<endl;
+            Info<<"possibleMergeCells["<<i<<"]:"<<possibleMergeCells[i]<<endl;
+            FatalErrorInFunction<<"Invalid input parameters!"<<exit(FatalError);
+        }
+
+        for(int j=0;j<possibleMergeCells[i].size();j++)
+        {
+            if(possibleMergeCells[i][j].size()!=1)
                 FatalErrorInFunction<<"Invalid input parameters!"<<exit(FatalError);
             
-            cellRequestedMultiplicity[possibleMergeCells[count][j][0]]++;
+            cellRequestedMultiplicity[possibleMergeCells[i][j][0]]++;
         }
     }
     
+    labelList faceUsedByCell(owner.size(),-1);
     for(int count=0;count<possibleMergeCells.size();count++)
     {   
-        if(mergeNecessary[count] && usedCellsMultiplicity[count]==0)
+        if(mergeNecessary[count])
         /* Decision A: Enters if block if merge is necessary and the cell is not already used for
          * a merge with another cell
          */
         {
-            DynamicList<label> nonTakenMergeCells;
-            for(int j=0;j<possibleMergeCells[count].size();j++)
+            if(usedCellsMultiplicity[count]==0)
             {
-                if(possibleMergeCells[count][j].size()!=1)
-                    FatalErrorInFunction<<"More than one merge cell in one option!"<<exit(FatalError);
-                
-                if(usedCellsMultiplicity[possibleMergeCells[count][j][0]]==0)
-                    nonTakenMergeCells.append(j);
-            }
-            if(nonTakenMergeCells.size()>0)
-            {
-                label minimumRequestedCell = possibleMergeCells.size()+1;
-                label minimumRequestedCellInd = -1;
-                for(int j=0;j<nonTakenMergeCells.size();j++)
+                DynamicList<label> nonTakenMergeCells;
+                for(int j=0;j<possibleMergeCells[count].size();j++)
                 {
-                    if(minimumRequestedCell>cellRequestedMultiplicity[possibleMergeCells[count][j][0]])
-                    {
-                        minimumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][j][0]];
-                        minimumRequestedCellInd = nonTakenMergeCells[j];
-                    }
+                    if(possibleMergeCells[count][j].size()!=1)
+                        FatalErrorInFunction<<"More than one merge cell in one option!"<<exit(FatalError);
+                
+                    if(usedCellsMultiplicity[possibleMergeCells[count][j][0]]==0)
+                        nonTakenMergeCells.append(j);
                 }
-                if(minimumRequestedCellInd==-1 || minimumRequestedCell==possibleMergeCells.size()+1)
-                    FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                if(nonTakenMergeCells.size()>0)
+                {
+                    label minimumRequestedCell = possibleMergeCells.size()+1;
+                    label minimumRequestedCellInd = -1;
+                    for(int j=0;j<nonTakenMergeCells.size();j++)
+                    {
+                        if(minimumRequestedCell>cellRequestedMultiplicity[possibleMergeCells[count][j][0]])
+                        {
+                            minimumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][j][0]];
+                            minimumRequestedCellInd = nonTakenMergeCells[j];
+                        }
+                    }
+                    if(minimumRequestedCellInd==-1 || minimumRequestedCell==possibleMergeCells.size()+1)
+                        FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
                 
-                assignList[count].append(possibleMergeFace[count][minimumRequestedCellInd][0]);
+                    assignList[count].append(possibleMergeFaces[count][minimumRequestedCellInd][0]);
+                    usedCellsMultiplicity[possibleMergeCells[count][minimumRequestedCellInd][0]]++;
+                    
+                    if(faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] != -1)
+                    {
+                        Info<<endl;
+                        Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]];
+                        label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]]][0];
+                        Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
+
+                        Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumRequestedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumRequestedCellInd][0]<<endl;
+                        Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
+                        
+                        FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                    }
+                    faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] = count;
+                }
+                else
+                {
+                    label minimumUsedCell = possibleMergeCells.size()+1;
+                    label minimumUsedCellInd = -1;
+                    for(int j=0;j<possibleMergeCells[count].size();j++)
+                    {
+                        if(possibleMergeCells[count][j].size()!=1)
+                            FatalErrorInFunction<<"More than one merge cell in one option!"<<exit(FatalError);
+                
+                        if(minimumUsedCell>usedCellsMultiplicity[possibleMergeCells[count][j][0]])
+                        {
+                            minimumUsedCell=usedCellsMultiplicity[possibleMergeCells[count][j][0]];
+                            minimumUsedCellInd=j;
+                        }
+                    }
+                    assignList[count].append(possibleMergeFaces[count][minimumUsedCellInd][0]);
+                    usedCellsMultiplicity[possibleMergeCells[count][minimumUsedCellInd][0]]++;
+                    
+                    if(faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] != -1)
+                    {
+                        Info<<endl;
+                        Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]];
+                        label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]]][0];
+                        Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
+
+                        Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumUsedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumUsedCellInd][0]<<endl;
+                        FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                    }                    
+                    faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] = count;
+                }
             }
             else
             {
-                
-            }
-            
-            
-            if(cellReserved.count(redIndToCell[count]) == 0 && !cellMergDone_red[count])
-            /* Decision B: Enters block if the cell is not already used for
-            * a merge with another cell
-            */
-            {
-            }
-            else
-            /* Decision B: Enters else block for cells that are already used for merge.
-            */
-            {
-                DynamicList<label> temp;
-                temp.append(-2);
-                assignList[redIndToCell[count]] = temp;
-                tryedCells[count] = 0;
-                count++;
+                assignList[count].append(-2);
             }
         }
         else
@@ -11111,18 +11147,13 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
          * filled with -1 for these cells.
          */
         {
-            DynamicList<label> temp;
-            temp.append(-1);
-            assignList[redIndToCell[count]] = temp;
-            tryedCells[count] = 0;
-            count++;
+            assignList[count].append(-1);
         }
     }
     
     Info<<"Fin"<<endl;
     
 //Test
-    std::unordered_set<label> allUsedCells;
     for(int i=0;i<assignList.size();i++)
     {
         if(mergeNecessary[i])
@@ -11133,18 +11164,12 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
                 << " Error empty assign List at i:"<<i<<endl
                 << exit(FatalError);
             }
-            if(assignList[i][0] == -3)
+            if(assignList[i][0] == -1)
             {
                 FatalErrorInFunction
                 << " Too small cell was not treated by backtracking algorithm!"<<endl
                 << exit(FatalError);
             }            
-            if(assignList[i][0] == -1)
-            {
-                FatalErrorInFunction
-                << " Too small cell was listed as large enough!"<<endl
-                << exit(FatalError);
-            }
             
             std::unordered_multiset<label> mergeCellsSet;
             DynamicList<label> mergeCellsList;
@@ -11182,38 +11207,12 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
                 if(assignList[i].size() != 1)
                     FatalErrorInFunction<<"Error in 2 Cell merging! "<<exit(FatalError);
             }
-            else if(mergeCellMult==2 && mergeCellsList.size() == 4)
-            {
-                //4 Cell merging
-                if(assignList[i].size() != 4)
-                    FatalErrorInFunction<<"Error in 4 Cell merging! "<<exit(FatalError);
-            }
-            else if(mergeCellMult==3 && mergeCellsList.size() == 8)
-            {
-                //4 Cell merging
-                if(assignList[i].size() != 12)
-                    FatalErrorInFunction<<"Error in 8 Cell merging! "<<exit(FatalError);
-            }
             else
             {
                 Info<<"mergeCellMult: "<<mergeCellMult<<endl;
                 Info<<"optionMergeCellsList.size() == "<<mergeCellsList.size()<<endl;
                 Info<<"possibleMergeFaces[i][j].size() == "<<assignList[i].size()<<endl;
                 FatalErrorInFunction<<"Inconsistent merge Option!"<<exit(FatalError);
-            }
-            for(int k=0;k<mergeCellsList.size();k++)
-            {
-                if(allUsedCells.find(mergeCellsList[k]) != allUsedCells.end())
-                {
-                    Info<<"All Cells: "<<mergeCellsList<<endl;
-                    Info<<"Cell: "<<mergeCellsList[k]<<" used twice!"<<endl;
-                    Info<<"Error at Indx:"<<i<<endl;
-                    FatalErrorInFunction<<"Merging cell already taken!"<<exit(FatalError);
-                }
-                else
-                {
-                    allUsedCells.insert(mergeCellsList[k]);
-                }
             }
         }
         else
@@ -11224,13 +11223,7 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
                 << " Error empty assign List at i:"<<i<<endl
                 << exit(FatalError);
             }
-            if(assignList[i].size()!=1)
-            {
-                FatalErrorInFunction
-                << " Error overfull assign List at i:"<<i<<endl
-                << exit(FatalError);
-            }
-            if(assignList[i][0] != -3)
+            if(assignList[i][0] != -1)
             {
                 FatalErrorInFunction
                 << " Backtracking algorithm wrote inside large enough cell. Something is wrong here!"<<endl

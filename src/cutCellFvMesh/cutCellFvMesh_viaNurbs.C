@@ -355,7 +355,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     
     Info<<"Agglomerate small cut-cells";
     t1 = std::chrono::high_resolution_clock::now();
-    agglomerateSmallCells_cutNeg(newCellVolume,oldCellVolume);
+    agglomerateSmallCells_cutNeg_plus(newCellVolume,oldCellVolume);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
