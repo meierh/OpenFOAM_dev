@@ -7927,20 +7927,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
             << "Cells do not match "
             << exit(FatalError);
         }
-        
-        for(int s=0;s<allCells.size();s++)
-        {
-            if(usedCells.find(allCells[s]) == usedCells.end())
-                usedCells.insert(allCells[s]);
-            else
-            {
-                Info<<"All Cells:"<<allCells<<endl;
-                Info<<"Cell: "<<allCells[s]<<" used twice"<<endl;
-                FatalErrorInFunction
-                << "Merge Cell used twice!"
-                << exit(FatalError);
-            }
-        }
     }
     
 //TestSection
