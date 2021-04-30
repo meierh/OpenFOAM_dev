@@ -7312,6 +7312,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     possibleMergeFaces.setSize(newCellVolume.size());
     DynamicList<DynamicList<DynamicList<label>>> possibleMergeCells;
     possibleMergeCells.setSize(newCellVolume.size());
+    DynamicList<DynamicList<scalar>> possibleMergeCellsSize;
+    possibleMergeCellsSize.setSize(newCellVolume.size());
     DynamicList<DynamicList<scalar>> possibleMergeFaceArea;
     possibleMergeFaceArea.setSize(newCellVolume.size());
     DynamicList<DynamicList<bool>> possibleMergeFaceSufficient;
@@ -7370,6 +7372,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
                         possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1][0]].mag(points));
                         
                         possibleMergeFaceSufficient[i].append(true);
+                        
+                        possibleMergeCellsSize[i]
                     }
                 }
             }
