@@ -7312,8 +7312,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     possibleMergeFaces.setSize(newCellVolume.size());
     DynamicList<DynamicList<DynamicList<label>>> possibleMergeCells;
     possibleMergeCells.setSize(newCellVolume.size());
-    DynamicList<DynamicList<scalar>> possibleMergeCellsSize;
-    possibleMergeCellsSize.setSize(newCellVolume.size());
+    DynamicList<DynamicList<scalar>> possibleMergeCellsPartialSize;
+    possibleMergeCellsPartialSize.setSize(newCellVolume.size());
     DynamicList<DynamicList<scalar>> possibleMergeFaceArea;
     possibleMergeFaceArea.setSize(newCellVolume.size());
     DynamicList<DynamicList<bool>> possibleMergeFaceSufficient;
@@ -7359,22 +7359,17 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
                     
                     neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
                     
-                    if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
-                    {
-                        DynamicList<label> temp;
-                        temp.append(newCells[i][k]);
-                        possibleMergeFaces[i].append(temp);
+                    DynamicList<label> temp;
+                    temp.append(newCells[i][k]);
+                    possibleMergeFaces[i].append(temp);
                         
-                        temp.setSize(0);
-                        temp.append(neighbourCell);
-                        possibleMergeCells[i].append(temp);
+                    temp.setSize(0);
+                    temp.append(neighbourCell);
+                    possibleMergeCells[i].append(temp);
 
-                        possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1][0]].mag(points));
-                        
-                        possibleMergeFaceSufficient[i].append(true);
-                        
-                        possibleMergeCellsSize[i]
-                    }
+                    possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1][0]].mag(points));
+                    possibleMergeFaceSufficient[i].append(true);
+                    possibleMergeCellsPartialSize[i] = neighbourCellPartialVolume+partialVolumeScale[i];
                 }
             }
             
@@ -7474,7 +7469,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     for(int i=0;i<possibleMergeFaceArea.size();i++)
     {
         int j;
-        scalar keyArea;
+        scalar keyArea,keySize;
         DynamicList<label> keyFaces,keyCells;
         bool keySuff;
         for(int k=1;k<possibleMergeFaceArea[i].size();k++)
@@ -7483,6 +7478,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
             keyFaces = possibleMergeFaces[i][k];
             keyCells = possibleMergeCells[i][k];
             keySuff = possibleMergeFaceSufficient[i][k];
+            keySize = possibleMergeCellsPartialSize[i][k];            
             j = k-1;
             while(j>=0 && possibleMergeFaceArea[i][j] < keyArea)
             {
@@ -7490,12 +7486,14 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
                 possibleMergeFaces[i][j+1] = possibleMergeFaces[i][j];
                 possibleMergeCells[i][j+1] = possibleMergeCells[i][j];
                 possibleMergeFaceSufficient[i][j+1] = possibleMergeFaceSufficient[i][j];
+                possibleMergeCellsPartialSize[i][j+1] = possibleMergeCellsPartialSize[i][j];
                 j--;
             }
             possibleMergeFaceArea[i][j+1] = keyArea;
             possibleMergeFaces[i][j+1] = keyFaces;
             possibleMergeCells[i][j+1] = keyCells;
             possibleMergeFaceSufficient[i][j+1] = keySuff;
+            possibleMergeCellsPartialSize[i][j+1] = keySize;
         }
     }
     Info<<"Sorted merge Cells"<<endl;
@@ -7706,8 +7704,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     List<DynamicList<label>> mergeFaceOfCell = assignMergeFaces(owner,neighbour,
                                                 possibleMergeFaceArea, possibleMergeFaces,
                                                 possibleMergeCells,oneMergeFaceSufficient,
-                                                mergeNecessary
-                                               );
+                                                mergeNecessary,possibleMergeCellsPartialSize,
+                                                partialThreeshold);
     
     
     t2 = std::chrono::high_resolution_clock::now();
@@ -9673,7 +9671,8 @@ List<DynamicList<label>> Foam::cutCellFvMesh::searchDown_iter_preBlock
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
     DynamicList<bool>& oneMergeFaceSufficient,
-    DynamicList<bool>& mergeNecessary
+    DynamicList<bool>& mergeNecessary,
+    scalar partialThreeshold
 )
 {
     label mergeCounter = 0;
@@ -11017,7 +11016,9 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
     DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
     DynamicList<bool>& oneMergeFaceSufficient,
-    DynamicList<bool>& mergeNecessary
+    DynamicList<bool>& mergeNecessary,
+    DynamicList<DynamicList<scalar>>& possibleMergeCellsPartialSize,
+    scalar partialThreeshold
 )
 {
     if(possibleMergeFaceArea.size() != possibleMergeFaces.size() || possibleMergeCells.size() != possibleMergeFaces.size())
@@ -11055,76 +11056,156 @@ List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
         {
             if(usedCellsMultiplicity[count]==0)
             {
-                DynamicList<label> nonTakenMergeCells;
+                DynamicList<label> largeEnoughMergeCells;
                 for(int j=0;j<possibleMergeCells[count].size();j++)
                 {
                     if(possibleMergeCells[count][j].size()!=1)
                         FatalErrorInFunction<<"More than one merge cell in one option!"<<exit(FatalError);
                 
-                    if(usedCellsMultiplicity[possibleMergeCells[count][j][0]]==0)
-                        nonTakenMergeCells.append(j);
+                    if(possibleMergeCellsPartialSize[count][j][0]>=partialThreeshold)
+                        largeEnoughMergeCells.append(j);
                 }
-                if(nonTakenMergeCells.size()>0)
+                if(largeEnoughMergeCells.size()>0)
                 {
-                    label minimumRequestedCell = possibleMergeCells.size()+1;
-                    label minimumRequestedCellInd = -1;
-                    for(int j=0;j<nonTakenMergeCells.size();j++)
+                    DynamicList<label> nonTakenMergeCells;
+                    for(int j=0;j<largeEnoughMergeCells.size();j++)
                     {
-                        if(minimumRequestedCell>cellRequestedMultiplicity[possibleMergeCells[count][j][0]])
+                        int ind = largeEnoughMergeCells[j];
+                        if(usedCellsMultiplicity[possibleMergeCells[count][ind][0]]==0)
+                            nonTakenMergeCells.append(ind);
+                    }
+                    if(nonTakenMergeCells.size()>0)
+                    {
+                        label minimumRequestedCell = possibleMergeCells.size()+1;
+                        label minimumRequestedCellInd = -1;
+                        for(int j=0;j<nonTakenMergeCells.size();j++)
                         {
-                            minimumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][j][0]];
-                            minimumRequestedCellInd = nonTakenMergeCells[j];
+                            if(minimumRequestedCell>cellRequestedMultiplicity[possibleMergeCells[count][nonTakenMergeCells[j]][0]])
+                            {
+                                minimumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][nonTakenMergeCells[j]][0]];
+                                minimumRequestedCellInd = nonTakenMergeCells[j];
+                            }
                         }
-                    }
-                    if(minimumRequestedCellInd==-1 || minimumRequestedCell==possibleMergeCells.size()+1)
-                        FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                        if(minimumRequestedCellInd==-1 || minimumRequestedCell==possibleMergeCells.size()+1)
+                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
                 
-                    assignList[count].append(possibleMergeFaces[count][minimumRequestedCellInd][0]);
-                    usedCellsMultiplicity[possibleMergeCells[count][minimumRequestedCellInd][0]]++;
+                        assignList[count].append(possibleMergeFaces[count][minimumRequestedCellInd][0]);
+                        usedCellsMultiplicity[possibleMergeCells[count][minimumRequestedCellInd][0]]++;
                     
-                    if(faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] != -1)
-                    {
-                        Info<<endl;
-                        Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]];
-                        label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]]][0];
-                        Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
+                        if(faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] != -1)
+                        {
+                            Info<<endl;
+                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]];
+                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]]][0];
+                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
 
-                        Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumRequestedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumRequestedCellInd][0]<<endl;
-                        Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
+                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumRequestedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumRequestedCellInd][0]<<endl;
+                            Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
                         
-                        FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                        }
+                        faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] = count;
                     }
-                    faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] = count;
+                    else
+                    {
+                        label minimumUsedCell = possibleMergeCells.size()+1;
+                        label minimumUsedCellInd = -1;
+                        for(int j=0;j<largeEnoughMergeCells.size();j++)
+                        {                
+                            if(minimumUsedCell>usedCellsMultiplicity[possibleMergeCells[count][largeEnoughMergeCells[j]][0]])
+                            {
+                                minimumUsedCell=usedCellsMultiplicity[possibleMergeCells[count][largeEnoughMergeCells[j]][0]];
+                                minimumUsedCellInd=largeEnoughMergeCells[j];
+                            }
+                        }
+                        assignList[count].append(possibleMergeFaces[count][minimumUsedCellInd][0]);
+                        usedCellsMultiplicity[possibleMergeCells[count][minimumUsedCellInd][0]]++;
+                    
+                        if(faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] != -1)
+                        {
+                            Info<<endl;
+                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]];
+                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]]][0];
+                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
+
+                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumUsedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumUsedCellInd][0]<<endl;
+                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                        }                    
+                        faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] = count;
+                    }
                 }
                 else
                 {
-                    label minimumUsedCell = possibleMergeCells.size()+1;
-                    label minimumUsedCellInd = -1;
+                    DynamicList<label> largerThanOneTenthPartialThreeshold;
                     for(int j=0;j<possibleMergeCells[count].size();j++)
                     {
-                        if(possibleMergeCells[count][j].size()!=1)
-                            FatalErrorInFunction<<"More than one merge cell in one option!"<<exit(FatalError);
-                
-                        if(minimumUsedCell>usedCellsMultiplicity[possibleMergeCells[count][j][0]])
-                        {
-                            minimumUsedCell=usedCellsMultiplicity[possibleMergeCells[count][j][0]];
-                            minimumUsedCellInd=j;
-                        }
+                        if(possibleMergeCellsPartialSize[count][j][0]>=0.1*partialThreeshold)
+                            largerThanOneTenthPartialThreeshold.append(j);
                     }
-                    assignList[count].append(possibleMergeFaces[count][minimumUsedCellInd][0]);
-                    usedCellsMultiplicity[possibleMergeCells[count][minimumUsedCellInd][0]]++;
-                    
-                    if(faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] != -1)
+                    if(largerThanOneTenthPartialThreeshold.size()>0)
                     {
-                        Info<<endl;
-                        Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]];
-                        label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]]][0];
-                        Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
+                        scalar largestCell = 0;
+                        label largestCellInd = -1;
+                        for(int j=0;j<largerThanOneTenthPartialThreeshold.size();j++)
+                        {
+                            if(largestCell<possibleMergeCellsPartialSize[count][largerThanOneTenthPartialThreeshold[j]][0]])
+                            {
+                                largestCell=possibleMergeCellsPartialSize[count][largerThanOneTenthPartialThreeshold[j]][0]];
+                                largestCellInd = largerThanOneTenthPartialThreeshold[j];
+                            }
+                        }
+                        if(largestCell==0 || largestCellInd==-1)
+                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                
+                        assignList[count].append(possibleMergeFaces[count][largestCellInd][0]);
+                        usedCellsMultiplicity[possibleMergeCells[count][largestCellInd][0]]++;
+                    
+                        if(faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]] != -1)
+                        {
+                            Info<<endl;
+                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]];
+                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]]][0];
+                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
 
-                        Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumUsedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumUsedCellInd][0]<<endl;
-                        FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
-                    }                    
-                    faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] = count;
+                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][largestCellInd][0]<<" via face: "<<possibleMergeFaces[count][largestCellInd][0]<<endl;
+                            Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
+                        
+                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                        }
+                        faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]] = count;
+                    }
+                    else
+                    {
+                        label maximumRequestedCell = -1;
+                        label maximumRequestedCellInd = -1;
+                        for(int j=0;j<possibleMergeCells[count].size();j++)
+                        {
+                            if(maximumRequestedCell<cellRequestedMultiplicity[possibleMergeCells[count][j][0]])
+                            {
+                                maximumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][j][0]];
+                                maximumRequestedCellInd = j;
+                            }
+                        }
+                        if(maximumRequestedCellInd==-1 || maximumRequestedCell==-1)
+                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                
+                        assignList[count].append(possibleMergeFaces[count][maximumRequestedCellInd][0]);
+                        usedCellsMultiplicity[possibleMergeCells[count][maximumRequestedCellInd][0]]++;
+                    
+                        if(faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]] != -1)
+                        {
+                            Info<<endl;
+                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]];
+                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]]][0];
+                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
+
+                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][maximumRequestedCellInd][0]<<" via face: "<<possibleMergeFaces[count][maximumRequestedCellInd][0]<<endl;
+                            Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
+                        
+                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
+                        }
+                        faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]] = count;
+                    }
                 }
             }
             else

@@ -353,7 +353,9 @@ class cutCellFvMesh   :   public fvMesh
             DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
             DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
             DynamicList<bool>& oneMergeFaceSufficient,
-            DynamicList<bool>& mergeNecessary
+            DynamicList<bool>& mergeNecessary,
+            DynamicList<DynamicList<scalar>>& possibleMergeCellsPartialSize,
+            scalar partialThreeshold
         );
         
         //test data for new Mesh creation
