@@ -192,6 +192,31 @@ Curves(std::move(Curves)),
 MainTree(new KdTree(this->Curves)),
 NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
 {
+    /*
+    const objectRegistry& reg = this->thisDb();
+    fileName path = reg.time().timePath();
+    Info<<"path():"<<this->fvMesh::polyMesh::objectRegistry::path()<<endl;
+    Info<<"rootPath():"<<this->fvMesh::polyMesh::objectRegistry::rootPath()<<endl;
+    Info<<"caseName():"<<this->fvMesh::polyMesh::objectRegistry::caseName()<<endl;
+    Info<<"instance():"<<this->fvMesh::polyMesh::objectRegistry::instance()<<endl;
+    Info<<"local():"<<this->fvMesh::polyMesh::objectRegistry::local()<<endl;
+    
+    const objectRegistry& regis = this->fvMesh::polyMesh::objectRegistry::db();
+    Info<<"reg Name:"<<regis.names()<<endl;
+
+
+    if(path[path.size()-1]=='0' && path[path.size()-2]=='/')
+    {
+        Info<<"Is old"<<endl;
+        Info<<path<<endl;
+    }
+    else
+    {
+        Info<<"Is new"<<endl;
+        Info<<path<<endl;
+    }
+    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    */
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
     std::chrono::duration<double> time_span;
