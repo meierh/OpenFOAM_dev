@@ -369,6 +369,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     patchSizes,
                     patchStarts,
                     true);
+    Info<<"First self test"<<endl;
     selfTestMesh();
         
     const cellList& newCells = this->cells();

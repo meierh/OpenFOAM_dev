@@ -622,8 +622,6 @@ void Foam::cutCellFvMesh::newMeshPoints
         scalar phiStart = pointDist[startLabel];
         scalar phiEnd = pointDist[endLabel];
         
-        //Info<<phiStart<<" -> "<<phiEnd<<endl;
-        
         if(phiStart>0 || phiEnd>0)
             pos = +1;
         if(phiStart<0 || phiEnd<0)
@@ -645,7 +643,13 @@ void Foam::cutCellFvMesh::newMeshPoints
             //Info<<"scalePoint: "<<scalePoint<<endl;;
             vector newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
             
-            //Info<<"Added: "<<newPoint<<endl<<endl;
+            if(startLabel==14315 || endLabel==14315)
+            {
+                Info<<"startLabel:"<<startLabel<<endl;
+                Info<<"endLabel:"<<endLabel<<endl;
+                Info<<phiStart<<" -> "<<phiEnd<<endl;
+                Info<<"Added: "<<newPoint<<endl<<endl;
+            }
 
             newMeshPointsInFunc.append(newPoint);
             
@@ -5121,7 +5125,7 @@ vector crossProd(const vector& v1, const vector& v2)
 
 void Foam::cutCellFvMesh::selfTestMesh()
 {  
-    Info<<"START MESH SELF TEST";
+    Info<<"START MESH SELF TEST"<<endl;
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
     //const edgeList& meshEdges = this->edges();
@@ -5162,10 +5166,12 @@ void Foam::cutCellFvMesh::selfTestMesh()
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
                     Info<<" Neighbor:"<<neighbour[i]<<" ";
+                Info<<endl;
                 for(int k=0;k<meshFaces[i].size();k++)
                 {
-                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                    Info<<meshFaces[i][k]<<meshPoints[meshFaces[i][k]]<<"->";
                 }
+                Info<<endl;
                 Info<<" with centre:"<<centreFace;
                 Info<<" and normal vector:"<<normalFace;
                 Info<<" and area:"<<area<<endl;
@@ -5206,10 +5212,12 @@ void Foam::cutCellFvMesh::selfTestMesh()
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
                     Info<<" Neighbor:"<<neighbour[i]<<" ";
+                Info<<endl;
                 for(int k=0;k<meshFaces[i].size();k++)
                 {
-                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                    Info<<meshFaces[i][k]<<meshPoints[meshFaces[i][k]]<<"->";
                 }
+                Info<<endl;
                 Info<<" with centre:"<<centreFace;
                 Info<<" and normal vector:"<<normalFace;
                 Info<<" and area:"<<area<<endl;
@@ -5238,10 +5246,12 @@ void Foam::cutCellFvMesh::selfTestMesh()
                     Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                     if(i < neighbour.size())
                         Info<<" Neighbor:"<<neighbour[i]<<" ";
+                    Info<<endl;
                     for(int s=0;s<meshFaces[i].size();s++)
                     {
-                        Info<<meshPoints[meshFaces[i][s]]<<"->";
+                        Info<<meshFaces[i][s]<<meshPoints[meshFaces[i][s]]<<"->";
                     }
+                    Info<<endl;
                     Info<<" with centre:"<<centreFace;
                     Info<<" and normal vector:"<<normalFace;
                     Info<<" and area:"<<area<<endl;
@@ -5364,13 +5374,42 @@ void Foam::cutCellFvMesh::selfTestMesh()
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
                     Info<<"Neighbor:"<<neighbour[i]<<" ";
+                Info<<endl;
+                Info<<"centreToNeighbourCentre:"<<centreToNeighbourCentre;
+                Info<<"neighbourCentre: "<<meshCells[neighbourCell].centre(meshPoints,meshFaces);
+                Info<<endl;
                 for(int k=0;k<meshFaces[i].size();k++)
                 {
-                    Info<<meshPoints[meshFaces[i][k]]<<"->";
+                    Info<<meshFaces[i][k]<<meshPoints[meshFaces[i][k]]<<"->";
                 }
+                Info<<endl;
+                for(int k=0;k<meshFaces[i].size();k++)
+                {
+                    Info<<meshPoints[meshFaces[i][(k+1)%meshFaces[i].size()]]-meshPoints[meshFaces[i][k%meshFaces[i].size()]]<<"->";
+                }
+                Info<<endl;
                 Info<<" with centre:"<<centreFace;
                 Info<<" and normal vector:"<<normalFace;
-                Info<<" and area:"<<area<<endl;
+                Info<<" and area:"<<area<<endl<<endl;
+                
+                Info<<"Neighbour Cell"<<endl;
+                cell oneCell = meshCells[neighbourCell];
+                Info<<"Cell centre is: "<<oneCell.centre(meshPoints,meshFaces)<<endl;
+                Info<<"Cell: "<<oneCell<<endl;
+                Info<<"Cell Size: "<<oneCell.size()<<endl;
+                Info<<"Cell volume: "<<oneCell.mag(meshPoints,meshFaces)<<endl;
+            
+                for(int k=0;k<oneCell.size();k++)
+                {
+                    label oneFaceInd = oneCell[k];
+                    face oneFace = meshFaces[oneFaceInd];
+                    Info<<"Face "<<k<<" area: "<<oneFace.mag(meshPoints)<<"::";
+                    for(int kk=0;kk<oneFace.size();kk++)
+                    {
+                        Info<<oneFace[kk]<<meshPoints[oneFace[kk]]<<"->";
+                    }
+                    Info<<endl;
+                }
             
                 FatalErrorInFunction
                 <<"Normal vector is "<<normalFace<<" while faceCentreToNeighbourCentre is "<<centreToNeighbourCentre<<"!"
@@ -11570,24 +11609,60 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
         vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
         if((faceCentreToOwnerCentre && normalFace)>=0)
         {
-            Info<<endl<<endl;
-            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
-            if(i < neighbour.size())
-                Info<<"Neighbor:"<<neighbour[i]<<" ";
-            for(int k=0;k<faces[i].size();k++)
+            if(area != 0)
             {
-                Info<<points[faces[i][k]]<<"->";
+                Info<<endl<<endl;
+                Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
+                if(i < neighbour.size())
+                    Info<<"Neighbor:"<<neighbour[i]<<" ";
+                Info<<endl;
+                for(int k=0;k<faces[i].size();k++)
+                {
+                    Info<<faces[i][k]<<points[faces[i][k]]<<"->";
+                }
+                Info<<endl<<" with face centre:"<<centreFace;
+                Info<<endl<<" and face normal vector:"<<normalFace;
+                Info<<endl<<" and area:"<<area<<endl;
+                Info<<"nbrOfPrevPoints: "<<nbrOfPrevPoints<<endl;
+                Info<<"nbrOfPrevFaces: "<<nbrOfPrevFaces<<endl;            
+            
+                cell oneCell = cellList[owner[i]];
+                Info<<"Cell centre is: "<<oneCell.centre(points,faces)<<endl;
+                Info<<"Cell: "<<oneCell<<endl;
+                Info<<"Cell Size: "<<oneCell.size()<<endl;
+                Info<<"Cell volume: "<<oneCell.mag(points,faces)<<endl;
+            
+                for(int k=0;k<oneCell.size();k++)
+                {
+                    label oneFaceInd = oneCell[k];
+                    face oneFace = faces[oneFaceInd];
+                    Info<<"Face "<<k<<" area: "<<oneFace.mag(points)<<"::";
+                    for(int kk=0;kk<oneFace.size();kk++)
+                    {
+                        Info<<oneFace[kk]<<points[oneFace[kk]]<<"->";
+                    }
+                    Info<<endl;
+                }
+            
+                FatalErrorInFunction
+                <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
+                <<" They must have a opposite direction"
+                << exit(FatalError);
             }
-            Info<<endl<<" with face centre:"<<centreFace;
-            Info<<endl<<" and face normal vector:"<<normalFace;
-            Info<<endl<<" and area:"<<area<<endl;
-            
-            Info<<"Cell centre is: "<<cellList[owner[i]].centre(points,faces)<<endl;
-            
-            FatalErrorInFunction
-            <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
-            <<" They must have a opposite direction"
-            << exit(FatalError); 
+            else
+            {
+                for(int j=0;j<faces[i].size();j++)
+                {
+                    for(int k=0;k<faces[i].size();k++)
+                    {
+                        if(j!=k && faces[i][j]==faces[i][k])
+                        {
+                            Info<<"faces["<<i<<"]: "<<faces[i]<<endl;
+                            FatalErrorInFunction<<"Face with zero area has duplicate points"<<exit(FatalError);
+                        }
+                    }
+                }
+            }
         }
     }
 }
