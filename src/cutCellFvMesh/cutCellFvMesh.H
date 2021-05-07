@@ -27,6 +27,9 @@ class cutCellFvMesh   :   public fvMesh
 
     //Private Attributes
     private:
+        // Threshold of cell size difference
+        scalar partialThreeshold = 0.25;
+        
         // Level-Set Function for Boundary Computation
         std::function<scalar(const vector)> levelSet;
         

@@ -5134,6 +5134,61 @@ void Foam::cutCellFvMesh::selfTestMesh()
     const labelList neighbour = this->faceNeighbour();    
     //const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
+    for(int i=0;i<meshCells.size();i++)
+    {
+        if(meshCells[i].size() < 4)
+            FatalErrorInFunction<<"Cell with less than four faces!"<< exit(FatalError);
+        for(int k=0;k<meshCells[i].size();k++)
+        {
+            if(meshCells[i][k]<0 || meshCells[i][k]>=meshFaces.size())
+                FatalErrorInFunction<<"Cell with faces out of bound!"<< exit(FatalError);
+        }
+        if(i==10708)
+            Info<<"i:"<<i<<" "<<meshCells[i]<<endl;
+    }
+    
+    for(int i=0;i<meshFaces.size();i++)
+    {
+        if(meshFaces[i].size() < 3)
+            FatalErrorInFunction<<"Face with less than three vertices!"<< exit(FatalError);
+        for(int k=0;k<meshFaces[i].size();k++)
+        {
+            if(meshFaces[i][k]<0 || meshFaces[i][k]>=meshPoints.size())
+                FatalErrorInFunction<<"Face with points out of bound!"<< exit(FatalError);
+        }
+    }
+    
+    scalar maxCellSize = -1,avgCellSize=0,minCellSize;
+    if(meshCells.size()>0) minCellSize = meshCells[0].mag(meshPoints,meshFaces);
+    for(int i=0;i<meshCells.size();i++)
+    {
+        scalar thisCellSize = meshCells[i].mag(meshPoints,meshFaces);
+        avgCellSize+=thisCellSize;
+        if(maxCellSize<thisCellSize)
+            maxCellSize=thisCellSize;
+        if(minCellSize>thisCellSize)
+            minCellSize=thisCellSize;
+    }
+    avgCellSize /= meshCells.size();
+    
+    label countExtrSmall = 0;
+    for(int i=0;i<meshCells.size();i++)
+    {
+        scalar thisCellSize = meshCells[i].mag(meshPoints,meshFaces);
+        if(thisCellSize < (maxCellSize*partialThreeshold*(1.f/1e10)))
+        {
+            countExtrSmall++;
+            Info<<"i:"<<i<<"  size:"<<thisCellSize<<endl;
+        }
+        if(i==854)
+        {
+            Info<<"thisCellSize:"<<thisCellSize<<endl;
+            Info<<"(maxCellSize*partialThreeshold*(1/100)): "<<(maxCellSize*partialThreeshold*(1.f/1e10))<<endl;
+            Info<<"thisCellSize < (maxCellSize*partialThreeshold*(1/100)): "<<(thisCellSize < (maxCellSize*partialThreeshold*(1.f/1e10)))<<endl;
+        }
+    }
+    Info<<"countExtrSmall: "<<countExtrSmall<<endl;
+
     //Test faces
     for(int i=0;i<meshFaces.size();i++)
     {
@@ -5345,38 +5400,20 @@ void Foam::cutCellFvMesh::selfTestMesh()
         vector faceCentreToOwnerCentre = meshCells[ownerCell].centre(meshPoints,meshFaces)-centreFace;
         if((faceCentreToOwnerCentre && normalFace)>=0)
         {
-            Info<<endl<<endl;
-            Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
-            if(i < neighbour.size())
-                Info<<"Neighbor:"<<neighbour[i]<<" ";
-            for(int k=0;k<meshFaces[i].size();k++)
-            {
-                Info<<meshPoints[meshFaces[i][k]]<<"->";
-            }
-            Info<<endl<<" with face centre:"<<centreFace;
-            Info<<endl<<" and face normal vector:"<<normalFace;
-            Info<<endl<<" and area:"<<area<<endl;
-            
-            Info<<"Cell centre is: "<<meshCells[ownerCell].centre(meshPoints,meshFaces)<<endl;
-            
-            FatalErrorInFunction
-            <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
-            <<" They must have a opposite direction"
-            << exit(FatalError); 
-        }
-        
-        if(i<neighbour.size())
-        {
-            label neighbourCell = neighbour[i];
-            vector centreToNeighbourCentre = meshCells[neighbourCell].centre(meshPoints,meshFaces)-centreFace;
-            if((centreToNeighbourCentre && normalFace)<=0)
+            cell owneCell = meshCells[ownerCell];
+            scalar thisCellSize = owneCell.mag(meshPoints,meshFaces);
+            if(thisCellSize >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0)
+            // too small cells might fail in this condition because of rounding error.
+            // as a result they are exempt here.
+            // the same is for zero faces with a zero normal vector
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
                     Info<<"Neighbor:"<<neighbour[i]<<" ";
                 Info<<endl;
-                Info<<"centreToNeighbourCentre:"<<centreToNeighbourCentre;
-                Info<<"neighbourCentre: "<<meshCells[neighbourCell].centre(meshPoints,meshFaces);
+                Info<<"faceCentreToOwnerCentre: "<<faceCentreToOwnerCentre<<endl;
+                Info<<"ownerCentre: "<<meshCells[ownerCell].centre(meshPoints,meshFaces)<<endl;
+                Info<<"normalFace: "<<normalFace<<endl;
                 Info<<endl;
                 for(int k=0;k<meshFaces[i].size();k++)
                 {
@@ -5392,8 +5429,8 @@ void Foam::cutCellFvMesh::selfTestMesh()
                 Info<<" and normal vector:"<<normalFace;
                 Info<<" and area:"<<area<<endl<<endl;
                 
-                Info<<"Neighbour Cell"<<endl;
-                cell oneCell = meshCells[neighbourCell];
+                Info<<"Owner Cell"<<endl;
+                cell oneCell = meshCells[ownerCell];
                 Info<<"Cell centre is: "<<oneCell.centre(meshPoints,meshFaces)<<endl;
                 Info<<"Cell: "<<oneCell<<endl;
                 Info<<"Cell Size: "<<oneCell.size()<<endl;
@@ -5410,11 +5447,82 @@ void Foam::cutCellFvMesh::selfTestMesh()
                     }
                     Info<<endl;
                 }
+                
+                Info<<endl;
+                Info<<"maxCellSize:"<<maxCellSize<<endl;
+                Info<<"minCellSize:"<<minCellSize<<endl;
+                Info<<"avgCellSize:"<<avgCellSize<<endl;
             
                 FatalErrorInFunction
-                <<"Normal vector is "<<normalFace<<" while faceCentreToNeighbourCentre is "<<centreToNeighbourCentre<<"!"
+                <<"Normal vector is "<<normalFace<<" while faceCentreToNeighbourCentre is "<<faceCentreToOwnerCentre<<"!"
                 <<" They must have the same direction"
                 << exit(FatalError);
+            }
+        }
+        
+        if(i<neighbour.size())
+        {
+            label neighbourCell = neighbour[i];
+            vector centreToNeighbourCentre = meshCells[neighbourCell].centre(meshPoints,meshFaces)-centreFace;
+            if((centreToNeighbourCentre && normalFace)<=0)
+            {
+                cell neighCell = meshCells[neighbourCell];
+                scalar thisCellSize = neighCell.mag(meshPoints,meshFaces);
+                if(thisCellSize >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0)
+                // too small cells might fail in this condition because of rounding error.
+                // as a result they are exempt here.
+                // the same is for zero faces with a zero normal vector
+                {
+                    Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
+                    if(i < neighbour.size())
+                        Info<<"Neighbor:"<<neighbour[i]<<" ";
+                    Info<<endl;
+                    Info<<"centreToNeighbourCentre:"<<centreToNeighbourCentre;
+                    Info<<"neighbourCentre: "<<meshCells[neighbourCell].centre(meshPoints,meshFaces);
+                    Info<<endl;
+                    for(int k=0;k<meshFaces[i].size();k++)
+                    {
+                        Info<<meshFaces[i][k]<<meshPoints[meshFaces[i][k]]<<"->";
+                    }
+                    Info<<endl;
+                    for(int k=0;k<meshFaces[i].size();k++)
+                    {
+                        Info<<meshPoints[meshFaces[i][(k+1)%meshFaces[i].size()]]-meshPoints[meshFaces[i][k%meshFaces[i].size()]]<<"->";
+                    }
+                    Info<<endl;
+                    Info<<" with centre:"<<centreFace;
+                    Info<<" and normal vector:"<<normalFace;
+                    Info<<" and area:"<<area<<endl<<endl;
+                
+                    Info<<"Neighbour Cell"<<endl;
+                    cell oneCell = meshCells[neighbourCell];
+                    Info<<"Cell centre is: "<<oneCell.centre(meshPoints,meshFaces)<<endl;
+                    Info<<"Cell: "<<oneCell<<endl;
+                    Info<<"Cell Size: "<<oneCell.size()<<endl;
+                    Info<<"Cell volume: "<<oneCell.mag(meshPoints,meshFaces)<<endl;
+            
+                    for(int k=0;k<oneCell.size();k++)
+                    {
+                        label oneFaceInd = oneCell[k];
+                        face oneFace = meshFaces[oneFaceInd];
+                        Info<<"Face "<<k<<" area: "<<oneFace.mag(meshPoints)<<"::";
+                        for(int kk=0;kk<oneFace.size();kk++)
+                        {
+                            Info<<oneFace[kk]<<meshPoints[oneFace[kk]]<<"->";
+                        }
+                        Info<<endl;
+                    }
+                
+                    Info<<endl;
+                    Info<<"maxCellSize:"<<maxCellSize<<endl;
+                    Info<<"minCellSize:"<<minCellSize<<endl;
+                    Info<<"avgCellSize:"<<avgCellSize<<endl;
+            
+                    FatalErrorInFunction
+                    <<"Normal vector is "<<normalFace<<" while faceCentreToNeighbourCentre is "<<centreToNeighbourCentre<<"!"
+                    <<" They must have the same direction"
+                    << exit(FatalError);
+                }
             }
         }      
     }
@@ -5441,15 +5549,36 @@ void Foam::cutCellFvMesh::selfTestMesh()
             << "Cell cannot have Volume smaller than zero! "
             << exit(FatalError);
         }
-        if(mag == 0 && cellsToSide_[i] != -1)
+        if(mag == 0 && cellsToSide_[i] != -1 && norm2(cellCentre)!=0)
         {
-            Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<"faces |";
+            Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<" faces |"<<endl;
+            Info<<"meshPoints.size(): "<<meshPoints.size()<<endl;
             for(int k=0;k<meshCells[i].size();k++)
             {
                 Info<<meshCells[i][k]<<"->";
             }
+            Info<<endl;
             Info<<" with centre:"<<cellCentre;
             Info<<" and volume:"<<mag<<endl;
+            
+            Info<<"Cell"<<endl;
+            cell oneCell = meshCells[i];
+            Info<<"Cell centre is: "<<oneCell.centre(meshPoints,meshFaces)<<endl;
+            Info<<"Cell: "<<oneCell<<endl;
+            Info<<"Cell Size: "<<oneCell.size()<<endl;
+            Info<<"Cell volume: "<<oneCell.mag(meshPoints,meshFaces)<<endl;
+            
+            for(int k=0;k<oneCell.size();k++)
+            {
+                label oneFaceInd = oneCell[k];
+                face oneFace = meshFaces[oneFaceInd];
+                Info<<"Face "<<k<<" area: "<<oneFace.mag(meshPoints)<<"::";
+                for(int kk=0;kk<oneFace.size();kk++)
+                {
+                    Info<<oneFace[kk]<<meshPoints[oneFace[kk]]<<"->";
+                }
+                Info<<endl;
+            }
             
             FatalErrorInFunction
             << "Cell cannot have Volume equal zero while being on side:"<<cellsToSide_[i]
@@ -5465,19 +5594,22 @@ void Foam::cutCellFvMesh::selfTestMesh()
             if(owner[oneFaceInd] != i)
                 thisFaceNormal = -1*thisFaceNormal;
             vector thisFaceCentre = meshFaces[oneFaceInd].centre(meshPoints);
-            if(((thisFaceCentre-cellCentre) && thisFaceNormal) <= 0)
-            {            
-                Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<"faces |";
-                for(int k=0;k<meshCells[i].size();k++)
+            if((((thisFaceCentre-cellCentre) && thisFaceNormal)<=0))
+            {
+                if(mag >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(thisFaceNormal))
                 {
-                    Info<<meshCells[i][k]<<"->";
-                }
-                Info<<" with centre:"<<cellCentre;
-                Info<<" and volume:"<<mag<<endl;
+                    Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<"faces |";
+                    for(int k=0;k<meshCells[i].size();k++)
+                    {
+                        Info<<meshCells[i][k]<<"->";
+                    }
+                    Info<<" with centre:"<<cellCentre;
+                    Info<<" and volume:"<<mag<<endl;
                 
-                FatalErrorInFunction
-                << "Cell Face "<<a<<" has a normal "<<thisFaceNormal<<" but cellCentreToFaceCentre is "<<thisFaceCentre-cellCentre
-                << exit(FatalError);                
+                    FatalErrorInFunction
+                    << "Cell Face "<<a<<" has a normal "<<thisFaceNormal<<" but cellCentreToFaceCentre is "<<thisFaceCentre-cellCentre
+                    << exit(FatalError);
+                }                
             }
         }
     }
