@@ -13,8 +13,8 @@ List<std::shared_ptr<Nurbs>> items(0);
 knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=0.5;
 knots[4]=1; knots[5]=1; knots[6]=1;    
 weights[0] = 1;    weights[1] = 1;   weights[2] = 1;    weights[3] = 1; 
-controlPoints[0]=vector(1,0,0.5); controlPoints[1]=vector(1,0,0);
-controlPoints[2]=vector(3,0,0); controlPoints[3]=vector(3,0,-0.5);
+controlPoints[0]=vector(1,0,1); controlPoints[1]=vector(1,0,-0.1);
+controlPoints[2]=vector(3,0,0.1); controlPoints[3]=vector(3,0,-1);
 items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.2,4)));
 
 knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=0.5;
@@ -26,7 +26,7 @@ items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testde
 
 Info<<"Created Nurbs"<<endl;
 
-/*
+
 Foam::cutCellFvMesh mesh
 (
     Foam::IOobject
@@ -38,8 +38,8 @@ Foam::cutCellFvMesh mesh
     ),
     items    
 );
-*/
 
+/*
 Foam::fvMesh mesh
 (
     Foam::IOobject
@@ -50,6 +50,6 @@ Foam::fvMesh mesh
         Foam::IOobject::MUST_READ
     )
 );
-
+*/
 Foam::Info<<"CUTCELLFVMESH Test done"<<Foam::endl;
 

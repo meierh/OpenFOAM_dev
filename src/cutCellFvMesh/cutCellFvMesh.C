@@ -1213,7 +1213,15 @@ void Foam::cutCellFvMesh::newMeshEdges
                     else
                         FatalErrorInFunction<<"Whatever happens here should have been treated above. This can not happen!"<<exit(FatalError);
                 }
-                                
+                
+                if(edgesToAdd[0][0] == edgesToAdd[0][1] || edgesToAdd[1][0] == edgesToAdd[1][1])
+                {
+                    Info<<endl;
+                    Info<<"edge 1: "<<edgesToAdd[0]<<endl;
+                    Info<<"edge 2: "<<edgesToAdd[1]<<endl;
+                    FatalErrorInFunction<< "Edge has duplicate vertices"<< exit(FatalError);
+                }
+                
                 edgeToFaces_.append(DynamicList<label>(0));                
                 newMeshEdges_.append(edgesToAdd[0]);
                 edgesToSide_.append(0);
@@ -1251,7 +1259,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 std::unordered_set<label> cutPoints;
                 for(int k=0;k<thisFacePoints.size();k++)
                 {
-                    cutPoints.insert(thisFacePoints[i]);
+                    cutPoints.insert(thisFacePoints[k]);
                 }
                 for(int k=0;k<basisFaces[i].size();k++)
                 {
@@ -1265,7 +1273,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                 {
                     FatalErrorInFunction<<"No fourth vertice assigned"<<exit(FatalError);
                 }
-                edge addingEdge;
+                edge addingEdge = edge(-1,-1);
+                bool edgeFound = false;
                 for(int k=0;k<thisFacePoints.size();k++)
                 {
                     label localIndx = basisFaces[i].which(thisFacePoints[k]);
@@ -1274,11 +1283,16 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(thisFacePoints[k]!=fourthVertice && nextGlobalIndx!=fourthVertice && prevGlobalIndx!=fourthVertice)
                     {
                         addingEdge = edge(prevGlobalIndx,prevGlobalIndx);
-                        fourthVertice = -1;
+                        edgeFound = true;
                     }
                 }
-                if(fourthVertice==-1)
+                if(!edgeFound)
                 {
+                    Info<<endl;
+                    Info<<"basisFaces[i]: "<<basisFaces[i]<<endl;
+                    Info<<"thisFacePoints: "<<thisFacePoints<<endl;
+                    Info<<"fourthVertice: "<<fourthVertice<<endl;
+                    Info<<"addingEdge: "<<addingEdge<<endl;
                     FatalErrorInFunction<<"No added edge found"<<exit(FatalError);
                 }
                 edgeToFaces_.append(DynamicList<label>(0));                
@@ -1508,6 +1522,18 @@ void Foam::cutCellFvMesh::newMeshEdges
     edgeToFaces_.setCapacity(edgeToFaces_.size());
     faceToEdges_.setCapacity(faceToEdges_.size());
     edgeToCells_.setCapacity(edgeToCells_.size());
+    
+    for(int i=0;i<newMeshEdges_.size();i++)
+    {
+        edge oneEdge = newMeshEdges_[i];
+        if(oneEdge[0] == oneEdge[1])
+        {
+            Info<<endl;
+            Info<<"i:"<<i<<endl;
+            Info<<"edge: "<<oneEdge<<endl;
+            FatalErrorInFunction<< "Edge has duplicate vertices"<< exit(FatalError);
+        }
+    }
 }
 
 void Foam::cutCellFvMesh::printAddedEdges
@@ -1961,6 +1987,13 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                 {
                     if(nextEdges.size() != 1)
                     {
+                        Info<<endl;
+                        Info<<"newMeshEdges_["<<1594182<<"]: "<<newMeshEdges_[1594182]<<endl;
+                        Info<<"edgeOfCellList: "<<edgeOfCellList<<endl;
+                        Info<<"lastAddedEdge: "<<lastAddedEdge<<endl;
+                        Info<<"faceEdgeCounter: "<<faceEdgeCounter<<endl;
+                        Info<<"closedEdgeLoops: "<<closedEdgeLoops<<endl;
+                        Info<<"nextEdges: "<<nextEdges<<endl;
                         FatalErrorInFunction<< "Edge selection for third of further edge in a face must have one options but has not"<< exit(FatalError);
                     }
                 }
@@ -5134,6 +5167,19 @@ void Foam::cutCellFvMesh::selfTestMesh()
     const labelList neighbour = this->faceNeighbour();    
     //const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
+    scalar maxFaceSize = -1,avgFaceSize=0,minFaceSize;
+    if(meshFaces.size()>0) minFaceSize = meshFaces[0].mag(meshPoints);
+    for(int i=0;i<meshFaces.size();i++)
+    {
+        scalar thisFaceSize = meshFaces[i].mag(meshPoints);
+        avgFaceSize+=thisFaceSize;
+        if(maxFaceSize<thisFaceSize)
+            maxFaceSize=thisFaceSize;
+        if(minFaceSize>thisFaceSize)
+            minFaceSize=thisFaceSize;
+    }
+    avgFaceSize /= meshFaces.size();
+    
     for(int i=0;i<meshCells.size();i++)
     {
         if(meshCells[i].size() < 4)
@@ -5143,8 +5189,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
             if(meshCells[i][k]<0 || meshCells[i][k]>=meshFaces.size())
                 FatalErrorInFunction<<"Cell with faces out of bound!"<< exit(FatalError);
         }
-        if(i==10708)
-            Info<<"i:"<<i<<" "<<meshCells[i]<<endl;
+
     }
     
     for(int i=0;i<meshFaces.size();i++)
@@ -5180,12 +5225,6 @@ void Foam::cutCellFvMesh::selfTestMesh()
             countExtrSmall++;
             Info<<"i:"<<i<<"  size:"<<thisCellSize<<endl;
         }
-        if(i==854)
-        {
-            Info<<"thisCellSize:"<<thisCellSize<<endl;
-            Info<<"(maxCellSize*partialThreeshold*(1/100)): "<<(maxCellSize*partialThreeshold*(1.f/1e10))<<endl;
-            Info<<"thisCellSize < (maxCellSize*partialThreeshold*(1/100)): "<<(thisCellSize < (maxCellSize*partialThreeshold*(1.f/1e10)))<<endl;
-        }
     }
     Info<<"countExtrSmall: "<<countExtrSmall<<endl;
 
@@ -5216,7 +5255,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
         for(int k=0;k<meshFaces[i].size();k++)
         {
             res = crossProds[k] && crossProds[k+1];
-            if(res<0)
+            if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10))
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
@@ -5262,7 +5301,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
         for(int k=0;k<meshFaces[i].size();k++)
         {
             res = crossProds[k] && crossProds[k+1];
-            if(res<0)
+            if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10))
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
@@ -5402,7 +5441,8 @@ void Foam::cutCellFvMesh::selfTestMesh()
         {
             cell owneCell = meshCells[ownerCell];
             scalar thisCellSize = owneCell.mag(meshPoints,meshFaces);
-            if(thisCellSize >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0)
+            if(thisCellSize >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0 &&
+               area>=partialThreeshold*maxFaceSize*(1.f/1e10))
             // too small cells might fail in this condition because of rounding error.
             // as a result they are exempt here.
             // the same is for zero faces with a zero normal vector
@@ -5468,7 +5508,9 @@ void Foam::cutCellFvMesh::selfTestMesh()
             {
                 cell neighCell = meshCells[neighbourCell];
                 scalar thisCellSize = neighCell.mag(meshPoints,meshFaces);
-                if(thisCellSize >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0)
+                if(thisCellSize >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0 &&
+                   area>=partialThreeshold*maxFaceSize*(1.f/1e10)
+                )
                 // too small cells might fail in this condition because of rounding error.
                 // as a result they are exempt here.
                 // the same is for zero faces with a zero normal vector
@@ -5590,13 +5632,17 @@ void Foam::cutCellFvMesh::selfTestMesh()
         for(int a=0;a<meshCells[i].size();a++)
         {
             label oneFaceInd = meshCells[i][a];
+            scalar oneFaceArea = meshFaces[oneFaceInd].mag(meshPoints);
+
             vector thisFaceNormal = meshFaces[oneFaceInd].normal(meshPoints);
             if(owner[oneFaceInd] != i)
                 thisFaceNormal = -1*thisFaceNormal;
             vector thisFaceCentre = meshFaces[oneFaceInd].centre(meshPoints);
             if((((thisFaceCentre-cellCentre) && thisFaceNormal)<=0))
             {
-                if(mag >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(thisFaceNormal))
+                if(mag >= (maxCellSize*partialThreeshold*(1.f/1e10)) && norm2(thisFaceNormal) && 
+                   oneFaceArea >= (maxFaceSize*partialThreeshold*(1.f/1e10))
+                )
                 {
                     Info<<"Cell:"<<i<<" with "<<meshCells[i].nFaces()<<"faces |";
                     for(int k=0;k<meshCells[i].size();k++)
@@ -5605,6 +5651,24 @@ void Foam::cutCellFvMesh::selfTestMesh()
                     }
                     Info<<" with centre:"<<cellCentre;
                     Info<<" and volume:"<<mag<<endl;
+                    
+                    cell oneCell = meshCells[i];
+                    Info<<"Cell centre is: "<<oneCell.centre(meshPoints,meshFaces)<<endl;
+                    Info<<"Cell: "<<oneCell<<endl;
+                    Info<<"Cell Size: "<<oneCell.size()<<endl;
+                    Info<<"Cell volume: "<<oneCell.mag(meshPoints,meshFaces)<<endl;
+            
+                    for(int k=0;k<oneCell.size();k++)
+                    {
+                        label oneFaceInd = oneCell[k];
+                        face oneFace = meshFaces[oneFaceInd];
+                        Info<<"Face "<<k<<" area: "<<oneFace.mag(meshPoints)<<"::";
+                        for(int kk=0;kk<oneFace.size();kk++)
+                        {
+                            Info<<oneFace[kk]<<meshPoints[oneFace[kk]]<<"->";
+                        }
+                        Info<<endl;
+                    }
                 
                     FatalErrorInFunction
                     << "Cell Face "<<a<<" has a normal "<<thisFaceNormal<<" but cellCentreToFaceCentre is "<<thisFaceCentre-cellCentre
@@ -11660,6 +11724,18 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
     const labelList& neighbour
 )
 {
+    scalar maxFaceSize = -1,avgFaceSize=0,minFaceSize;
+    if(faces.size()>0) minFaceSize = faces[0].mag(points);
+    for(int i=0;i<faces.size();i++)
+    {
+        scalar thisFaceSize = faces[i].mag(points);
+        avgFaceSize+=thisFaceSize;
+        if(maxFaceSize<thisFaceSize)
+            maxFaceSize=thisFaceSize;
+        if(minFaceSize>thisFaceSize)
+            minFaceSize=thisFaceSize;
+    }
+    avgFaceSize /= faces.size();
     //Info<<"owner.size()="<<owner.size()<<endl;
     //Info<<"neighbour.size()="<<neighbour.size()<<endl;
 
@@ -11741,7 +11817,7 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
         vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
         if((faceCentreToOwnerCentre && normalFace)>=0)
         {
-            if(area != 0)
+            if((area >= maxFaceSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0 && norm2(faceCentreToOwnerCentre)!=0)
             {
                 Info<<endl<<endl;
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
@@ -11756,13 +11832,15 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
                 Info<<endl<<" and face normal vector:"<<normalFace;
                 Info<<endl<<" and area:"<<area<<endl;
                 Info<<"nbrOfPrevPoints: "<<nbrOfPrevPoints<<endl;
-                Info<<"nbrOfPrevFaces: "<<nbrOfPrevFaces<<endl;            
+                Info<<"nbrOfPrevFaces: "<<nbrOfPrevFaces<<endl;
+                
+                Info<<"------------------------------------"<<endl;
             
                 cell oneCell = cellList[owner[i]];
-                Info<<"Cell centre is: "<<oneCell.centre(points,faces)<<endl;
-                Info<<"Cell: "<<oneCell<<endl;
-                Info<<"Cell Size: "<<oneCell.size()<<endl;
-                Info<<"Cell volume: "<<oneCell.mag(points,faces)<<endl;
+                Info<<"Owner Cell centre is: "<<oneCell.centre(points,faces)<<endl;
+                Info<<"Owner Cell: "<<oneCell<<endl;
+                Info<<"Owner Cell Size: "<<oneCell.size()<<endl;
+                Info<<"Owner Cell volume: "<<oneCell.mag(points,faces)<<endl;
             
                 for(int k=0;k<oneCell.size();k++)
                 {
@@ -11774,6 +11852,29 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
                         Info<<oneFace[kk]<<points[oneFace[kk]]<<"->";
                     }
                     Info<<endl;
+                }
+                
+                Info<<"------------------------------------"<<endl;
+            
+                if(i < neighbour.size())
+                {
+                    cell oneCell = cellList[neighbour[i]];
+                    Info<<"Neighbour Cell centre is: "<<oneCell.centre(points,faces)<<endl;
+                    Info<<"Neighbour Cell: "<<oneCell<<endl;
+                    Info<<"Neighbour Cell Size: "<<oneCell.size()<<endl;
+                    Info<<"Neighbour Cell volume: "<<oneCell.mag(points,faces)<<endl;
+            
+                    for(int k=0;k<oneCell.size();k++)
+                    {
+                    label oneFaceInd = oneCell[k];
+                    face oneFace = faces[oneFaceInd];
+                    Info<<"Face "<<k<<" area: "<<oneFace.mag(points)<<"::";
+                    for(int kk=0;kk<oneFace.size();kk++)
+                    {
+                        Info<<oneFace[kk]<<points[oneFace[kk]]<<"->";
+                    }
+                    Info<<endl;
+                    }
                 }
             
                 FatalErrorInFunction
