@@ -16,57 +16,59 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     weights = scalarList(4);
     weights[0] = 1;    weights[1] = 1;   weights[2] = 1;    weights[3] = 1; 
     controlPoints = List<vector>(4);
+    
+    scalar deltaX = 1;
 
 // First row    
     controlPoints[0]=vector(1,-0.5,-0.5); controlPoints[1]=vector(1,-0.25,-0.375);
     controlPoints[2]=vector(1,-0.125,-0.25); controlPoints[3]=vector(1,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(1,-0.5,0.5); controlPoints[1]=vector(1,-0.25,0.375);
     controlPoints[2]=vector(1,-0.125,0.25); controlPoints[3]=vector(1,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(1,0.5,-0.5); controlPoints[1]=vector(1,0.25,-0.375);
     controlPoints[2]=vector(1,0.125,-0.25); controlPoints[3]=vector(1,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(1,0.5,0.5); controlPoints[1]=vector(1,0.25,0.375);
     controlPoints[2]=vector(1,0.125,0.25); controlPoints[3]=vector(1,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
 
 // Second row
     controlPoints[0]=vector(2,0,-1); controlPoints[1]=vector(2,0,-0.66);
     controlPoints[2]=vector(2,0,-0.33); controlPoints[3]=vector(2,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(2,-1,0); controlPoints[1]=vector(2,-0.66,0);
     controlPoints[2]=vector(2,-0.33,0); controlPoints[3]=vector(2,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(2,0,1); controlPoints[1]=vector(2,0,0.66);
     controlPoints[2]=vector(2,0,0.33); controlPoints[3]=vector(2,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(2,1,0); controlPoints[1]=vector(2,0.66,0);
     controlPoints[2]=vector(2,0.33,0); controlPoints[3]=vector(2,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
 
 // Third row
     controlPoints[0]=vector(4,-0.5,-0.5); controlPoints[1]=vector(3.75,-0.25,-0.375);
     controlPoints[2]=vector(3.5,-0.125,-0.25); controlPoints[3]=vector(3.25,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(4,-0.5,0.5); controlPoints[1]=vector(3.75,-0.25,0.375);
     controlPoints[2]=vector(3.5,-0.125,0.25); controlPoints[3]=vector(3.25,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(4,0.5,-0.5); controlPoints[1]=vector(3.75,0.25,-0.375);
     controlPoints[2]=vector(3.5,0.125,-0.25); controlPoints[3]=vector(3.25,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     controlPoints[0]=vector(4,0.5,0.5); controlPoints[1]=vector(3.75,0.25,0.375);
     controlPoints[2]=vector(3.5,0.125,0.25); controlPoints[3]=vector(3.25,0,0);
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,1)));
+    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX)));
     
     Info<<"Created Nurbs"<<endl;
 

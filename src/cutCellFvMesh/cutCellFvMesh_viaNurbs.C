@@ -413,16 +413,38 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
     std::chrono::duration<double> time_span4(0);
     
     //Info<<endl;
+    std::unordered_set<label> twoCellInd;
+    twoCellInd.insert(202310);
+    twoCellInd.insert(202631);
+    twoCellInd.insert(215792);
+    twoCellInd.insert(215471);
+    twoCellInd.insert(202630);
+    twoCellInd.insert(215791);
+    twoCellInd.insert(215470);
+    twoCellInd.insert(202309);
+    
+    twoCellInd.insert(202311);
+    twoCellInd.insert(202632);
+    twoCellInd.insert(215793);
+    twoCellInd.insert(215472);
+
     for(int i=0;i<points.size();i++)
     {
         //Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
-        
+        label testInd = 202631;
         
         t1 = std::chrono::high_resolution_clock::now();
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
+        /*
+        if(i==testInd)
+        {
+            Info<<"Near Nurbs: "<<firstOrderNearNurbs->size()<<endl;
+            //FatalErrorInFunction<< " Temp stop."<< exit(FatalError);
+        }
+        */
         if(firstOrderNearNurbs->size() == 0)
         {
-            pointDist[i] = 1000;
+            pointDist[i] = std::numeric_limits<scalar>::max();
             //Info<<"\tSkipped because far away: "<<points[i]<<endl;
             continue;
         }
@@ -437,7 +459,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         distToNurbsSurface.setCapacity(10);
         DynamicList<scalar> paraToNurbsSurface;
         paraToNurbsSurface.setCapacity(10);
-        bool outSideNurbsBox = false;
+        bool allOutSideNurbsBox = true;
         for(int k=0;k<firstOrderNearNurbs->size();k++)
         {
             t5 = std::chrono::high_resolution_clock::now();
@@ -446,30 +468,61 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
             if(thisNodePara < this->Curves[thisNurbs]->min_U())
             {
-                pointDist[i] = 1;
-                outSideNurbsBox = true;
+                /*
+                if(i==testInd)
+                {
+                    Info<<k<<" Nurbs dist smaller: "<<thisNodePara<<"/"<<this->Curves[thisNurbs]->min_U()<<endl;
+                }
+                */
+                pointDist[i] = std::numeric_limits<scalar>::max();
                 continue;
             }
+            allOutSideNurbsBox = false;
             t6 = std::chrono::high_resolution_clock::now();
             time_span3 += t6-t5; 
             
             t7 = std::chrono::high_resolution_clock::now();
+            /*
+            if(i==testInd)
+            {
+                Info<<k<<" Nurbs dist smaller: "<<thisNodePara<<"/"<<this->Curves[thisNurbs]->min_U()<<"   NurbsPoint"<<
+                this->Curves[thisNurbs]->Curve_Derivative(0,thisNodePara)<<"   point:"<<points[i]<<endl;
+            }
+            */
             paraToNurbsSurface.append(thisNodePara);
             distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,points[i]));
             t8 = std::chrono::high_resolution_clock::now();
             time_span4 += t8-t7; 
         }
-        if(outSideNurbsBox)
+        if(allOutSideNurbsBox)
             continue;
         
         scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
+        scalar minDistparaToNurbsSurface;
         for(int k=0;k<distToNurbsSurface.size();k++)
         {
             if(distToNurbsSurface[k] < minDistToNurbsSurface)
+            {
                 minDistToNurbsSurface = distToNurbsSurface[k];
+                minDistparaToNurbsSurface = paraToNurbsSurface[k];
+            }
         }
         t4 = std::chrono::high_resolution_clock::now();
         time_span2 += t4-t3;
+        /*
+        if(i==testInd)
+        {
+            Info<<"paraToNurbsSurface: "<<paraToNurbsSurface<<endl;
+            Info<<"distToNurbsSurface: "<<distToNurbsSurface<<endl;
+            Info<<"allOutSideNurbsBox: "<<allOutSideNurbsBox<<endl;
+            Info<<"minDistToNurbsSurface: "<<minDistToNurbsSurface<<endl;
+            //FatalErrorInFunction<< " Temp stop."<< exit(FatalError);
+        }
+        */
+        if(twoCellInd.count(i)!=0)
+        {
+            Info<<"i:"<<i<<" para:"<<minDistparaToNurbsSurface<<" dist:"<<minDistToNurbsSurface<<endl;
+        }
         
         pointDist[i] = minDistToNurbsSurface;
         
