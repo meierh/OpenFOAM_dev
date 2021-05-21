@@ -2659,6 +2659,10 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
             Info<<"newZeroEdgesOfThisFace: "<<newZeroEdgesOfThisFace<<endl;
         }
         */
+        
+        Info<<"i:"<<i<<"   zeroEdgesOfThisFace.size():"<<zeroEdgesOfThisFace.size()<<
+        "  newZeroEdgesOfThisFace.size():"<<newZeroEdgesOfThisFace.size()<<endl;
+        
         if(zeroEdgesOfThisFace.size()>4)
         {
             FatalErrorInFunction<< "Face has more than four zero edges! That can not happen"<< exit(FatalError);
@@ -2729,7 +2733,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 List<bool>edgeWithNewOwnerFace(zeroEdgesOfThisFace.size(),false);
                 for(int j=0;j<zeroPointList.size();j++)
                 {
-                    for(int k=0;ownerFacesPoints.size();k++)
+                    for(int k=0;k<ownerFacesPoints.size();k++)
                     {
                         if(ownerFacesPoints[k].count(zeroPointList[j])!=0 && ownerFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                         {
@@ -2750,7 +2754,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 {
                     for(int j=0;j<zeroPointList.size();j++)
                     {
-                        for(int k=0;neighborFacesPoints.size();k++)
+                        for(int k=0;k<neighborFacesPoints.size();k++)
                         {
                             if(neighborFacesPoints[k].count(zeroPointList[j])!=0 && neighborFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                             {
@@ -2759,7 +2763,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                                 if(edgeWithNewNeighborFace[j])
                                     FatalErrorInFunction<<"Added edge to more than one face."<< exit(FatalError);
                                 takenNeighborFaces.insert(k);
-                                matchingAddedOwnerFaces++;
+                                matchingAddedNeighborFaces++;
                                 edgeWithNewNeighborFace[j] = true;
                             }
                         }
@@ -2946,7 +2950,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 List<bool>edgeWithNewOwnerFace(zeroEdgesOfThisFace.size(),false);
                 for(int j=0;j<zeroPointList.size();j++)
                 {
-                    for(int k=0;ownerFacesPoints.size();k++)
+                    for(int k=0;k<ownerFacesPoints.size();k++)
                     {
                         if(ownerFacesPoints[k].count(zeroPointList[j])!=0 && ownerFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                         {
@@ -2967,7 +2971,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 {
                     for(int j=0;j<zeroPointList.size();j++)
                     {
-                        for(int k=0;neighborFacesPoints.size();k++)
+                        for(int k=0;k<neighborFacesPoints.size();k++)
                         {
                             if(neighborFacesPoints[k].count(zeroPointList[j])!=0 && neighborFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                             {
@@ -2976,7 +2980,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                                 if(edgeWithNewNeighborFace[j])
                                     FatalErrorInFunction<<"Added edge to more than one face."<< exit(FatalError);
                                 takenNeighborFaces.insert(k);
-                                matchingAddedOwnerFaces++;
+                                matchingAddedNeighborFaces++;
                                 edgeWithNewNeighborFace[j] = true;
                             }
                         }
@@ -3125,7 +3129,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 List<bool>edgeWithNewOwnerFace(zeroEdgesOfThisFace.size(),false);
                 for(int j=0;j<zeroPointList.size();j++)
                 {
-                    for(int k=0;ownerFacesPoints.size();k++)
+                    for(int k=0;k<ownerFacesPoints.size();k++)
                     {
                         if(ownerFacesPoints[k].count(zeroPointList[j])!=0 && ownerFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                         {
@@ -3146,7 +3150,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 {
                     for(int j=0;j<zeroPointList.size();j++)
                     {
-                        for(int k=0;neighborFacesPoints.size();k++)
+                        for(int k=0;k<neighborFacesPoints.size();k++)
                         {
                             if(neighborFacesPoints[k].count(zeroPointList[j])!=0 && neighborFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                             {
@@ -3155,7 +3159,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                                 if(edgeWithNewNeighborFace[j])
                                     FatalErrorInFunction<<"Added edge to more than one face."<< exit(FatalError);
                                 takenNeighborFaces.insert(k);
-                                matchingAddedOwnerFaces++;
+                                matchingAddedNeighborFaces++;
                                 edgeWithNewNeighborFace[j] = true;
                             }
                         }
@@ -3281,7 +3285,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 List<bool>edgeWithNewOwnerFace(zeroEdgesOfThisFace.size(),false);
                 for(int j=0;j<zeroPointList.size();j++)
                 {
-                    for(int k=0;ownerFacesPoints.size();k++)
+                    for(int k=0;k<ownerFacesPoints.size();k++)
                     {
                         if(ownerFacesPoints[k].count(zeroPointList[j])!=0 && ownerFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                         {
@@ -3302,7 +3306,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                 {
                     for(int j=0;j<zeroPointList.size();j++)
                     {
-                        for(int k=0;neighborFacesPoints.size();k++)
+                        for(int k=0;k<neighborFacesPoints.size();k++)
                         {
                             if(neighborFacesPoints[k].count(zeroPointList[j])!=0 && neighborFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                             {
@@ -3311,7 +3315,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                                 if(edgeWithNewNeighborFace[j])
                                     FatalErrorInFunction<<"Added edge to more than one face."<< exit(FatalError);
                                 takenNeighborFaces.insert(k);
-                                matchingAddedOwnerFaces++;
+                                matchingAddedNeighborFaces++;
                                 edgeWithNewNeighborFace[j] = true;
                             }
                         }
@@ -3506,37 +3510,47 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                     }                    
                 }
                 
+                Info<<"Test for split face"<<endl;
                 DynamicList<label> zeroPointList;
                 zeroPointList.append(addedEdge.start());
                 zeroPointList.append(addedEdge.end());
                 
                 label matchingAddedOwnerFaces=0;
                 std::unordered_set<label> takenOwnerFaces;
-                List<bool>edgeWithNewOwnerFace(zeroEdgesOfThisFace.size()-1,false);
+                List<bool>edgeWithNewOwnerFace(zeroEdgesOfThisFace.size(),false);
                 for(int j=0;j<zeroPointList.size()-1;j++)
                 {
-                    for(int k=0;ownerFacesPoints.size();k++)
+                    Info<<"j:"<<j<<endl;
+                    for(int k=0;k<ownerFacesPoints.size();k++)
                     {
+                        Info<<"k:"<<k<<" /"<<ownerFacesPoints.size()<<endl;
                         if(ownerFacesPoints[k].count(zeroPointList[j])!=0 && ownerFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                         {
+                            Info<<"Has face"<<endl;
                             if(takenOwnerFaces.count(k)!=0)
                                 FatalErrorInFunction<<"Added face to more than one edge."<< exit(FatalError);
+                            Info<<"1"<<endl;
                             if(edgeWithNewOwnerFace[j])
                                 FatalErrorInFunction<<"Added edge to more than one face."<< exit(FatalError);
+                            Info<<"2"<<endl;
                             takenOwnerFaces.insert(k);
+                            Info<<"3"<<endl;
                             matchingAddedOwnerFaces++;
+                            Info<<"4"<<endl;
                             edgeWithNewOwnerFace[j] = true;
                         }
+                        Info<<"No face"<<endl;
                     }
                 }
+                Info<<"Got owner info"<<endl;
                 label matchingAddedNeighborFaces=0;
                 std::unordered_set<label> takenNeighborFaces;
-                List<bool>edgeWithNewNeighborFace(zeroEdgesOfThisFace.size()-1,false);
+                List<bool>edgeWithNewNeighborFace(zeroEdgesOfThisFace.size(),false);
                 if(i<cellNeighbor.size())
                 {
                     for(int j=0;j<zeroPointList.size()-1;j++)
                     {
-                        for(int k=0;neighborFacesPoints.size();k++)
+                        for(int k=0;k<neighborFacesPoints.size();k++)
                         {
                             if(neighborFacesPoints[k].count(zeroPointList[j])!=0 && neighborFacesPoints[k].count(zeroPointList[(j+1)%zeroPointList.size()])!=0)
                             {
@@ -3545,7 +3559,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                                 if(edgeWithNewNeighborFace[j])
                                     FatalErrorInFunction<<"Added edge to more than one face."<< exit(FatalError);
                                 takenNeighborFaces.insert(k);
-                                matchingAddedOwnerFaces++;
+                                matchingAddedNeighborFaces++;
                                 edgeWithNewNeighborFace[j] = true;
                             }
                         }
@@ -3558,7 +3572,7 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
                     if(matchingAddedNeighborFaces!=matchingAddedOwnerFaces)
                         FatalErrorInFunction<<"Inconsistent face to edge count."<< exit(FatalError);
                 }
-                
+                Info<<"Get face info"<<endl;
                 bool splitFace = false;
                 if(addedEdge.start()>=nbrOfPrevPoints || addedEdge.end()>=nbrOfPrevPoints)
                 {
