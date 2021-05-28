@@ -2047,6 +2047,11 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                 {
                     if(nextEdges.size() != 2)
                     {
+                        Info<<"nbrFace: "<<nbrFace<<endl;
+                        Info<<"edgeOfCellList: "<<edgeOfCellList<<endl;
+                        Info<<"nextEdges: "<<nextEdges<<endl;
+                        Info<<"firstEdge: "<<firstEdge<<endl;
+                        Info<<"lastAddedEdge: "<<lastAddedEdge<<endl;
                         FatalErrorInFunction<< "Second edge selection in a face must have two options but has not"<< exit(FatalError);
                     }
                 }
@@ -5846,6 +5851,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
         point curr,prev,next;
         vector edge1,edge2;
         List<vector> crossProds(meshFaces[i].size()+1);
+        List<scalar> crossProdsArea(meshFaces[i].size()+1);
         for(int k=0;k<meshFaces[i].size();k++)
         {
             prev = meshPoints[meshFaces[i].prevLabel(k)];
@@ -5855,13 +5861,18 @@ void Foam::cutCellFvMesh::selfTestMesh()
             edge1 = curr-prev;
             edge2 = next-curr;
             crossProds[k] = crossProd(edge1,edge2);
+            crossProdsArea[k] = norm2(crossProds[k]);
         }
         crossProds[crossProds.size()-1] = crossProds[0];
+        crossProdsArea[crossProds.size()-1] = norm2(crossProds[0]);
         scalar res;
         for(int k=0;k<meshFaces[i].size();k++)
         {
             res = crossProds[k] && crossProds[k+1];
-            if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10))
+            if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10) && 
+               crossProdsArea[k] >=partialThreeshold*maxFaceSize*(1.f/1e10) &&
+               crossProdsArea[k+1] >=partialThreeshold*maxFaceSize*(1.f/1e10)
+              )
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
@@ -5875,6 +5886,11 @@ void Foam::cutCellFvMesh::selfTestMesh()
                 Info<<" with centre:"<<centreFace;
                 Info<<" and normal vector:"<<normalFace;
                 Info<<" and area:"<<area<<endl;
+                Info<<"crossProds["<<k<<"]:"<<crossProds[k]<<endl;
+                Info<<"crossProds["<<k+1<<"]:"<<crossProds[k+1]<<endl;
+                Info<<"crossProdsArea["<<k<<"]:"<<crossProdsArea[k]<<endl;
+                Info<<"crossProdsArea["<<k+1<<"]:"<<crossProdsArea[k+1]<<endl;
+                Info<<"maxArea: "<<partialThreeshold*maxFaceSize*(1.f/1e10)<<endl;
                 
                 FatalErrorInFunction
                 << "Face must not have a concave shape!"
@@ -5885,6 +5901,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
         //Test for centre point internal
         vector toCentre1,toCentre2;
         crossProds = List<vector>(meshFaces[i].size()+1);
+        crossProdsArea = List<scalar>(meshFaces[i].size()+1);
         //Info<<"---------------------------------------------"<<endl;
         for(int k=0;k<meshFaces[i].size();k++)
         {
@@ -5900,14 +5917,19 @@ void Foam::cutCellFvMesh::selfTestMesh()
             //Info<<"toCentre 2: "<<toCentre2<<endl;
             
             crossProds[k] = 0.5*(crossProd(edge1,toCentre1) + crossProd(edge1,toCentre2));
+            crossProdsArea[k] = norm2(crossProds[k]);
             //Info<<"crossProds: "<<crossProds[k]<<endl;
 
         }
         crossProds[crossProds.size()-1] = crossProds[0];
+        crossProdsArea[crossProds.size()-1] = norm2(crossProds[0]);
         for(int k=0;k<meshFaces[i].size();k++)
         {
             res = crossProds[k] && crossProds[k+1];
-            if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10))
+            if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10) && 
+               crossProdsArea[k] >=partialThreeshold*maxFaceSize*(1.f/1e10) &&
+               crossProdsArea[k+1] >=partialThreeshold*maxFaceSize*(1.f/1e10)
+              )
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
                 if(i < neighbour.size())
