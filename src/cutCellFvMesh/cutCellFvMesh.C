@@ -920,6 +920,8 @@ void Foam::cutCellFvMesh::newMeshEdges
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
+    const labelList& cellOwner = this->owner();
+    const labelList& cellNeighbor = this->neighbor();
     
     nbrOfPrevEdges = basisEdges.size();
     
@@ -938,6 +940,9 @@ void Foam::cutCellFvMesh::newMeshEdges
     */
     
     //Info<<"Put edges to side"<<endl;
+    List<bool> problematicFace(basisFaces.size(),false);
+    List<label> problematicFacePoints(basisFaces.size(),-1);
+    List<label> problematicFaceNewPoints(basisFaces.size(),-1);
     
     edgeToFaces_.setSize(basisEdges.size());
     const labelListList& edgeFaces = this->edgeFaces();
@@ -949,6 +954,10 @@ void Foam::cutCellFvMesh::newMeshEdges
         if(pointsToSide_[startPoint] == 0 && pointsToSide_[endPoint] == 0)
         {
             edgeToFaces_[i] = edgeFaces[i];
+            for(int j=0;j<edgeFaces[i].size();j++)
+            {
+                problematicFace[edgeFaces[i][j]] = true;
+            }
         }
     }
     
@@ -965,9 +974,10 @@ void Foam::cutCellFvMesh::newMeshEdges
         Info<<" Side:"<<edgesToSide_[i]<<endl;
     }
     */
+
     labelList thisFacePoints;
     for(int i=0;i<basisFaces.size();i++)
-    {
+    {        
         thisFacePoints = faceToPoints_[i];
         if(thisFacePoints.size() > 4 || basisFaces[i].size() > 4)
         {
@@ -1231,10 +1241,20 @@ void Foam::cutCellFvMesh::newMeshEdges
                 newMeshEdges_.append(edgesToAdd[1]);
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                problematicFace[i] = true;
+                problematicFacePoints[i] = 4;
+                problematicFaceNewPoints[i] = 4;
             }
         }
         else if(thisFacePoints.size() == 3)
         {
+            if(i==589240)
+            {
+                Info<<"nbrOfPrevPoints: "<<nbrOfPrevPoints<<endl;
+                Info<<"thisFacePoints: "<<thisFacePoints<<endl;
+                //FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+            }
             if(basisFaces[i].size() != 4)
             {
                 FatalErrorInFunction<< "Faces with "<<basisFaces[i].size()<<" vertices not implemented!"<<exit(FatalError);
@@ -1299,9 +1319,19 @@ void Foam::cutCellFvMesh::newMeshEdges
                 newMeshEdges_.append(addingEdge);
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
+
+                problematicFace[i] = true;
+                problematicFacePoints[i] = 3;
+                problematicFaceNewPoints[i] = 0;
             }
             else if(newPointsNum == 1)
             {
+                if(i==589240)
+                {
+                    Info<<"nbrOfPrevPoints: "<<nbrOfPrevPoints<<endl;
+                    Info<<"thisFacePoints: "<<thisFacePoints<<endl;
+                    //FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+                }
                 if(basisFaces[i].size() != 4)
                 {
                     FatalErrorInFunction<< "Faces with "<<basisFaces[i].size()<<" vertices not implemented!"<<exit(FatalError);
@@ -1334,6 +1364,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                 newMeshEdges_.append(addedEdges[1]);
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
+            
+                problematicFace[i] = true;
+                problematicFacePoints[i] = 3;
+                problematicFaceNewPoints[i] = 1;
             }
             else if(newPointsNum == 2)
             {
@@ -1355,6 +1389,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                 newMeshEdges_.append(addedEdge3);
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                problematicFace[i] = true;
+                problematicFacePoints[i] = 3;
+                problematicFaceNewPoints[i] = 2;
             }
             else if(newPointsNum == 3)
             {
@@ -1380,7 +1418,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                     edgesToSide_.append(0);
                     edgeToFaces_.append(DynamicList<label>(0));
                     edgeToFaces_[edgeToFaces_.size()-1].append(i);
-
+                    
+                    problematicFace[i] = true;
+                    problematicFacePoints[i] = 2;
+                    problematicFaceNewPoints[i] = 0;
                 }
             }
             //one or more new point
@@ -1533,6 +1574,17 @@ void Foam::cutCellFvMesh::newMeshEdges
             Info<<"edge: "<<oneEdge<<endl;
             FatalErrorInFunction<< "Edge has duplicate vertices"<< exit(FatalError);
         }
+    }
+    
+    for(int i=0;i<faceToEdges_.size();i++)
+    {
+        label faceOwner = cellOwner[i];
+        label faceNeighbour = -1;
+        if(i<neighborCell.size())
+            faceNeighbour = neighborCell[i];
+        
+        
+        
     }
 }
 
@@ -1874,6 +1926,9 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
     const labelList& cellOwner = this->owner();
     const labelList& cellNeighbor = this->neighbour();
     const edgeList& basisEdges = this->edges();
+    const labelListList& edgeToFaces = this->edgeFaces();
+    const labelListList& faceToEdge = this->faceEdges();
+    const labelListList& pointToFace = this->pointFaces();
     
     nbrOfPrevFaces = basisFaces.size();
     
@@ -2052,6 +2107,18 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                         Info<<"nextEdges: "<<nextEdges<<endl;
                         Info<<"firstEdge: "<<firstEdge<<endl;
                         Info<<"lastAddedEdge: "<<lastAddedEdge<<endl;
+                        Info<<endl;
+                        Info<<"nbrOfPrevEdges: "<<nbrOfPrevEdges<<endl;
+                        Info<<"nbrOfPrevPoints: "<<nbrOfPrevPoints<<endl;
+                        Info<<"cellFaces: "<<meshCells[i]<<endl;
+                        for(int j=0;j<meshCells[i].size();j++)
+                        {
+                            Info<<"face:"<<meshCells[i][j]<<"  "<<basisFaces[meshCells[i][j]]<<endl;
+                        }
+                        for(int j=0;j<edgeOfCellList.size();j++)
+                        {
+                            Info<<"edgeNum: "<<edgeOfCellList[j]<<" edge: "<<newMeshEdges_[edgeOfCellList[j]]<<"on face: "<<edgeToFaces_[edgeOfCellList[j]]<<endl;
+                        }
                         FatalErrorInFunction<< "Second edge selection in a face must have two options but has not"<< exit(FatalError);
                     }
                 }
