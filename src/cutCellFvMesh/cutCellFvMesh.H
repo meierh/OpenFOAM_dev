@@ -9,6 +9,7 @@
 #include "Nurbs.H"
 #include <unordered_set>
 #include <unordered_map>
+#include <list>
 #include <algorithm>
 #include <chrono>
 
@@ -262,6 +263,25 @@ class cutCellFvMesh   :   public fvMesh
         // Add edges for cutting the cells and create dependency data for creating cut cells
         // Adds to edges_;
         void newMeshEdges();
+        bool equalEdges
+        (
+            std::unordered_set<label> setA,
+            std::unordered_set<label> setB
+        );
+        void findCycles
+        (
+            int i,
+            label startPoint,
+            label nextPoint,
+            label prevPoint,
+            DynamicList<label> cyclePath,
+            std::unordered_set<label> coveredPoints,
+            std::unordered_set<label> usedEdges,
+            std::unordered_map<label,std::unordered_set<label>>& pointGraphData,
+            DynamicList<std::pair<label,label>>& pointEdgeComb,
+            DynamicList<DynamicList<label>>& closedCyclePoints,
+            DynamicList<std::unordered_set<label>>& closedCycleEdges
+        );
         
         // Add faces for cutting the cells and create dependency data for creating cut cells
         // Adds to faces_;
