@@ -1791,6 +1791,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                         DynamicList<label> cyclePath;
                         std::unordered_set<label> coveredPoints;
                         std::unordered_set<label> usedEdges;
+                        if(i==589240)
+                            Info<<"------------------------------Go for "<<n.first<<"--------------------------"<<endl;
                         findCycles(i,n.first,-1,-1,cyclePath,coveredPoints,usedEdges,
                                    pointGraphData,pointEdgeComb,closedCyclePoints,closedCycleEdges);
                     }
@@ -1829,6 +1831,8 @@ void Foam::cutCellFvMesh::findCycles
         {
             std::pair<label,label> posNext = pointEdgeComb[val];
             cyclePath.append(startPoint);
+            if(i==589240)
+                Info<<"val:"<<val<<" nextPoint: "<<posNext.first<<" nextEdge: "<<posNext.second<<"  append:"<<startPoint<<endl;
             coveredPoints.insert(startPoint);
             usedEdges.insert(posNext.second);
             if(coveredPoints.count(posNext.first)!=0)
@@ -1838,6 +1842,10 @@ void Foam::cutCellFvMesh::findCycles
                 Info<<"Start: "<<startPoint<<"->"<<posNext.first<<endl;
             findCycles(i,startPoint,posNext.first,startPoint,cyclePath,coveredPoints,usedEdges,
                        pointGraphData,pointEdgeComb,closedCyclePoints,closedCycleEdges);
+            
+            cyclePath.setSize(cyclePath.size()-1);
+            coveredPoints.erase(startPoint);
+            usedEdges.erase(posNext.second);
         }
     }
     else
@@ -1859,29 +1867,39 @@ void Foam::cutCellFvMesh::findCycles
                 closedCycleEdges.append(usedEdges);
                 if(i==589240)
                     Info<<"Closed face: "<<cyclePath<<endl;
-            }            
+            }
         }
         else
         {
             for(const label val : pointGraphData[nextPoint]) 
             {
                 std::pair<label,label> posNext = pointEdgeComb[val];
-                cyclePath.append(nextPoint);
-                coveredPoints.insert(nextPoint);
-                usedEdges.insert(posNext.second);
                 if((coveredPoints.count(posNext.first)==0 && posNext.first != prevPoint) ||
                    (posNext.first == startPoint && posNext.first != prevPoint))
                 {
+                    cyclePath.append(nextPoint);
+                    if(i==589240)
+                        Info<<"val:"<<val<<" posNext.first: "<<posNext.first<<" posNext.second: "<<posNext.second<<"  append:"<<nextPoint<<endl;
+                    coveredPoints.insert(nextPoint);
+                    usedEdges.insert(posNext.second);
+
                     if(i==589240)
                         Info<<nextPoint<<"->"<<posNext.first<<endl;
                     findCycles(i,startPoint,posNext.first,nextPoint,cyclePath,coveredPoints,usedEdges,
                                pointGraphData,pointEdgeComb,closedCyclePoints,closedCycleEdges);
                     if(i==589240)
-                        Info<<"-----split-------"<<endl;
+                        Info<<"-----split-------"<<cyclePath<<endl;
+                    cyclePath.setSize(cyclePath.size()-1);
+                    coveredPoints.erase(nextPoint);
+                    usedEdges.erase(posNext.second);
+                    if(i==589240)
+                        Info<<"-----split-------"<<cyclePath<<"-----------------------"<<endl;
                 }
             }
         }
     }
+    if(i==589240)
+        Info<<"Back"<<"   startPoint:"<<startPoint<<" nextPoint:"<<nextPoint<<" prevPoint:"<<prevPoint<<endl;endl;
 }
 
 bool Foam::cutCellFvMesh::equalEdges
