@@ -275,12 +275,14 @@ class cutCellFvMesh   :   public fvMesh
             label nextPoint,
             label prevPoint,
             DynamicList<label> cyclePath,
+            DynamicList<label> cycleEdgePath,
             std::unordered_set<label> coveredPoints,
             std::unordered_set<label> usedEdges,
             std::unordered_map<label,std::unordered_set<label>>& pointGraphData,
             DynamicList<std::pair<label,label>>& pointEdgeComb,
             DynamicList<DynamicList<label>>& closedCyclePoints,
-            DynamicList<std::unordered_set<label>>& closedCycleEdges
+            DynamicList<std::unordered_set<label>>& closedCycleEdges,
+            DynamicList<DynamicList<label>>& closedCycleEdgesList
         );
         
         // Add faces for cutting the cells and create dependency data for creating cut cells
