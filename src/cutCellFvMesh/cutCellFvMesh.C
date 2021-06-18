@@ -856,12 +856,13 @@ scalar Foam::cutCellFvMesh::distToNurbs
     std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
     if(firstOrderNearNurbs->size()==0)
     {
+        Info<<"No firstOderNurbs found"<<endl;
         foundFlag = false;
         return -1;
     }
     DynamicList<scalar> distToNurbsSurface;
     DynamicList<scalar> paraToNurbsSurface;
-    bool outSideNurbsBox = false;
+    bool allOutSideNurbsBox = true;
     for(int k=0;k<firstOrderNearNurbs->size();k++)
     {
         label thisNurbs = (*firstOrderNearNurbs)[k];
@@ -870,13 +871,13 @@ scalar Foam::cutCellFvMesh::distToNurbs
         if(thisNodePara < this->Curves[thisNurbs]->min_U())
         {
             dist = std::numeric_limits<scalar>::max();
-            outSideNurbsBox = true;
             continue;
-        }            
+        }
+        allOutSideNurbsBox = false;
         paraToNurbsSurface.append(thisNodePara);
         distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
     }
-    if(outSideNurbsBox)
+    if(allOutSideNurbsBox)
     {
         foundFlag = false;
         return -1;
@@ -891,6 +892,82 @@ scalar Foam::cutCellFvMesh::distToNurbs
     dist = minDistToNurbsSurface;
     return dist;
 }
+
+vector Foam::cutCellFvMesh::vectorToNurbs
+(
+    point pnt,
+    bool& foundFlag
+)
+{
+    scalar dist;
+    std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
+    if(firstOrderNearNurbs->size()==0)
+    {
+        Info<<"No firstOderNurbs found"<<endl;
+        foundFlag = false;
+        return vector();
+    }
+    DynamicList<scalar> distToNurbsSurface;
+    DynamicList<scalar> paraToNurbsSurface;
+    DynamicList<label> nurbsInd;
+    bool allOutSideNurbsBox = true;
+    for(int k=0;k<firstOrderNearNurbs->size();k++)
+    {
+        label thisNurbs = (*firstOrderNearNurbs)[k];
+        scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
+        //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+        if(thisNodePara < this->Curves[thisNurbs]->min_U())
+        {
+            dist = std::numeric_limits<scalar>::max();
+            continue;
+        }
+        allOutSideNurbsBox = false;
+        paraToNurbsSurface.append(thisNodePara);
+        distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
+        nurbsInd.append(thisNurbs);
+    }
+    if(allOutSideNurbsBox)
+    {
+        foundFlag = false;
+        return vector();
+    }
+    label minNurbs;
+    scalar minParaToNurbsSurface;
+    scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
+    for(int k=0;k<distToNurbsSurface.size();k++)
+    {
+        if(distToNurbsSurface[k] < minDistToNurbsSurface)
+        {
+            minDistToNurbsSurface = distToNurbsSurface[k];
+            minParaToNurbsSurface = paraToNurbsSurface[k];
+            minNurbs = nurbsInd[k];
+        }
+    }
+    foundFlag = true;
+    dist = minDistToNurbsSurface;
+    scalar para = minParaToNurbsSurface;
+    vector nurbsPoint = Curve_Derivative(0,para);
+    vector pointToNurbsVector = nurbsPoint-pnt;
+    return pointToNurbsVector;
+}
+
+List<vector> Foam::cutCellFvMesh::vectorsToNurbsOfEdge
+(
+    point startPoint,
+    point endPoint,
+    label nbrOfVectors = 10
+)
+{
+    List<vector>(nbrOfVectors)
+    vector connec = endPoint - endPoint;
+    scalar stepSize = 1.0/static_cast<scalar(nbrOfPrevPoints-1);
+    for(int i=0;i<nbrOfVectors;i++)
+    {
+        
+    }
+}
+
+
 
 label Foam::cutCellFvMesh::sideToNurbs(point pnt,bool& foundFlag)
 {
@@ -1576,6 +1653,190 @@ void Foam::cutCellFvMesh::newMeshEdges
         }
     }
     
+    List<DynamicList<DynamicList<label>>> cellNonconnectedEdges(meshCells.size());
+    List<DynamicList<DynamicList<DynamicList<label>>>> cellNonConnectedMultiFaces(meshCells.size());
+    for(int i=0;i<meshCells.size();i++)
+    // iterate across all cells
+    {
+        labelList oneCellEdges = cellToEdges_[i];
+        std::unordered_set<label> usedEdges;
+        for(int k=0;k<oneCellEdges.size();k++)
+        // iterate until all edges are blocked
+        {
+            if(usedEdges.count(oneCellEdges[k])==0)
+            {                        
+                cellNonconnectedEdges[i].append(DynamicList<label>());
+                DynamicList<label> nextEdgesInd;
+                nextEdgesInd.append(oneCellEdges[k]);
+                usedEdges.insert(oneCellEdges[k]);
+                cellNonconnectedEdges[i].last().append(oneCellEdges[k]);
+                for(int l=0;l<oneCellEdges.size();l++)
+                {
+                    DynamicList<label> frontEdges;
+                    for(int m=0;m<oneCellEdges.size();m++)
+                    // iteration to cover each edge |edges| times
+                    {
+                        if(usedEdges.count(oneCellEdges[m])==0)
+                        {
+                            label tryEdgeInd = oneCellEdges[m];
+                            edge tryEdge = newMeshEdges_[tryEdgeInd];
+                            for(int n=0;n<nextEdgesInd.size();n++)
+                            {
+                                edge currEdge = newMeshEdges_[nextEdgesInd[n]];
+                                if(currEdge.connected(tryEdge))
+                                {
+                                    frontEdges.append(tryEdgeInd);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    cellNonconnectedEdges[i].last().append(frontEdges);
+                    nextEdgesInd = frontEdges;
+                    for(int n=0;n<frontEdges.size();n++)
+                    {
+                        usedEdges.insert(frontEdges[n]);
+                    }
+                }
+            }
+        }
+        for(int k=0;k<oneCellEdges.size();k++)
+        {
+            if(usedEdges.count(oneCellEdges[k])==0)
+            {
+                if(problematicFacePoints[i]==-1 && problematicFaceNewPoints[i] == -1)
+                {}
+                else
+                    FatalErrorInFunction<< "Non used edge remains!"<< exit(FatalError);
+            }
+        }
+        if(cellNonconnectedEdges[i].size() == 0)
+        {
+            FatalErrorInFunction<< "Problematic face in cell but no edges colllected!"<< exit(FatalError);
+        }
+        else if(cellNonconnectedEdges[i].size() > 1)
+        {
+            /*
+            Info<<"---------------------------------------------"<<endl;
+            Info<<"Face: "<<i<<endl;
+            Info<<"Owner Cell: "<<faceCells[0]<<" edges: "<<cellToEdges_[faceCells[0]]<<endl;
+            Info<<"Neighbour Cell: "<<faceCells[1]<<" edges: "<<cellToEdges_[faceCells[1]]<<endl;
+            Info<<"edgeList:"<<cellNonconnectedEdges<<endl;
+            Info<<"---------------------------------------------"<<endl;
+            */
+        }
+        else
+        {
+            std::list<label> edges;
+            for(int k=0;k<cellNonconnectedEdges[i][0].size();k++)
+            {
+                edges.push_back(cellNonconnectedEdges[i][0][k]);
+            }
+            DynamicList<label> oneFace;
+            std::unordered_set<label> oneFaceBlckd;
+            oneFace.append(edges.front());
+            oneFaceBlckd.insert(edges.front());
+            edges.remove(edges.front());
+            while(edges.size()!=0)
+            {
+                bool isConnected = false;
+                DynamicList<label> connectedToFace;
+                for(int k=0;k<oneFace.size();k++)
+                {
+                    label faceEdgeInd = oneFace[k];
+                    edge faceEdge = newMeshEdges_[faceEdgeInd];
+                    for(auto l=edges.cbegin();l!=edges.cend();l++)
+                    {
+                        label testEdgeInd = *l;
+                        edge testEdge = newMeshEdges_[testEdgeInd];
+                        if(faceEdgeInd==testEdgeInd)
+                            FatalErrorInFunction<< "Invalid"<< exit(FatalError);
+                        if(testEdge.connected(faceEdge))
+                        {
+                            connectedToFace.append(testEdgeInd);
+                            isConnected = true;
+                            break;
+                        }
+                    }
+                    if(isConnected)
+                        break;
+                }
+                if(!isConnected)
+                {
+                    FatalErrorInFunction<< "Edges do not build a connected face"<< exit(FatalError);
+                }
+                else
+                {
+                    oneFace.append(connectedToFace);
+                    for(int k=0;k<connectedToFace.size();k++)
+                    {
+                        edges.remove(connectedToFace[k]);
+                    }
+                }
+            }
+        }
+        
+        for(int k=0;k<cellNonconnectedEdges[i].size();k++)
+        // seperate edge connections
+        {
+            DynamicList<label>& edgeConnection = cellNonconnectedEdges[i][k];
+            std::unordered_set<label> pointMap;
+            std::unordered_map<label,std::unordered_set<label>> pointGraphData;
+            DynamicList<std::pair<label,label>> pointEdgeComb;
+            DynamicList<label> pointList;
+            for(int l=0;l<edgeConnection.size();l++)
+            {
+                edge oneEdge = newMeshEdges_[edgeConnection[l]];
+                for(int m=0;m<oneEdge.size();m++)
+                {
+                    label point = oneEdge[m];
+                    if(pointMap.count(point)==0)
+                    {
+                        pointMap.insert(point);
+                        pointList.append(point);
+                    }
+                    label connectedPoint = oneEdge.otherVertex(point);
+                    if(connectedPoint==-1)
+                        FatalErrorInFunction<< "Can not happen"<< exit(FatalError);
+                    std::pair<label,label> pointEdge(connectedPoint,edgeConnection[l]);
+                    pointEdgeComb.append(pointEdge);
+                    pointGraphData[point].insert(pointEdgeComb.size()-1);
+                }
+            }
+                    
+            DynamicList<DynamicList<label>> closedCyclePoints;
+            DynamicList<std::unordered_set<label>> closedCycleEdges;
+            DynamicList<DynamicList<label>> closedCycleEdgesList;
+            for(const std::pair<label,std::unordered_set<label>>& n : pointGraphData ) 
+            {
+                DynamicList<label> cyclePath;
+                DynamicList<label> cycleEdgePath;
+                std::unordered_set<label> coveredPoints;
+                std::unordered_set<label> usedEdges;
+                findCycles(i,n.first,-1,-1,cyclePath,cycleEdgePath,coveredPoints,usedEdges,pointGraphData,pointEdgeComb,closedCyclePoints,closedCycleEdges,closedCycleEdgesList);
+            }
+            if(closedCyclePoints.size() > 3)
+                FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
+            List<bool> mayBeDeletedFace(closedCyclePoints.size(),true);
+            bool mandatoryEdges = false;
+            List<face> newFaces(closedCyclePoints.size());
+            for(int l=0;l<closedCyclePoints.size();l++)
+            {
+                newFaces[l] = face(closedCyclePoints[l]);
+            }
+            List<scalar> centerDist(closedCyclePoints.size());
+            for(int l=0;l<centerDist.size();l++)
+            {
+                bool foundDist;
+                centerDist[l] = distToNurbs(newFaces[l].centre(newMeshPoints_),foundDist);
+                if(!foundDist)
+                {
+                    FatalErrorInFunction<< "Not found error"<< exit(FatalError);
+                }
+            }
+        }
+    }
+    
     for(int i=0;i<faceToEdges_.size();i++)
     {
         if(problematicFace[i])
@@ -1586,150 +1847,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                 faceNeighbour = cellNeighbor[i];
         
             labelList faceCells(0);
-            List<DynamicList<DynamicList<label>>> cellNonconnectedEdges(1);
             faceCells.append(faceOwner);
             if(i<cellNeighbor.size())
             {
                 faceCells.append(cellNeighbor[i]);
-                cellNonconnectedEdges.setSize(2);
             }
-        
-            for(int j=0;j<faceCells.size();j++)
-            // iterate across all cells
-            {
-                if(i==589240)
-                    Info<<"j---------------------"<<j<<endl;
-                labelList oneCellEdges = cellToEdges_[faceCells[j]];
-                std::unordered_set<label> usedEdges;
-                for(int k=0;k<oneCellEdges.size();k++)
-                // iterate until all edges are blocked
-                {
-                    if(i==589240)
-                        Info<<"k---------------------"<<k<<endl;
-                    if(usedEdges.count(oneCellEdges[k])==0)
-                    {                        
-                        cellNonconnectedEdges[j].append(DynamicList<label>());
-                        DynamicList<label> nextEdgesInd;
-                        nextEdgesInd.append(oneCellEdges[k]);
-                        usedEdges.insert(oneCellEdges[k]);
-                        cellNonconnectedEdges[j].last().append(oneCellEdges[k]);
-                        for(int l=0;l<oneCellEdges.size();l++)
-                        {
-                            if(i==589240)
-                                Info<<"l:"<<l<<" nextEdgesInd.size():"<<nextEdgesInd.size()<<endl;
-                            DynamicList<label> frontEdges;
-                            for(int m=0;m<oneCellEdges.size();m++)
-                            // iteration to cover each edge |edges| times
-                            {
-                                if(i==589240)
-                                    Info<<"m:"<<m<<" nextEdgesInd.size():"<<nextEdgesInd.size()<<endl;
-                                if(usedEdges.count(oneCellEdges[m])==0)
-                                {
-                                    label tryEdgeInd = oneCellEdges[m];
-                                    edge tryEdge = newMeshEdges_[tryEdgeInd];
-                                    if(i==589240)
-                                        Info<<"Enter nextEdgesInd.size():"<<nextEdgesInd.size()<<endl;
-                                    for(int n=0;n<nextEdgesInd.size();n++)
-                                    {
-                                        if(i==589240)
-                                            Info<<"n---------------------"<<n<<endl;
-                                        edge currEdge = newMeshEdges_[nextEdgesInd[n]];
-                                        if(currEdge.connected(tryEdge))
-                                        {
-                                            if(i==589240)
-                                                Info<<nextEdgesInd[n]<<" connected to "<<tryEdgeInd<<endl;
-
-                                            frontEdges.append(tryEdgeInd);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            if(i==589240)
-                                Info<<"Append: "<<frontEdges<<endl;
-                            cellNonconnectedEdges[j].last().append(frontEdges);
-                            nextEdgesInd = frontEdges;
-                            for(int n=0;n<frontEdges.size();n++)
-                            {
-                            usedEdges.insert(frontEdges[n]);
-                            }
-                        }
-                    }
-                }
-                for(int k=0;k<oneCellEdges.size();k++)
-                {
-                    if(usedEdges.count(oneCellEdges[k])==0)
-                    //
-                    {
-                        if(problematicFacePoints[i]==-1 && problematicFaceNewPoints[i] == -1)
-                        {}
-                        else
-                            FatalErrorInFunction<< "Non used edge remains!"<< exit(FatalError);
-
-                    }
-                }
-                if(cellNonconnectedEdges[j].size() == 0)
-                {
-                    FatalErrorInFunction<< "Problematic face in cell but no edges colllected!"<< exit(FatalError);
-                }
-                else if(cellNonconnectedEdges[j].size() > 1)
-                {
-                    Info<<"---------------------------------------------"<<endl;
-                    Info<<"Face: "<<i<<endl;
-                    Info<<"Owner Cell: "<<faceCells[0]<<" edges: "<<cellToEdges_[faceCells[0]]<<endl;
-                    Info<<"Neighbour Cell: "<<faceCells[1]<<" edges: "<<cellToEdges_[faceCells[1]]<<endl;
-                    Info<<"edgeList:"<<cellNonconnectedEdges<<endl;
-                    Info<<"---------------------------------------------"<<endl;
-                }
-                else
-                {
-                    std::list<label> edges;
-                    for(int k=0;k<cellNonconnectedEdges[j][0].size();k++)
-                        edges.push_back(cellNonconnectedEdges[j][0][k]);
-                    DynamicList<label> oneFace;
-                    std::unordered_set<label> oneFaceBlckd;
-                    oneFace.append(edges.front());
-                    oneFaceBlckd.insert(edges.front());
-                    edges.remove(edges.front());
-                    while(edges.size()!=0)
-                    {
-                        bool isConnected = false;
-                        DynamicList<label> connectedToFace;
-                        for(int k=0;k<oneFace.size();k++)
-                        {
-                            label faceEdgeInd = oneFace[k];
-                            edge faceEdge = newMeshEdges_[faceEdgeInd];
-                            for(auto l=edges.cbegin();l!=edges.cend();l++)
-                            {
-                                label testEdgeInd = *l;
-                                edge testEdge = newMeshEdges_[testEdgeInd];
-                                if(faceEdgeInd==testEdgeInd)
-                                    FatalErrorInFunction<< "Invalid"<< exit(FatalError);
-                                if(testEdge.connected(faceEdge))
-                                {
-                                    connectedToFace.append(testEdgeInd);
-                                    isConnected = true;
-                                    break;
-                                }
-                            }
-                            if(isConnected)
-                                break;
-                        }
-                        if(!isConnected)
-                        {
-                            FatalErrorInFunction<< "Edges do not build a connected face"<< exit(FatalError);
-                        }
-                        else
-                        {
-                            oneFace.append(connectedToFace);
-                            for(int k=0;k<connectedToFace.size();k++)
-                            {
-                                edges.remove(connectedToFace[k]);
-                            }
-                        }
-                    }
-                }
-            }
+            /*
             if(i==589240)
             {
             Info<<"Face: "<<i<<endl;
@@ -1738,77 +1861,42 @@ void Foam::cutCellFvMesh::newMeshEdges
             Info<<"edgeList:"<<cellNonconnectedEdges<<endl;
             }
             
-            List<DynamicList<DynamicList<DynamicList<label>>>> cellNonConnectedMultiFaces(cellNonconnectedEdges.size());
-            //split edges in connected faces
-            for(int j=0;j<faceCells.size();j++)
-            // owner and neighor cell
+            if(i==589240)
             {
-                for(int k=0;k<cellNonconnectedEdges[j].size();k++)
-                // seperate edge connections
+                Info<<"problematicFacePoints:"<<problematicFacePoints[i]<<endl;
+                Info<<"problematicNewFacePoints:"<<problematicFaceNewPoints[i]<<endl;
+                Info<<"closedCycles:";
+                Info<<closedCyclePoints<<endl;
+                Info<<"closedEdgeCycle:";
+                Info<<closedCycleEdgesList<<endl;
+                Info<<"face centre dist:"<<endl;
+                Info<<centerDist<<endl;
+                Info<<"Face To Edges:"<<faceToEdges_[i]<<endl;
+                for(int m=0;m<faceToEdges_[i].size();m++)
                 {
-                    DynamicList<label>& edgeConnection = cellNonconnectedEdges[j][k];
-                    std::unordered_set<label> pointMap;
-                    std::unordered_map<label,std::unordered_set<label>> pointGraphData;
-                    DynamicList<std::pair<label,label>> pointEdgeComb;
-                    DynamicList<label> pointList;
-                    for(int l=0;l<edgeConnection.size();l++)
-                    {
-                        edge oneEdge = newMeshEdges_[edgeConnection[l]];
-                        for(int m=0;m<oneEdge.size();m++)
-                        {
-                            label point = oneEdge[m];
-                            if(pointMap.count(point)==0)
-                            {
-                                pointMap.insert(point);
-                                pointList.append(point);
-                            }
-                            label connectedPoint = oneEdge.otherVertex(point);
-                            if(connectedPoint==-1)
-                                FatalErrorInFunction<< "Can not happen"<< exit(FatalError);
-                            std::pair<label,label> pointEdge(connectedPoint,edgeConnection[l]);
-                            pointEdgeComb.append(pointEdge);
-                            pointGraphData[point].insert(pointEdgeComb.size()-1);
-                        }
-                    }
-                    if(i==589240)
-                    {
-                        Info<<"faceCells["<<j<<"]:"<<faceCells[j]<<endl;
-                        for(const std::pair<label,std::unordered_set<label>>& n : pointGraphData ) 
-                        {
-                            Info<<"Key:[" << n.first << "] Value:[";
-                            for(const label p: n.second)
-                            {
-                                Info<<"  ("<<pointEdgeComb[p].first<<","<<pointEdgeComb[p].second<<")";
-                            }
-                            Info<<"  ]  "<<n.second.size()<<endl;
-                        }
-                    }
-                    
-                    DynamicList<DynamicList<label>> closedCyclePoints;
-                    DynamicList<std::unordered_set<label>> closedCycleEdges;
-                    DynamicList<DynamicList<label>> closedCycleEdgesList;
-                    for(const std::pair<label,std::unordered_set<label>>& n : pointGraphData ) 
-                    {
-                        DynamicList<label> cyclePath;
-                        DynamicList<label> cycleEdgePath;
-                        std::unordered_set<label> coveredPoints;
-                        std::unordered_set<label> usedEdges;
-                        if(i==589240)
-                            Info<<"------------------------------Go for "<<n.first<<"--------------------------"<<endl;
-                        findCycles(i,n.first,-1,-1,cyclePath,cycleEdgePath,coveredPoints,usedEdges,pointGraphData,pointEdgeComb,closedCyclePoints,closedCycleEdges,closedCycleEdgesList);
-                    }
-                    if(i==589240)
-                    {
-                        Info<<"closedCycles:";
-                        Info<<closedCyclePoints<<endl;
-                        Info<<"closedEdgeCycle:";
-                        Info<<closedCycleEdgesList<<endl;
-                    }
-                    DynamicList<face> cutFaces
-                    List<bool> mustBeDeletedFace(closedCyclePoints.size(),true);
-                    
+                    bool foundDist;
+                    edge oneEdge = newMeshEdges_[faceToEdges_[i][m]];
+                    point edgeCenter = 0.5*(newMeshPoints_[oneEdge.start()]+newMeshPoints_[oneEdge.end()]);
+                    Info<<"edge: "<<faceToEdges_[i][m]<<oneEdge<<" ("<<newMeshPoints_[oneEdge.start()]<<"  "<<newMeshPoints_[oneEdge.end()]<<")"<<endl;
+                    Info<<"center:"<<edgeCenter<<distToNurbs(edgeCenter,foundDist)<<endl;
                 }
-                
+                Info<<endl;
+            }
+            */
+            if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
+            {
+            }
+            else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
+            {
+            }
+            else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==1)
+            {
+            }
+            else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==2)
+            {
+            }
+            else if(problematicFacePoints[i]==2 && problematicFaceNewPoints[i]==0)
+            {
             }
         }
     }
