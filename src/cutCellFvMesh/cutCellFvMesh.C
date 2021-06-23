@@ -958,16 +958,19 @@ List<vector> Foam::cutCellFvMesh::vectorsToNurbsOfEdge
     label nbrOfVectors = 10
 )
 {
-    List<vector>(nbrOfVectors)
-    vector connec = endPoint - endPoint;
-    scalar stepSize = 1.0/static_cast<scalar(nbrOfPrevPoints-1);
+    List<vector> vectorsToNurbs(nbrOfVectors);
+    vector connec = endPoint - startPoint;
+    scalar stepSize = 1.0/static_cast<scalar>(nbrOfPrevPoints-1);
     for(int i=0;i<nbrOfVectors;i++)
     {
-        
+        vector pnt = startPoint + connec*stepSize*i;
+        bool found;
+        vectorsToNurbs[i] = vectorToNurbs(pnt,found);
+        if(!found)
+            FatalErrorInFunction<<"Not found vector to Nurbs. Can not happen."<< exit(FatalError);
     }
+    return vectorsToNurbs;
 }
-
-
 
 label Foam::cutCellFvMesh::sideToNurbs(point pnt,bool& foundFlag)
 {
