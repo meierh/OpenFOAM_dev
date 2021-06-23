@@ -1888,6 +1888,8 @@ void Foam::cutCellFvMesh::newMeshEdges
             */
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
+                labelList edgeIndList = faceToEdges_[i];
+                 
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
             {
