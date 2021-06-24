@@ -1658,6 +1658,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     
     List<DynamicList<DynamicList<label>>> cellNonconnectedEdges(meshCells.size());
     List<DynamicList<DynamicList<DynamicList<label>>>> cellNonConnectedMultiFaces(meshCells.size());
+    List<DynamicList<DynamicList<DynamicList<label>>>> cellNonConnectedMultiEdges(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
     // iterate across all cells
     {
@@ -1820,6 +1821,31 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
             if(closedCyclePoints.size() > 3)
                 FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
+            
+            List<DynamicList<label>> edgeConnectedFaces(closedCycleEdges.size());
+            for(int l=0;l<closedCycleEdges.size();l++)
+            {
+                for(int m=0;m<closedCycleEdges.size();m++)
+                {
+                    if(l==m)
+                        continue;
+                    bool connected = false
+                    for(int n=0;n<<closedCycleEdgesList[m].size();n++)
+                    {
+                        if(closedCycleEdges[l].count(closedCycleEdgesList[m][n])==0 && !connected)
+                        {
+                            if(!connected)
+                            {
+                                edgeConnectedFaces[l].append(m);
+                                connected = true;
+                            }
+                            else
+                                FatalErrorInFunction<< "Ducplicate share edge!"<< exit(FatalError);
+                        }
+                    }
+                }
+            }
+            
             List<bool> mayBeDeletedFace(closedCyclePoints.size(),true);
             bool mandatoryEdges = false;
             List<face> newFaces(closedCyclePoints.size());
