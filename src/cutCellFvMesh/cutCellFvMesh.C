@@ -1849,7 +1849,8 @@ void Foam::cutCellFvMesh::newMeshEdges
             Info<<"cell:"<<i<<" - 3  "<<k<<" - 3"<<endl;
             Info<<"closedCycleEdgesList:"<<closedCycleEdgesList<<endl;
             
-        //
+        //Speperate chunks of faces only connected by one point
+        //Start
             List<DynamicList<label>> edgeConnectedFaces(closedCycleEdges.size());
             //Build graph of connected closed cycles
             for(int l=0;l<closedCycleEdges.size();l++)
@@ -1873,7 +1874,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     connected = true;
                                 }
                                 else
-                                    FatalErrorInFunction<< "Ducplicate share edge!"<< exit(FatalError);
+                                {
+                                    //Info<<"closedCycleEdgesList[m][n]:"<<closedCycleEdgesList[m][n]<<endl;
+                                    //FatalErrorInFunction<< "Ducplicate share edge!"<< exit(FatalError);
+                                }
                             }
                         }
                     }
@@ -1881,6 +1885,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
             Info<<"cell:"<<i<<" - 3  "<<k<<" - 4"<<endl;
             Info<<"edgeConnectedFaces:"<<edgeConnectedFaces<<endl;
+
             DynamicList<DynamicList<label>> connectedFaces;
             std::queue<label> nextCycles;
             std::unordered_set<label> takenCycles;
@@ -1915,8 +1920,11 @@ void Foam::cutCellFvMesh::newMeshEdges
                                 Info<<"push: "<<edgeConnectedFaces[faceInd][m]<<endl;
                             }
                         }
-                        connectedFaces.last().append(faceInd);
-                        takenCycles.insert(faceInd);
+                        if(takenCycles.count(faceInd)==0)
+                        {
+                            connectedFaces.last().append(faceInd);
+                            takenCycles.insert(faceInd);
+                        }
                         nextCycles.pop();
                         Info<<"cell:"<<i<<" - 3  "<<k<<" - 4  "<<l<<" - 5 3 "<<faceInd<<" : empty:"<<nextCycles.empty()<<endl;
                     }
@@ -1946,29 +1954,19 @@ void Foam::cutCellFvMesh::newMeshEdges
                 cellNonConnectedMultiEdges[i].append(edgeFaces[l]);
                 cellNonConnectedMultiFaces[i].append(pointFaces[l]);
             }
-            
-            /*
-            List<bool> mayBeDeletedFace(closedCyclePoints.size(),true);
-            bool mandatoryEdges = false;
-            List<face> newFaces(closedCyclePoints.size());
-            for(int l=0;l<closedCyclePoints.size();l++)
+            if(i==198219)
             {
-                newFaces[l] = face(closedCyclePoints[l]);
+                Info<<"cellNonConnectedMultiEdges[i]:"<<cellNonConnectedMultiEdges[i]<<endl;
+                Info<<"cellNonConnectedMultiFaces[i]:"<<cellNonConnectedMultiFaces[i]<<endl;
+                //FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
             }
-            List<scalar> centerDist(closedCyclePoints.size());
-            for(int l=0;l<centerDist.size();l++)
-            {
-                bool foundDist;
-                centerDist[l] = distToNurbs(newFaces[l].centre(newMeshPoints_),foundDist);
-                if(!foundDist)
-                {
-                    FatalErrorInFunction<< "Not found error"<< exit(FatalError);
-                }
-            }
-            */
+        //End
         }
     //End
     }
+    Info<<"cellNonConnectedMultiEdges[198219]:"<<cellNonConnectedMultiEdges[198219]<<endl;
+    Info<<"cellNonConnectedMultiFaces[198219]:"<<cellNonConnectedMultiFaces[198219]<<endl;
+    //FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
     
     for(int i=0;i<faceToEdges_.size();i++)
     {
@@ -1991,7 +1989,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             Info<<"Face: "<<i<<endl;
             Info<<"Owner Cell: "<<faceCells[0]<<" edges: "<<cellToEdges_[faceCells[0]]<<endl;
             Info<<"Neighbour Cell: "<<faceCells[1]<<" edges: "<<cellToEdges_[faceCells[1]]<<endl;
-            Info<<"edgeList:"<<cellNonconnectedEdges<<endl;
+            Info<<"edgeList:"<<cellNonconnectedEdges[i]<<endl;
             }
             
             if(i==589240)
@@ -1999,9 +1997,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                 Info<<"problematicFacePoints:"<<problematicFacePoints[i]<<endl;
                 Info<<"problematicNewFacePoints:"<<problematicFaceNewPoints[i]<<endl;
                 Info<<"closedCycles:";
-                Info<<cellNonConnectedMultiFaces[i]<<endl;
+                Info<<cellNonConnectedMultiFaces[faceOwner]<<endl;
                 Info<<"closedEdgeCycle:";
-                Info<<cellNonConnectedMultiEdges[i]<<endl;
+                Info<<cellNonConnectedMultiEdges[faceOwner]<<endl;
                 Info<<"Face To Edges:"<<faceToEdges_[i]<<endl;
                 for(int m=0;m<faceToEdges_[i].size();m++)
                 {
@@ -2013,6 +2011,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 Info<<endl;
             }
+
             
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
@@ -2033,7 +2032,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
         }
     }
-    FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
+    FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::findCycles

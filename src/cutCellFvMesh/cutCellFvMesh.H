@@ -12,6 +12,7 @@
 #include <list>
 #include <algorithm>
 #include <chrono>
+#include <queue>
 
 namespace Foam
 {    
@@ -283,6 +284,17 @@ class cutCellFvMesh   :   public fvMesh
             DynamicList<DynamicList<label>>& closedCyclePoints,
             DynamicList<std::unordered_set<label>>& closedCycleEdges,
             DynamicList<DynamicList<label>>& closedCycleEdgesList
+        );
+        vector vectorToNurbs
+        (
+            point pnt,
+            bool& foundFlag
+        );
+        List<vector> vectorsToNurbsOfEdge
+        (
+            point startPoint,
+            point endPoint,
+            label nbrOfVectors = 10
         );
         
         // Add faces for cutting the cells and create dependency data for creating cut cells
