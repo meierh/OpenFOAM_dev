@@ -1201,6 +1201,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 pt[2] = thisFacePoints[edgeOrder[2]];
                 pt[3] = thisFacePoints[edgeOrder[3]];
                 
+                /*
                 pointField pnt(4);
                 pnt[0] = newMeshPoints_[pt[0]];
                 pnt[1] = newMeshPoints_[pt[1]];
@@ -1319,6 +1320,27 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 edgeToFaces_.append(DynamicList<label>(0));
                 newMeshEdges_.append(edgesToAdd[1]);
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                */
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(edge(pt[0],pt[1]));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));
+                newMeshEdges_.append(edge(pt[1],pt[2]));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));                
+                newMeshEdges_.append(edge(pt[2],pt[3]));
+                edgesToSide_.append(0);
+                edgeToFaces_[edgeToFaces_.size()-1].append(i);
+                
+                edgeToFaces_.append(DynamicList<label>(0));
+                newMeshEdges_.append(edge(pt[3],pt[0]));
                 edgesToSide_.append(0);
                 edgeToFaces_[edgeToFaces_.size()-1].append(i);
                 
@@ -2012,10 +2034,79 @@ void Foam::cutCellFvMesh::newMeshEdges
                 Info<<endl;
             }
 
+            List<DynamicList<std::unordered_set<label>>> edgesOfEdgeConnectedFacesPerCell(faceCells.size());    // HashMap of the edge index of all edges in a face cluster
+            for(int nC = 0;nC<faceCells.size();nC++)
+            {
+                edgesOfEdgeConnectedFacesPerCell[nC].setSize(cellNonConnectedMultiEdges[faceCells[nC]].size());
+                for(int j=0;j<cellNonConnectedMultiEdges[faceCells[nC]].size();j++)
+                //Iterate across clusters of faces
+                {
+                    for(int k=0;k<cellNonConnectedMultiEdges[faceCells[nC]][j].size();k++)
+                    //Iterate across faces in clusters
+                    {
+                        for(int l=0;l<cellNonConnectedMultiEdges[faceCells[nC]][j][k].size();l++)
+                        //Iterate across edges in faces
+                        {
+                            edgesOfEdgeConnectedFacesPerCell[nC][j].insert(cellNonConnectedMultiEdges[faceCells[nC]][j][k][l]);
+                        }
+                    }
+                }
+            }
+            label nbrEdges;
+            if(problematicFacePoints[i]==4 || problematicFacePoints[i]==3)
+                nbrEdges = problematicFacePoints[i];
+            else
+                nbrEdges = 1;
+            List<List<DynamicList<bool>>> connectedToFacePerEdge(nbrEdges); // Bool Map zeroedges - cell - clusterofFaces: true if connected
+            for(int j=0;j<connectedToFacePerEdge.size();j++)
+            {
+                connectedToFacePerEdge[j].setSize(faceCells.size());
+                for(int k=0;k<connectedToFacePerEdge[j].size();k++)
+                {
+                    for(int l=0;l<connectedToFacePerEdge[j][k].size();l++)
+                    {
+                        if(edgesOfEdgeConnectedFacesPerCell[k][l].count(edgeInd[j])==0)
+                            connectedToFacePerEdge[j][k].append(false);
+                        else
+                            connectedToFacePerEdge[j][k].append(true);
+                    }
+                }
+            }
+            List<List<bool>> connectedToCellPerEdge(nbrEdges); // Bool Map zeroedges - cell: true if connected
+            for(int j=0;j<connectedToCellPerEdge.size();j++)
+            {
+                connectedToCellPerEdge[j].setSize(faceCells.size());
+                for(int k=0;k<connectedToCellPerEdge[j].size();k++)
+                {
+                    bool connected = false;
+                    for(int l=0;l<connectedToFacePerEdge[j][k].size();l++)
+                    {
+                        connected = connected || connectedToFacePerEdge[j][k][l];
+                    }
+                    connectedToCellPerEdge[j][k] = connected;
+                }
+            }
             
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
-                labelList edgeIndList = faceToEdges_[i];
+                labelList edgeInd = faceToEdges_[i];
+                if(edgeInd.size()!=4)
+                    FatalErrorInFunction<< "No four added edges"<< exit(FatalError);
+                
+                if(edgesOfEdgeConnectedFacesPerCell.size()==2)
+                {
+                    labelList twoEdges1(2);
+                    twoEdges1[0] = edgeInd[0];
+                    twoEdges1[1] = edgeInd[2];
+                    label edges1Side = 0;
+                    labelList twoEdges2(2);
+                    twoEdges2[0] = edgeInd[1];
+                    twoEdges2[1] = edgeInd[3];
+                    label edges2Side = 0;
+                    
+
+                }
+
                  
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
