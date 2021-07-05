@@ -991,6 +991,8 @@ scalar norm2(vector pnt)
     return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
 }
 
+bool 
+
 void Foam::cutCellFvMesh::newMeshEdges
 (
 )
@@ -1994,6 +1996,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     {
         if(problematicFace[i])
         {
+            labelList edgeInd = faceToEdges_[i];
             label faceOwner = cellOwner[i];
             label faceNeighbour = -1;
             if(i<cellNeighbor.size())
@@ -2008,10 +2011,10 @@ void Foam::cutCellFvMesh::newMeshEdges
             
             if(i==589240)
             {
-            Info<<"Face: "<<i<<endl;
-            Info<<"Owner Cell: "<<faceCells[0]<<" edges: "<<cellToEdges_[faceCells[0]]<<endl;
-            Info<<"Neighbour Cell: "<<faceCells[1]<<" edges: "<<cellToEdges_[faceCells[1]]<<endl;
-            Info<<"edgeList:"<<cellNonconnectedEdges[i]<<endl;
+                Info<<"Face: "<<i<<endl;
+                Info<<"Owner Cell: "<<faceCells[0]<<" edges: "<<cellToEdges_[faceCells[0]]<<endl;
+                Info<<"Neighbour Cell: "<<faceCells[1]<<" edges: "<<cellToEdges_[faceCells[1]]<<endl;
+                Info<<"edgeList:"<<cellNonconnectedEdges[i]<<endl;
             }
             
             if(i==589240)
@@ -2063,12 +2066,27 @@ void Foam::cutCellFvMesh::newMeshEdges
                 connectedToFacePerEdge[j].setSize(faceCells.size());
                 for(int k=0;k<connectedToFacePerEdge[j].size();k++)
                 {
-                    for(int l=0;l<connectedToFacePerEdge[j][k].size();l++)
+                    for(int l=0;l<edgesOfEdgeConnectedFacesPerCell[k].size();l++)
                     {
                         if(edgesOfEdgeConnectedFacesPerCell[k][l].count(edgeInd[j])==0)
                             connectedToFacePerEdge[j][k].append(false);
                         else
                             connectedToFacePerEdge[j][k].append(true);
+                    }
+                    if(connectedToFacePerEdge[j][k].size()>1)
+                    {
+                        bool oneTrue = false;
+                        for(int l=0;l<connectedToFacePerEdge[j][k].size();l++)
+                        {
+                            if(connectedToFacePerEdge[j][k][l])
+                            {
+                                if(!oneTrue)
+                                    oneTrue = true;
+                                else
+                                    FatalErrorInFunction<< "Can not happen!"<< exit(FatalError);
+
+                            }
+                        }
                     }
                 }
             }
@@ -2086,28 +2104,108 @@ void Foam::cutCellFvMesh::newMeshEdges
                     connectedToCellPerEdge[j][k] = connected;
                 }
             }
-            
+            if(i==589240)
+            {
+                for(int c=0;c<edgesOfEdgeConnectedFacesPerCell.size();c++)
+                {
+                    Info<<"Cell:"<<faceCells[c]<<" "<<endl;
+                    for(int patch=0;patch<edgesOfEdgeConnectedFacesPerCell[c].size();patch++)
+                    {
+                        Info<<" - - - "<<"patch:"<<patch;
+                        Info<<"{ ";
+                        for(label ind : edgesOfEdgeConnectedFacesPerCell[c][patch]) {Info<<" "<<ind<<" ";}
+                        Info<<" }"<<endl;
+                    }
+                }
+                for(int e=0;e<connectedToFacePerEdge.size();e++)
+                {
+                    Info<<"edge:"<<edgeInd[e]<<" "<<endl;
+                    for(int c=0;c<connectedToFacePerEdge[e].size();c++)
+                    {
+                        Info<<" -- -- -- Cell:"<<faceCells[c]<<" "<<endl;
+                        for(int patch=0;patch<connectedToFacePerEdge[e][c].size();patch++)
+                        {
+                            Info<<" -- -- -- -- -- -- "<<"patch:"<<connectedToFacePerEdge[e][c][patch]<<endl;
+                        }
+                    }
+                }
+                for(int e=0;e<connectedToCellPerEdge.size();e++)
+                {
+                    Info<<"edge:"<<edgeInd[e]<<" "<<endl;
+                    for(int c=0;c<connectedToCellPerEdge[e].size();c++)
+                    {
+                        Info<<" -- -- -- Cell:"<<faceCells[c]<<" "<<"patch:"<<connectedToCellPerEdge[e][c]<<endl;
+                    }
+                }
+            }
+            DynamicList<label> addedEdgeToDelete;            
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
                 labelList edgeInd = faceToEdges_[i];
                 if(edgeInd.size()!=4)
                     FatalErrorInFunction<< "No four added edges"<< exit(FatalError);
                 
+                bool twoEdgeFace = false;
+                
                 if(edgesOfEdgeConnectedFacesPerCell.size()==2)
+                // face is not a boundary face
                 {
-                    labelList twoEdges1(2);
-                    twoEdges1[0] = edgeInd[0];
-                    twoEdges1[1] = edgeInd[2];
-                    label edges1Side = 0;
-                    labelList twoEdges2(2);
-                    twoEdges2[0] = edgeInd[1];
-                    twoEdges2[1] = edgeInd[3];
-                    label edges2Side = 0;
-                    
-
+                    bool edgeConnectedToFaceInONECell = true;
+                    for(int j=0;j<connectedToCellPerEdge.size();j++)
+                    {
+                        if(!((connectedToCellPerEdge[j][0] && connectedToCellPerEdge[j][1])==0 && (connectedToCellPerEdge[j][0] || connectedToCellPerEdge[j][1])==0))
+                        {
+                            //zero edge is connected to faces in both cells or to no face at all
+                            edgeConnectedToFaceInONECell = false;
+                        }
+                    }
+                    bool fourCutEdgeFace = true;
+                    for(int j=0;j<connectedToCellPerEdge.size();j++)
+                    {
+                        if(!((connectedToCellPerEdge[j][0] && connectedToCellPerEdge[(j+2)%4][0])==1 || (connectedToCellPerEdge[j][1] && connectedToCellPerEdge[(j+2)%4][1])==1))
+                        {
+                            //zero edge and zero edge at the opposite side does not have a 
+                            fourCutEdgeFace = false;
+                        }
+                    }
+                    if(edgeConnectedToFaceInONECell && fourCutEdgeFace)
+                    // face has legitimate four cut edges
+                    {
+                        edgeList edgesOfFace(edgeInd.size());
+                        List<List<vector>> vectorsOfEdges(edgeInd.size());
+                        for(int j=0;j<edgeInd.size();j++)
+                        {
+                            edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
+                            vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
+                            
+                            scalar p02 = vectorsOfEdges[0] && vectorsOfEdges[2];
+                            scalar p24 = vectorsOfEdges[0] && vectorsOfEdges[2];
+                            scalar p13 = vectorsOfEdges[0] && vectorsOfEdges[2];
+                            
+                            if(p02<=0 || p24<=0 || p13<=0)
+                                FatalErrorInFunction<< "Four cut edge face with non uniform to Nurbs vectors"<< exit(FatalError);
+                        }
+                    }
+                    else
+                    {
+                        twoEdgeFace = true;
+                    }
                 }
-
-                 
+                else
+                {
+                    twoEdgeFace = true;
+                }
+                if(twoEdgeFace)
+                {
+                    edgeList edgesOfFace(edgeInd.size());
+                    List<List<vector>> vectorsOfEdges(edgeInd.size());
+                    for(int j=0;j<edgeInd.size();j++)
+                    {
+                        edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
+                        vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
+                    }
+                    /// Cont here
+                }                 
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
             {
