@@ -2141,7 +2141,6 @@ void Foam::cutCellFvMesh::newMeshEdges
             DynamicList<label> addedEdgeToDelete;            
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
-                labelList edgeInd = faceToEdges_[i];
                 if(edgeInd.size()!=4)
                     FatalErrorInFunction<< "No four added edges"<< exit(FatalError);
                 
@@ -2178,9 +2177,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
                             vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
                             
-                            scalar p02 = vectorsOfEdges[0] && vectorsOfEdges[2];
-                            scalar p24 = vectorsOfEdges[0] && vectorsOfEdges[2];
-                            scalar p13 = vectorsOfEdges[0] && vectorsOfEdges[2];
+                            scalar p02 = vectorsOfEdges[j][0] && vectorsOfEdges[j][2];
+                            scalar p24 = vectorsOfEdges[j][2] && vectorsOfEdges[j][4];
+                            scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
                             
                             if(p02<=0 || p24<=0 || p13<=0)
                                 FatalErrorInFunction<< "Four cut edge face with non uniform to Nurbs vectors"<< exit(FatalError);
@@ -2197,18 +2196,124 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 if(twoEdgeFace)
                 {
+                    List<bool> correctEdge(edgeInd.size());
                     edgeList edgesOfFace(edgeInd.size());
                     List<List<vector>> vectorsOfEdges(edgeInd.size());
                     for(int j=0;j<edgeInd.size();j++)
                     {
                         edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
                         vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
+                        scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
+                        scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
+                        if(p04<=0 && p13<=0)
+                        //Vectors point in different directions
+                        {
+                            correctEdge[j] = false;
+                        }
+                        else if(p04*p13<=0)
+                        //Inconsistent edge vectors directions
+                        {
+                            Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
+                            Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
+                            FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
+                        }
+                        else
+                        //Vectors point in same direction
+                        {
+                            correctEdge[j] = true;
+                        }
                     }
-                    /// Cont here
-                }                 
+                    if((correctEdge[0] != correctEdge[2]) || (correctEdge[1] != correctEdge[3]))
+                        FatalErrorInFunction<< "Unequal opposite edges"<< exit(FatalError);
+                    if(!correctEdge[0] && correctEdge[1] && !correctEdge[2] && correctEdge[3])
+                    {
+                        addedEdgeToDelete.append(edgeInd[0]);
+                        addedEdgeToDelete.append(edgeInd[2]);
+                    }
+                    else if(correctEdge[0] && !correctEdge[1] && correctEdge[2] && !correctEdge[3])
+                    {
+                        addedEdgeToDelete.append(edgeInd[1]);
+                        addedEdgeToDelete.append(edgeInd[3]);
+                    }
+                    else
+                    {
+                        FatalErrorInFunction<< "Invalid correct edges!"<< exit(FatalError);
+                    }
+                }
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
             {
+                if(edgeInd.size()!=3)
+                    FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
+                label oldEdge = 0;
+                label newEdge = 0;
+                label newEdgeLocalInd =0;
+                DynamicList<label> oldEdgeLocalInd;
+                for(int j=0;j<edgeInd.size();j++)
+                {
+                    if(edgeInd[j]>=nbrOfPrevEdges)
+                    {
+                        newEdge++;
+                        newEdgeLocalInd = j;
+                    }
+                    else
+                    {
+                        oldEdge++;
+                        oldEdgeLocalInd.append(j);
+                    }
+                }
+                if(oldEdge!=2 || newEdge!=1)
+                    FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
+                
+                bool newEdgeMustBeWrong = false;
+                if(!connectedToCellPerEdge[newEdgeLocalInd][0] && !connectedToCellPerEdge[newEdgeLocalInd][1])
+                {
+                    newEdgeMustBeWrong = true;
+                }
+                List<bool> correctEdge(edgeInd.size());
+                edgeList edgesOfFace(edgeInd.size());
+                List<List<vector>> vectorsOfEdges(edgeInd.size());
+                for(int j=0;j<edgeInd.size();j++)
+                {
+                    edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
+                    vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
+                    scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
+                    scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
+                    if(p04<=0 && p13<=0)
+                    //Vectors point in different directions
+                    {
+                        correctEdge[j] = false;
+                    }
+                    else if(p04*p13<=0)
+                    //Inconsistent edge vectors directions
+                    {
+                        Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
+                        Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
+                        FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
+                    }
+                    else
+                    //Vectors point in same direction
+                    {
+                        correctEdge[j] = true;
+                    }
+                }
+                if(newEdgeMustBeWrong)
+                {
+                    for(int k=0;k<edgeInd.size();k++)
+                    {
+                        if(!correctEdge[k] && k!=newEdgeLocalInd)
+                            addedEdgeToDelete.append(edgeInd[k]);
+                    }
+                    addedEdgeToDelete.append(edgeInd[newEdgeLocalInd]);
+                }
+                else
+                {    
+                    for(int k=0;k<edgeInd.size();k++)
+                    {
+                        if(!correctEdge[k])
+                            addedEdgeToDelete.append(edgeInd[k]);
+                    }
+                }
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==1)
             {
