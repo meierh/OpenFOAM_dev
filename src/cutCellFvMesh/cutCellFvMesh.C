@@ -991,8 +991,6 @@ scalar norm2(vector pnt)
     return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
 }
 
-bool 
-
 void Foam::cutCellFvMesh::newMeshEdges
 (
 )
@@ -2317,9 +2315,122 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==1)
             {
+                if(edgeInd.size()!=3)
+                    FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
+                label oldEdge = 0;
+                label newEdge = 0;
+                DynamicList<label> newEdgeLocalInd;
+                label oldEdgeLocalInd=0;
+                for(int j=0;j<edgeInd.size();j++)
+                {
+                    if(edgeInd[j]>=nbrOfPrevEdges)
+                    {
+                        newEdge++;
+                        newEdgeLocalInd.append(j);
+                    }
+                    else
+                    {
+                        oldEdge++;
+                        oldEdgeLocalInd = ;
+                    }
+                }
+                if(oldEdge!=1 || newEdge!=2)
+                    FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
+                
+                List<bool> newEdgesMustBeWrong(false,2);
+                for(int j=0;j<newEdgesMustBeWrong.size();j++)
+                {
+                    if(!connectedToCellPerEdge[newEdgeLocalInd[j]][0] && !connectedToCellPerEdge[newEdgeLocalInd[j]][1])
+                        newEdgesMustBeWrong[j] = true;
+                }
+                bool possThreeZeroEdgeFace = true;
+                for(int j=0;j<newEdgesMustBeWrong.size();j++)
+                {
+                    if((connectedToCellPerEdge[newEdgeLocalInd[j]][0] && connectedToCellPerEdge[newEdgeLocalInd[j]][1]) || !newEdgesMustBeWrong[j])
+                    // edge hat nicht zwei anschluss faces und nicht keine anschluss faces
+                        possThreeZeroEdgeFace = false;
+                }                
+                List<bool> correctEdge(edgeInd.size());
+                edgeList edgesOfFace(edgeInd.size());
+                List<List<vector>> vectorsOfEdges(edgeInd.size());
+                for(int j=0;j<edgeInd.size();j++)
+                {
+                    edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
+                    vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
+                    scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
+                    scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
+                    if(p04<=0 && p13<=0)
+                    //Vectors point in different directions
+                    {
+                        correctEdge[j] = false;
+                    }
+                    else if(p04*p13<=0)
+                    //Inconsistent edge vectors directions
+                    {
+                        Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
+                        Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
+                        FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
+                    }
+                    else
+                    //Vectors point in same direction
+                    {
+                        correctEdge[j] = true;
+                    }
+                }
+                if(possThreeZeroEdgeFace)
+                {
+                    if(!correctEdge[newEdgeLocalInd[0]] || !correctEdge[newEdgeLocalInd[1]] || !correctEdge[oldEdgeLocalInd])
+                        FatalErrorInFunction<< "Three edge face but invalid edges!"<< exit(FatalError);
+                }
+                else
+                {
+                    if(correctEdge[newEdgeLocalInd[0]] && correctEdge[newEdgeLocalInd[1]] && correctEdge[oldEdgeLocalInd])
+                        FatalErrorInFunction<< "Non three edge face but valid edges!"<< exit(FatalError);
+                    
+                    if(!correctEdge[newEdgeLocalInd[0]] && !correctEdge[newEdgeLocalInd[1]])
+                        FatalErrorInFunction<< "Two new edges invalid! Can not happen."<< exit(FatalError);
+                    
+                    for(int j=0;j<edgeInd.size();j++)
+                    {
+                        if(correctEdge[j])
+                            addedEdgeToDelete.append(edgeInd[j]);
+                    }
+                }
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==2)
             {
+                if(edgeInd.size()!=3)
+                    FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
+                label newEdge = 0;
+                label newEdgeGuarr = 0;
+                DynamicList<label> newEdgeLocalInd;
+                label newEdgeGuarrLocalInd=0;
+                for(int j=0;j<edgeInd.size();j++)
+                {
+                    edge oneEdge = newMeshEdges_[edgeInd[j]];
+                    label pS = oneEdge.start();
+                    label pE = oneEdge.end();
+                    if(pS>=nbrOfPrevPoints && pE>=nbrOfPrevPoints)
+                    {
+                        newEdgeGuarrLocalInd = j;
+                        newEdgeGuarr++;
+                    }
+                    else if(pS<nbrOfPrevPoints && pE<nbrOfPrevPoints)
+                    {
+                        FatalErrorInFunction<<"New point edge not possible!"<< exit(FatalError);
+                    }
+                    else
+                    {
+                        newEdge++;
+                        newEdgeLocalInd.append(j);
+                    }
+                }
+                if(newEdgeGuarr!=1 || newEdge!=2)
+                    FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
+                
+                //Cont here
+                
+                
             }
             else if(problematicFacePoints[i]==2 && problematicFaceNewPoints[i]==0)
             {
