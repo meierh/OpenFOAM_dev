@@ -1990,6 +1990,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     Info<<"cellNonConnectedMultiFaces[198219]:"<<cellNonConnectedMultiFaces[198219]<<endl;
     //FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
     
+    DynamicList<label> addedEdgeToDelete;
     for(int i=0;i<faceToEdges_.size();i++)
     {
         if(problematicFace[i])
@@ -2136,7 +2137,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                 }
             }
-            DynamicList<label> addedEdgeToDelete;            
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
                 if(edgeInd.size()!=4)
@@ -2516,6 +2516,93 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
         }
     }
+    
+    std::unordered_set<label> mapEdgesToDelete;
+    for(int i=0;i<addedEdgeToDelete.size();i++)
+        mapEdgesToDelete.insert(addedEdgeToDelete[i]);
+    
+    DynamicList<edge> newMeshEdges_Cp;
+    DynamicList<label> edgesToSide_Cp;
+    DynamicList<DynamicList<label>> edgeToFaces_Cp;
+    DynamicList<DynamicList<label>> edgeToCells_Cp;
+
+    DynamicList<DynamicList<label>> faceToEdges_Cp;    
+    DynamicList<DynamicList<label>> cellToEdges_Cp;
+            
+    for(int i=0;i<nbrOfPrevEdges;i++)
+    {
+        newMeshEdges_Cp.append(newMeshEdges_[i]);
+        edgesToSide_Cp.append(edgesToSide_[i]);
+        if(mapEdgesToDelete.count(i)==0)
+        {
+            edgeToFaces_Cp.append(edgeToFaces_[i]);
+            edgeToCells_Cp.append(edgeToCells_[i]);
+        }
+        else
+        {
+            for(int j=0;j<edgeToFaces_[i].size();j++)
+            {
+                label faceInd = edgeToFaces_[i][j];
+                DynamicList<label> fEdges = faceToEdges_[faceInd];
+                DynamicList<label> fEdgesN;
+                for(int k=0;k<fEdges.size();k++)
+                    if(fEdges[k]!=i)
+                       fEdgesN.append(fEdges[k]);
+                faceToEdges_[faceInd] = fEdgesN;
+            }
+            for(int j=0;j<edgeToCells_[i].size();j++)
+            {
+                label cellInd = edgeToCells_[i][j];
+                DynamicList<label> fEdges = cellToEdges_[cellInd];
+                DynamicList<label> fEdgesN;
+                for(int k=0;k<fEdges.size();k++)
+                    if(fEdges[k]!=i)
+                       fEdgesN.append(fEdges[k]);
+                cellToEdges_[cellInd] = fEdgesN;
+            }
+        }
+    }
+    for(int i=nbrOfPrevEdges;i<newMeshEdges_Cp.size();i++)
+    {
+        if(mapEdgesToDelete.count(i)==0)
+        {
+            edgeToFaces_Cp.append(edgeToFaces_[i]);
+            edgeToCells_Cp.append(edgeToCells_[i]);
+            newMeshEdges_Cp.append(newMeshEdges_[i]);
+            edgesToSide_Cp.append(edgesToSide_[i]);
+        }
+        else
+        {
+            for(int j=0;j<edgeToFaces_[i].size();j++)
+            {
+                label faceInd = edgeToFaces_[i][j];
+                DynamicList<label> fEdges = faceToEdges_[faceInd];
+                DynamicList<label> fEdgesN;
+                for(int k=0;k<fEdges.size();k++)
+                    if(fEdges[k]!=i)
+                       fEdgesN.append(fEdges[k]);
+                faceToEdges_[faceInd] = fEdgesN;
+            }
+            for(int j=0;j<edgeToCells_[i].size();j++)
+            {
+                label cellInd = edgeToCells_[i][j];
+                DynamicList<label> fEdges = cellToEdges_[cellInd];
+                DynamicList<label> fEdgesN;
+                for(int k=0;k<fEdges.size();k++)
+                    if(fEdges[k]!=i)
+                       fEdgesN.append(fEdges[k]);
+                cellToEdges_[cellInd] = fEdgesN;
+            }
+        }
+    }        
+    
+    newMeshEdges_ = newMeshEdges_Cp;
+    edgesToSide_ = edgesToSide_Cp;
+    edgeToFaces_ = edgeToFaces_Cp;
+    edgeToCells_ = edgeToCells_Cp;
+    faceToEdges_ = faceToEdges_Cp;
+    cellToEdges_ = cellToEdges_Cp;
+    
     FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
 }
 
