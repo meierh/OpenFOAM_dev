@@ -642,6 +642,38 @@ void Foam::cutCellFvMesh::newMeshPoints
             scalar scalePoint = phiStart / (phiStart - phiEnd);
             //Info<<"scalePoint: "<<scalePoint<<endl;;
             vector newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
+           
+            bool found;
+            label count=0;
+            scalar distOfNew = distToNurbs(newPoint,found);
+            if(!found)
+                FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+            
+            scalar alpha = 1;
+            while(std::abs(distOfNew)>10e-10)
+            {
+                if(count>80)
+                {
+                    Info<<"phiEnd: "<<phiEnd<<endl;
+                    Info<<"phiStart: "<<phiStart<<endl;
+                    Info<<"scalePoint: "<<scalePoint<<endl;
+                    Info<<"newPoint: "<<newPoint<<endl;
+                    Info<<"distOfNew: "<<distOfNew<<endl;
+                }
+                if(count>100)
+                {
+                    FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
+                }
+                
+                scalar newScalePoint = scalePoint*phiStart/(phiStart-distOfNew);
+                scalePoint = (scalePoint+newScalePoint)/2;
+                
+                newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
+                count++;
+                distOfNew = distToNurbs(newPoint,found);
+                if(!found)
+                    FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+            }            
             
             if(startLabel==14315 || endLabel==14315)
             {
@@ -891,6 +923,27 @@ scalar Foam::cutCellFvMesh::distToNurbs
     foundFlag = true;
     dist = minDistToNurbsSurface;
     return dist;
+}
+
+List<scalar> Foam::cutCellFvMesh::distToNursOfEdge
+(
+    point startPoint,
+    point endPoint,
+    label nbrOfPoints
+)
+{
+    List<scalar> distOfEdge(nbrOfPoints);
+    vector connec = endPoint - startPoint;
+    scalar stepSize = 1.0/static_cast<scalar>(nbrOfPrevPoints-1);
+    for(int i=0;i<nbrOfPoints;i++)
+    {
+        vector pnt = startPoint + connec*stepSize*i;
+        bool found;
+        distOfEdge[i] = distToNurbs(pnt,found);
+        if(!found)
+            FatalErrorInFunction<<"Not found vector to Nurbs. Can not happen."<< exit(FatalError);
+    }
+    return distOfEdge;
 }
 
 vector Foam::cutCellFvMesh::vectorToNurbs
@@ -2012,7 +2065,15 @@ void Foam::cutCellFvMesh::newMeshEdges
             {
                 Info<<"Face: "<<i<<endl;
                 Info<<"Owner Cell: "<<faceCells[0]<<" edges: "<<cellToEdges_[faceCells[0]]<<endl;
+                for(int j=0;j<cellToEdges_[faceCells[0]].size();j++)
+                {
+                    Info<<" "<<cellToEdges_[faceCells[0]][j]<<" "<<newMeshEdges_[cellToEdges_[faceCells[0]][j]]<<endl;
+                }
                 Info<<"Neighbour Cell: "<<faceCells[1]<<" edges: "<<cellToEdges_[faceCells[1]]<<endl;
+                for(int j=0;j<cellToEdges_[faceCells[1]].size();j++)
+                {
+                    Info<<" "<<cellToEdges_[faceCells[1]][j]<<" "<<newMeshEdges_[cellToEdges_[faceCells[1]][j]]<<endl;
+                }
                 Info<<"edgeList:"<<cellNonconnectedEdges[i]<<endl;
             }
             
@@ -2137,6 +2198,61 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                 }
             }
+            
+            List<bool> correctEdge(edgeInd.size());
+            edgeList edgesOfFace(edgeInd.size());
+            List<List<vector>> vectorsOfEdges(edgeInd.size());
+            List<List<scalar>> distOfEdges(edgeInd.size());
+            for(int j=0;j<edgeInd.size();j++)
+            {
+                edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
+                vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],11);
+                distOfEdges[j] = distToNursOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],11);
+                scalar p19 = vectorsOfEdges[j][1] && vectorsOfEdges[j][9];
+                scalar p28 = vectorsOfEdges[j][2] && vectorsOfEdges[j][8];
+                scalar p37 = vectorsOfEdges[j][3] && vectorsOfEdges[j][7];
+                scalar p46 = vectorsOfEdges[j][4] && vectorsOfEdges[j][6];
+
+                if(p19<=0 && p28<=0 && p37<=0 && p46<=0)
+                //Vectors point in different directions
+                {
+                    correctEdge[j] = false;
+                }
+                else if(p19>0 && p28>0 && p37>0 && p46>0)
+                //Vectors point in same direction
+                {
+                    correctEdge[j] = true;
+                }
+                else
+                //Inconsistent edge vectors directions
+                {
+                    Info<<"Edge: "<<edgesOfFace[j]<<endl;
+                    Info<<"Startpoint: "<<newMeshPoints_[edgesOfFace[j].start()]<<endl;
+                    Info<<"Endpoint: "<<newMeshPoints_[edgesOfFace[j].end()]<<endl;
+                    Info<<"vectorsOfEdges["<<j<<"]: "<<vectorsOfEdges[j]<<endl;
+                    Info<<"vectorsOfEdges: "<<vectorsOfEdges<<endl;
+                    Info<<"p19: "<<p19<<endl;
+                    Info<<"p28: "<<p28<<endl;
+                    Info<<"p37: "<<p37<<endl;
+                    Info<<"p46: "<<p46<<endl;
+                    FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
+                }
+            }
+            if(i==589240)
+            {
+                Info<<"edgeInd: "<<edgeInd<<endl;
+                Info<<"correctEdge:"<<correctEdge<<endl;
+                Info<<"edgesOfFace:"<<edgesOfFace<<endl;
+                Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
+                Info<<"distOfEdges:"<<distOfEdges<<endl;
+                for(int k=0;k<edgeInd.size();k++)
+                {
+                    bool found;
+                    Info<<"  "<<edgeInd[k]<<" distStart:"<<distToNurbs(newMeshPoints_[newMeshEdges_[edgeInd[k]].start()],found)<<" distEnd:"<<distToNurbs(newMeshPoints_[newMeshEdges_[edgeInd[k]].end()],found)<<endl;
+                }
+                FatalErrorInFunction<< "End stop"<< exit(FatalError);                            
+            }
+            
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
                 if(edgeInd.size()!=4)
@@ -2171,10 +2287,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         edgeList edgesOfFace(edgeInd.size());
                         List<List<vector>> vectorsOfEdges(edgeInd.size());
                         for(int j=0;j<edgeInd.size();j++)
-                        {
-                            edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
-                            vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
-                            
+                        {                         
                             scalar p02 = vectorsOfEdges[j][0] && vectorsOfEdges[j][2];
                             scalar p24 = vectorsOfEdges[j][2] && vectorsOfEdges[j][4];
                             scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
@@ -2194,33 +2307,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 if(twoEdgeFace)
                 {
-                    List<bool> correctEdge(edgeInd.size());
-                    edgeList edgesOfFace(edgeInd.size());
-                    List<List<vector>> vectorsOfEdges(edgeInd.size());
-                    for(int j=0;j<edgeInd.size();j++)
-                    {
-                        edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
-                        vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
-                        scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
-                        scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
-                        if(p04<=0 && p13<=0)
-                        //Vectors point in different directions
-                        {
-                            correctEdge[j] = false;
-                        }
-                        else if(p04*p13<=0)
-                        //Inconsistent edge vectors directions
-                        {
-                            Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
-                            Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
-                            FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
-                        }
-                        else
-                        //Vectors point in same direction
-                        {
-                            correctEdge[j] = true;
-                        }
-                    }
                     if((correctEdge[0] != correctEdge[2]) || (correctEdge[1] != correctEdge[3]))
                         FatalErrorInFunction<< "Unequal opposite edges"<< exit(FatalError);
                     if(!correctEdge[0] && correctEdge[1] && !correctEdge[2] && correctEdge[3])
@@ -2268,33 +2354,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                 {
                     newEdgeMustBeWrong = true;
                 }
-                List<bool> correctEdge(edgeInd.size());
-                edgeList edgesOfFace(edgeInd.size());
-                List<List<vector>> vectorsOfEdges(edgeInd.size());
-                for(int j=0;j<edgeInd.size();j++)
-                {
-                    edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
-                    vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
-                    scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
-                    scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
-                    if(p04<=0 && p13<=0)
-                    //Vectors point in different directions
-                    {
-                        correctEdge[j] = false;
-                    }
-                    else if(p04*p13<=0)
-                    //Inconsistent edge vectors directions
-                    {
-                        Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
-                        Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
-                        FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
-                    }
-                    else
-                    //Vectors point in same direction
-                    {
-                        correctEdge[j] = true;
-                    }
-                }
                 if(newEdgeMustBeWrong)
                 {
                     for(int k=0;k<edgeInd.size();k++)
@@ -2331,7 +2390,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     else
                     {
                         oldEdge++;
-                        oldEdgeLocalInd = ;
+                        oldEdgeLocalInd = j;
                     }
                 }
                 if(oldEdge!=1 || newEdge!=2)
@@ -2349,33 +2408,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if((connectedToCellPerEdge[newEdgeLocalInd[j]][0] && connectedToCellPerEdge[newEdgeLocalInd[j]][1]) || !newEdgesMustBeWrong[j])
                     // edge hat nicht zwei anschluss faces und nicht keine anschluss faces
                         possThreeZeroEdgeFace = false;
-                }                
-                List<bool> correctEdge(edgeInd.size());
-                edgeList edgesOfFace(edgeInd.size());
-                List<List<vector>> vectorsOfEdges(edgeInd.size());
-                for(int j=0;j<edgeInd.size();j++)
-                {
-                    edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
-                    vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
-                    scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
-                    scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
-                    if(p04<=0 && p13<=0)
-                    //Vectors point in different directions
-                    {
-                        correctEdge[j] = false;
-                    }
-                    else if(p04*p13<=0)
-                    //Inconsistent edge vectors directions
-                    {
-                        Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
-                        Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
-                        FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
-                    }
-                    else
-                    //Vectors point in same direction
-                    {
-                        correctEdge[j] = true;
-                    }
                 }
                 if(possThreeZeroEdgeFace)
                 {
@@ -2430,34 +2462,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 if(newEdgeGuarr!=1 || newEdge!=2)
                     FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
-                
-                List<bool> correctEdge(edgeInd.size());
-                edgeList edgesOfFace(edgeInd.size());
-                List<List<vector>> vectorsOfEdges(edgeInd.size());
-                for(int j=0;j<edgeInd.size();j++)
-                {
-                    edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
-                    vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
-                    scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
-                    scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
-                    if(p04<=0 && p13<=0)
-                    //Vectors point in different directions
-                    {
-                        correctEdge[j] = false;
-                    }
-                    else if(p04*p13<=0)
-                    //Inconsistent edge vectors directions
-                    {
-                        Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
-                        Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
-                        FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
-                    }
-                    else
-                    //Vectors point in same direction
-                    {
-                        correctEdge[j] = true;
-                    }
-                }
+
                 if(!correctEdge[newEdgeGuarrLocalInd])
                 {
                     if(!correctEdge[newEdgeLocalInd[0]] || !correctEdge[newEdgeLocalInd[1]])
@@ -2482,34 +2487,6 @@ void Foam::cutCellFvMesh::newMeshEdges
             {
                if(edgeInd.size()!=1)
                     FatalErrorInFunction<< "No one added edges"<< exit(FatalError);
-
-                List<bool> correctEdge(edgeInd.size());
-                edgeList edgesOfFace(edgeInd.size());
-                List<List<vector>> vectorsOfEdges(edgeInd.size());
-                for(int j=0;j<edgeInd.size();j++)
-                {
-                    edgesOfFace[j] = newMeshEdges_[edgeInd[j]];
-                    vectorsOfEdges[j] = vectorsToNurbsOfEdge(newMeshPoints_[edgesOfFace[j].start()],newMeshPoints_[edgesOfFace[j].end()],5);
-                    scalar p04 = vectorsOfEdges[j][0] && vectorsOfEdges[j][4];
-                    scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
-                    if(p04<=0 && p13<=0)
-                    //Vectors point in different directions
-                    {
-                        correctEdge[j] = false;
-                    }
-                    else if(p04*p13<=0)
-                    //Inconsistent edge vectors directions
-                    {
-                        Info<<"vectorsOfEdges[:"<<j<<"]:"<<vectorsOfEdges[j]<<endl;
-                        Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
-                        FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
-                    }
-                    else
-                    //Vectors point in same direction
-                    {
-                        correctEdge[j] = true;
-                    }
-                }
                 
                 if(!correctEdge[0])
                     addedEdgeToDelete.append(edgeInd[0]);
@@ -2596,6 +2573,9 @@ void Foam::cutCellFvMesh::newMeshEdges
         }
     }        
     
+    Info<<"Prev Nbr Edges:"<<newMeshEdges_.size()<<endl;
+    Info<<"After Nbr Edges:"<<newMeshEdges_Cp.size()<<endl;
+    
     newMeshEdges_ = newMeshEdges_Cp;
     edgesToSide_ = edgesToSide_Cp;
     edgeToFaces_ = edgeToFaces_Cp;
@@ -2603,7 +2583,8 @@ void Foam::cutCellFvMesh::newMeshEdges
     faceToEdges_ = faceToEdges_Cp;
     cellToEdges_ = cellToEdges_Cp;
     
-    FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
+    
+    //FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::findCycles
