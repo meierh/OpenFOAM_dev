@@ -630,7 +630,7 @@ void Foam::cutCellFvMesh::newMeshPoints
         if(pos == +1 && neg == -1)
         {
             //Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
-            //Info<<phiStart<<" -> "<<phiEnd<<endl;
+            Info<<phiStart<<" -> "<<phiEnd<<endl;
             vector startToEnd = basisEdges[i].vec(basisPoints);
             //Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
             //scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
@@ -642,38 +642,109 @@ void Foam::cutCellFvMesh::newMeshPoints
             scalar scalePoint = phiStart / (phiStart - phiEnd);
             //Info<<"scalePoint: "<<scalePoint<<endl;;
             vector newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
-           
+            Info<<"--------------------------------------"<<endl;
+            Info<<"dist: "<<distToNursOfEdge(basisPoints[startLabel],basisPoints[endLabel],11)<<endl;
             bool found;
+            Info<<"Start: "<<basisPoints[startLabel]<<distToNurbs(basisPoints[startLabel],found)<<endl;
+            Info<<"End: "<<basisPoints[endLabel]<<distToNurbs(basisPoints[endLabel],found)<<endl;
             label count=0;
             scalar distOfNew = distToNurbs(newPoint,found);
             if(!found)
                 FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-            
-            scalar alpha = 1;
-            while(std::abs(distOfNew)>10e-10)
+            Info<<"startPoint: "<<basisPoints[startLabel]<<endl;
+            Info<<"startToEnd:"<<startToEnd<<endl;
+            Info<<"phiN: "<<distOfNew<<endl;
+            Info<<"scalePointN: "<<scalePoint<<endl;
+            Info<<"newPoint: "<<newPoint<<endl;
+            Info<<"distOfNew: "<<distOfNew<<endl;
+            if(std::abs(distOfNew)>10e-10)
             {
-                if(count>80)
+                scalar scalePointN;
+                scalar scalePointO = scalePoint;
+                scalar phiN;
+                scalar phiO = distOfNew;
+                Info<<"phiO:"<<phiO<<endl;
+                Info<<"phiStart:"<<phiStart<<endl;
+                if(std::signbit(phiO)!=std::signbit(phiStart))
                 {
-                    Info<<"phiEnd: "<<phiEnd<<endl;
-                    Info<<"phiStart: "<<phiStart<<endl;
-                    Info<<"scalePoint: "<<scalePoint<<endl;
-                    Info<<"newPoint: "<<newPoint<<endl;
-                    Info<<"distOfNew: "<<distOfNew<<endl;
+                    scalar m=(phiO-phiStart)/(scalePointO-0);
+                    scalar b=phiO-m*scalePointO;
+                    scalePointN = -b/m;
                 }
-                if(count>100)
+                else if(std::signbit(phiO)!=std::signbit(phiEnd))
                 {
-                    FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
+                    scalar m=(phiO-phiEnd)/(scalePointO-1);
+                    scalar b=phiO-m*scalePointO;
+                    scalePointN = -b/m;
                 }
-                
-                scalar newScalePoint = scalePoint*phiStart/(phiStart-distOfNew);
-                scalePoint = (scalePoint+newScalePoint)/2;
-                
-                newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
-                count++;
-                distOfNew = distToNurbs(newPoint,found);
+                else
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+
+                newPoint = basisPoints[startLabel] + scalePointN * startToEnd;
+                phiN = distToNurbs(newPoint,found);
+                Info<<"phiN: "<<phiN<<endl;
+                Info<<"scalePointN: "<<scalePointN<<endl;
+                Info<<"newPoint: "<<newPoint<<endl;
                 if(!found)
                     FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-            }            
+                
+                while(std::abs(phiN)>10e-10)
+                {
+                    if(count>=90)
+                    {
+                        Info<<"Over 90"<<endl;
+                        Info<<"phiN: "<<phiN<<endl;
+                        Info<<"scalePointN: "<<scalePointN<<endl;
+                        Info<<"newPoint: "<<newPoint<<endl;
+                    }
+                    if(count>100)
+                    {
+                        FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
+                    }
+                    Info<<"scalePointO:"<<scalePointO<<endl;
+                    Info<<"scalePointN:"<<scalePointN<<endl;
+                    Info<<"phiO:"<<phiO<<endl;
+                    Info<<"phiN:"<<phiN<<endl;
+                    if(phiO!=phiN || scalePointO!=scalePointN)
+                    {
+                        scalar m=(phiO-phiN)/(scalePointO-scalePointN);
+                        Info<<"m:"<<m<<endl;
+                        scalar b=phiO-m*scalePointO;
+                        Info<<"b:"<<b<<endl;
+                        scalar x = -b/m;
+                        Info<<"x:"<<x<<endl;
+                        phiO = phiN;
+                        scalePointO = scalePointN;
+                        phiO = phiN;
+                        scalePointN = x;
+                    }
+                    else
+                    {
+                        if(std::signbit(phiO)!=std::signbit(phiStart))
+                        {
+                            scalar m=(phiO-phiStart)/(scalePointO-0);
+                            scalar b=phiO-m*scalePointO;
+                            scalePointN = -b/m;
+                        }
+                        else if(std::signbit(phiO)!=std::signbit(phiEnd))
+                        {
+                            scalar m=(phiO-phiEnd)/(scalePointO-1);
+                            scalar b=phiO-m*scalePointO;
+                            scalePointN = -b/m;
+                        }
+                        else
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                    newPoint = basisPoints[startLabel] + scalePointN * startToEnd;
+                    phiN = distToNurbs(newPoint,found);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                    count++;
+                    Info<<"--dist:"<<phiN<<endl;
+                }
+                //FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+            }
+            Info<<"End"<<endl;
             
             if(startLabel==14315 || endLabel==14315)
             {
@@ -736,6 +807,7 @@ void Foam::cutCellFvMesh::newMeshPoints
             edgeToPoint_[i] = -1;
         }
     }
+    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -934,10 +1006,13 @@ List<scalar> Foam::cutCellFvMesh::distToNursOfEdge
 {
     List<scalar> distOfEdge(nbrOfPoints);
     vector connec = endPoint - startPoint;
-    scalar stepSize = 1.0/static_cast<scalar>(nbrOfPrevPoints-1);
+    Info<<endl<<"connec:"<<connec<<endl;
+    scalar stepSize = 1.0/static_cast<scalar>(nbrOfPoints-1);
+    Info<<"stepSize:"<<stepSize<<endl;
     for(int i=0;i<nbrOfPoints;i++)
     {
         vector pnt = startPoint + connec*stepSize*i;
+        Info<<"i:"<<i<<pnt<<endl;
         bool found;
         distOfEdge[i] = distToNurbs(pnt,found);
         if(!found)
@@ -1013,7 +1088,7 @@ List<vector> Foam::cutCellFvMesh::vectorsToNurbsOfEdge
 {
     List<vector> vectorsToNurbs(nbrOfVectors);
     vector connec = endPoint - startPoint;
-    scalar stepSize = 1.0/static_cast<scalar>(nbrOfPrevPoints-1);
+    scalar stepSize = 1.0/static_cast<scalar>(nbrOfVectors-1);
     for(int i=0;i<nbrOfVectors;i++)
     {
         vector pnt = startPoint + connec*stepSize*i;
