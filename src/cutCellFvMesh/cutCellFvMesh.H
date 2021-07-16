@@ -297,6 +297,21 @@ class cutCellFvMesh   :   public fvMesh
             label nbrOfVectors = 10
         );
         
+        List<scalar> distToNursOfEdge
+        (
+            point startPoint,
+            point endPoint,
+            label nbrOfPoints = 10
+        );
+
+        scalar nearestNurbsIndexPara
+        (
+            point pnt,
+            bool& foundFlag,
+            label& nurbsInd,
+            scalar& nurbsPara
+        );
+        
         // Add faces for cutting the cells and create dependency data for creating cut cells
         // Adds to faces_;
         void newMeshFaces();

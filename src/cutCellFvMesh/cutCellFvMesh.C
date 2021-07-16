@@ -807,7 +807,6 @@ void Foam::cutCellFvMesh::newMeshPoints
             edgeToPoint_[i] = -1;
         }
     }
-    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -997,6 +996,67 @@ scalar Foam::cutCellFvMesh::distToNurbs
     return dist;
 }
 
+scalar Foam::cutCellFvMesh::nearestNurbsIndexPara
+(
+    point pnt,
+    bool& foundFlag,
+    label& nurbsInd,
+    scalar& nurbsPara
+)
+{
+    scalar dist;
+    std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
+    if(firstOrderNearNurbs->size()==0)
+    {
+        Info<<"No firstOderNurbs found"<<endl;
+        foundFlag = false;
+        return -1;
+    }
+    DynamicList<label> indNurbs;
+    DynamicList<scalar> distToNurbsSurface;
+    DynamicList<scalar> paraToNurbsSurface;
+    bool allOutSideNurbsBox = true;
+    for(int k=0;k<firstOrderNearNurbs->size();k++)
+    {
+        label thisNurbs = (*firstOrderNearNurbs)[k];
+        scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
+        //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+        if(thisNodePara < this->Curves[thisNurbs]->min_U())
+        {
+            dist = std::numeric_limits<scalar>::max();
+            continue;
+        }
+        allOutSideNurbsBox = false;
+        indNurbs.append(thisNurbs);
+        paraToNurbsSurface.append(thisNodePara);
+        distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
+    }
+    if(allOutSideNurbsBox)
+    {
+        foundFlag = false;
+        return -1;
+    }
+    scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
+    label minDistNurbsInd = 0;
+    scalar minDistPara = 0;
+    Info<<"distToNurbsSurface:"<<distToNurbsSurface<<endl;
+    Info<<"indNurbs:"<<indNurbs<<endl;
+    Info<<"paraToNurbsSurface:"<<paraToNurbsSurface<<endl;
+    for(int k=0;k<distToNurbsSurface.size();k++)
+    {
+        if(distToNurbsSurface[k] < minDistToNurbsSurface)
+        {
+            minDistToNurbsSurface = distToNurbsSurface[k];
+            minDistNurbsInd = indNurbs[k];
+            minDistPara = paraToNurbsSurface[k];
+        }
+    }
+    foundFlag = true;
+    nurbsInd = minDistNurbsInd;
+    nurbsPara = minDistPara+minDistNurbsInd;
+    return minDistToNurbsSurface;
+}
+
 List<scalar> Foam::cutCellFvMesh::distToNursOfEdge
 (
     point startPoint,
@@ -1088,10 +1148,13 @@ List<vector> Foam::cutCellFvMesh::vectorsToNurbsOfEdge
 {
     List<vector> vectorsToNurbs(nbrOfVectors);
     vector connec = endPoint - startPoint;
+    Info<<endl<<"connec:"<<connec<<endl;
     scalar stepSize = 1.0/static_cast<scalar>(nbrOfVectors-1);
+    Info<<"stepSize:"<<stepSize<<endl;
     for(int i=0;i<nbrOfVectors;i++)
     {
         vector pnt = startPoint + connec*stepSize*i;
+        Info<<"i:"<<i<<pnt<<endl;
         bool found;
         vectorsToNurbs[i] = vectorToNurbs(pnt,found);
         if(!found)
@@ -2305,11 +2368,21 @@ void Foam::cutCellFvMesh::newMeshEdges
                     Info<<"Startpoint: "<<newMeshPoints_[edgesOfFace[j].start()]<<endl;
                     Info<<"Endpoint: "<<newMeshPoints_[edgesOfFace[j].end()]<<endl;
                     Info<<"vectorsOfEdges["<<j<<"]: "<<vectorsOfEdges[j]<<endl;
-                    Info<<"vectorsOfEdges: "<<vectorsOfEdges<<endl;
+                    //Info<<"vectorsOfEdges: "<<vectorsOfEdges<<endl;
+                    Info<<"distOfEdge["<<j<<"]:"<<distOfEdges[j]<<endl;
                     Info<<"p19: "<<p19<<endl;
                     Info<<"p28: "<<p28<<endl;
                     Info<<"p37: "<<p37<<endl;
                     Info<<"p46: "<<p46<<endl;
+                    bool found;
+                    label nurbsInd;
+                    scalar nurbsPara;
+                    scalar dis;
+                    nearestNurbsIndexPara(newMeshPoints_[edgesOfFace[j].start()],found,nurbsInd,nurbsPara);
+                    Info<<"Start ind:"<<nurbsInd<<" para:"<<nurbsPara<<endl;
+                    nurbsPara = 0;
+                    nearestNurbsIndexPara(newMeshPoints_[edgesOfFace[j].end()],found,nurbsInd,nurbsPara);
+                    Info<<"End ind:"<<nurbsInd<<" para:"<<nurbsPara<<endl;
                     FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
                 }
             }
