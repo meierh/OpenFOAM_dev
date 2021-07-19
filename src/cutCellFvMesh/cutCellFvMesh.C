@@ -2497,6 +2497,23 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(oldEdge!=2 || newEdge!=1)
                     FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
                 
+                bool mustBeThreeEdges = false;
+                // three edge face is when the new edge has a connected face to one cell but not to the other
+                if((connectedToCellPerEdge[newEdgeLocalInd][0] && !connectedToCellPerEdge[newEdgeLocalInd][1]) || 
+                   (!connectedToCellPerEdge[newEdgeLocalInd][0] && connectedToCellPerEdge[newEdgeLocalInd][1]))
+                {
+                    mustBeThreeEdges = true;
+                }
+                bool mustBeOnlyNewEdge = false;
+                /* only new edge face is when there are faces connected to new edge in both cells and 
+                 * there are four faces connected to centralZeroPoint that are not connected to the face at all
+                 * other than by this point
+                 */
+                if(connectedToCellPerEdge[newEdgeLocalInd][0] && connectedToCellPerEdge[newEdgeLocalInd][1])
+                {
+                    // compute if the point is connected to a closed face without the other points
+                }
+                
                 bool newEdgeMustBeWrong = false;
                 if(!connectedToCellPerEdge[newEdgeLocalInd][0] && !connectedToCellPerEdge[newEdgeLocalInd][1])
                 {
