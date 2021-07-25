@@ -2535,7 +2535,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         const labelList& cellsOfEdge = edgeToCells[oldEdgeLocalInd[j]];
                         label nbrRelCells = cellsOfEdge.size();
                         List<DynamicList<face>> posClosedFacesAroundEdge(nbrRelCells);
-                        List<DynamicList<std::unordered_set<label>>> posClosedPointPointMapAroundEdge(nbrRelCells);
+                        List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundEdge(nbrRelCells);
                         for(int j=0;j<cellsOfEdge.size();j++)
                         {
                             DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiEdgeMap[cellsOfEdge[j]];
@@ -2610,7 +2610,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                 }
                                 if(faceGroupContainsPoint)
                                 {
-                                    posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                    posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                     posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                     oneFaceContains = true;
                                 }
@@ -2619,9 +2619,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                         label faceCounter = 0;
                         for(int j=0;j<nbrRelCells;j++)
                         {
-                            if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                            if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                 faceCounter++;
-                            else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                            else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                             {}
                             else
                                 FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
@@ -2905,7 +2905,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                     if(faceGroupContainsPoint)
                                     {
-                                        posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                        posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                         posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                         oneFaceContains = true;
                                     }
@@ -2914,9 +2914,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label faceCounter = 0;
                             for(int j=0;j<nbrRelCells;j++)
                             {
-                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                     faceCounter++;
-                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                                 {}
                                 else
                                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
@@ -3037,7 +3037,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                     if(faceGroupContainsPoint)
                                     {
-                                        posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                        posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                         posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                         oneFaceContains = true;
                                     }
@@ -3046,9 +3046,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label faceCounter = 0;
                             for(int j=0;j<nbrRelCells;j++)
                             {
-                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                     faceCounter++;
-                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                                 {}
                                 else
                                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
@@ -3184,7 +3184,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                     if(faceGroupContainsPoint)
                                     {
-                                        posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                        posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                         posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                         oneFaceContains = true;
                                     }
@@ -3193,9 +3193,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label faceCounter = 0;
                             for(int j=0;j<nbrRelCells;j++)
                             {
-                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                     faceCounter++;
-                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                                 {}
                                 else
                                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
@@ -3319,7 +3319,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                     if(faceGroupContainsPoint)
                                     {
-                                        posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                        posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                         posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                         oneFaceContains = true;
                                     }
@@ -3328,9 +3328,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label faceCounter = 0;
                             for(int j=0;j<nbrRelCells;j++)
                             {
-                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                     faceCounter++;
-                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                                 {}
                                 else
                                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
@@ -3396,7 +3396,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                     if(faceGroupContainsPoint)
                                     {
-                                        posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                        posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                         posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                         oneFaceContains = true;
                                     }
@@ -3405,9 +3405,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label faceCounter = 0;
                             for(int j=0;j<nbrRelCells;j++)
                             {
-                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                     faceCounter++;
-                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                                 {}
                                 else
                                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
@@ -3457,7 +3457,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                     if(faceGroupContainsPoint)
                                     {
-                                        posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                        posClosedPointPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
                                         posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
                                         oneFaceContains = true;
                                     }
@@ -3466,9 +3466,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label faceCounter = 0;
                             for(int j=0;j<nbrRelCells;j++)
                             {
-                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                                if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointPointMapAroundEdge[j].size()!=0)
                                     faceCounter++;
-                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                                else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointPointMapAroundEdge[j].size()==0)
                                 {}
                                 else
                                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
