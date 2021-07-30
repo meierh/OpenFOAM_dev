@@ -1226,20 +1226,36 @@ bool facesShareEdge
 
 void computeClosedFaceFront
 (
+    label centerPointInd,
     List<DynamicList<face>>& facesInCellsIn,
     List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
     DynamicList<DynamicList<face>>& closedFaceFrontOut,
     DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
 )
 {
-    DynamicList<DynamicList<std::pair<label,label>>> faceFrontIndList;    
+    if(facesInCellsIn.size()!=facesMapInCellsIn.size())
+        FatalErrorInFunction<<"Unequal range of parameters!"<< exit(FatalError);
+        
+    labelList offset(facesInCellsIn.size(),0);
+    label counter = 0;
+    for(int i=0;i<offset.size();i++)
+    {
+        offset[i] = counter;
+        counter += facesInCellsIn[i].size();
+    }    
+    DynamicList<DynamicList<std::pair<label,label>>> faceFrontIndList;
+    DynamicList<std::unordered_set<label>> faceFrontMap;
+
     for(int i=0;i<facesInCellsIn.size();i++)
     {
         for(int j=0;j<facesInCellsIn[i].size();j++)
         {
+            if(facesMapInCellsIn[i][j].count(centerPointInd)==0)
+                continue;
+            
             std::pair<label,label> startFace(i,j);
-            faceFrontIndList.append(DynamicList<std::pair<label,label>>());
-            faceFrontIndList.last().append(startFace);
+            DynamicList<DynamicList<std::pair<label,label>>> faceConnectionsOfInitalFace;
+
             DynamicList<std::pair<label,label>> neighborFaces;
             for(int k=0;k<facesInCellsIn.size();k++)
             {
@@ -1269,8 +1285,136 @@ void computeClosedFaceFront
             {
                 cellwiseNeighborFaces[neighborCellsMap[neighborFaces[k].first]].append(neighborFaces[k]);
             }
+            if(facesInCellsIn.size()==1)
+            {
+                DynamicList<std::pair<label,label>> temp({startFace});                                        
+                faceConnectionsOfInitalFace.append(temp);
+            }
+            else if(facesInCellsIn.size()==4 || facesInCellsIn.size()==8)
+            {
+                for(int k=0;k<cellwiseNeighborFaces.size();k++)
+                {
+                    for(int l=0;l<cellwiseNeighborFaces[k].size();l++)
+                    {
+                        std::pair<label,label> faceA = cellwiseNeighborFaces[k][l];
+                        if(facesMapInCellsIn[faceA.first][faceA.second].count(centerPointInd)==0)
+                            continue;
+                        
+                        for(int m=0;m<cellwiseNeighborFaces.size();m++)
+                        {
+                            if(k==m)
+                                //Avoid building pairs of faces in same cell
+                                continue;
+                            
+                            for(int n=0;n<cellwiseNeighborFaces[m].size();n++)
+                            {
+                                std::pair<label,label> faceB = cellwiseNeighborFaces[m][n];
+                                if(facesMapInCellsIn[faceB.first][faceB.second].count(centerPointInd)==0)
+                                    continue;
+                                
+                                for(int o=0;o<facesInCellsIn.size();o++)
+                                {
+                                    if(o==faceA.first || o==faceB.first || o==startFace.first)
+                                        //Avoid searching closing face at cell of faceA, faceB or startFace
+                                        continue;
+                                    
+                                    for(int p=0;p<facesInCellsIn[o].size();p++)
+                                    {
+                                        std::pair<label,label> posFourthFace(o,p);
+                                        if(facesShareEdge(facesInCellsIn[posFourthFace.first][posFourthFace.second],facesInCellsIn[faceA.first][faceA.second]) &&
+                                        facesShareEdge(facesInCellsIn[posFourthFace.first][posFourthFace.second],facesInCellsIn[faceB.first][faceB.second]))
+                                        {
+                                            DynamicList<std::pair<label,label>> temp({startFace,faceA,faceB,posFourthFace});                                        
+                                            faceConnectionsOfInitalFace.append(temp);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if(facesInCellsIn.size()==4)
+                {
+                    for(int k=0;k<cellwiseNeighborFaces.size();k++)
+                    {
+                        for(int l=0;l<cellwiseNeighborFaces[k].size();l++)
+                        {
+                            std::pair<label,label> faceA = cellwiseNeighborFaces[k][l];
+                            DynamicList<std::pair<label,label>> temp({startFace,faceA});                                        
+                            faceConnectionsOfInitalFace.append(temp);
+                        }
+                    }
+                }
+            }
+            else
+                FatalErrorInFunction<<"Can not happen. Cell count must be 1, 4 or 8!"<< exit(FatalError);
+            for(int k=0;k<faceConnectionsOfInitalFace.size();k++)
+            {
+                bool faceConnectionIsOld = false;
+                for(int l=0;l<faceFrontMap.size();l++)
+                {
+                    bool faceFrontEquals = true;
+                    for(int m=0;m<faceConnectionsOfInitalFace[k].size();m++)
+                    {
+                        std::pair<label,label> face = faceConnectionsOfInitalFace[k][m];
+                        label faceNbr = offset[face.first]+face.second;
+                        if(faceFrontMap[l].count(faceNbr)==0)
+                            faceFrontEquals = false;
+                    }
+                    if(faceFrontMap[l].size()!=faceConnectionsOfInitalFace[k].size())
+                        faceFrontEquals = false;
+                    if(faceFrontEquals)
+                        faceConnectionIsOld = true;
+                }
+                if(!faceConnectionIsOld)
+                {
+                    faceFrontIndList.append(faceConnectionsOfInitalFace[k]);
+                    faceFrontMap.append(std::unordered_set<label>());
+                    for(int m=0;m<faceConnectionsOfInitalFace[k].size();m++)
+                    {
+                        std::pair<label,label> face = faceConnectionsOfInitalFace[k][m];
+                        label faceNbr = offset[face.first]+face.second;
+                        faceFrontMap.last().insert(faceNbr);
+                    }
+                }
+            }
         }
     }
+    for(int i=0;i<faceFrontIndList.size();i++)
+    {
+        closedFaceFrontOut.append(DynamicList<face>());
+        closedFaceFrontMapOut.append(DynamicList<std::unordered_set<label>>());
+        for(int j=0;j<faceFrontIndList[i].size();j++)
+        {
+            std::pair<label,label> face = faceFrontIndList[i][j];
+            closedFaceFrontOut.last().append(facesInCellsIn[face.first][face.second]);
+            closedFaceFrontMapOut.last().append(facesMapInCellsIn[face.first][face.second]);
+        }
+    }
+}
+
+List<bool> pointInFaceFront
+(
+    DynamicList<DynamicList<face>>& closedFaceFrontIn,
+    DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapIn,
+    label pointInd
+)
+{
+    if(closedFaceFrontIn.size()!=closedFaceFrontMapIn.size())
+        FatalErrorInFunction<<"Unequal range of parameters!"<< exit(FatalError);
+
+    List<bool> testPointInside(closedFaceFrontIn.size());
+    for(int i=0;i<closedFaceFrontMapIn.size();i++)
+    {
+        bool pointInside = false;
+        for(int j=0;j<closedFaceFrontMapIn[i].size();j++)
+        {
+            if(closedFaceFrontMapIn[i][j].count(pointInd)!=0)
+                pointInside = true;
+        }
+        testPointInside[i] = pointInside;
+    }    
+    return testPointInside;
 }
 
 void Foam::cutCellFvMesh::newMeshEdges
