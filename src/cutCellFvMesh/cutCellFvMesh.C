@@ -2759,6 +2759,60 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(oldEdge!=2 || newEdge!=1)
                     FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
                 
+                labelList oldEdgesWithFaces(2,-1);
+                labelList oldEdgesWithFacesOutside(2,-1);
+                for(int j=0;j<oldEdgeLocalInd.size();j++)
+                {
+                    //collect connected faces at old Edges in all connected cells
+                    const labelList& cellsOfEdge = edgeToCells[oldEdgeLocalInd[j]];
+                    label nbrRelCells = cellsOfEdge.size();
+                    List<DynamicList<face>> posClosedFacesAroundEdge(nbrRelCells);
+                    List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundEdge(nbrRelCells);
+                    for(int j=0;j<cellsOfEdge.size();j++)
+                    {
+                        DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiEdgeMap[cellsOfEdge[j]];
+                        DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsOfEdge[j]];
+                        bool oneFaceContains = false;
+                        for(int k=0;k<thisCellFaceGroupsMap.size();k++)
+                        {
+                            bool faceGroupContainsPoint = false;
+                            for(int l=0;l<thisCellFaceGroupsMap[k].size();l++)
+                            {
+                                if(thisCellFaceGroupsMap[k][l].count(oldEdgeLocalInd[j])!=0)
+                                {
+                                    if(oneFaceContains)
+                                        FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
+                                    faceGroupContainsPoint = true;
+                                }
+                            }
+                            if(faceGroupContainsPoint)
+                            {
+                                posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
+                                oneFaceContains = true;
+                            }
+                        }
+                    }
+                    label faceCounter = 0;
+                    for(int j=0;j<nbrRelCells;j++)
+                    {
+                        if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                        {
+                            oldEdgesWithFaces[j]++;
+                            bool cellIsOwnerOrNeighbor = false;
+                            for(int k=0;k<faceCells.size();k++)
+                                if(faceCells[k]==cellsOfEdge[j])
+                                    cellIsOwnerOrNeighbor = true;
+                            if(cellIsOwnerOrNeighbor)
+                                oldEdgesWithFacesOutside[j]++;
+                        }
+                        else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                        {}
+                        else
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                }
+                
                 bool mustBeThreeEdges = false;
                 // three edge face is when the new edge has a connected face to one cell but not to the other
                 if(faceCells.size()==2)
