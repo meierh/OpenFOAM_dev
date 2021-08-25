@@ -3311,82 +3311,99 @@ void Foam::cutCellFvMesh::newMeshEdges
                     else if(otherVertexXHasFreeFaceConnection[1])
                         otherVertexWithFreeFace = 1;
                     
-                    List<bool> centerVertexNotConnectedToVertex0 = pointInFaceFront(zeroPointsClosedFaces[1],zeroPointsClosedFaceMap[1],otherZeroPoints[0]);
-                    List<bool> centerVertexNotConnectedToVertex1 = pointInFaceFront(zeroPointsClosedFaces[1],zeroPointsClosedFaceMap[1],otherZeroPoints[1]);                    
-                    if(centerVertexNotConnectedToVertex0.size()!=centerVertexNotConnectedToVertex1.size())
-                        FatalErrorInFunction<< "Can not happen!"<< exit(FatalError);                    
-                    bool oneFaceConnectionNotConnected=false;
-                    for(int j=0;j<centerVertexNotConnectedToVertex0.size();j++)
-                    {
-                        if(!centerVertexNotConnectedToVertex0[j] && !centerVertexNotConnectedToVertex1[j])
-                            oneFaceConnectionNotConnected = true;
-                    }
-                    
                     bool crossingFacesExistInOppositeOtherVertexAndCenter = false;
                     if(otherVertexWithFreeFace != -1)
                     {
                         label crossingFaceOtherVertexLocalInd = (otherVertexWithFreeFace==0)?1:0;
                         
-                        if(centerVertexFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] && otherVertexXHasFaceConnectionOnlyToCenter
+                        if(centerVertexFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
+                           otherVertexXHasFaceConnectionOnlyToCenter[crossingFaceOtherVertexLocalInd])
+                        {
+                            crossingFacesExistInOppositeOtherVertexAndCenter = true;
+                        }
                     }
                     
                     if(faceCells.size()==2)
                     {
-                        if(
-                        if(otherVertexXHasFreeFaceConnection[]
-                        if(connectedToCellPerEdge[newEdgeLocalInd][0] && connectedToCellPerEdge[newEdgeLocalInd][1])
+                        if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0] && connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][1])
                         {                            
-                            if(oneFaceConnectionNotConnected)
-                                mustBeOnlyNewEdge = true;
+                            if(crossingFacesExistInOppositeOtherVertexAndCenter)
+                            {
+                                mustBeOnlyOneNewEdge = true;
+                                mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
+                            }
                         }
                     }
                     else if(faceCells.size()==1)
                     {
-                        if(connectedToCellPerEdge[newEdgeLocalInd][0])
-                        {
-                            if(oneFaceConnectionNotConnected)
-                                mustBeOnlyNewEdge = true;
+                        if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0])
+                        {                            
+                            if(crossingFacesExistInOppositeOtherVertexAndCenter)
+                            {
+                                mustBeOnlyOneNewEdge = true;
+                                mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
+                            }
                         }
                     }
                     else
                         FatalErrorInFunction<< "Face must have either one or two neighbor cells!"<< exit(FatalError);
                 }
                 
-                List<bool> newEdgesMustBeWrong(false,2);
-                for(int j=0;j<newEdgesMustBeWrong.size();j++)
+                bool mustBeOneNewAndOneOldEdge = false;
+                label mustBeOneNewAndOneOldEdgeLocalInd = -1;
+                /* only new edge face is when there are faces connected to new edge in both cells and 
+                * there are four faces connected to centralZeroPoint that are not connected to the face at all
+                * other than by this point
+                */
+                if(!mustBeThreeEdges && !mustBeOnlyOneNewEdge)
                 {
-                    if(!connectedToCellPerEdge[newEdgeLocalInd[j]][0] && !connectedToCellPerEdge[newEdgeLocalInd[j]][1])
-                        newEdgesMustBeWrong[j] = true;
-                }
-                bool possThreeZeroEdgeFace = true;
-                for(int j=0;j<newEdgesMustBeWrong.size();j++)
-                {
-                    if((connectedToCellPerEdge[newEdgeLocalInd[j]][0] && connectedToCellPerEdge[newEdgeLocalInd[j]][1]) || !newEdgesMustBeWrong[j])
-                    // edge hat nicht zwei anschluss faces und nicht keine anschluss faces
-                        possThreeZeroEdgeFace = false;
-                }
-                if(possThreeZeroEdgeFace)
-                {
-                    if(!correctEdge[newEdgeLocalInd[0]] || !correctEdge[newEdgeLocalInd[1]] || !correctEdge[oldEdgeLocalInd])
-                        FatalErrorInFunction<< "Three edge face but invalid edges!"<< exit(FatalError);
-                }
-                else
-                {
-                    if(correctEdge[newEdgeLocalInd[0]] && correctEdge[newEdgeLocalInd[1]] && correctEdge[oldEdgeLocalInd])
-                        FatalErrorInFunction<< "Non three edge face but valid edges!"<< exit(FatalError);
+                    label otherVertexWithFreeFace = -1;
+                    if(otherVertexXHasFreeFaceConnection[0] && otherVertexXHasFreeFaceConnection[1])
+                        FatalErrorInFunction<< "Two vertex have free face connections!"<< exit(FatalError);
+                    else if(otherVertexXHasFreeFaceConnection[0])
+                        otherVertexWithFreeFace = 0;
+                    else if(otherVertexXHasFreeFaceConnection[1])
+                        otherVertexWithFreeFace = 1;
                     
-                    if(!correctEdge[newEdgeLocalInd[0]] && !correctEdge[newEdgeLocalInd[1]])
-                        FatalErrorInFunction<< "Two new edges invalid! Can not happen."<< exit(FatalError);
-                    
-                    if(!correctEdge[oldEdgeLocalInd] && correctEdge[newEdgeLocalInd[0]] && correctEdge[newEdgeLocalInd[1]])
-                        FatalErrorInFunction<< "Invalid correct edges!"<< exit(FatalError);
-                    
-                    for(int j=0;j<edgeInd.size();j++)
+                    bool crossingFacesExistInOppositeOtherVertexAndCenter = false;
+                    if(otherVertexWithFreeFace != -1)
                     {
-                        if(correctEdge[j])
-                            addedEdgeToDelete.append(edgeInd[j]);
+                        label crossingFaceOtherVertexLocalInd = (otherVertexWithFreeFace==0)?1:0;
+                        
+                        if(centerVertexFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
+                           otherVertexXHasFaceConnectionOnlyToCenter[crossingFaceOtherVertexLocalInd])
+                        {
+                            crossingFacesExistInOppositeOtherVertexAndCenter = true;
+                        }
                     }
+                    
+                    if(faceCells.size()==2)
+                    {
+                        if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0] && connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][1])
+                        {                            
+                            if(crossingFacesExistInOppositeOtherVertexAndCenter)
+                            {
+                                mustBeOnlyOneNewEdge = true;
+                                mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
+                            }
+                        }
+                    }
+                    else if(faceCells.size()==1)
+                    {
+                        if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0])
+                        {                            
+                            if(crossingFacesExistInOppositeOtherVertexAndCenter)
+                            {
+                                mustBeOnlyOneNewEdge = true;
+                                mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
+                            }
+                        }
+                    }
+                    else
+                        FatalErrorInFunction<< "Face must have either one or two neighbor cells!"<< exit(FatalError);
                 }
+                
+
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==2)
             {
