@@ -3102,19 +3102,19 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(edgeInd[j]>=nbrOfPrevEdges)
                     {
                         newEdge++;
-                        oldEdgeLocalInd = j;
+                        newEdgeLocalInd.append(j);
                     }
                     else
                     {
                         oldEdge++;
-                        newEdgeLocalInd.append(j);
+                        oldEdgeLocalInd = j;
                     }
                 }
                 DynamicList<edge> newEdges;
                 for(int j=0;j<newEdgeLocalInd.size();j++)
                     newEdges.append(newMeshEdges_[edgeInd[newEdgeLocalInd[j]]]);
                 edge oldEdges = newMeshEdges_[edgeInd[oldEdgeLocalInd]];
-                if(oldEdge!=2 || newEdge!=1)
+                if(oldEdge!=1 || newEdge!=2)
                     FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
                 
                 labelList oldEdgesWithFaces(2,0);
@@ -3234,6 +3234,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                 List<bool> otherVertexXHasFaceConnectionOnlyToCenter(2,false);
                 List<bool> otherVertexXHasFaceConnectionOnlyWithOppositeVertex(2,false);
                 List<bool> otherVertexXHasNoFreeFaceConnection(2,true);
+                List<bool> otherVertexXOnlyHasFaceConnectionFullyConnected(2,true);
+                List<bool> otherVertexXHasFaceConnectionFullyConnected(2,false);
                 //bool centerVertexHasNoFreeFaceConnection = true;
                 
                 for(int j=0;j<vertexConnectedToVertex0[0].size();j++)
@@ -3248,6 +3250,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                         otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0] = true;
                     if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
                         otherVertexXHasNoFreeFaceConnection[0] = false;
+                    if(vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
+                        otherVertexXHasFaceConnectionFullyConnected[0] = true;
+                    if(!vertexConnectedToVertexCenter[0][j] || !vertexConnectedToVertex1[0][j])
+                        otherVertexXOnlyHasFaceConnectionFullyConnected[0] = false;
                 }
                 for(int j=0;j<vertexConnectedToVertex1[2].size();j++)
                 {
@@ -3261,6 +3267,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                         otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1] = true;
                     if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
                         otherVertexXHasNoFreeFaceConnection[1] = false;
+                    if(vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
+                        otherVertexXHasFaceConnectionFullyConnected[1] = true;
+                    if(!vertexConnectedToVertexCenter[2][j] || !vertexConnectedToVertex0[2][j])
+                        otherVertexXOnlyHasFaceConnectionFullyConnected[1] = false;
                 }
                 for(int j=0;j<vertexConnectedToVertexCenter[1].size();j++)
                 {        
@@ -3297,9 +3307,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 bool mustBeOnlyOneNewEdge = false;
                 label mustBeOnlyOneNewEdgeLocalInd = -1;
-                /* only new edge face is when there are faces connected to new edge in both cells and 
-                * there are four faces connected to centralZeroPoint that are not connected to the face at all
-                * other than by this point
+                /* only new edge face is 
                 */
                 if(!mustBeThreeEdges)
                 {
@@ -3351,62 +3359,252 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 bool mustBeOneNewAndOneOldEdge = false;
                 label mustBeOneNewAndOneOldEdgeLocalInd = -1;
-                /* only new edge face is when there are faces connected to new edge in both cells and 
-                * there are four faces connected to centralZeroPoint that are not connected to the face at all
-                * other than by this point
+                /* only 
                 */
                 if(!mustBeThreeEdges && !mustBeOnlyOneNewEdge)
                 {
-                    label otherVertexWithFreeFace = -1;
-                    if(otherVertexXHasFreeFaceConnection[0] && otherVertexXHasFreeFaceConnection[1])
-                        FatalErrorInFunction<< "Two vertex have free face connections!"<< exit(FatalError);
-                    else if(otherVertexXHasFreeFaceConnection[0])
-                        otherVertexWithFreeFace = 0;
-                    else if(otherVertexXHasFreeFaceConnection[1])
-                        otherVertexWithFreeFace = 1;
-                    
-                    bool crossingFacesExistInOppositeOtherVertexAndCenter = false;
-                    if(otherVertexWithFreeFace != -1)
+                    if(!otherVertexXOnlyHasFaceConnectionFullyConnected[0] && otherVertexXOnlyHasFaceConnectionFullyConnected[1] &&
+                        otherVertexXHasFaceConnectionFullyConnected[1])
                     {
-                        label crossingFaceOtherVertexLocalInd = (otherVertexWithFreeFace==0)?1:0;
-                        
-                        if(centerVertexFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
-                           otherVertexXHasFaceConnectionOnlyToCenter[crossingFaceOtherVertexLocalInd])
+                        mustBeOneNewAndOneOldEdgeLocalInd = 1;
+                        mustBeOneNewAndOneOldEdge = true;
+                    }
+                    else if(otherVertexXOnlyHasFaceConnectionFullyConnected[0] && !otherVertexXOnlyHasFaceConnectionFullyConnected[1] &&
+                        otherVertexXHasFaceConnectionFullyConnected[0])
+                    {
+                        mustBeOneNewAndOneOldEdgeLocalInd = 0;
+                        mustBeOneNewAndOneOldEdge = true;
+                    }
+                    else if(otherVertexXOnlyHasFaceConnectionFullyConnected[0] && otherVertexXOnlyHasFaceConnectionFullyConnected[1])
+                        FatalErrorInFunction<<"Both other Vertex have fully connected face front. Can not happen at this stage!"<< exit(FatalError);
+                    else if(!otherVertexXOnlyHasFaceConnectionFullyConnected[0] && !otherVertexXOnlyHasFaceConnectionFullyConnected[1])
+                    {
+                        if(otherVertexXHasFaceConnectionFullyConnected[0] && !otherVertexXHasFaceConnectionFullyConnected[1])
                         {
-                            crossingFacesExistInOppositeOtherVertexAndCenter = true;
+                            mustBeOneNewAndOneOldEdgeLocalInd = 0;
+                            mustBeOneNewAndOneOldEdge = true;
+                        }
+                        else if(!otherVertexXHasFaceConnectionFullyConnected[0] && otherVertexXHasFaceConnectionFullyConnected[1])
+                        {
+                            mustBeOneNewAndOneOldEdgeLocalInd = 1;
+                            mustBeOneNewAndOneOldEdge = true;
+                        }
+                        else if(!otherVertexXHasFaceConnectionFullyConnected[0] && !otherVertexXHasFaceConnectionFullyConnected[1])
+                        {
+                            FatalErrorInFunction<<"No other Vertex has fully connected face front. Can not happen at this stage!"<< exit(FatalError);
+                        }
+                        else
+                        {
+                            FatalErrorInFunction<<"Both other Vertex have non fully connected face fronts. Can not happen at this stage!"<< exit(FatalError);
                         }
                     }
-                    
-                    if(faceCells.size()==2)
-                    {
-                        if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0] && connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][1])
-                        {                            
-                            if(crossingFacesExistInOppositeOtherVertexAndCenter)
-                            {
-                                mustBeOnlyOneNewEdge = true;
-                                mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
-                            }
-                        }
-                    }
-                    else if(faceCells.size()==1)
-                    {
-                        if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0])
-                        {                            
-                            if(crossingFacesExistInOppositeOtherVertexAndCenter)
-                            {
-                                mustBeOnlyOneNewEdge = true;
-                                mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
-                            }
-                        }
-                    }
-                    else
-                        FatalErrorInFunction<< "Face must have either one or two neighbor cells!"<< exit(FatalError);
                 }
                 
-
+                if(mustBeThreeEdges)
+                {}
+                else if(mustBeOnlyOneNewEdge)
+                {
+                    addedEdgeToDelete.append(edgeInd[newEdgeLocalInd[(mustBeOnlyOneNewEdgeLocalInd+1)%2]]);
+                    addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd]);
+                }
+                else if(mustBeOneNewAndOneOldEdge)
+                {
+                    addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd[(mustBeOneNewAndOneOldEdgeLocalInd+1)%2]]);
+                }
+                else
+                {
+                    FatalErrorInFunction<< "Completely false face can not happen for this zero point face"<< exit(FatalError);
+                }
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==2)
             {
+               if(edgeInd.size()!=3)
+                    FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
+                label newEdge = 0;
+                DynamicList<label> newEdgeLocalInd;
+                for(int j=0;j<edgeInd.size();j++)
+                {
+                    if(edgeInd[j]>=nbrOfPrevEdges)
+                    {
+                        newEdge++;
+                        newEdgeLocalInd.append(j);
+                    }
+                    else
+                        FatalErrorInFunction<< "Old edge can not exist here!"<< exit(FatalError);
+                }
+                DynamicList<edge> newEdges;
+                for(int j=0;j<newEdgeLocalInd.size();j++)
+                    newEdges.append(newMeshEdges_[edgeInd[newEdgeLocalInd[j]]]);
+                if(newEdge!=3)
+                    FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
+                
+                labelList oldEdgesWithFaces(2,0);
+                labelList oldEdgesWithFacesOutside(2,0);
+                for(int j=0;j<oldEdgeLocalInd.size();j++)
+                {
+                    //collect connected faces at old Edges in all connected cells
+                    const labelList& cellsOfEdge = edgeToCells[oldEdgeLocalInd[j]];
+                    label nbrRelCells = cellsOfEdge.size();
+                    List<DynamicList<face>> posClosedFacesAroundEdge(nbrRelCells);
+                    List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundEdge(nbrRelCells);
+                    for(int j=0;j<cellsOfEdge.size();j++)
+                    {
+                        DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiEdgeMap[cellsOfEdge[j]];
+                        DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsOfEdge[j]];
+                        bool oneFaceContains = false;
+                        for(int k=0;k<thisCellFaceGroupsMap.size();k++)
+                        {
+                            bool faceGroupContainsPoint = false;
+                            for(int l=0;l<thisCellFaceGroupsMap[k].size();l++)
+                            {
+                                if(thisCellFaceGroupsMap[k][l].count(oldEdgeLocalInd[j])!=0)
+                                {
+                                    if(oneFaceContains)
+                                        FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
+                                    faceGroupContainsPoint = true;
+                                }
+                            }
+                            if(faceGroupContainsPoint)
+                            {
+                                posClosedPointMapAroundEdge[j] = thisCellFaceGroupsMap[k];
+                                posClosedFacesAroundEdge[j] = thisCellFaceGroups[k];
+                                oneFaceContains = true;
+                            }
+                        }
+                    }
+                    label faceCounter = 0;
+                    for(int j=0;j<nbrRelCells;j++)
+                    {
+                        if(posClosedFacesAroundEdge[j].size()!=0 && posClosedPointMapAroundEdge[j].size()!=0)
+                        {
+                            oldEdgesWithFaces[j]++;
+                            bool cellIsOwnerOrNeighbor = false;
+                            for(int k=0;k<faceCells.size();k++)
+                                if(faceCells[k]==cellsOfEdge[j])
+                                    cellIsOwnerOrNeighbor = true;
+                            if(cellIsOwnerOrNeighbor)
+                                oldEdgesWithFacesOutside[j]++;
+                        }
+                        else if(posClosedFacesAroundEdge[j].size()==0 && posClosedPointMapAroundEdge[j].size()==0)
+                        {}
+                        else
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                }
+                
+                label centralZeroPoint = newEdges[0].commonVertex(newEdges[1]);
+                labelList otherZeroPoints(2);
+                otherZeroPoints[0]=(newEdges[0].otherVertex(centralZeroPoint));
+                otherZeroPoints[1]=(newEdges[1].otherVertex(centralZeroPoint));
+                if(centralZeroPoint==-1)
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                
+                DynamicList<label> zeroPoints({otherZeroPoints[0],centralZeroPoint,otherZeroPoints[1]});
+                List<bool> pointWithFreeConnecFaces(2,false);
+                
+                List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
+                List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
+                for(int j=0;j<zeroPoints.size();j++)
+                {
+                    //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
+                    const labelList& cellsAtPoint = pointToCells[zeroPoints[j]];
+                    label nbrRelCells = cellsAtPoint.size();
+                    List<DynamicList<face>> posClosedFacesAroundPoint(nbrRelCells);
+                    List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundPoint(nbrRelCells);
+                    for(int k=0;k<cellsAtPoint.size();k++)
+                    {
+                        DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiPointMap[cellsAtPoint[k]];
+                        DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsAtPoint[k]];
+                        bool oneFaceContains = false;
+                        for(int l=0;l<thisCellFaceGroupsMap.size();l++)
+                        {
+                            bool faceGroupContainsPoint = false;
+                            for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
+                            {
+                                if(thisCellFaceGroupsMap[l][m].count(zeroPoints[j])!=0)
+                                {
+                                    if(oneFaceContains)
+                                        FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
+                                    faceGroupContainsPoint = true;
+                                }
+                            }
+                            if(faceGroupContainsPoint)
+                            {
+                                posClosedPointMapAroundPoint[k] = thisCellFaceGroupsMap[l];
+                                posClosedFacesAroundPoint[k] = thisCellFaceGroups[l];
+                                oneFaceContains = true;
+                            }
+                        }
+                    }
+                    computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                                           zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
+                }
+                
+                List<List<bool>> vertexConnectedToVertex0(3);
+                List<List<bool>> vertexConnectedToVertexCenter(3);
+                List<List<bool>> vertexConnectedToVertex1(3);                    
+                for(int j=0;j<3;j++)
+                {
+                    vertexConnectedToVertex0[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],otherZeroPoints[0])
+                    vertexConnectedToVertexCenter[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],centralZeroPoint)
+                    vertexConnectedToVertex1[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],otherZeroPoints[1])
+                }
+                
+                List<bool> otherVertexXHasFreeFaceConnection(2,false);                      necessary b3
+                List<bool> centerVertexFaceConnectionOnlyToOtherVertexX(2,false);           necessary b3
+                List<bool> otherVertexXHasFaceConnectionOnlyToCenter(2,false);
+                List<bool> otherVertexXHasFaceConnectionOnlyWithOppositeVertex(2,false);
+                List<bool> otherVertexXHasNoFreeFaceConnection(2,true);
+                List<bool> otherVertexXOnlyHasFaceConnectionFullyConnected(2,true);
+                List<bool> otherVertexXHasFaceConnectionFullyConnected(2,false);
+                //bool centerVertexHasNoFreeFaceConnection = true;
+                
+                for(int j=0;j<vertexConnectedToVertex0[0].size();j++)
+                {
+                    if(!vertexConnectedToVertex0[0][j])
+                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
+                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
+                        otherVertexXHasFreeFaceConnection[0] = true;
+                    if(vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
+                        otherVertexXHasFaceConnectionOnlyToCenter[0] = true;
+                    if(!vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
+                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0] = true;
+                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
+                        otherVertexXHasNoFreeFaceConnection[0] = false;
+                    if(vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
+                        otherVertexXHasFaceConnectionFullyConnected[0] = true;
+                    if(!vertexConnectedToVertexCenter[0][j] || !vertexConnectedToVertex1[0][j])
+                        otherVertexXOnlyHasFaceConnectionFullyConnected[0] = false;
+                }
+                for(int j=0;j<vertexConnectedToVertex1[2].size();j++)
+                {
+                    if(!vertexConnectedToVertex1[2][j])
+                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
+                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
+                        otherVertexXHasFreeFaceConnection[1] = true;
+                    if(vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
+                        otherVertexXHasFaceConnectionOnlyToCenter[1] = true;
+                    if(!vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
+                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1] = true;
+                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
+                        otherVertexXHasNoFreeFaceConnection[1] = false;
+                    if(vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
+                        otherVertexXHasFaceConnectionFullyConnected[1] = true;
+                    if(!vertexConnectedToVertexCenter[2][j] || !vertexConnectedToVertex0[2][j])
+                        otherVertexXOnlyHasFaceConnectionFullyConnected[1] = false;
+                }
+                for(int j=0;j<vertexConnectedToVertexCenter[1].size();j++)
+                {        
+                    if(!vertexConnectedToVertexCenter[1][j])
+                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);
+                    if(vertexConnectedToVertex0[1][j] && !vertexConnectedToVertex1[1][j])
+                        centerVertexFaceConnectionOnlyToOtherVertexX[0] = true;
+                    if(!vertexConnectedToVertex0[1][j] && vertexConnectedToVertex1[1][j])
+                        centerVertexFaceConnectionOnlyToOtherVertexX[1] = true;
+                }
+                
+                
+                //old code
                 if(edgeInd.size()!=3)
                     FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
                 label newEdge = 0;
