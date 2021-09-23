@@ -3438,6 +3438,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(newEdge!=3)
                     FatalErrorInFunction<< "Invalid old and new Edges number!"<< exit(FatalError);
                 
+            // 3442 to 3494 should be removed because no old zero edges
+            // Start remove
                 labelList oldEdgesWithFaces(2,0);
                 labelList oldEdgesWithFacesOutside(2,0);
                 for(int j=0;j<oldEdgeLocalInd.size();j++)
@@ -3491,15 +3493,29 @@ void Foam::cutCellFvMesh::newMeshEdges
                             FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     }
                 }
+            // End remove
                 
-                label centralZeroPoint = newEdges[0].commonVertex(newEdges[1]);
+                label oldZeroPoint;
                 labelList otherZeroPoints(2);
-                otherZeroPoints[0]=(newEdges[0].otherVertex(centralZeroPoint));
-                otherZeroPoints[1]=(newEdges[1].otherVertex(centralZeroPoint));
-                if(centralZeroPoint==-1)
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                bool oldZeroPointFound = false;
+                for(int j=0;j<newEdges.size();j++)
+                {
+                    label nextInd = (j+1)%newEdges.size();
+                    label connectVertex = newEdges[j].commonVertex(newEdges[nextInd]);
+                    if(connectVertex < basisPoints.size())
+                    {
+                        if(oldZeroPointFound)
+                            FatalErrorInFunction<<"Cut face seems to have old vertices. Can not happen!"<< exit(FatalError);
+                        oldZeroPoint = connectVertex;
+                        otherZeroPoints[0]=(newEdges[j].otherVertex(connectVertex));
+                        otherZeroPoints[1]=(newEdges[nextInd].otherVertex(connectVertex));
+                        oldZeroPointFound = true;
+                    }
+                }
+                if(oldZeroPointFound)
+                    FatalErrorInFunction<<"Cut face seems to have old vertices. Can not happen!"<< exit(FatalError);
                 
-                DynamicList<label> zeroPoints({otherZeroPoints[0],centralZeroPoint,otherZeroPoints[1]});
+                DynamicList<label> zeroPoints({otherZeroPoints[0],oldZeroPoint,otherZeroPoints[1]});
                 List<bool> pointWithFreeConnecFaces(2,false);
                 
                 List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
