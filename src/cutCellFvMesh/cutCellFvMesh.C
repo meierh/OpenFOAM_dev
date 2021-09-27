@@ -2912,73 +2912,75 @@ void Foam::cutCellFvMesh::newMeshEdges
                     vertexConnectedToVertex1[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],otherZeroPoints[1])
                 }
                 
-                List<bool> otherVertexXHasFreeFaceConnection(2,false);
-                List<bool> centerVertexFaceConnectionOnlyToOtherVertexX(2,false);
+                List<bool> centerVertexHasFaceConnectionOnlyToOtherVertexX(2,false);
                 List<bool> otherVertexXHasFaceConnectionOnlyToCenter(2,false);
                 List<bool> otherVertexXHasFaceConnectionOnlyWithOppositeVertex(2,false);
+
                 List<bool> otherVertexXHasNoFreeFaceConnection(2,true);
+                List<bool> otherVertexXHasOnlyFreeFaceConnection(2,true);
+
+                List<bool> otherVertexXHasNoFaceConnectionFullyConnected(2,true);
+                List<bool> otherVertexXHasOnlyFaceConnectionFullyConnected(2,true);
+                
                 bool centerVertexHasNoFreeFaceConnection = true;
+                bool centerVertexHasOnlyFreeFaceConnection = true;
                 
-                List<bool> otherVertexXHasFreeFaceConnection(2,false);                      necessary b3
-                List<bool> centerVertexFaceConnectionOnlyToOtherVertexX(2,false);           necessary b3
-                List<bool> otherVertexXHasFaceConnectionOnlyToCenter(2,false);
-                List<bool> otherVertexXHasFaceConnectionOnlyWithOppositeVertex(2,false);
-                List<bool> otherVertexXHasNoFreeFaceConnection(2,true);
-                List<bool> otherVertexXOnlyHasFaceConnectionFullyConnected(2,true);
-                List<bool> otherVertexXHasFaceConnectionFullyConnected(2,false);
-                //bool centerVertexHasNoFreeFaceConnection = true;
-                
-                List<bool> otherVertexXHasFreeFaceConnection(2,false);
-                List<bool> centerVertexFaceConnectionOnlyToOtherVertexX(2,false);
-                List<bool> otherVertexXHasFaceConnectionOnlyToCenter(2,false);
-                List<bool> otherVertexXHasFaceConnectionOnlyWithOppositeVertex(2,false);
-                List<bool> otherVertexXHasNoFreeFaceConnection(2,true);
-                List<bool> otherVertexXOnlyHasFaceConnectionFullyConnected(2,true);
-                List<bool> otherVertexXHasFaceConnectionFullyConnected(2,false);
-                bool centerVertexHasNoFreeFaceConnection = true;
-                
-            }
-            else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
-            {
                 for(int j=0;j<vertexConnectedToVertex0[0].size();j++)
                 {
                     if(!vertexConnectedToVertex0[0][j])
                         FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
-                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFreeFaceConnection[0] = true;
                     if(vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
                         otherVertexXHasFaceConnectionOnlyToCenter[0] = true;
                     if(!vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
                         otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0] = true;
+                    
                     if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
                         otherVertexXHasNoFreeFaceConnection[0] = false;
+                    if(vertexConnectedToVertexCenter[0][j] || vertexConnectedToVertex1[0][j])
+                        otherVertexXHasOnlyFreeFaceConnection[0] = false;
+                    
+                    if(vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
+                        otherVertexXHasNoFaceConnectionFullyConnected[0]=false;
+                    if(!vertexConnectedToVertexCenter[0][j] || !vertexConnectedToVertex1[0][j])
+                        otherVertexXHasOnlyFaceConnectionFullyConnected[0]=false;
+                    
                 }
                 for(int j=0;j<vertexConnectedToVertex1[2].size();j++)
                 {
                     if(!vertexConnectedToVertex1[2][j])
                         FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
-                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFreeFaceConnection[1] = true;
                     if(vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
                         otherVertexXHasFaceConnectionOnlyToCenter[1] = true;
                     if(!vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
                         otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1] = true;
+                    
                     if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
                         otherVertexXHasNoFreeFaceConnection[1] = false;
+                    if(vertexConnectedToVertexCenter[2][j] || vertexConnectedToVertex0[2][j])
+                        otherVertexXHasOnlyFreeFaceConnection[1] = false;
+                    
+                    if(vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
+                        otherVertexXHasNoFaceConnectionFullyConnected[1]=false;
+                    if(!vertexConnectedToVertexCenter[2][j] || !vertexConnectedToVertex0[2][j])
+                        otherVertexXHasOnlyFaceConnectionFullyConnected[1]=false;
                 }
                 for(int j=0;j<vertexConnectedToVertexCenter[1].size();j++)
                 {        
                     if(!vertexConnectedToVertexCenter[1][j])
                         FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);
                     if(vertexConnectedToVertex0[1][j] && !vertexConnectedToVertex1[1][j])
-                        centerVertexFaceConnectionOnlyToOtherVertexX[0] = true;
+                        centerVertexHasFaceConnectionOnlyToOtherVertexX[0] = true;
                     if(!vertexConnectedToVertex0[1][j] && vertexConnectedToVertex1[1][j])
-                        centerVertexFaceConnectionOnlyToOtherVertexX[1] = true;
-                    if(vertexConnectedToVertex0[1][j] && vertexConnectedToVertex1[1][j])
+                        centerVertexHasFaceConnectionOnlyToOtherVertexX[1] = true;
+                    if(!vertexConnectedToVertex0[1][j] && !vertexConnectedToVertex1[1][j])
                         centerVertexHasNoFreeFaceConnection = false;
+                    if(vertexConnectedToVertex0[1][j] || vertexConnectedToVertex1[1][j])
+                        centerVertexHasOnlyFreeFaceConnection = false;
                 }
                 
-                
+            }
+            else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==0)
+            {            
                 bool mustBeThreeEdges = false;
                 // three edge face is when the new edge has a connected face to one cell but not to the other
                 if(faceCells.size()==2)
@@ -3050,7 +3052,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(!mustBeThreeEdges && !mustBeOnlyNewEdge)
                 {
                     if(otherVertexXHasFreeFaceConnection[0] &&
-                       centerVertexFaceConnectionOnlyToOtherVertexX[1] &&
+                       centerVertexHasFaceConnectionOnlyToOtherVertexX[1] &&
                        otherVertexXHasFaceConnectionOnlyToCenter[1])
                     {
                         if((faceCells.size()==2 && oldEdgesWithFaces[1]>=2)||(faceCells.size()==1 && oldEdgesWithFaces[1]>=1))
@@ -3060,7 +3062,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         }
                     }
                     else if(otherVertexXHasFreeFaceConnection[1] &&
-                            centerVertexFaceConnectionOnlyToOtherVertexX[0] &&
+                            centerVertexHasFaceConnectionOnlyToOtherVertexX[0] &&
                             otherVertexXHasFaceConnectionOnlyToCenter[0])
                     {
                         if((faceCells.size()==2 && oldEdgesWithFaces[1]>=2)||(faceCells.size()==1 && oldEdgesWithFaces[1]>=1))
@@ -3079,7 +3081,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                  */
                 if(!mustBeThreeEdges && !mustBeOnlyNewEdge && !mustBeOnlyOneOldEdge)
                 {
-                    if(centerVertexFaceConnectionOnlyToOtherVertexX[0] &&
+                    if(centerVertexHasFaceConnectionOnlyToOtherVertexX[0] &&
                        otherVertexXHasNoFreeFaceConnection[0] && 
                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1])
                     )
@@ -3091,7 +3093,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                             mustBeOnlyOneOldEdge = true;
                         }
                     } 
-                    else if(centerVertexFaceConnectionOnlyToOtherVertexX[1] &&
+                    else if(centerVertexHasFaceConnectionOnlyToOtherVertexX[1] &&
                        otherVertexXHasNoFreeFaceConnection[1] && 
                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0])
                     )
@@ -3152,52 +3154,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==1)
-            {                
-                for(int j=0;j<vertexConnectedToVertex0[0].size();j++)
-                {
-                    if(!vertexConnectedToVertex0[0][j])
-                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
-                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFreeFaceConnection[0] = true;
-                    if(vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFaceConnectionOnlyToCenter[0] = true;
-                    if(!vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0] = true;
-                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasNoFreeFaceConnection[0] = false;
-                    if(vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFaceConnectionFullyConnected[0] = true;
-                    if(!vertexConnectedToVertexCenter[0][j] || !vertexConnectedToVertex1[0][j])
-                        otherVertexXOnlyHasFaceConnectionFullyConnected[0] = false;
-                }
-                for(int j=0;j<vertexConnectedToVertex1[2].size();j++)
-                {
-                    if(!vertexConnectedToVertex1[2][j])
-                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
-                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFreeFaceConnection[1] = true;
-                    if(vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFaceConnectionOnlyToCenter[1] = true;
-                    if(!vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1] = true;
-                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasNoFreeFaceConnection[1] = false;
-                    if(vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFaceConnectionFullyConnected[1] = true;
-                    if(!vertexConnectedToVertexCenter[2][j] || !vertexConnectedToVertex0[2][j])
-                        otherVertexXOnlyHasFaceConnectionFullyConnected[1] = false;
-                }
-                for(int j=0;j<vertexConnectedToVertexCenter[1].size();j++)
-                {        
-                    if(!vertexConnectedToVertexCenter[1][j])
-                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);
-                    if(vertexConnectedToVertex0[1][j] && !vertexConnectedToVertex1[1][j])
-                        centerVertexFaceConnectionOnlyToOtherVertexX[0] = true;
-                    if(!vertexConnectedToVertex0[1][j] && vertexConnectedToVertex1[1][j])
-                        centerVertexFaceConnectionOnlyToOtherVertexX[1] = true;
-                }
-                        
-                        
+            {
                 bool mustBeThreeEdges = false;
                 // three edge face is when all edges have exactly  a connected face to one cell but not to the other                
                 if(faceCells.size()==2)
@@ -3239,7 +3196,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     {
                         label crossingFaceOtherVertexLocalInd = (otherVertexWithFreeFace==0)?1:0;
                         
-                        if(centerVertexFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
+                        if(centerVertexHasFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
                            otherVertexXHasFaceConnectionOnlyToCenter[crossingFaceOtherVertexLocalInd])
                         {
                             crossingFacesExistInOppositeOtherVertexAndCenter = true;
@@ -3278,21 +3235,21 @@ void Foam::cutCellFvMesh::newMeshEdges
                 */
                 if(!mustBeThreeEdges && !mustBeOnlyOneNewEdge)
                 {
-                    if(!otherVertexXOnlyHasFaceConnectionFullyConnected[0] && otherVertexXOnlyHasFaceConnectionFullyConnected[1] &&
+                    if(!otherVertexXHasOnlyFaceConnectionFullyConnected[0] && otherVertexXHasOnlyFaceConnectionFullyConnected[1] &&
                         otherVertexXHasFaceConnectionFullyConnected[1])
                     {
                         mustBeOneNewAndOneOldEdgeLocalInd = 1;
                         mustBeOneNewAndOneOldEdge = true;
                     }
-                    else if(otherVertexXOnlyHasFaceConnectionFullyConnected[0] && !otherVertexXOnlyHasFaceConnectionFullyConnected[1] &&
+                    else if(otherVertexXHasOnlyFaceConnectionFullyConnected[0] && !otherVertexXHasOnlyFaceConnectionFullyConnected[1] &&
                         otherVertexXHasFaceConnectionFullyConnected[0])
                     {
                         mustBeOneNewAndOneOldEdgeLocalInd = 0;
                         mustBeOneNewAndOneOldEdge = true;
                     }
-                    else if(otherVertexXOnlyHasFaceConnectionFullyConnected[0] && otherVertexXOnlyHasFaceConnectionFullyConnected[1])
+                    else if(otherVertexXHasOnlyFaceConnectionFullyConnected[0] && otherVertexXHasOnlyFaceConnectionFullyConnected[1])
                         FatalErrorInFunction<<"Both other Vertex have fully connected face front. Can not happen at this stage!"<< exit(FatalError);
-                    else if(!otherVertexXOnlyHasFaceConnectionFullyConnected[0] && !otherVertexXOnlyHasFaceConnectionFullyConnected[1])
+                    else if(!otherVertexXHasOnlyFaceConnectionFullyConnected[0] && !otherVertexXHasOnlyFaceConnectionFullyConnected[1])
                     {
                         if(otherVertexXHasFaceConnectionFullyConnected[0] && !otherVertexXHasFaceConnectionFullyConnected[1])
                         {
@@ -3332,53 +3289,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
             }
             else if(problematicFacePoints[i]==3 && problematicFaceNewPoints[i]==2)
-            {                
-                for(int j=0;j<vertexConnectedToVertex0[0].size();j++)
-                {
-                    if(!vertexConnectedToVertex0[0][j])
-                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
-                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFreeFaceConnection[0] = true;
-                    if(vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFaceConnectionOnlyToCenter[0] = true;
-                    if(!vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0] = true;
-                    if(!vertexConnectedToVertexCenter[0][j] && !vertexConnectedToVertex1[0][j])
-                        otherVertexXHasNoFreeFaceConnection[0] = false;
-                    if(vertexConnectedToVertexCenter[0][j] && vertexConnectedToVertex1[0][j])
-                        otherVertexXHasFaceConnectionFullyConnected[0] = true;
-                    if(!vertexConnectedToVertexCenter[0][j] || !vertexConnectedToVertex1[0][j])
-                        otherVertexXOnlyHasFaceConnectionFullyConnected[0] = false;
-                }
-                for(int j=0;j<vertexConnectedToVertex1[2].size();j++)
-                {
-                    if(!vertexConnectedToVertex1[2][j])
-                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);                        
-                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFreeFaceConnection[1] = true;
-                    if(vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFaceConnectionOnlyToCenter[1] = true;
-                    if(!vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1] = true;
-                    if(!vertexConnectedToVertexCenter[2][j] && !vertexConnectedToVertex0[2][j])
-                        otherVertexXHasNoFreeFaceConnection[1] = false;
-                    if(vertexConnectedToVertexCenter[2][j] && vertexConnectedToVertex0[2][j])
-                        otherVertexXHasFaceConnectionFullyConnected[1] = true;
-                    if(!vertexConnectedToVertexCenter[2][j] || !vertexConnectedToVertex0[2][j])
-                        otherVertexXOnlyHasFaceConnectionFullyConnected[1] = false;
-                }
-                for(int j=0;j<vertexConnectedToVertexCenter[1].size();j++)
-                {        
-                    if(!vertexConnectedToVertexCenter[1][j])
-                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);
-                    if(vertexConnectedToVertex0[1][j] && !vertexConnectedToVertex1[1][j])
-                        centerVertexFaceConnectionOnlyToOtherVertexX[0] = true;
-                    if(!vertexConnectedToVertex0[1][j] && vertexConnectedToVertex1[1][j])
-                        centerVertexFaceConnectionOnlyToOtherVertexX[1] = true;
-                    if(vertexConnectedToVertex0[1][j] && vertexConnectedToVertex1[1][j])
-                        centerVertexHasNoFreeFaceConnection = false;
-                }
-                
+            {               
                 bool mustBeOnlyOneEdge = false;
                 // The edge connecting point to point
                 /* only new edge face is 
@@ -3399,7 +3310,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     {
                         label crossingFaceOtherVertexLocalInd = (otherVertexWithFreeFace==0)?1:0;
                         
-                        if(centerVertexFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
+                        if(centerVertexHasFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
                            otherVertexXHasFaceConnectionOnlyToCenter[crossingFaceOtherVertexLocalInd])
                         {
                             crossingFacesExistInOppositeOtherVertexAndCenter = true;
@@ -3438,21 +3349,21 @@ void Foam::cutCellFvMesh::newMeshEdges
                 */
                 if(!mustBeThreeEdges && !mustBeOnlyOneNewEdge)
                 {
-                    if(!otherVertexXOnlyHasFaceConnectionFullyConnected[0] && otherVertexXOnlyHasFaceConnectionFullyConnected[1] &&
+                    if(!otherVertexXHasOnlyFaceConnectionFullyConnected[0] && otherVertexXHasOnlyFaceConnectionFullyConnected[1] &&
                         otherVertexXHasFaceConnectionFullyConnected[1])
                     {
                         mustBeOneNewAndOneOldEdgeLocalInd = 1;
                         mustBeOneNewAndOneOldEdge = true;
                     }
-                    else if(otherVertexXOnlyHasFaceConnectionFullyConnected[0] && !otherVertexXOnlyHasFaceConnectionFullyConnected[1] &&
+                    else if(otherVertexXHasOnlyFaceConnectionFullyConnected[0] && !otherVertexXHasOnlyFaceConnectionFullyConnected[1] &&
                         otherVertexXHasFaceConnectionFullyConnected[0])
                     {
                         mustBeOneNewAndOneOldEdgeLocalInd = 0;
                         mustBeOneNewAndOneOldEdge = true;
                     }
-                    else if(otherVertexXOnlyHasFaceConnectionFullyConnected[0] && otherVertexXOnlyHasFaceConnectionFullyConnected[1])
+                    else if(otherVertexXHasOnlyFaceConnectionFullyConnected[0] && otherVertexXHasOnlyFaceConnectionFullyConnected[1])
                         FatalErrorInFunction<<"Both other Vertex have fully connected face front. Can not happen at this stage!"<< exit(FatalError);
-                    else if(!otherVertexXOnlyHasFaceConnectionFullyConnected[0] && !otherVertexXOnlyHasFaceConnectionFullyConnected[1])
+                    else if(!otherVertexXHasOnlyFaceConnectionFullyConnected[0] && !otherVertexXHasOnlyFaceConnectionFullyConnected[1])
                     {
                         if(otherVertexXHasFaceConnectionFullyConnected[0] && !otherVertexXHasFaceConnectionFullyConnected[1])
                         {
