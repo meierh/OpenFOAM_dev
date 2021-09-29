@@ -1428,6 +1428,9 @@ void Foam::cutCellFvMesh::newMeshEdges
     const edgeList& basisEdges = this->edges();
     const labelList& cellOwner = this->owner();
     const labelList& cellNeighbor = this->neighbour();
+    const labelListList& faceToEdge = this->faceEdges();
+    const labelListList& cellToEdge = this->cellEdges();
+    const labelListList& pointToEdge = this->pointEdges();
     
     nbrOfPrevEdges = basisEdges.size();
     
@@ -2458,6 +2461,53 @@ void Foam::cutCellFvMesh::newMeshEdges
                 faceCells.append(cellNeighbor[i]);
             }
             
+            List<List<bool>> verticalEdgesAreCut(4,List<bool>(faceCells.size(),false));
+            List<List<label>> verticalEdges(4,List<label>(faceCells.size()));
+            std::unordered_set<label> edgesOfFace;
+            List<std::unordered_set<label>> edgesOfCellNeighbor(faceCells.size());
+            for(int j=0;j<faceToEdge[i].size();j++)
+                edgesOfFace.insert(faceToEdge[i][j]);
+            for(int j=0;j<edgesOfCellNeighbor.size();j++)
+                for(int k=0;k<cellToEdge[i].size();k++)
+                    edgesOfCellNeighbor[j].insert(cellToEdge[i][k]);
+            if(basisFaces[i].size()!=4)
+                FatalErrorInFunction<<"Faces with other than 4 vertices not allowed!"<< exit(FatalError);
+            for(int j=0;j<verticalEdges.size();j++)
+            {
+                label pnt = basisFaces[i][j];
+                const labelList& onePointEdges = pointToEdge[pnt];
+                for(int k=0;k<faceCells.size();k++)
+                {
+                    bool verticalEdgeFound = false;
+                    label verticalEdge = -1;
+                    for(int l=0;l<onePointEdges.size();l++)
+                    {
+                        if(edgesOfFace.count(onePointEdges[l])==0)
+                        {
+                            if(edgesOfCellNeighbor[k].count(onePointEdges[l])!=0)
+                            {
+                                if(verticalEdgeFound)
+                                    FatalErrorInFunction<<"Double edge. Can not happen!"<< exit(FatalError);
+                                verticalEdge = onePointEdges[l];
+                                verticalEdgeFound=true;
+                            }
+                        }
+                    }
+                    if(!verticalEdgeFound)
+                        FatalErrorInFunction<<"No edge found. Can not happen!"<< exit(FatalError);
+                    verticalEdges[j][k]=verticalEdge;
+                }
+            }
+            for(int j=0;j<verticalEdgesAreCut.size();j++)
+            {
+                for(int k=0;k<verticalEdgesAreCut[j].size();k++)
+                {
+                    if(edgeToPoint_[verticalEdges[j][k]]!=-1)
+                        verticalEdgesAreCut[j][k] = true;
+                }
+            }
+            
+            
             if(i==589240)
             {
                 Info<<"Face: "<<i<<endl;
@@ -2659,6 +2709,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 FatalErrorInFunction<< "End stop"<< exit(FatalError);                            
             }
+            
+            
             
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
