@@ -2719,6 +2719,75 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 bool twoEdgeFace = false;
                 
+                label count = 0
+                for(int j=0;j<verticalEdgesAreCut.size();j++)
+                {
+                    bool cutExist=false;
+                    for(int k=0;k<verticalEdgesAreCut[j].size();k++)
+                    {
+                        cutExist = cutExist || verticalEdgesAreCut[j][k];
+                    }
+                    if(cutExist)
+                        count++;
+                }
+                if(count<2)
+                    FatalErrorInFunction<<"Less than two vertical edges cut on face. Can not happen!"<< exit(FatalError);
+                
+                if(count==2 && count==3)
+                {
+                    DynamicList<label> pntLocalIndVerticalEdgeNonCut;
+                    for(int j=0;j<verticalEdgesAreCut.size();j++)
+                    {
+                        bool cutExist=false;
+                        for(int k=0;k<verticalEdgesAreCut[j].size();k++)
+                        {
+                            cutExist = cutExist || verticalEdgesAreCut[j][k];
+                        }
+                        if(cutExist)
+                            pntLocalIndVerticalEdgeNonCut.append(j);
+                    }
+                    if(pntLocalIndVerticalEdgeNonCut.size()>2 || pntLocalIndVerticalEdgeNonCut.size()<1)
+                        FatalErrorInFunction<<"Wrong number of points with no cut edges!"<< exit(FatalError);
+                    
+                    if(pntLocalIndVerticalEdgeNonCut.size()==2)
+                    {
+                        if((((pntLocalIndVerticalEdgeNonCut[0]+2)%4)!=pntLocalIndVerticalEdgeNonCut[1]) && (((pntLocalIndVerticalEdgeNonCut[1]+2)%4)!=pntLocalIndVerticalEdgeNonCut[0]))
+                            FatalErrorInFunction<<"2 Points with vertical edges cut must be on different sides!"<< exit(FatalError);
+                    }
+                    List<label> pntInd(2);
+                    pntInd[0] = pntLocalIndVerticalEdgeNonCut[0];
+                    pntInd[1] = (pntInd[0]+2)%edgeInd.size();
+                    
+                    if(edgInd.size()!=basisFaces[i].size())
+                        FatalErrorInFunction<<"Unequal sizes not allowed!"<< exit(FatalError);
+                    labelList localFacePntInd(basisFaces[i].size());
+                    for(int j=0;j<edgeInd.size();j++)
+                    {
+                        edge faceZeroEdge=newMeshEdges_[edgeInd[j]];
+                        label cutPnt1=faceZeroEdge.start();
+                        label cutPnt2=faceZeroEdge.end();
+                        label cutPnt1EdgeInd=pointToEgde_[cutPnt1];
+                        label cutPnt2EdgeInd=pointToEgde_[cutPnt2];
+                        edge cutPnt1Edge=newMeshEdges_[cutPnt1EdgeInd];
+                        edge cutPnt2Edge=newMeshEdges_[cutPnt2EdgeInd];
+                        label pntGlobalInd=cutPnt1Edge.commonVertex(cutPnt2Edge);
+                        if(pntGlobalInd==-1)
+                            FatalErrorInFunction<<"No commonVertex found!"<< exit(FatalError);
+                        label pntLocalInd = basisFaces[i].which(pntGlobalInd);
+                        if(pntLocalInd==-1)
+                            FatalErrorInFunction<<"No commonVertex found!"<< exit(FatalError);
+                        localFacePntInd[j]=pntLocalInd;
+                    }
+                    labelList faceLocalPntToEdgeLocalInd(basisFaces[i].size());
+                    for(int j=0;j<edgeInd.size();j++)
+                    {
+                        faceLocalPntToEdgeLocalInd[localFacePntInd[j]]=j;
+                    }
+                                            
+                    addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[pntInd[0]]]);
+                    addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[pntInd[1]]]);
+                }
+                
                 if(edgesOfEdgeConnectedFacesPerCell.size()==2)
                 // face is not a boundary face
                 {
