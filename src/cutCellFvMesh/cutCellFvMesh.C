@@ -2716,9 +2716,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             {
                 if(edgeInd.size()!=4)
                     FatalErrorInFunction<< "No four added edges"<< exit(FatalError);
-                
-                bool twoEdgeFace = false;
-                
+                                
                 label count = 0
                 for(int j=0;j<verticalEdgesAreCut.size();j++)
                 {
@@ -2732,7 +2730,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 if(count<2)
                     FatalErrorInFunction<<"Less than two vertical edges cut on face. Can not happen!"<< exit(FatalError);
-                
+                if(count==4 && verticalEdgesAreCut[0].size()==1)
+                    FatalErrorInFunction<<"Four vertical cut edges at boundary face. Can not happen!"<< exit(FatalError);
+
                 if(count==2 && count==3)
                 {
                     DynamicList<label> pntLocalIndVerticalEdgeNonCut;
@@ -2787,69 +2787,61 @@ void Foam::cutCellFvMesh::newMeshEdges
                     addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[pntInd[0]]]);
                     addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[pntInd[1]]]);
                 }
-                
-                if(edgesOfEdgeConnectedFacesPerCell.size()==2)
-                // face is not a boundary face
-                {
-                    bool edgeConnectedToFaceInONECell = true;
-                    for(int j=0;j<connectedToCellPerEdge.size();j++)
-                    {
-                        if(!((connectedToCellPerEdge[j][0] && connectedToCellPerEdge[j][1])==0 && (connectedToCellPerEdge[j][0] || connectedToCellPerEdge[j][1])==0))
-                        {
-                            //zero edge is connected to faces in both cells or to no face at all
-                            edgeConnectedToFaceInONECell = false;
-                        }
-                    }
-                    bool fourCutEdgeFace = true;
-                    for(int j=0;j<connectedToCellPerEdge.size();j++)
-                    {
-                        if(!((connectedToCellPerEdge[j][0] && connectedToCellPerEdge[(j+2)%4][0])==1 || (connectedToCellPerEdge[j][1] && connectedToCellPerEdge[(j+2)%4][1])==1))
-                        {
-                            //zero edge and zero edge at the opposite side does not have a 
-                            fourCutEdgeFace = false;
-                        }
-                    }
-                    if(edgeConnectedToFaceInONECell && fourCutEdgeFace)
-                    // face has legitimate four cut edges
-                    {
-                        edgeList edgesOfFace(edgeInd.size());
-                        List<List<vector>> vectorsOfEdges(edgeInd.size());
-                        for(int j=0;j<edgeInd.size();j++)
-                        {                         
-                            scalar p02 = vectorsOfEdges[j][0] && vectorsOfEdges[j][2];
-                            scalar p24 = vectorsOfEdges[j][2] && vectorsOfEdges[j][4];
-                            scalar p13 = vectorsOfEdges[j][1] && vectorsOfEdges[j][3];
-                            
-                            if(p02<=0 || p24<=0 || p13<=0)
-                                FatalErrorInFunction<< "Four cut edge face with non uniform to Nurbs vectors"<< exit(FatalError);
-                        }
-                    }
-                    else
-                    {
-                        twoEdgeFace = true;
-                    }
-                }
                 else
                 {
-                    twoEdgeFace = true;
-                }
-                if(twoEdgeFace)
-                {
-                    if((correctEdge[0] != correctEdge[2]) || (correctEdge[1] != correctEdge[3]))
-                        FatalErrorInFunction<< "Unequal opposite edges"<< exit(FatalError);
-                    if(!correctEdge[0] && correctEdge[1] && !correctEdge[2] && correctEdge[3])
+                    if(verticalEdgesAreCut[0].size()==1)
+                        FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    List<bool> interChangingCutPat(2,true);
+                    for(int j=0;j<2;j++)
                     {
-                        addedEdgeToDelete.append(edgeInd[0]);
-                        addedEdgeToDelete.append(edgeInd[2]);
-                    }
-                    else if(correctEdge[0] && !correctEdge[1] && correctEdge[2] && !correctEdge[3])
-                    {
-                        addedEdgeToDelete.append(edgeInd[1]);
-                        addedEdgeToDelete.append(edgeInd[3]);
-                    }
+                        for(int k=0;k<verticalEdgesAreCut.size();k++)
+                        {
+                            interChangingCutPat[j] = interChangingCutPat[j] && verticalEdgesAreCut[k][(k+j)%2
+                        }
+                    }                    
+                    if(interChangingCutPat[0] || interChangingCutPat[1])
+                    //There is a four edge cut pattern if there are alternating vertical cut edges
+                    {}
                     else
+                    //There can not be a four edge cut pattern
                     {
-                        FatalErrorInFunction<< "Invalid correct edges!"<< exit(FatalError);
+                        bool edg02 = false;
+                        bool edg13 = false;
+                        if((verticalEdgesAreCut[0][0]&&verticalEdgesAreCut[2][0])||(verticalEdgesAreCut[0][1]&&verticalEdgesAreCut[2][1]))
+                            edg02 = true;
+                        if((verticalEdgesAreCut[1][0]&&verticalEdgesAreCut[3][0])||(verticalEdgesAreCut[1][1]&&verticalEdgesAreCut[3][1]))
+                            edg13 = true;
+                        if(edg02 && edg13)
+                        {
+                            if((correctEdge[0] != correctEdge[2]) || (correctEdge[1] != correctEdge[3]))
+                                FatalErrorInFunction<< "Unequal opposite edges"<< exit(FatalError);
+                            if(!correctEdge[0] && correctEdge[1] && !correctEdge[2] && correctEdge[3])
+                            {
+                                addedEdgeToDelete.append(edgeInd[0]);
+                                addedEdgeToDelete.append(edgeInd[2]);
+                            }
+                            else if(correctEdge[0] && !correctEdge[1] && correctEdge[2] && !correctEdge[3])
+                            {
+                                addedEdgeToDelete.append(edgeInd[1]);
+                                addedEdgeToDelete.append(edgeInd[3]);
+                            }
+                            else
+                            {
+                                FatalErrorInFunction<< "Invalid correct edges!"<< exit(FatalError);
+                            }
+                        }
+                        else if(edg02)
+                        {
+                            addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[1]]);
+                            addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[3]]);
+                        }
+                        else if(edg13)
+                        {
+                            addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[0]]);
+                            addedEdgeToDelete.append(edgeInd[faceLocalPntToEdgeLocalInd[2]]);
+                        }
+                        else
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     }
                 }
             }
