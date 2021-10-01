@@ -2710,8 +2710,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                 FatalErrorInFunction<< "End stop"<< exit(FatalError);                            
             }
             
-            
-            
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
                 if(edgeInd.size()!=4)
