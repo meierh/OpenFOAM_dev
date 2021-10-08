@@ -2548,6 +2548,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                 Info<<endl;
             }
 
+        /*  Compute face connection for cut edges of faces
+         *  Start
+         */
             List<DynamicList<std::unordered_set<label>>> edgesOfEdgeConnectedFacesPerCell(faceCells.size());    // HashMap of the edge index of all edges in a face cluster
             for(int nC = 0;nC<faceCells.size();nC++)
             {
@@ -2615,6 +2618,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                     connectedToCellPerEdge[j][k] = connected;
                 }
             }
+        /*  End
+         */
+            
             if(i==589240)
             {
                 for(int c=0;c<edgesOfEdgeConnectedFacesPerCell.size();c++)
@@ -2650,6 +2656,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
             }
             
+         /*  Correct Edge computation by using distance vectors
+          *  Start
+          */   
             List<bool> correctEdge(edgeInd.size());
             edgeList edgesOfFace(edgeInd.size());
             List<List<vector>> vectorsOfEdges(edgeInd.size());
@@ -2699,6 +2708,72 @@ void Foam::cutCellFvMesh::newMeshEdges
                     FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
                 }
             }
+        /*  End
+         */  
+
+        /*  Data separation of edges and connection to vertices
+         *  Start
+         */
+            if(edgeInd.size()!=3)
+                FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
+            label oldEdge = 0;
+            label newEdge = 0;
+            DynamicList<label> newEdgeLocalInd;
+            DynamicList<label> oldEdgeLocalInd;
+            for(int j=0;j<edgeInd.size();j++)
+            {
+                if(edgeInd[j]>=nbrOfPrevEdges)
+                {
+                    newEdge++;
+                    newEdgeLocalInd = j;
+                }
+                else
+                {
+                    oldEdge++;
+                    oldEdgeLocalInd.append(j);
+                }
+            }
+            std::unordered_map<label,label> cutEdgeLocalIndToNonZeroPntLocalInd;
+            std::unordered_map<label,label> nonZeroPntLocalIndTocutEdgeLocalInd;
+            for(int j=0;j<newEdgeLocalInd.size();j++)
+            {
+                edge zeroEdge = newMeshEdges_[edgeInd[newEdgeLocalInd[j]]];
+                List<DynamicList<label>> edgePntsEdgeGlobInds(2);
+                labelList edgePnts(2);
+                edgePnts[0] = zeroEdge.start();
+                edgePnts[1] = zeroEdge.end();
+                for(int k=0;k<2;k++)
+                {
+                    if(edgePnts[k]<nbrOfPrevPoints)
+                        edgePntsEdgeGlobInds[k].append(pointToEgde_[edgePnts[k]]);
+                    else
+                        edgePntsEdgeGlobInds[k].append(pointToEdge[edgePnts[k]]);
+                }
+                label nonZeroPntLocalIndForCutEdge=-1;
+                for(int k=0;k<edgePntsEdgeGlobInds[0].size();k++)
+                {
+                    edge startEdge = newMeshEdges_[edgePntsEdgeGlobInds[0][k]];
+                    for(int l=0;l<edgePntsEdgeGlobInds[1].size();l++)
+                    {
+                        edge endEdge = newMeshEdges_[edgePntsEdgeGlobInds[1][k]];
+                        label comVertLocalInd = basisFaces[i].which(startEdge.commonVertex(endEdge));
+                        if(comVertLocalInd!=-1)
+                        {
+                            if(nonZeroPntLocalIndForCutEdge==-1)
+                                nonZeroPntLocalIndForCutEdge=comVertLocalInd;
+                            else
+                                FatalErrorInFunction<<"Double point. Can not happen!"<< exit(FatalError);
+                        }
+                    }
+                }
+                if(nonZeroPntLocalIndForCutEdge==-1)
+                    FatalErrorInFunction<<"No point. Can not happen!"<< exit(FatalError);
+                cutEdgeLocalIndToNonZeroPntLocalInd[j]=edgeCutPntLocalInd;
+                nonZeroPntLocalIndTocutEdgeLocalInd[edgeCutPntLocalInd]=j;
+            }
+        /* End
+         */
+
             if(i==589240)
             {
                 Info<<"edgeInd: "<<edgeInd<<endl;
@@ -2851,23 +2926,6 @@ void Foam::cutCellFvMesh::newMeshEdges
             {
                 if(edgeInd.size()!=3)
                     FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
-                label oldEdge = 0;
-                label newEdge = 0;
-                DynamicList<label> newEdgeLocalInd;
-                DynamicList<label> oldEdgeLocalInd;
-                for(int j=0;j<edgeInd.size();j++)
-                {
-                    if(edgeInd[j]>=nbrOfPrevEdges)
-                    {
-                        newEdge++;
-                        newEdgeLocalInd = j;
-                    }
-                    else
-                    {
-                        oldEdge++;
-                        oldEdgeLocalInd.append(j);
-                    }
-                }
 
                 DynamicList<edge> oldEdges;
                 DynamicList<edge> newEdges;
@@ -2977,120 +3035,34 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(centralZeroPoint==-1)
                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                 
-                std::unordered_map<label,label> newEdgeLocalIndToPntLocalInd;
-                std::unordered_map<label,label> pntLocalIndToNewEdgeLocalInd;
-                if(problematicFaceNewPoints[i]==0)
+                std::unordered_map<label,label> otherZeroPntLocalIndToEdgeLocalInd;
+                std::unordered_map<label,label> edgeLocalIndTootherZeroPntLocalInd;
+                label centerEdgeLocalInd=-1;
+                for(int j=0;j<edgeInd.size();j++)
                 {
-                    label localPntInd=basisFaces[i].which(centralZeroPoint);
-                    if(localPntInd==-1)
+                    edge nEdge = newMeshEdges_[edgeInd[j]];
+                    if(nEdge.otherVertex(otherZeroPoints[0])==otherZeroPoints[1])
+                    {
+                        if(centerEdgeLocalInd==-1)
+                            centerEdgeLocalInd=j;
+                        else
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                    else if(nEdge.otherVertex(otherZeroPoints[0])==centralZeroPoint)
+                    {
+                        otherZeroPntLocalIndToEdgeLocalInd[0]=j;
+                        edgeLocalIndTootherZeroPntLocalInd[j]=0;
+                    }
+                    else if(nEdge.otherVertex(otherZeroPoints[1])==centralZeroPoint)
+                    {
+                        otherZeroPntLocalIndToEdgeLocalInd[1]=j;
+                        edgeLocalIndTootherZeroPntLocalInd[j]=1;
+                    }
+                    else
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                    newEdgeLocalIndToPntLocalInd[0]=localPntInd;
-                    pntLocalIndToNewEdgeLocalInd[localPntInd]=0;
-                }
-                else if(problematicFaceNewPoints[i]==1)
-                {
-                    for(int j=0;j<newEdgeLocalInd.size();j++)
-                    {
-                        edge zeroEdge = newMeshEdges_[edgeInd[newEdgeLocalInd[j]]];
-                        label oldZeroPnt,newZeroPnt;
-                        if(zeroEdge.start()<nbrOfPrevPoints)
-                        {
-                            oldZeroPnt=zeroEdge.start();
-                            newZeroPnt=zeroEdge.end();
-                        }
-                        else if(zeroEdge.end()<nbrOfPrevPoints)
-                        {
-                            oldZeroPnt=zeroEdge.end();
-                            newZeroPnt=zeroEdge.start();
-                        }
-                        else
-                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                        if(oldZeroPnt>=nbrOfPrevPoints)
-                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                        edge newZeroPntEdge = newMeshEdges_[pointToEgde_[newZeroPnt]];
-                        labelList oldZeroPntEdgesInd = pointToEdge[oldZeroPnt];
-                        label edgeCutPntLocalInd=-1;
-                        for(int k=0;k<oldZeroPntEdgesInd.size();k++)
-                        {
-                            edge oneEdge = newMeshEdges_[oldZeroPntEdgesInd[k]];
-                            label comVertLocalInd = basisFaces[i].which(newZeroPntEdge.commonVertex(oneEdge));
-                            if(comVertLocalInd!=-1)
-                            {
-                                if(edgeCutPntLocalInd==-1)
-                                    edgeCutPntLocalInd=comVertLocalInd;
-                                else
-                                    FatalErrorInFunction<<"Double point for new edge. Can not happen!"<< exit(FatalError);
-                            }
-                        }
-                        if(edgeCutPntLocalInd==-1)
-                            FatalErrorInFunction<<"No point for new edge. Can not happen!"<< exit(FatalError);
-                        newEdgeLocalIndToPntLocalInd[j]=edgeCutPntLocalInd;
-                        pntLocalIndToNewEdgeLocalInd[edgeCutPntLocalInd]=j;
-                    }
-                }
-                else if(problematicFaceNewPoints[i]==2)
-                {
-                    for(int j=0;j<newEdgeLocalInd.size();j++)
-                    {
-                        edge zeroEdge = newMeshEdges_[edgeInd[newEdgeLocalInd[j]]];
-                        label oldZeroPnt,newZeroPnt;
-                        if(zeroEdge.start()<nbrOfPrevPoints || zeroEdge.end()<nbrOfPrevPoints)
-                        {
-                            if(zeroEdge.start()<nbrOfPrevPoints)
-                            {
-                                oldZeroPnt=zeroEdge.start();
-                                newZeroPnt=zeroEdge.end();
-                            }
-                            else if(zeroEdge.end()<nbrOfPrevPoints)
-                            {
-                                oldZeroPnt=zeroEdge.end();
-                                newZeroPnt=zeroEdge.start();
-                            }
-                            else
-                                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                            if(oldZeroPnt>=nbrOfPrevPoints)
-                                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                            edge newZeroPntEdge = newMeshEdges_[pointToEgde_[newZeroPnt]];
-                            labelList oldZeroPntEdgesInd = pointToEdge[oldZeroPnt];
-                            label edgeCutPntLocalInd=-1;
-                            for(int k=0;k<oldZeroPntEdgesInd.size();k++)
-                            {
-                                edge oneEdge = newMeshEdges_[oldZeroPntEdgesInd[k]];
-                                label comVertLocalInd = basisFaces[i].which(newZeroPntEdge.commonVertex(oneEdge));
-                                if(comVertLocalInd!=-1)
-                                {
-                                    if(edgeCutPntLocalInd==-1)
-                                        edgeCutPntLocalInd=comVertLocalInd;
-                                    else
-                                        FatalErrorInFunction<<"Double point for new edge. Can not happen!"<< exit(FatalError);
-                                }
-                            }
-                            if(edgeCutPntLocalInd==-1)
-                                FatalErrorInFunction<<"No point for new edge. Can not happen!"<< exit(FatalError);
-                            newEdgeLocalIndToPntLocalInd[j]=edgeCutPntLocalInd;
-                            pntLocalIndToNewEdgeLocalInd[edgeCutPntLocalInd]=j;
-                        }
-                        else
-                        {
-                            edge newZeroPntEdge1 = newMeshEdges_[pointToEgde_[zeroEdge.start()]];
-                            edge newZeroPntEdge2 = newMeshEdges_[pointToEgde_[zeroEdge.end()]];
-                            label edgeCutPntLocalInd=-1;
-                            edgeCutPntLocalInd = basisFaces[i].which(newZeroPntEdge1.commonVertex(newZeroPntEdge2));
-                            if(edgeCutPntLocalInd==-1)
-                                FatalErrorInFunction<<"No point for new edge. Can not happen!"<< exit(FatalError);
-                            newEdgeLocalIndToPntLocalInd[j]=edgeCutPntLocalInd;
-                            pntLocalIndToNewEdgeLocalInd[edgeCutPntLocalInd]=j;
-                        }
-                    }
-                }
-                else
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                
-                //std::unordered_map<label,label> OppoEdgeLocalIndToOppositeVertexLocalInd;
-                //std::unordered_map<label,label> OppositeVertexLocalIndToOppoEdgeLocalInd;
-                
+                }                
                 DynamicList<label> zeroPoints({otherZeroPoints[0],centralZeroPoint,otherZeroPoints[1]});
-                List<bool> pointWithFreeConnecFaces(2,false);
+                //List<bool> pointWithFreeConnecFaces(2,false);
                 
                 List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                 List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
@@ -3440,13 +3412,13 @@ void Foam::cutCellFvMesh::newMeshEdges
                         if((connectedToCellPerEdge[newEdgeLocalInd[0]][0] && !connectedToCellPerEdge[newEdgeLocalInd[0]][1]) && 
                            (connectedToCellPerEdge[newEdgeLocalInd[1]][1] && !connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
                         {
-                            if(verticalEdgesAreCut[newEdgeLocalIndToPntLocalInd[0]][0] && verticalEdgesAreCut[newEdgeLocalIndToPntLocalInd[1]][1])
+                            if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[0]][0] && verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[1]][1])
                                 validVerticalEdgeCuts=true;
                         }
                         if((!connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1]) && 
                            (!connectedToCellPerEdge[newEdgeLocalInd[1]][1] && connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
                         {
-                            if(verticalEdgesAreCut[newEdgeLocalIndToPntLocalInd[0]][1] && verticalEdgesAreCut[newEdgeLocalIndToPntLocalInd[1]][0])
+                            if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[0]][1] && verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[1]][0])
                                 validVerticalEdgeCuts=true;
                         }                            
                         if(oldEdgesWithFacesTotalNbr[0]==1 && validVerticalEdgeCuts)
@@ -3457,12 +3429,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                         bool validVerticalEdgeCuts = false;
                         if((connectedToCellPerEdge[newEdgeLocalInd[0]][0] && !connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
                         {
-                            if(verticalEdgesAreCut[newEdgeLocalIndToPntLocalInd[0]][0])
+                            if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[0]][0])
                                 validVerticalEdgeCuts=true;
                         }
                         if((!connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
                         {
-                            if(verticalEdgesAreCut[newEdgeLocalIndToPntLocalInd[1]][0])
+                            if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[1]][0])
                                 validVerticalEdgeCuts=true;
                         }
                         if(validVerticalEdgeCuts)
@@ -3621,10 +3593,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(nonZeroOtherPntLocalVerticeInd.size()!=2)
                         FatalErrorInFunction<<"Other than two other zero point. Can not happen!"<< exit(FatalError);
                     
-                    label centralEdgeLocalInd = pntLocalIndToNewEdgeLocalInd[nonZeroOppositePntLocalVerticeInd];
+                    label centralEdgeLocalInd = nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroOppositePntLocalVerticeInd];
                     labelList otherEdgesLocalInd(2);
-                    otherEdgesLocalInd[0] = pntLocalIndToNewEdgeLocalInd[nonZeroOtherPntLocalVerticeInd[0]];
-                    otherEdgesLocalInd[1] = pntLocalIndToNewEdgeLocalInd[nonZeroOtherPntLocalVerticeInd[1]];
+                    otherEdgesLocalInd[0] = nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroOtherPntLocalVerticeInd[0]];
+                    otherEdgesLocalInd[1] = nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroOtherPntLocalVerticeInd[1]];
                     if(centralEdgeLocalInd<0||centralEdgeLocalInd>2||otherEdgesLocalInd[0]<0||otherEdgesLocalInd[0]>2||otherEdgesLocalInd[1]<0||otherEdgesLocalInd[1]>2)
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     if((centralEdgeLocalInd+otherEdgesLocalInd[0]+otherEdgesLocalInd[1])!=3)
