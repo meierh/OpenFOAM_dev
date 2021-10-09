@@ -2527,7 +2527,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 Info<<"edgeList:"<<cellNonconnectedEdges[i]<<endl;
             }
-            
             if(i==589240)
             {
                 Info<<"problematicFacePoints:"<<problematicFacePoints[i]<<endl;
@@ -2936,6 +2935,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 labelList oldEdgesWithFacesTotalNbr(oldEdgeLocalInd.size(),0);
                 labelList oldEdgesWithFacesInFaceCellsNbr(oldEdgeLocalInd.size(),0);
+                // Counting as one for each cell with face
                 for(int j=0;j<oldEdgeLocalInd.size();j++)
                 {
                     //collect connected faces at old Edges in all connected cells
@@ -3219,19 +3219,43 @@ void Foam::cutCellFvMesh::newMeshEdges
                     // three edge face is when the new edge has a connected face to one cell but not to the other
                     if(faceCells.size()==2)
                     {
-                        if((connectedToCellPerEdge[newEdgeLocalInd[0]][0] && !connectedToCellPerEdge[newEdgeLocalInd[0]][1]) || 
-                        (!connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1]))
+                        if(oldEdgesWithFacesTotalNbr[0]>0 && oldEdgesWithFacesTotalNbr[1]>0 && connectedToCellPerEdge[newEdgeLocalInd[0]][0])
+                        //Must
                         {
-                            if(oldEdgesWithFacesTotalNbr[0]==1 && oldEdgesWithFacesTotalNbr[1]==1 && (verticalEdgesAreCut[nonZeroPntLocalVerticeInd][0] || verticalEdgesAreCut[nonZeroPntLocalVerticeInd][1]))
-                                mustBeThreeEdges = true;
+                            if(!connectedToCellPerEdge[newEdgeLocalInd[0]][1])
+                            //Would be invalid face
+                            {
+                                if(verticalEdgesAreCut[nonZeroPntLocalVerticeInd][0])                             
+                                //Improbable but valid face
+                                {
+                                    mustBeThreeEdges = true;
+                                }
+                            }
+                        }
+                        if(oldEdgesWithFacesTotalNbr[0]>0 && oldEdgesWithFacesTotalNbr[1]>0 && connectedToCellPerEdge[newEdgeLocalInd[0]][0])
+                        //Must
+                        {
+                            if(!connectedToCellPerEdge[newEdgeLocalInd[0]][1])
+                            //Would be invalid face
+                            {
+                                if(verticalEdgesAreCut[nonZeroPntLocalVerticeInd][0])                             
+                                //Improbable but valid face
+                                {
+                                    mustBeThreeEdges = true;
+                                }
+                            }
                         }
                     }
                     else if(faceCells.size()==1)
                     {                    
-                        if(connectedToCellPerEdge[newEdgeLocalInd[0]][0])
+                        if(oldEdgesWithFacesTotalNbr[0]>0 && oldEdgesWithFacesTotalNbr[1]>0 && connectedToCellPerEdge[newEdgeLocalInd[0]][0])
+                        //Must
                         {
-                            if(oldEdgesWithFacesTotalNbr[0]==1 && oldEdgesWithFacesTotalNbr[1]==1 && verticalEdgesAreCut[nonZeroPntLocalVerticeInd][0])
+                            if(verticalEdgesAreCut[nonZeroPntLocalVerticeInd][0])                             
+                            //Improbable but valid face
+                            {
                                 mustBeThreeEdges = true;
+                            }
                         }
                     }
                     else
@@ -3244,24 +3268,11 @@ void Foam::cutCellFvMesh::newMeshEdges
                     */
                     if(!mustBeThreeEdges)
                     {
-                        List<bool> centerVertexNotConnectedToVertex0 = pointInFaceFront(zeroPointsClosedFaces[1],zeroPointsClosedFaceMap[1],otherZeroPoints[0]);
-                        List<bool> centerVertexNotConnectedToVertex1 = pointInFaceFront(zeroPointsClosedFaces[1],zeroPointsClosedFaceMap[1],otherZeroPoints[1]);
-                        
-                        if(centerVertexNotConnectedToVertex0.size()!=centerVertexNotConnectedToVertex1.size())
-                            FatalErrorInFunction<< "Can not happen!"<< exit(FatalError);
-                        
-                        bool oneFaceConnectionNotConnected=false;
-                        for(int j=0;j<centerVertexNotConnectedToVertex0.size();j++)
-                        {
-                            if(!centerVertexNotConnectedToVertex0[j] && !centerVertexNotConnectedToVertex1[j])
-                                oneFaceConnectionNotConnected = true;
-                        }
-                        
                         if(faceCells.size()==2)
                         {
                             if(connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1])
                             {                            
-                                if(oneFaceConnectionNotConnected)
+                                if(!centerVertexHasNoFreeFaceConnection)
                                     mustBeOnlyNewEdge = true;
                             }
                         }
@@ -3269,7 +3280,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         {
                             if(connectedToCellPerEdge[newEdgeLocalInd[0]][0])
                             {
-                                if(oneFaceConnectionNotConnected)
+                                if(!centerVertexHasNoFreeFaceConnection)
                                     mustBeOnlyNewEdge = true;
                             }
                         }
@@ -3278,30 +3289,28 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                     
                     bool mustBeOnlyOneOldEdge = false;
-                    label oneMustBeOnlyEdgeLocalInd = -1;
+                    label edgeToRemoveLocalInd = -1;
                     /* only one old edge face is when there are faces connected to one old edge in four cells and 
                     * there are four faces connected to one outer old zero point that are not connected to the one
                     * single point
                     */
                     if(!mustBeThreeEdges && !mustBeOnlyNewEdge)
                     {
-                        if(!otherVertexXHasNoFreeFaceConnection[0] &&
-                        centerVertexHasFaceConnectionOnlyToOtherVertexX[1] &&
-                        otherVertexXHasFaceConnectionOnlyToCenter[1])
+                        if(!otherVertexXHasNoFreeFaceConnection[0] && centerVertexHasFaceConnectionOnlyToOtherVertexX[1] && otherVertexXHasFaceConnectionOnlyToCenter[1])
                         {
-                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[1]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[1]>=1))
+                            label oldEdgeIndOfOtherVertex = otherZeroPntLocalIndToEdgeLocalInd[1];
+                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=1))
                             {
-                                oneMustBeOnlyEdgeLocalInd = 1;
+                                edgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
                                 mustBeOnlyOneOldEdge = true;
                             }
                         }
-                        else if(!otherVertexXHasNoFreeFaceConnection[1] &&
-                                centerVertexHasFaceConnectionOnlyToOtherVertexX[0] &&
-                                otherVertexXHasFaceConnectionOnlyToCenter[0])
+                        else if(!otherVertexXHasNoFreeFaceConnection[1] && centerVertexHasFaceConnectionOnlyToOtherVertexX[0] && otherVertexXHasFaceConnectionOnlyToCenter[0])
                         {
-                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[1]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[1]>=1))
+                            label oldEdgeIndOfOtherVertex = otherZeroPntLocalIndToEdgeLocalInd[1];
+                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=1))
                             {
-                                oneMustBeOnlyEdgeLocalInd = 0;
+                                edgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
                                 mustBeOnlyOneOldEdge = true;
                             }
                         }
@@ -3364,7 +3373,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                     else if(mustBeOnlyOneOldEdge)
                     {
-                        addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd[(oneMustBeOnlyEdgeLocalInd+1)%2]]);
+                        addedEdgeToDelete.append(edgeInd[edgeToRemoveLocalInd]);
                         addedEdgeToDelete.append(edgeInd[newEdgeLocalInd[0]]);
                     }
                     else if(mustBeOTheNewAndOneOldEdge)
