@@ -2719,6 +2719,8 @@ void Foam::cutCellFvMesh::newMeshEdges
             label newEdge = 0;
             DynamicList<label> newEdgeLocalInd;
             DynamicList<label> oldEdgeLocalInd;
+            labelList egdeLocalIndToNewEdgeListInd(edgeInd.size(),-1);
+            labelList edgeLocalIndToOldEdgeListInd(edgeInd.size(),-1);
             for(int j=0;j<edgeInd.size();j++)
             {
                 if(edgeInd[j]>=nbrOfPrevEdges)
@@ -2732,6 +2734,11 @@ void Foam::cutCellFvMesh::newMeshEdges
                     oldEdgeLocalInd.append(j);
                 }
             }
+            for(int j=0;j<newEdgeLocalInd.size();j++)
+                egdeLocalIndToNewEdgeListInd[newEdgeLocalInd[j]]=j;
+            for(int j=0;j<oldEdgeLocalInd.size();j++)
+                edgeLocalIndToOldEdgeListInd[oldEdgeLocalInd[j]]=j;
+            
             std::unordered_map<label,label> cutEdgeLocalIndToNonZeroPntLocalInd;
             std::unordered_map<label,label> nonZeroPntLocalIndTocutEdgeLocalInd;
             for(int j=0;j<newEdgeLocalInd.size();j++)
@@ -3289,7 +3296,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                     
                     bool mustBeOnlyOneOldEdge = false;
-                    label edgeToRemoveLocalInd = -1;
+                    label otherOldEdgeToRemoveLocalInd = -1;
                     /* only one old edge face is when there are faces connected to one old edge in four cells and 
                     * there are four faces connected to one outer old zero point that are not connected to the one
                     * single point
@@ -3298,51 +3305,49 @@ void Foam::cutCellFvMesh::newMeshEdges
                     {
                         if(!otherVertexXHasNoFreeFaceConnection[0] && centerVertexHasFaceConnectionOnlyToOtherVertexX[1] && otherVertexXHasFaceConnectionOnlyToCenter[1])
                         {
-                            label oldEdgeIndOfOtherVertex = otherZeroPntLocalIndToEdgeLocalInd[1];
-                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=1))
+                            label oldEdgeListIndOfOtherVertex = edgeLocalIndToOldEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=1))
                             {
-                                edgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
+                                otherOldEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
                                 mustBeOnlyOneOldEdge = true;
                             }
                         }
                         else if(!otherVertexXHasNoFreeFaceConnection[1] && centerVertexHasFaceConnectionOnlyToOtherVertexX[0] && otherVertexXHasFaceConnectionOnlyToCenter[0])
                         {
-                            label oldEdgeIndOfOtherVertex = otherZeroPntLocalIndToEdgeLocalInd[1];
-                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeIndOfOtherVertex]>=1))
+                            label oldEdgeListIndOfOtherVertex = edgeLocalIndToOldEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=2)||(faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=1))
                             {
-                                edgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
+                                otherOldEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
                                 mustBeOnlyOneOldEdge = true;
                             }
                         }
                     }
                     
                     bool mustBeOTheNewAndOneOldEdge = false;
-                    label oneOldEdgeLocalInd = -1;
+                    label singleOldEdgeToRemoveLocalInd = -1;
                     /* only one old edge and the new edge is when there is a face connection to one otherVertex and
                     * this face connection does only connect to the other "otherVertex".  
                     * in addition the old edge needs two faces
                     */
                     if(!mustBeThreeEdges && !mustBeOnlyNewEdge && !mustBeOnlyOneOldEdge)
                     {
-                        if(centerVertexHasFaceConnectionOnlyToOtherVertexX[0] &&
-                        otherVertexXHasNoFreeFaceConnection[0] && 
-                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1])
+                        if(centerVertexHasFaceConnectionOnlyToOtherVertexX[0] && otherVertexXHasNoFreeFaceConnection[0] && otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1])
                         {
-                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[0]>=2 && connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1])||
-                            (faceCells.size()==1 && oldEdgesWithFacesTotalNbr[0]>=1 && connectedToCellPerEdge[newEdgeLocalInd[0]][0]))
+                            label oldEdgeListIndOfOtherVertex = edgeLocalIndToOldEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[0]];
+                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=2 && connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1])||
+                            (faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=1 && connectedToCellPerEdge[newEdgeLocalInd[0]][0]))
                             {
-                                oneOldEdgeLocalInd = 0;
+                                singleOldEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
                                 mustBeOnlyOneOldEdge = true;
                             }
                         } 
-                        else if(centerVertexHasFaceConnectionOnlyToOtherVertexX[1] &&
-                        otherVertexXHasNoFreeFaceConnection[1] && 
-                        otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0])
+                        else if(centerVertexHasFaceConnectionOnlyToOtherVertexX[1] && otherVertexXHasNoFreeFaceConnection[1] && otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0])
                         {
-                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[1]>=2 && connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1])||
-                            (faceCells.size()==1 && oldEdgesWithFacesTotalNbr[1]>=1 && connectedToCellPerEdge[newEdgeLocalInd[0]][0]))
+                            label oldEdgeListIndOfOtherVertex = edgeLocalIndToOldEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                            if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=2 && connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1])||
+                            (faceCells.size()==1 && oldEdgesWithFacesTotalNbr[oldEdgeListIndOfOtherVertex]>=1 && connectedToCellPerEdge[newEdgeLocalInd[0]][0]))
                             {
-                                oneOldEdgeLocalInd = 1;
+                                singleOldEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
                                 mustBeOnlyOneOldEdge = true;
                             }
                         }
@@ -3373,12 +3378,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                     else if(mustBeOnlyOneOldEdge)
                     {
-                        addedEdgeToDelete.append(edgeInd[edgeToRemoveLocalInd]);
+                        addedEdgeToDelete.append(edgeInd[otherOldEdgeToRemoveLocalInd]);
                         addedEdgeToDelete.append(edgeInd[newEdgeLocalInd[0]]);
                     }
                     else if(mustBeOTheNewAndOneOldEdge)
                     {
-                        addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd[(oneOldEdgeLocalInd+1)%2]]);
+                        addedEdgeToDelete.append(edgeInd[singleOldEdgeToRemoveLocalInd]]);
                     }
                     else if(mustBeOnlyBothOldEdges)
                     {
@@ -3420,30 +3425,39 @@ void Foam::cutCellFvMesh::newMeshEdges
                         bool validVerticalEdgeCuts = false;
                         if((connectedToCellPerEdge[newEdgeLocalInd[0]][0] && !connectedToCellPerEdge[newEdgeLocalInd[0]][1]) && 
                            (connectedToCellPerEdge[newEdgeLocalInd[1]][1] && !connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
+                        // Must be
                         {
                             if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[0]][0] && verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[1]][1])
+                            // Valid if not true
                                 validVerticalEdgeCuts=true;
                         }
                         if((!connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1]) && 
                            (!connectedToCellPerEdge[newEdgeLocalInd[1]][1] && connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
+                        // Must be
                         {
                             if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[0]][1] && verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[1]][0])
+                            // Valid if not true
                                 validVerticalEdgeCuts=true;
                         }                            
-                        if(oldEdgesWithFacesTotalNbr[0]==1 && validVerticalEdgeCuts)
+                        if(oldEdgesWithFacesTotalNbr[0]>=1 && validVerticalEdgeCuts)
+                        // Must be
                             mustBeThreeEdges = true;
                     }
                     else if(faceCells.size()==1)
                     {                    
                         bool validVerticalEdgeCuts = false;
                         if((connectedToCellPerEdge[newEdgeLocalInd[0]][0] && !connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
+                        // Must be
                         {
                             if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[0]][0])
+                            // Valid if not true
                                 validVerticalEdgeCuts=true;
                         }
                         if((!connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[1]][0]))
+                        // Must be
                         {
                             if(verticalEdgesAreCut[cutEdgeLocalIndToNonZeroPntLocalInd[1]][0])
+                            // Valid if not true
                                 validVerticalEdgeCuts=true;
                         }
                         if(validVerticalEdgeCuts)
@@ -3453,53 +3467,59 @@ void Foam::cutCellFvMesh::newMeshEdges
                         FatalErrorInFunction<< "Face must have either one or two neighbor cells!"<< exit(FatalError);
                     
                     bool mustBeOnlyOneNewEdge = false;
-                    label mustBeOnlyOneNewEdgeLocalInd = -1;
-                    /* only new edge face is 
+                    label newEdgeToRemoveLocalInd = -1;
+                    /* only new edge face is if one Vertex has free face connection and the other and the center
+                     * vertex have a connection
                     */
                     if(!mustBeThreeEdges)
                     {
-                        label otherVertexWithFreeFace = -1;
-                        if(!otherVertexXHasNoFreeFaceConnection[0] && !otherVertexXHasNoFreeFaceConnection[1])
-                            FatalErrorInFunction<< "Two vertex have free face connections!"<< exit(FatalError);
-                        else if(!otherVertexXHasNoFreeFaceConnection[0])
-                            otherVertexWithFreeFace = 0;
-                        else if(!otherVertexXHasNoFreeFaceConnection[1])
-                            otherVertexWithFreeFace = 1;
-                        else
-                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                        
-                        bool crossingFacesExistInOppositeOtherVertexAndCenter = false;
-                        label crossingFaceOtherVertexLocalInd;
-                        if(otherVertexWithFreeFace != -1)
-                        {
-                            crossingFaceOtherVertexLocalInd = (otherVertexWithFreeFace==0)?1:0;
-                            
-                            if(centerVertexHasFaceConnectionOnlyToOtherVertexX[crossingFaceOtherVertexLocalInd] &&
-                            otherVertexXHasFaceConnectionOnlyToCenter[crossingFaceOtherVertexLocalInd])
-                            {
-                                crossingFacesExistInOppositeOtherVertexAndCenter = true;
-                            }
-                        }
-                        
                         if(faceCells.size()==2)
                         {
-                            if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0] && connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][1])
-                            {                            
-                                if(crossingFacesExistInOppositeOtherVertexAndCenter)
+                            if(!otherVertexXHasNoFreeFaceConnection[0] && otherVertexXHasFaceConnectionOnlyToCenter[1] && centerVertexHasFaceConnectionOnlyToOtherVertexX[1])
+                            // Must be
+                            {
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0] && connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][1])
+                                // Must be
                                 {
                                     mustBeOnlyOneNewEdge = true;
-                                    mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
+                                    newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
+                                }
+                            }
+                            else if(!otherVertexXHasNoFreeFaceConnection[1] && otherVertexXHasFaceConnectionOnlyToCenter[0] && centerVertexHasFaceConnectionOnlyToOtherVertexX[0])
+                            // Must be
+                            {
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[0]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0] && connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][1])
+                                // Must be
+                                {
+                                    mustBeOnlyOneNewEdge = true;
+                                    newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
                                 }
                             }
                         }
                         else if(faceCells.size()==1)
                         {
-                            if(connectedToCellPerEdge[crossingFaceOtherVertexLocalInd][0])
-                            {                            
-                                if(crossingFacesExistInOppositeOtherVertexAndCenter)
+                            if(!otherVertexXHasNoFreeFaceConnection[0] && otherVertexXHasFaceConnectionOnlyToCenter[1] && centerVertexHasFaceConnectionOnlyToOtherVertexX[1])
+                            // Must be
+                            {
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0])
+                                // Must be
                                 {
                                     mustBeOnlyOneNewEdge = true;
-                                    mustBeOnlyOneNewEdgeLocalInd = crossingFaceOtherVertexLocalInd;
+                                    newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
+                                }
+                            }
+                            else if(!otherVertexXHasNoFreeFaceConnection[1] && otherVertexXHasFaceConnectionOnlyToCenter[0] && centerVertexHasFaceConnectionOnlyToOtherVertexX[0])
+                            // Must be
+                            {
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[0]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0])
+                                // Must be
+                                {
+                                    mustBeOnlyOneNewEdge = true;
+                                    newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
                                 }
                             }
                         }
@@ -3508,59 +3528,91 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
                     
                     bool mustBeOneNewAndOneOldEdge = false;
-                    label mustBeOneNewAndOneOldEdgeLocalInd = -1;
-                    /* only 
+                    label newEdgeToSingleRemoveLocalInd = -1;
+                    /* only one new and one old edge if one vertex has no free face connection and other vertex 
                     */
                     if(!mustBeThreeEdges && !mustBeOnlyOneNewEdge)
                     {
-                        if(!otherVertexXHasOnlyFaceConnectionFullyConnected[0] &&
-                            otherVertexXHasOnlyFaceConnectionFullyConnected[1])
-                            //&& connectedToCellPerEdge[newEdgeLocalInd[0]][0] && connectedToCellPerEdge[newEdgeLocalInd[0]][1])
+                        if(faceCells.size()==2)
                         {
-                            mustBeOneNewAndOneOldEdgeLocalInd = 1;
-                            mustBeOneNewAndOneOldEdge = true;
-                        }
-                        else if( otherVertexXHasOnlyFaceConnectionFullyConnected[0] &&
-                                !otherVertexXHasOnlyFaceConnectionFullyConnected[1])
-                        {
-                            mustBeOneNewAndOneOldEdgeLocalInd = 0;
-                            mustBeOneNewAndOneOldEdge = true;
-                        }
-                        else if(otherVertexXHasOnlyFaceConnectionFullyConnected[0] && otherVertexXHasOnlyFaceConnectionFullyConnected[1])
-                            FatalErrorInFunction<<"Both other Vertex have fully connected face front. Can not happen at this stage!"<< exit(FatalError);
-                        else if(!otherVertexXHasOnlyFaceConnectionFullyConnected[0] && !otherVertexXHasOnlyFaceConnectionFullyConnected[1])
-                        {
-                            if(!otherVertexXHasNoFaceConnectionFullyConnected[0] && otherVertexXHasNoFaceConnectionFullyConnected[1])
+                            if(!otherVertexXHasNoFaceConnectionFullyConnected[0] && centerVertexHasFaceConnectionOnlyToOtherVertexX[1] && otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0])
+                            // Must be
                             {
-                                mustBeOneNewAndOneOldEdgeLocalInd = 0;
-                                mustBeOneNewAndOneOldEdge = true;
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[0]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0] && connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][1] && oldEdgesWithFacesTotalNbr[0]>=2)
+                                // Must be
+                                {
+                                    if(!otherVertexXHasNoFreeFaceConnection[0])
+                                    // Probable but faces would be invalid
+                                    {
+                                        mustBeOnlyOneNewEdge = true;
+                                        newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
+                                    }
+                                }
                             }
-                            else if(otherVertexXHasNoFaceConnectionFullyConnected[0] && !otherVertexXHasNoFaceConnectionFullyConnected[1])
+                            else if(!otherVertexXHasNoFaceConnectionFullyConnected[1] && centerVertexHasFaceConnectionOnlyToOtherVertexX[0] && otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1])
+                            // Must be
                             {
-                                mustBeOneNewAndOneOldEdgeLocalInd = 1;
-                                mustBeOneNewAndOneOldEdge = true;
-                            }
-                            else if(otherVertexXHasNoFaceConnectionFullyConnected[0] && otherVertexXHasNoFaceConnectionFullyConnected[1])
-                            {
-                                FatalErrorInFunction<<"No other Vertex has fully connected face front. Can not happen at this stage!"<< exit(FatalError);
-                            }
-                            else
-                            {
-                                FatalErrorInFunction<<"Both other Vertex have non fully connected face fronts. Can not happen at this stage!"<< exit(FatalError);
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0] && connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][1] && oldEdgesWithFacesTotalNbr[0]>=2)
+                                // Must be
+                                {
+                                    if(!otherVertexXHasNoFreeFaceConnection[1])
+                                    // Probable but faces would be invalid
+                                    {
+                                        mustBeOnlyOneNewEdge = true;
+                                        newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
+                                    }
+                                }
                             }
                         }
+                        else if(faceCells.size()==1)
+                        {
+                            if(!otherVertexXHasNoFaceConnectionFullyConnected[0] && centerVertexHasFaceConnectionOnlyToOtherVertexX[1] && otherVertexXHasFaceConnectionOnlyWithOppositeVertex[0])
+                            // Must be
+                            {
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[0]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0] && oldEdgesWithFacesTotalNbr[0]>=1)
+                                // Must be
+                                {
+                                    if(!otherVertexXHasNoFreeFaceConnection[0])
+                                    // Probable but faces would be invalid
+                                    {
+                                        mustBeOnlyOneNewEdge = true;
+                                        newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[1];
+                                    }
+                                }
+                            }
+                            else if(!otherVertexXHasNoFaceConnectionFullyConnected[1] && centerVertexHasFaceConnectionOnlyToOtherVertexX[0] && otherVertexXHasFaceConnectionOnlyWithOppositeVertex[1])
+                            // Must be
+                            {
+                                label newEdgeListIndOfOtherVertex = egdeLocalIndToNewEdgeListInd[otherZeroPntLocalIndToEdgeLocalInd[1]];
+                                if(connectedToCellPerEdge[newEdgeLocalInd[newEdgeListIndOfOtherVertex]][0] && oldEdgesWithFacesTotalNbr[0]>=1)
+                                // Must be
+                                {
+                                    if(!otherVertexXHasNoFreeFaceConnection[1])
+                                    // Probable but faces would be invalid
+                                    {
+                                        mustBeOnlyOneNewEdge = true;
+                                        newEdgeToRemoveLocalInd = otherZeroPntLocalIndToEdgeLocalInd[0];
+                                    }
+                                }
+                            }
+                        }
+                        else
+                            FatalErrorInFunction<< "Face must have either one or two neighbor cells!"<< exit(FatalError);
                     }
                     
                     if(mustBeThreeEdges)
                     {}
                     else if(mustBeOnlyOneNewEdge)
                     {
-                        addedEdgeToDelete.append(edgeInd[newEdgeLocalInd[(mustBeOnlyOneNewEdgeLocalInd+1)%2]]);
+                        addedEdgeToDelete.append(edgeInd[newEdgeToRemoveLocalInd]);
                         addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd[0]]);
                     }
                     else if(mustBeOneNewAndOneOldEdge)
                     {
-                        addedEdgeToDelete.append(edgeInd[newEdgeLocalInd[(mustBeOneNewAndOneOldEdgeLocalInd+1)%2]]);
+                        addedEdgeToDelete.append(edgeInd[newEdgeToSingleRemoveLocalInd]);
                     }
                     else
                     {
