@@ -2886,6 +2886,23 @@ void Foam::cutCellFvMesh::newMeshEdges
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     else
                     {
+                        for(int j=0;j<edgeInd.size();j++)
+                        {
+                            label firstEdge = j;
+                            label secondEdge = (j+1)%edgeInd.size();
+                            label cutPoint = newMeshEdges_[edgeInd[firstEdge]].commonVertex(newMeshEdges_[edgeInd[secondEdge]]);
+                            if(cutPoint==-1 || cutPoint<nbrOfPrevPoints)
+                                FatalErrorInFunction<<"Point between two in a four new edge face. Can not happen!"<< exit(FatalError);
+                            DynamicList<label> otherCutEdgesToPoint;
+                            for(int k=0;k<pointToEgde_[cutPoint].size();k++)
+                            {
+                                if(pointToEdge_[cutPoint][k]!=firstEdge && pointToEdge_[cutPoint][k]!=secondEdge)
+                                    otherCutEdgesToPoint.append(pointToEdge[cutPoint][k];
+                            }
+                            if(otherCutEdgesToPoint.size()>1 || otherCutEdgesToPoint.size()<1)
+                                FatalErrorInFunction<<"Cut point more than one possible point edges or no possible edges!"<< exit(FatalError);
+                            
+                        }
                         // test for edge angle
                     }                        
                 }
