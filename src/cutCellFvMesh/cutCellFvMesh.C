@@ -1417,6 +1417,27 @@ List<bool> pointInFaceFront
     return testPointInside;
 }
 
+scalar computeEdgeAngel(edge innerEdge, edge outerEdge, pointField& points);
+{
+    label connectVertextInd = innerEdge.commonVertex(outerEdge);
+    if(connectVertextInd==-1)
+        FatalErrorInFunction<<"No connect point! Can not happen!"<< exit(FatalError);
+    label otherVertexInnerInd = innerEdge.otherVertex(connectVertextInd);
+    label otherVertexOuterInd = outerEdge.otherVertex(connectVertextInd);
+    point connectVertex = points[connectVertextInd];
+    point otherVertexInner = points[otherVertexInnerInd];
+    point otherVertexOuter = points[otherVertexOuterInd];
+    vector innerVector = connectVertex-otherVertexInner;
+    vector outerVector = otherVertexOuter-connectVertex;
+    scalar normInnerVector = norm2(outerVector);
+    scalar normOuterVector = norm2(outerVector);
+    scalar scalProd = innerVector & outerVector;
+    scalar pseudoAngle = scalProd/(normInnerVector*normOuterVector);
+    if(pseudoAngle>1 || pseudoAngle<-1)
+        FatalErrorInFunction<<"Pseudo angle must be inside [-1,1]! Can not happen!"<< exit(FatalError);
+    return pseudoAngle;
+}
+
 void Foam::cutCellFvMesh::newMeshEdges
 (
 )
@@ -2886,6 +2907,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     else
                     {
+                        List<List<scalar>> edgeToOuterAngle(List<scalar>(2,-1),edgeInd.size());
                         for(int j=0;j<edgeInd.size();j++)
                         {
                             label firstEdge = j;
@@ -2902,8 +2924,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                             if(otherCutEdgesToPoint.size()>1 || otherCutEdgesToPoint.size()<1)
                                 FatalErrorInFunction<<"Cut point more than one possible point edges or no possible edges!"<< exit(FatalError);
                             
+                            edgeToOuterAngle[j][0] = computeEdgeAngel(newMeshEdges_[edgeInd[firstEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
+                            edgeToOuterAngle[(j+1)%edgeInd.size()][1] = computeEdgeAngel(newMeshEdges_[edgeInd[secondEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
                         }
-                        // test for edge angle
+                        // chose edge by angle
                     }                        
                 }
                 
