@@ -2924,12 +2924,63 @@ void Foam::cutCellFvMesh::newMeshEdges
                             if(otherCutEdgesToPoint.size()>1 || otherCutEdgesToPoint.size()<1)
                                 FatalErrorInFunction<<"Cut point more than one possible point edges or no possible edges!"<< exit(FatalError);
                             
-                            edgeToOuterAngle[j][0] = computeEdgeAngel(newMeshEdges_[edgeInd[firstEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
-                            edgeToOuterAngle[(j+1)%edgeInd.size()][1] = computeEdgeAngel(newMeshEdges_[edgeInd[secondEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
+                            edgeToOuterAngle[firstEdge][0] = computeEdgeAngel(newMeshEdges_[edgeInd[firstEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
+                            edgeToOuterAngle[secondEdge][1] = computeEdgeAngel(newMeshEdges_[edgeInd[secondEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
                         }
                         // chose edge by angle
-                    }                        
-                }
+                        List<label> connectPntToEdgeWithLowerAngle(4,-1);
+                        List<scalar> connectPntToMarginWithLowerAngle(4,0);
+                        for(int j=0;j<edgeInd.size();j++)
+                        {
+                            label firstEdge = j;
+                            label secondEdge = (j+1)%edgeInd.size();
+                            scalar firstEdgeAngle = edgeToOuterAngle[firstEdge][0];
+                            scalar secondEdgeAngle = edgeToOuterAngle[secondEdge][1];
+                            
+                            if(firstEdgeAngle>secondEdgeAngle)
+                            {
+                                connectPntToEdgeWithLowerAngle[j] = firstEdge;
+                                connectPntToMarginWithLowerAngle[j] = firstEdgeAngle-secondEdgeAngle;
+                            }
+                            else if(firstEdgeAngle<secondEdgeAngle)
+                            {
+                                connectPntToEdgeWithLowerAngle[j] = secondEdge;
+                                connectPntToMarginWithLowerAngle[j] = secondEdgeAngle-firstEdgeAngle;
+                            }
+                            else
+                                connectPntToEdgeWithLowerAngle[j] = -1;
+                        }
+                        bool edges02Valid=true;
+                        bool edges13Valid=true;
+                        bool onlyEqualAngles=true;
+                        for(int j=0;j<connectPntToEdgeWithLowerAngle.size();j++)
+                        {
+                            if(connectPntToEdgeWithLowerAngle[j]==1 || connectPntToEdgeWithLowerAngle[j]==3)
+                                edges02Valid=false;
+                            if(connectPntToEdgeWithLowerAngle[j]==0 || connectPntToEdgeWithLowerAngle[j]==2)
+                                edges13Valid=false;
+                            if(connectPntToEdgeWithLowerAngle[j]!=-1)
+                                onlyEqualAngles=false;
+                        }
+                        if(onlyEqualAngles)
+                            FatalErrorInFunction<<"All edges have neigboring edges with equal angles! Can not happen."<< exit(FatalError);
+                        if(edges02Valid && edges13Valid)
+                            FatalErrorInFunction<<"All edges valid ones! Can not happen."<< exit(FatalError);
+                        if(edges02Valid)
+                        {
+                            edgeLocalIndsToRemove[0] = 1;
+                            edgeLocalIndsToRemove[1] = 3;
+                        }
+                        else if(edges13Valid)
+                        {
+                            edgeLocalIndsToRemove[0] = 0;
+                            edgeLocalIndsToRemove[1] = 2;
+                        }
+                        else
+                        {
+                            //Cont here
+                        }
+                    }
                 
                 if(mustBeAllFourEdges)
                 {}
