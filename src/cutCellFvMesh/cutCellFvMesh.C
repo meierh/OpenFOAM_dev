@@ -1417,7 +1417,7 @@ List<bool> pointInFaceFront
     return testPointInside;
 }
 
-scalar computeEdgeAngel(edge innerEdge, edge outerEdge, pointField& points);
+scalar computeEdgeAngel(edge innerEdge, edge outerEdge, pointField& points)
 {
     label connectVertextInd = innerEdge.commonVertex(outerEdge);
     if(connectVertextInd==-1)
@@ -2918,7 +2918,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                             DynamicList<label> otherCutEdgesToPoint;
                             for(int k=0;k<pointToEgde_[cutPoint].size();k++)
                             {
-                                if(pointToEdge_[cutPoint][k]!=firstEdge && pointToEdge_[cutPoint][k]!=secondEdge)
+                                if(pointToEgde_[cutPoint][k]!=firstEdge && pointToEdge_[cutPoint][k]!=secondEdge)
                                     otherCutEdgesToPoint.append(pointToEdge[cutPoint][k];
                             }
                             if(otherCutEdgesToPoint.size()>1 || otherCutEdgesToPoint.size()<1)
@@ -2968,20 +2968,76 @@ void Foam::cutCellFvMesh::newMeshEdges
                             FatalErrorInFunction<<"All edges valid ones! Can not happen."<< exit(FatalError);
                         if(edges02Valid)
                         {
+                            mustBeOnlyTwoEdges = true;
                             edgeLocalIndsToRemove[0] = 1;
                             edgeLocalIndsToRemove[1] = 3;
                         }
                         else if(edges13Valid)
                         {
+                            mustBeOnlyTwoEdges = true;
                             edgeLocalIndsToRemove[0] = 0;
                             edgeLocalIndsToRemove[1] = 2;
                         }
                         else
                         {
-                            //Cont here
+                            scalar totalAngle02 = 0;
+                            scalar totalAngle13 = 0;
+                            for(int j=0;j<edgeInd.size();j++)
+                            {
+                                if(j==0 || j==2)
+                                    totalAngle02 += (edgeToOuterAngle[j][0] + edgeToOuterAngle[j][1]);
+                                if(j==1 || j==3)
+                                    totalAngle13 += (edgeToOuterAngle[j][0] + edgeToOuterAngle[j][1]);
+                            }
+                            if(totalAngle02>totalAngle13)
+                            {
+                                mustBeOnlyTwoEdges = true;
+                                edgeLocalIndsToRemove[0] = 1;
+                                edgeLocalIndsToRemove[1] = 3;
+                            }
+                            else if(totalAngle13>totalAngle02)
+                            {
+                                mustBeOnlyTwoEdges = true;
+                                edgeLocalIndsToRemove[0] = 0;
+                                edgeLocalIndsToRemove[1] = 2;
+                            }
+                            else
+                            {
+                                scalar smallestEdgeToOuterEdgeAngle = 1;
+                                label smallestEdgeToOuterEdgeAngleInd = -1;
+                                for(int j=0;j<edgeInd.size();j++)
+                                {
+                                    if(smallestEdgeToOuterEdgeAngle > edgeToOuterAngle[j][0])
+                                    {
+                                        smallestEdgeToOuterEdgeAngle = edgeToOuterAngle[j][0];
+                                        smallestEdgeToOuterEdgeAngleInd = j;
+                                    }
+                                    if(smallestEdgeToOuterEdgeAngle > edgeToOuterAngle[j][1])
+                                    {
+                                        smallestEdgeToOuterEdgeAngle = edgeToOuterAngle[j][1];
+                                        smallestEdgeToOuterEdgeAngleInd = j;
+                                    }
+                                }
+                                if(smallestEdgeToOuterEdgeAngleInd==-1)
+                                    FatalErrorInFunction<<"No edge with smallest angle! Can not happen."<< exit(FatalError);
+                                if(smallestEdgeToOuterEdgeAngleInd==0 || smallestEdgeToOuterEdgeAngleInd==2)
+                                {
+                                    mustBeOnlyTwoEdges = true;
+                                    edgeLocalIndsToRemove[0] = 0;
+                                    edgeLocalIndsToRemove[1] = 2;
+                                }
+                                else if(smallestEdgeToOuterEdgeAngleInd==1 || smallestEdgeToOuterEdgeAngleInd==3)
+                                {
+                                    mustBeOnlyTwoEdges = true;
+                                    edgeLocalIndsToRemove[0] = 1;
+                                    edgeLocalIndsToRemove[1] = 3;
+                                }
+                                else
+                                    FatalErrorInFunction<<"No edge with smallest angle! Can not happen."<< exit(FatalError);
+                            }
                         }
                     }
-                
+                }
                 if(mustBeAllFourEdges)
                 {}
                 else if(mustBeOnlyTwoEdges)
@@ -2991,6 +3047,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 else
                 {
+                    FatalErrorInFunction<< "Face with four cut points but no true cut edges!"<< exit(FatalError);
                     addedEdgeToDelete.append(edgeInd[0]);
                     addedEdgeToDelete.append(edgeInd[1]);
                     addedEdgeToDelete.append(edgeInd[2]);
