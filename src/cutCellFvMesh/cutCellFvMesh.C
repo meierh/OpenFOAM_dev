@@ -2907,6 +2907,44 @@ void Foam::cutCellFvMesh::newMeshEdges
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     else
                     {
+                        // four zero Points to list
+                        List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
+                        List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
+                        for(int j=0;j<zeroPoints.size();j++)
+                        {
+                                //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
+                                const labelList& cellsAtPoint = pointToCells[zeroPoints[j]];
+                                label nbrRelCells = cellsAtPoint.size();
+                                List<DynamicList<face>> posClosedFacesAroundPoint(nbrRelCells);
+                                List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundPoint(nbrRelCells);
+                                for(int k=0;k<cellsAtPoint.size();k++)
+                                {
+                                    DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiPointMap[cellsAtPoint[k]];
+                                    DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsAtPoint[k]];
+                                    bool oneFaceContains = false;
+                                    for(int l=0;l<thisCellFaceGroupsMap.size();l++)
+                                    {
+                                        bool faceGroupContainsPoint = false;
+                                        for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
+                                        {
+                                            if(thisCellFaceGroupsMap[l][m].count(zeroPoints[j])!=0)
+                                            {
+                                                if(oneFaceContains)
+                                                    FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
+                                                faceGroupContainsPoint = true;
+                                            }
+                                        }
+                                        if(faceGroupContainsPoint)
+                                        {
+                                            posClosedPointMapAroundPoint[k] = thisCellFaceGroupsMap[l];
+                                            posClosedFacesAroundPoint[k] = thisCellFaceGroups[l];
+                                            oneFaceContains = true;
+                                        }
+                                    }
+                                }
+                                computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                                                    zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
+                        }
                         List<List<scalar>> edgeToOuterAngle(List<scalar>(2,-1),edgeInd.size());
                         for(int j=0;j<edgeInd.size();j++)
                         {
@@ -3195,7 +3233,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                 }                
                 DynamicList<label> zeroPoints({otherZeroPoints[0],centralZeroPoint,otherZeroPoints[1]});
-                //List<bool> pointWithFreeConnecFaces(2,false);
                 
                 List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                 List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
@@ -3244,7 +3281,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                     vertexConnectedToVertexCenter[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],centralZeroPoint);
                     vertexConnectedToVertex1[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],otherZeroPoints[1]);
                 }
-                
+                for(int j=0;j<3;j++)
+                {
+                    if((vertexConnectedToVertex0[j].size()!=vertexConnectedToVertexCenter[j].size()) ||
+                       (vertexConnectedToVertex1[j].size()!=vertexConnectedToVertexCenter[j].size()))
+                        FatalErrorInFunction<<"Inequal number of face front on vertex "<<j<<" !"<< exit(FatalError);
+                }
                 List<bool> centerVertexHasFaceConnectionOnlyToOtherVertexX(2,false);
                 List<bool> otherVertexXHasFaceConnectionOnlyToCenter(2,false);
                 List<bool> otherVertexXHasFaceConnectionOnlyWithOppositeVertex(2,false);
@@ -3902,8 +3944,77 @@ void Foam::cutCellFvMesh::newMeshEdges
             {
                if(edgeInd.size()!=1)
                     FatalErrorInFunction<< "No one added edges"<< exit(FatalError);
+               
+               edge oneEdge = newMeshEdges_[edgeInd[0]];
+               
+                DynamicList<label> zeroPoints{oneEdge.start(),oneEdge.end()};
                 
-                if(!correctEdge[0])
+                List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
+                List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
+                for(int j=0;j<zeroPoints.size();j++)
+                {
+                    //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
+                    const labelList& cellsAtPoint = pointToCells[zeroPoints[j]];
+                    label nbrRelCells = cellsAtPoint.size();
+                    List<DynamicList<face>> posClosedFacesAroundPoint(nbrRelCells);
+                    List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundPoint(nbrRelCells);
+                    for(int k=0;k<cellsAtPoint.size();k++)
+                    {
+                        DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiPointMap[cellsAtPoint[k]];
+                        DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsAtPoint[k]];
+                        bool oneFaceContains = false;
+                        for(int l=0;l<thisCellFaceGroupsMap.size();l++)
+                        {
+                            bool faceGroupContainsPoint = false;
+                            for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
+                            {
+                                if(thisCellFaceGroupsMap[l][m].count(zeroPoints[j])!=0)
+                                {
+                                    if(oneFaceContains)
+                                        FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
+                                    faceGroupContainsPoint = true;
+                                }
+                            }
+                            if(faceGroupContainsPoint)
+                            {
+                                posClosedPointMapAroundPoint[k] = thisCellFaceGroupsMap[l];
+                                posClosedFacesAroundPoint[k] = thisCellFaceGroups[l];
+                                oneFaceContains = true;
+                            }
+                        }
+                    }
+                    computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                                           zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
+                }                
+                List<List<bool>> vertexConnectedToVertex0(2);
+                List<List<bool>> vertexConnectedToVertex1(2);                    
+                for(int j=0;j<2;j++)
+                {
+                    vertexConnectedToVertex0[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],zeroPoints[0]);
+                    vertexConnectedToVertex1[j] = pointInFaceFront(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],zeroPoints[1]);
+                }
+                List<bool> vertexXHasNoFreeFaceConnection(2,true);
+                for(int j=0;j<vertexConnectedToVertex0[0].size();j++)
+                {
+                    if(!vertexConnectedToVertex0[0][j])
+                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);
+                }
+                for(int j=0;j<vertexConnectedToVertex0[1].size();j++)
+                {
+                    if(!vertexConnectedToVertex0[1][j])
+                        vertexXHasNoFreeFaceConnection[1] = false;
+                }
+                for(int j=0;j<vertexConnectedToVertex1[0].size();j++)
+                {
+                    if(!vertexConnectedToVertex1[0][j])
+                        vertexXHasNoFreeFaceConnection[0] = false;
+                }
+                for(int j=0;j<vertexConnectedToVertex1[1].size();j++)
+                {
+                    if(!vertexConnectedToVertex1[1][j])
+                        FatalErrorInFunction<< "Face front must have its own central Point!"<< exit(FatalError);
+                }
+                if(!vertexXHasNoFreeFaceConnection[0] && !vertexXHasNoFreeFaceConnection[1])
                     addedEdgeToDelete.append(edgeInd[0]);
             }
         }
