@@ -1417,8 +1417,64 @@ List<bool> pointInFaceFront
     return testPointInside;
 }
 
-scalar computeEdgeAngel(edge innerEdge, edge outerEdge, pointField& points)
+scalar computeFaceFrontAngle
+(
+    DynamicList<DynamicList<face>>& oneZeroPointClosedFaces,
+    DynamicList<DynamicList<std::unordered_set<label>>>& oneZeroPointClosedFaceMap,
+    edge innerEdge,
+    label centralPoint,
+    pointField& points
+)
 {
+    label outerPoint = innerEdge.otherVertex(centralPoint);
+    DynamicList<DynamicList<face>> edgeMatchingZeroPointClosedFaces;
+    if(oneZeroPointClosedFaceMap.size()!=2 || oneZeroPointClosedFaces.size()!=2)
+        FatalErrorInFunction<<"Four edge face with a point that has other than two face fronts! Can not happen! May be wrong limitation but must be at least equal or more than two!"<< exit(FatalError);
+    for(int i=0;i<oneZeroPointClosedFaceMap.size();i++)
+    {
+        bool faceFrontInside = true;
+        label centralPointInsideCnt = 0;
+        label outerPointInsideCnt = 0;
+        for(int j=0;j<oneZeroPointClosedFaceMap[i].size();j++)
+        {
+            if(oneZeroPointClosedFaceMap[i][j].count(centralPoint)==1)
+                centralPointInsideCnt++;
+            if(oneZeroPointClosedFaceMap[i][j].count(outerPoint)==1)
+                outerPointInsideCnt++;
+        }
+        if(centralPointInsideCnt!=4)
+            FatalErrorInFunction<<"Face front must have central Point in all four faces!"<< exit(FatalError);
+        if(outerPointInsideCnt==2)
+            edgeMatchingZeroPointClosedFaces.append(oneZeroPointClosedFaces[j]);
+        else if(outerPointInsideCnt==0)
+        {}
+        else
+            FatalErrorInFunction<<"Outer Point must be either twice or not in face front!"<< exit(FatalError);
+    }
+    if(edgeMatchingZeroPointClosedFaces.size()!=1)
+        FatalErrorInFunction<<"There must exist exactly one face front. May be wrong limitation but must be at least equal or more than two!"<< exit(FatalError);
+    DynamicList<face> twoOuterFaces;
+    for(int i=0;i<edgeMatchingZeroPointClosedFaces[0].size();i++)
+    {
+        if(edgeMatchingZeroPointClosedFaces[0][i].which(outerPoint)==-1)
+            twoOuterFaces.append(edgeMatchingZeroPointClosedFaces[0][i]);
+    }
+    if(twoOuterFaces.size()!=2)
+        FatalErrorInFunction<<"There must exist two faces that do no contain the outer Point!"<< exit(FatalError);
+    
+    DynamicList<label> sameOuterPoint;
+    for(int i=0;i<twoOuterFaces[0].size();i++)
+    {
+        for(int j=0;j<twoOuterFaces[1].size();i++)
+        {
+            if((twoOuterFaces[0][i]==twoOuterFaces[1][j]) && twoOuterFaces[0][i]!=centralPoint)
+                sameOuterPoint.append(twoOuterFaces[0][i]
+        }
+    }
+    // move points
+
+    
+    
     label connectVertextInd = innerEdge.commonVertex(outerEdge);
     if(connectVertextInd==-1)
         FatalErrorInFunction<<"No connect point! Can not happen!"<< exit(FatalError);
@@ -2907,44 +2963,60 @@ void Foam::cutCellFvMesh::newMeshEdges
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     else
                     {
+                        DynamicList<label> zeroPoints;
+                        for(int j=0;j<edgeInd.size();j++)
+                        {
+                            label firstEdge = j;
+                            label secondEdge = (j+1)%edgeInd.size();
+                            label cutPoint = newMeshEdges_[edgeInd[firstEdge]].commonVertex(newMeshEdges_[edgeInd[secondEdge]]);
+                            if(cutPoint==-1 || cutPoint<nbrOfPrevPoints)
+                                FatalErrorInFunction<<"Point between two in a four new edge face. Can not happen!"<< exit(FatalError);
+                            zeroPoints.append(cutPoint);
+                        }
+                        if(zeroPoints.size()!=4)
+                            FatalErrorInFunction<<"Must be four points. Can not happen!"<< exit(FatalError);
                         // four zero Points to list
                         List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                         List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
                         for(int j=0;j<zeroPoints.size();j++)
                         {
-                                //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
-                                const labelList& cellsAtPoint = pointToCells[zeroPoints[j]];
-                                label nbrRelCells = cellsAtPoint.size();
-                                List<DynamicList<face>> posClosedFacesAroundPoint(nbrRelCells);
-                                List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundPoint(nbrRelCells);
-                                for(int k=0;k<cellsAtPoint.size();k++)
+                            //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
+                            label edgeInd = pointToEgde_[zeroPoints[j]];
+                            const labelList& cellsAtPoint = edgeToCells[edgeInd];
+                            label nbrRelCells = cellsAtPoint.size();
+                            List<DynamicList<face>> posClosedFacesAroundPoint(nbrRelCells);
+                            List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundPoint(nbrRelCells);
+                            for(int k=0;k<cellsAtPoint.size();k++)
+                            {
+                                DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiPointMap[cellsAtPoint[k]];
+                                DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsAtPoint[k]];
+                                bool oneFaceContains = false;
+                                for(int l=0;l<thisCellFaceGroupsMap.size();l++)
                                 {
-                                    DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiPointMap[cellsAtPoint[k]];
-                                    DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsAtPoint[k]];
-                                    bool oneFaceContains = false;
-                                    for(int l=0;l<thisCellFaceGroupsMap.size();l++)
+                                    bool faceGroupContainsPoint = false;
+                                    for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
                                     {
-                                        bool faceGroupContainsPoint = false;
-                                        for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
+                                        if(thisCellFaceGroupsMap[l][m].count(zeroPoints[j])!=0)
                                         {
-                                            if(thisCellFaceGroupsMap[l][m].count(zeroPoints[j])!=0)
-                                            {
-                                                if(oneFaceContains)
-                                                    FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
-                                                faceGroupContainsPoint = true;
-                                            }
-                                        }
-                                        if(faceGroupContainsPoint)
-                                        {
-                                            posClosedPointMapAroundPoint[k] = thisCellFaceGroupsMap[l];
-                                            posClosedFacesAroundPoint[k] = thisCellFaceGroups[l];
-                                            oneFaceContains = true;
+                                            if(oneFaceContains)
+                                                FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
+                                            faceGroupContainsPoint = true;
                                         }
                                     }
+                                    if(faceGroupContainsPoint)
+                                    {
+                                        posClosedPointMapAroundPoint[k] = thisCellFaceGroupsMap[l];
+                                        posClosedFacesAroundPoint[k] = thisCellFaceGroups[l];
+                                        oneFaceContains = true;
+                                    }
                                 }
-                                computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                            }
+                            computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                                     zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                         }
+                        
+                        //Cont here
+                        
                         List<List<scalar>> edgeToOuterAngle(List<scalar>(2,-1),edgeInd.size());
                         for(int j=0;j<edgeInd.size();j++)
                         {
