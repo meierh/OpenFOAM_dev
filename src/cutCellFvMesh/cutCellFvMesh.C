@@ -1199,11 +1199,15 @@ bool facesShareEdge
     for(const label& a :faceA_map)
         if(faceB_map.count(a)!=0)
             edge.append(a);
-        
+    
     if(edge.size()==0)
         FatalErrorInFunction<<"Can not happen. Faces must be connected!"<< exit(FatalError);
     if(edge.size()>=3)
+    {
+        Info<<"faceA:"<<faceA<<endl;
+        Info<<"faceB:"<<faceB<<endl;
         FatalErrorInFunction<<"Can not happen. Faces are identical!"<< exit(FatalError);
+    }
     if(edge.size()==1)
         return false;
     if(edge.size()==2)
@@ -1219,7 +1223,11 @@ bool facesShareEdge
             ((localIndB[0]+1)%faceB.size()==localIndB[1] || (localIndB[1]+1)%faceB.size()==localIndB[0]))
             return true;
         else
+        {
+            Info<<"faceA:"<<faceA<<endl;
+            Info<<"faceB:"<<faceB<<endl;
             FatalErrorInFunction<<"Can not happen. Faces are identical!"<< exit(FatalError);
+        }
     }
     return false;
 }
@@ -1263,6 +1271,13 @@ void computeClosedFaceFront
                     continue;
                 for(int l=0;l<facesInCellsIn[k].size();l++)
                 {
+                    Info<<"Line 1274"<<endl;
+                    Info<<"k:"<<k<<endl;
+                    Info<<"l:"<<l<<endl;
+                    Info<<"startFace.first:"<<startFace.first<<endl;
+                    Info<<"startFace.second:"<<startFace.second<<endl;
+                    Info<<"facesInCellsIn"<<facesInCellsIn<<endl;
+                    Info<<"centerPointInd"<<centerPointInd<<endl;
                     if(facesShareEdge(facesInCellsIn[k][l],facesInCellsIn[startFace.first][startFace.second]))
                     {
                         neighborFaces.append(std::pair<label,label>(k,l));
@@ -1321,6 +1336,7 @@ void computeClosedFaceFront
                                     for(int p=0;p<facesInCellsIn[o].size();p++)
                                     {
                                         std::pair<label,label> posFourthFace(o,p);
+                                        Info<<"Line 1333"<<endl;
                                         if(facesShareEdge(facesInCellsIn[posFourthFace.first][posFourthFace.second],facesInCellsIn[faceA.first][faceA.second]) &&
                                         facesShareEdge(facesInCellsIn[posFourthFace.first][posFourthFace.second],facesInCellsIn[faceB.first][faceB.second]))
                                         {
@@ -1445,7 +1461,7 @@ scalar computeFaceFrontAngle
         if(centralPointInsideCnt!=4)
             FatalErrorInFunction<<"Face front must have central Point in all four faces!"<< exit(FatalError);
         if(outerPointInsideCnt==2)
-            edgeMatchingZeroPointClosedFaces.append(oneZeroPointClosedFaces[j]);
+            edgeMatchingZeroPointClosedFaces.append(oneZeroPointClosedFaces[i]);
         else if(outerPointInsideCnt==0)
         {}
         else
@@ -1468,26 +1484,29 @@ scalar computeFaceFrontAngle
         for(int j=0;j<twoOuterFaces[1].size();i++)
         {
             if((twoOuterFaces[0][i]==twoOuterFaces[1][j]) && twoOuterFaces[0][i]!=centralPoint)
-                sameOuterPoint.append(twoOuterFaces[0][i]
+                sameOuterPoint.append(twoOuterFaces[0][i]);
         }
     }
-    // move points
-
+    if(sameOuterPoint.size()!=1)
+        FatalErrorInFunction<<"Other than one Outer Point! Can not happen!"<< exit(FatalError);
     
-    
-    label connectVertextInd = innerEdge.commonVertex(outerEdge);
+    label connectVertextInd = centralPoint;
     if(connectVertextInd==-1)
         FatalErrorInFunction<<"No connect point! Can not happen!"<< exit(FatalError);
-    label otherVertexInnerInd = innerEdge.otherVertex(connectVertextInd);
-    label otherVertexOuterInd = outerEdge.otherVertex(connectVertextInd);
+    label otherVertexInnerInd = outerPoint;
+    label otherVertexOuterInd = sameOuterPoint[0];
+    
     point connectVertex = points[connectVertextInd];
     point otherVertexInner = points[otherVertexInnerInd];
     point otherVertexOuter = points[otherVertexOuterInd];
+    
     vector innerVector = connectVertex-otherVertexInner;
     vector outerVector = otherVertexOuter-connectVertex;
+    
     scalar normInnerVector = norm2(outerVector);
     scalar normOuterVector = norm2(outerVector);
     scalar scalProd = innerVector & outerVector;
+    
     scalar pseudoAngle = scalProd/(normInnerVector*normOuterVector);
     if(pseudoAngle>1 || pseudoAngle<-1)
         FatalErrorInFunction<<"Pseudo angle must be inside [-1,1]! Can not happen!"<< exit(FatalError);
@@ -2548,8 +2567,8 @@ void Foam::cutCellFvMesh::newMeshEdges
             for(int j=0;j<faceToEdge[i].size();j++)
                 edgesMapOfFace.insert(faceToEdge[i][j]);
             for(int j=0;j<edgesOfCellNeighbor.size();j++)
-                for(int k=0;k<cellToEdge[i].size();k++)
-                    edgesOfCellNeighbor[j].insert(cellToEdge[i][k]);
+                for(int k=0;k<cellToEdge[faceCells[j]].size();k++)
+                    edgesOfCellNeighbor[j].insert(cellToEdge[faceCells[j]][k]);
             if(basisFaces[i].size()!=4)
                 FatalErrorInFunction<<"Faces with other than 4 vertices not allowed!"<< exit(FatalError);
             for(int j=0;j<verticalEdges.size();j++)
@@ -2574,7 +2593,14 @@ void Foam::cutCellFvMesh::newMeshEdges
                         }
                     }
                     if(!verticalEdgeFound)
+                    {
+                        Info<<endl;
+                        Info<<"Face "<<i<<" face:"<<basisFaces[i]<<endl;
+                        Info<<"Point:"<<pnt<<endl;
+                        Info<<"onePointEdges:"<<onePointEdges<<endl;
+                        Info<<"faceToEdge:"<<faceToEdge[i]<<endl;
                         FatalErrorInFunction<<"No edge found. Can not happen!"<< exit(FatalError);
+                    }
                     verticalEdges[j][k]=verticalEdge;
                 }
             }
@@ -2734,7 +2760,8 @@ void Foam::cutCellFvMesh::newMeshEdges
             
          /*  Correct Edge computation by using distance vectors
           *  Start
-          */   
+          */
+         /*  Remove-------------------------
             List<bool> correctEdge(edgeInd.size());
             edgeList edgesOfFace(edgeInd.size());
             List<List<vector>> vectorsOfEdges(edgeInd.size());
@@ -2784,14 +2811,14 @@ void Foam::cutCellFvMesh::newMeshEdges
                     FatalErrorInFunction<< "Inconsistent edge vectors directions"<< exit(FatalError);                            
                 }
             }
+            Remove -------------------------
+        */  
         /*  End
          */  
 
         /*  Data separation of edges and connection to vertices
          *  Start
          */
-            if(edgeInd.size()!=3)
-                FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
             label oldEdge = 0;
             label newEdge = 0;
             DynamicList<label> newEdgeLocalInd;
@@ -2856,24 +2883,10 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
         /* End
          */
-
-            if(i==589240)
-            {
-                Info<<"edgeInd: "<<edgeInd<<endl;
-                Info<<"correctEdge:"<<correctEdge<<endl;
-                Info<<"edgesOfFace:"<<edgesOfFace<<endl;
-                Info<<"vectorsOfEdges:"<<vectorsOfEdges<<endl;
-                Info<<"distOfEdges:"<<distOfEdges<<endl;
-                for(int k=0;k<edgeInd.size();k++)
-                {
-                    bool found;
-                    Info<<"  "<<edgeInd[k]<<" distStart:"<<distToNurbs(newMeshPoints_[newMeshEdges_[edgeInd[k]].start()],found)<<" distEnd:"<<distToNurbs(newMeshPoints_[newMeshEdges_[edgeInd[k]].end()],found)<<endl;
-                }
-                FatalErrorInFunction<< "End stop"<< exit(FatalError);                            
-            }
             
             if(problematicFacePoints[i]==4 && problematicFaceNewPoints[i]==4)
             {
+                Info<<"--------------------------Move in 4-4-----------------------------------"<<endl;
                 if(edgeInd.size()!=4)
                     FatalErrorInFunction<< "No four added edges"<< exit(FatalError);
                 
@@ -3014,10 +3027,15 @@ void Foam::cutCellFvMesh::newMeshEdges
                             computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                                     zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                         }
-                        
-                        //Cont here
-                        
-                        List<List<scalar>> edgeToOuterAngle(List<scalar>(2,-1),edgeInd.size());
+
+                        List<List<scalar>> edgeToOuterAngle(edgeInd.size());
+                        for(int j=0;j<edgeInd.size();j++)
+                        {
+                            edgeToOuterAngle[j] = List<scalar>(2);
+                            for(int k=0;k<edgeToOuterAngle.size();k++)
+                                edgeToOuterAngle[j][k] = -1;
+                        }
+                            
                         for(int j=0;j<edgeInd.size();j++)
                         {
                             label firstEdge = j;
@@ -3025,21 +3043,17 @@ void Foam::cutCellFvMesh::newMeshEdges
                             label cutPoint = newMeshEdges_[edgeInd[firstEdge]].commonVertex(newMeshEdges_[edgeInd[secondEdge]]);
                             if(cutPoint==-1 || cutPoint<nbrOfPrevPoints)
                                 FatalErrorInFunction<<"Point between two in a four new edge face. Can not happen!"<< exit(FatalError);
-                            DynamicList<label> otherCutEdgesToPoint;
-                            for(int k=0;k<pointToEgde_[cutPoint].size();k++)
-                            {
-                                if(pointToEgde_[cutPoint][k]!=firstEdge && pointToEdge_[cutPoint][k]!=secondEdge)
-                                    otherCutEdgesToPoint.append(pointToEdge[cutPoint][k];
-                            }
-                            if(otherCutEdgesToPoint.size()>1 || otherCutEdgesToPoint.size()<1)
-                                FatalErrorInFunction<<"Cut point more than one possible point edges or no possible edges!"<< exit(FatalError);
                             
-                            edgeToOuterAngle[firstEdge][0] = computeEdgeAngel(newMeshEdges_[edgeInd[firstEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
-                            edgeToOuterAngle[secondEdge][1] = computeEdgeAngel(newMeshEdges_[edgeInd[secondEdge]],newMeshEdges_[otherCutEdgesToPoint[0]],newMeshPoints_);
+                            edgeToOuterAngle[firstEdge][0]  = computeFaceFrontAngle(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],newMeshEdges_[edgeInd[firstEdge]],cutPoint,newMeshPoints_);
+                            edgeToOuterAngle[secondEdge][1] = computeFaceFrontAngle(zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j],newMeshEdges_[edgeInd[secondEdge]],cutPoint,newMeshPoints_);
                         }
                         // chose edge by angle
-                        List<label> connectPntToEdgeWithLowerAngle(4,-1);
-                        List<scalar> connectPntToMarginWithLowerAngle(4,0);
+                        List<label> connectPntToEdgeWithLowerAngle(4);
+                        for(int j=0;j<connectPntToEdgeWithLowerAngle.size();j++)
+                            connectPntToEdgeWithLowerAngle[j] = -1;
+                        List<scalar> connectPntToMarginWithLowerAngle(4);
+                        for(int j=0;j<connectPntToMarginWithLowerAngle.size();j++)
+                            connectPntToMarginWithLowerAngle[j] = 0;
                         for(int j=0;j<edgeInd.size();j++)
                         {
                             label firstEdge = j;
@@ -3166,6 +3180,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             }
             else if(problematicFacePoints[i]==3)
             {
+                Info<<"--------------------------Move in 3-----------------------------------"<<endl;
                 if(edgeInd.size()!=3)
                     FatalErrorInFunction<< "No three added edges"<< exit(FatalError);
 
@@ -3340,6 +3355,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                             }
                         }
                     }
+                    Info<<"----------------------In here-------------------____"<<endl;
                     computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                            zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                 }
