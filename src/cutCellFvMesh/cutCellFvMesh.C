@@ -1253,7 +1253,11 @@ void computeClosedFaceFront
     }    
     DynamicList<DynamicList<std::pair<label,label>>> faceFrontIndList;
     DynamicList<std::unordered_set<label>> faceFrontMap;
-
+    
+    Info<<"In Function----------------------------------"<<endl;
+    Info<<"facesInCellsIn"<<facesInCellsIn<<endl;
+    Info<<"centerPointInd"<<centerPointInd<<endl;
+    
     for(int i=0;i<facesInCellsIn.size();i++)
     {
         for(int j=0;j<facesInCellsIn[i].size();j++)
@@ -1271,13 +1275,7 @@ void computeClosedFaceFront
                     continue;
                 for(int l=0;l<facesInCellsIn[k].size();l++)
                 {
-                    Info<<"Line 1274"<<endl;
-                    Info<<"k:"<<k<<endl;
-                    Info<<"l:"<<l<<endl;
-                    Info<<"startFace.first:"<<startFace.first<<endl;
-                    Info<<"startFace.second:"<<startFace.second<<endl;
-                    Info<<"facesInCellsIn"<<facesInCellsIn<<endl;
-                    Info<<"centerPointInd"<<centerPointInd<<endl;
+                    Info<<"k:"<<k<<"  l:"<<l<<"   startFace.first:"<<startFace.first<<"   startFace.second:"<<startFace.second<<endl;
                     if(facesShareEdge(facesInCellsIn[k][l],facesInCellsIn[startFace.first][startFace.second]))
                     {
                         neighborFaces.append(std::pair<label,label>(k,l));
@@ -3323,6 +3321,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                 List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
+                
                 for(int j=0;j<zeroPoints.size();j++)
                 {
                     //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
@@ -3354,8 +3353,49 @@ void Foam::cutCellFvMesh::newMeshEdges
                                 oneFaceContains = true;
                             }
                         }
+                        Info<<"k:"<<k<<endl;
+                        Info<<"zeroPoints:"<<zeroPoints<<endl;
+                        Info<<"thisCellFaceGroups:"<<thisCellFaceGroups<<endl;
                     }
                     Info<<"----------------------In here-------------------____"<<endl;
+                    Info<<"j:"<<j<<"/"<<zeroPoints.size()<<endl;
+                    Info<<"i:"<<i<<endl;
+                    Info<<"cellsAtPoint:"<<cellsAtPoint<<endl;
+                    Info<<"posClosedFacesAroundPoint:"<<posClosedFacesAroundPoint<<endl;
+                    for(int a=0;a<posClosedFacesAroundPoint.size();a++)
+                    {
+                        Info<<"-------------------------------"<<endl;
+                        Info<<"posClosedFacesAroundPoint["<<a<<"]:"<<posClosedFacesAroundPoint[a]<<endl;
+                        for(int b=0;b<posClosedFacesAroundPoint[a].size();b++)
+                        {
+                            for(int c=0;c<posClosedFacesAroundPoint[a][b].size();c++)
+                            {
+                                if(posClosedFacesAroundPoint[a][b][c]>=nbrOfPrevPoints)
+                                {
+                                    if(pointToEgde_[posClosedFacesAroundPoint[a][b][c]]==-1)
+                                        FatalErrorInFunction<<"Wrong!"<< exit(FatalError);
+                                    edge pointEdge = newMeshEdges_[pointToEgde_[posClosedFacesAroundPoint[a][b][c]]];
+                                    Info<<"  "<<posClosedFacesAroundPoint[a][b][c]<<":"<<pointEdge;
+                                }
+                                else
+                                {
+                                    if(pointToEgde_[posClosedFacesAroundPoint[a][b][c]]!=-1)
+                                        FatalErrorInFunction<<"Wrong!"<< exit(FatalError);
+                                    Info<<"  "<<posClosedFacesAroundPoint[a][b][c]<<":"<<"-1";
+                                }
+                            }
+                            Info<<endl;
+                        }
+                    }
+                    Info<<"zeroPoints[j]:"<<zeroPoints[j]<<endl;
+                    Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
+                    Info<<"problematicFaceNewPoints[i]:"<<problematicFaceNewPoints[i]<<endl;
+                    Info<<"basisFaces[i]:"<<basisFaces[i]<<endl;
+                    for(int a=0;a<cellsAtPoint.size();a++)
+                    {
+                        cell oneCell = meshCells[cellsAtPoint[a]];
+                        Info<<"Cell:"<<cellsAtPoint[a]<<"  "<<oneCell.labels(basisFaces)<<endl<<"\t\t"<<oneCell.points(basisFaces,basisPoints)<<endl;
+                    }
                     computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                            zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                 }
