@@ -1241,10 +1241,94 @@ void computeClosedFaceFront
     DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
 )
 {
-    Info<<"centerPointInd:"<<centerPointInd<<endl;
-    Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
     if(facesInCellsIn.size()!=facesMapInCellsIn.size())
         FatalErrorInFunction<<"Unequal range of parameters!"<< exit(FatalError);
+    
+    //Remove faces not touching the centerPointInd
+    List<DynamicList<face>> facesOfCells(facesInCellsIn.size());
+    List<DynamicList<std::unordered_set<label>>> facesOfCellsMap(facesInCellsIn.size());
+    for(int i=0;i<facesInCellsIn.size();i++)
+    {
+        for(int j=0;j<facesInCellsIn[i].size();j++)
+        {
+            if(facesMapInCellsIn[i][j].count(centerPointInd)!=0)
+            {
+                facesOfCells[i].append(facesInCellsIn[i][j]);
+                facesOfCellsMap[i].append(facesMapInCellsIn[i][j]);
+            }
+        }
+    }
+    
+    //Combine facesInCells to faceFronts
+    enum fcState {OPEN,CLOSED,FAIL};
+    
+    for(int i=0;i<facesOfCells.size();i++)
+    {
+        for(int j=0;j<facesOfCells[i].size();j++)
+        {
+            std::pair<label,label> startFace(i,j);
+            DynamicList<std::unordered_set<label>> usedCells;
+            usedCells.setSize(1);
+            usedCells[0].insert(i);
+            DynamicList<DynamicList<std::pair<label,label>>> faceCycle;
+            faceCycle.setSize(1);
+            faceCycle[0].append(startFace)
+            DynamicList<fcState> state;
+            state.setSize(1);
+            state[0]=OPEN;
+            
+            for(int k=0;k<faceCycle.size();k++)
+            //Iterate over all cycles
+            {
+                std::pair<label,label> currFace = faceCycle[k].last();
+                
+                // Test if cycle is closed
+                label equalPnts = 0;
+                for(int n=0;n<facesOfCells[startFace.first][startFace.second].size();n++)
+                {
+                    if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[startFace.first][startFace.second][n])
+                        equalPnts++;
+                }
+                if(faceCycle[k].size()>2 && equalPnts==2)
+                    //closed
+                else if((faceCycle[k].size()==1 && equalPnts!=4) || (faceCycle[k].size()==2 && equalPnts!=2))
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                
+                DynamicList<std::pair<label,label>> addedFaces;
+                bool contin = false
+                for(int l=0;(l<facesOfCells.size() && !contin);l++)
+                {
+                    if(usedCells[k].count(l)!=0)
+                        continue;
+                    
+                    for(int m=0;(m<facesOfCells[l].size() && !contin);m++)
+                    {
+                        label equalPnts = 0;
+                        for(int n=0;n<facesOfCells[l][m].size();n++)
+                        {
+                            if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[l][m][n])
+                                equalPnts++;
+                        }
+                        if(equalPnts==2)
+                        {
+                            addedFaces.append(std::pair<label,label>(l,m));
+                        }
+                        else if(equalPnts!=1)
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                }
+            }
+            
+            
+            
+            
+        }
+    }
+    
+    
+
+    Info<<"centerPointInd:"<<centerPointInd<<endl;
+    Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
         
     labelList offset(facesInCellsIn.size(),0);
     label counter = 0;
@@ -1268,6 +1352,7 @@ void computeClosedFaceFront
                 continue;
             
             std::pair<label,label> startFace(i,j);
+            Info<<"startFace:("<<startFace.first<<"|"<<startFace.second<<")"<<endl;
             DynamicList<DynamicList<std::pair<label,label>>> faceConnectionsOfInitalFace;
 
             DynamicList<std::pair<label,label>> neighborFaces;
@@ -1277,7 +1362,7 @@ void computeClosedFaceFront
                     continue;
                 for(int l=0;l<facesInCellsIn[k].size();l++)
                 {
-                    Info<<"k:"<<k<<"  l:"<<l<<"   startFace.first:"<<startFace.first<<"   startFace.second:"<<startFace.second<<endl;
+                    //Info<<"k:"<<k<<"  l:"<<l<<"   startFace.first:"<<startFace.first<<"   startFace.second:"<<startFace.second<<endl;
                     if(facesShareEdge(facesInCellsIn[k][l],facesInCellsIn[startFace.first][startFace.second]))
                     {
                         neighborFaces.append(std::pair<label,label>(k,l));
@@ -1292,8 +1377,8 @@ void computeClosedFaceFront
             }
             Info<<endl;
             
-            DynamicList<label> neighborCells;
-            std::unordered_map<label,label> neighborCellsMap;
+            DynamicList<label> neighborCells;   //list of all neighboring cells of this face
+            std::unordered_map<label,label> neighborCellsMap; // map cell to neighborCells index
             for(int k=0;k<neighborFaces.size();k++)
             {
                 if(neighborCellsMap.count(neighborFaces[k].first)==0)
@@ -1302,11 +1387,28 @@ void computeClosedFaceFront
                     neighborCells.append(neighborFaces[k].first);
                 }
             }
+            Info<<"neighborCells:"<<neighborCells<<endl;
+            Info<<"neighborCellsMap:";
+            for(auto& key:neighborCellsMap)
+            {
+                Info<<" ("<<key.first<<"|"<<key.second<<")";
+            }
+            Info<<endl;
             DynamicList<DynamicList<std::pair<label,label>>> cellwiseNeighborFaces;
             cellwiseNeighborFaces.setSize(neighborCells.size());
             for(int k=0;k<neighborFaces.size();k++)
             {
                 cellwiseNeighborFaces[neighborCellsMap[neighborFaces[k].first]].append(neighborFaces[k]);
+            }
+            Info<<"cellwiseNeighborFaces:"<<endl;
+            for(int k=0;k<cellwiseNeighborFaces.size();k++)
+            {
+                Info<<"\t\tk:"<<k<<" ";
+                for(int l=0;l<cellwiseNeighborFaces[k].size();l++)
+                {
+                    Info<<"("<<cellwiseNeighborFaces[k][l].first<<"|"<<cellwiseNeighborFaces[k][l].second<<")";
+                }
+                Info<<endl;
             }
             if(facesInCellsIn.size()==1)
             {
@@ -1320,6 +1422,7 @@ void computeClosedFaceFront
                     for(int l=0;l<cellwiseNeighborFaces[k].size();l++)
                     {
                         std::pair<label,label> faceA = cellwiseNeighborFaces[k][l];
+                        Info<<"faceA: ("<<faceA.first<<"|"<<faceA.second<<")"<<endl;
                         if(facesMapInCellsIn[faceA.first][faceA.second].count(centerPointInd)==0)
                             continue;
                         
@@ -1332,6 +1435,7 @@ void computeClosedFaceFront
                             for(int n=0;n<cellwiseNeighborFaces[m].size();n++)
                             {
                                 std::pair<label,label> faceB = cellwiseNeighborFaces[m][n];
+                                Info<<"faceB: ("<<faceB.first<<"|"<<faceB.second<<")"<<endl;
                                 if(facesMapInCellsIn[faceB.first][faceB.second].count(centerPointInd)==0)
                                     continue;
                                 
@@ -1344,12 +1448,17 @@ void computeClosedFaceFront
                                     for(int p=0;p<facesInCellsIn[o].size();p++)
                                     {
                                         std::pair<label,label> posFourthFace(o,p);
-                                        Info<<"Line 1333"<<endl;
                                         if(facesShareEdge(facesInCellsIn[posFourthFace.first][posFourthFace.second],facesInCellsIn[faceA.first][faceA.second]) &&
                                         facesShareEdge(facesInCellsIn[posFourthFace.first][posFourthFace.second],facesInCellsIn[faceB.first][faceB.second]))
                                         {
                                             DynamicList<std::pair<label,label>> temp({startFace,faceA,faceB,posFourthFace});                                        
                                             faceConnectionsOfInitalFace.append(temp);
+                                            Info<<"Added:";
+                                            for(int x=0;x<temp.size();x++)
+                                            {
+                                                Info<<" ("<<temp[x].first<<"|"<<temp[x].second<<")"<<endl;
+                                            }
+                                            Info<<endl;
                                         }
                                     }
                                 }
