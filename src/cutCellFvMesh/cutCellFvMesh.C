@@ -1259,9 +1259,11 @@ void computeClosedFaceFront
         }
     }
     
-    //Combine facesInCells to faceFronts
-    enum fcState {OPEN,CLOSED,FAIL};
     
+    DynamicList<DynamicList<std::pair<label,label>>> uniqueCycles;
+    DynamicList<std::unordered_map<label,label>> uniqueCyclesMap;    
+    //Combine facesInCells to faceFronts
+    enum fcState {OPEN,CLOSED,FAIL};    
     for(int i=0;i<facesOfCells.size();i++)
     {
         for(int j=0;j<facesOfCells[i].size();j++)
@@ -1272,61 +1274,152 @@ void computeClosedFaceFront
             usedCells[0].insert(i);
             DynamicList<DynamicList<std::pair<label,label>>> faceCycle;
             faceCycle.setSize(1);
-            faceCycle[0].append(startFace)
+            faceCycle[0].append(startFace);
             DynamicList<fcState> state;
             state.setSize(1);
             state[0]=OPEN;
+            bool allDone = false;
             
-            for(int k=0;k<faceCycle.size();k++)
-            //Iterate over all cycles
+            while(!allDone)
             {
-                std::pair<label,label> currFace = faceCycle[k].last();
-                
-                // Test if cycle is closed
-                label equalPnts = 0;
-                for(int n=0;n<facesOfCells[startFace.first][startFace.second].size();n++)
+                label len = faceCycle.size();
+                for(int k=0;k<len;k++)
+                //Iterate over all cycles
                 {
-                    if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[startFace.first][startFace.second][n])
-                        equalPnts++;
-                }
-                if(faceCycle[k].size()>2 && equalPnts==2)
-                    //closed
-                else if((faceCycle[k].size()==1 && equalPnts!=4) || (faceCycle[k].size()==2 && equalPnts!=2))
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                
-                DynamicList<std::pair<label,label>> addedFaces;
-                bool contin = false
-                for(int l=0;(l<facesOfCells.size() && !contin);l++)
-                {
-                    if(usedCells[k].count(l)!=0)
+                    if(state[k] != OPEN)
                         continue;
                     
-                    for(int m=0;(m<facesOfCells[l].size() && !contin);m++)
+                    std::pair<label,label> currFace = faceCycle[k].last();
+                    
+                    // Test if cycle is closed
+                    label equalPnts = 0;
+                    for(int n=0;n<facesOfCells[startFace.first][startFace.second].size();n++)
                     {
-                        label equalPnts = 0;
-                        for(int n=0;n<facesOfCells[l][m].size();n++)
+                        if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[startFace.first][startFace.second][n])!=0)
+                            equalPnts++;
+                    }
+                    if(faceCycle[k].size()>2 && equalPnts==2)
+                    {
+                        state[k] = CLOSED;
+                        continue;
+                    }
+                    else if((faceCycle[k].size()==1 && equalPnts!=4) || (faceCycle[k].size()==2 && equalPnts!=2))
+                        FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    
+                    DynamicList<std::pair<label,label>> addedFaces;
+                    for(int l=0;l<facesOfCells.size();l++)
+                    {
+                        if(usedCells[k].count(l)!=0)
+                            continue;
+                        
+                        for(int m=0;m<facesOfCells[l].size();m++)
                         {
-                            if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[l][m][n])
-                                equalPnts++;
+                            label equalPnts = 0;
+                            for(int n=0;n<facesOfCells[l][m].size();n++)
+                            {
+                                if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[l][m][n])!=0)
+                                    equalPnts++;
+                            }
+                            if(equalPnts==2)
+                            {
+                                addedFaces.append(std::pair<label,label>(l,m));
+                            }
+                            else if(equalPnts!=1)
+                                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                         }
-                        if(equalPnts==2)
+                    }
+                    if(addedFaces.size()==0)
+                    {
+                        state[k] = FAIL;
+                    }
+                    else if(addedFaces.size()==1)
+                    {
+                        faceCycle[k].append(addedFaces[0]);
+                    }
+                    else
+                    {
+                        DynamicList<std::pair<label,label>> cpCycle = faceCycle[k];
+                        fcState cpState = state[k];
+                        faceCycle[k].append(addedFaces[0]);
+                        for(int o=1;o<addedFaces.size();o++)
                         {
-                            addedFaces.append(std::pair<label,label>(l,m));
+                            faceCycle.append(cpCycle);
+                            faceCycle.last().append(addedFaces[o]);
+                            state.append(cpState);
                         }
-                        else if(equalPnts!=1)
-                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     }
                 }
+                bool noOpen=true;
+                for(int k=0;k<state.size();k++)
+                {
+                    if(state[k]==OPEN)
+                        noOpen=false;
+                }
             }
-            
-            
-            
-            
+            for(int k=0;k<faceCycle.size();k++)
+            //iterate across all found closed face cycles
+            {
+                if(state[k]==FAIL)
+                    continue;
+                if(state[k]==OPEN)
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+
+                DynamicList<std::pair<label,label>> oneCylce = faceCycle[k];
+                bool noMatch = true;
+                for(int l=0;l<uniqueCyclesMap.size();l++)
+                //test one Face cycle against one map
+                {
+                    bool allFaceMatch = true;
+                    std::unordered_map<label,label> oneCycleMap = uniqueCyclesMap[l];
+                    for(int m=0;m<oneCylce.size();m++)
+                    //test one face against one cycleMap    
+                    {
+                        std::pair<label,label> oneFace = oneCylce[m];
+                        auto item = oneCycleMap.find(oneFace.first);
+                        if(!((item != oneCycleMap.end()) && (item->second==oneFace.second)))
+                        //face does not exist in map
+                        {                              
+                            allFaceMatch = false;
+                        }
+                    }
+                    if(allFaceMatch)
+                        noMatch = false;
+                }
+                if(noMatch)
+                {
+                    uniqueCycles.append(faceCycle[k]);
+                    std::unordered_map<label,label> cycleMap;
+                    for(int l=0;l<faceCycle[k].size();l++)
+                    {
+                        cycleMap.insert(faceCycle[k][l]);
+                    }
+                    uniqueCyclesMap.append(cycleMap);
+                }
+            }
         }
     }
     
+    if(uniqueCycles.size()==0)
+        FatalErrorInFunction<<"There must be at least one face front!"<< exit(FatalError);
+    for(int i=0;i<uniqueCycles.size();i++)
+    {
+        if(uniqueCycles[i].size()<3 || uniqueCycles[i].size()>8)
+            FatalErrorInFunction<<"There must be between 3 and 8 faces in a front!"<< exit(FatalError);
+    }
     
-
+    for(int i=0;i<uniqueCycles.size();i++)
+    {
+        closedFaceFrontOut.append(DynamicList<face>());
+        closedFaceFrontMapOut.append(DynamicList<std::unordered_set<label>>());
+        for(int j=0;j<uniqueCycles[i].size();j++)
+        {
+            std::pair<label,label> face = uniqueCycles[i][j];
+            closedFaceFrontOut.last().append(facesOfCells[face.first][face.second]);
+            closedFaceFrontMapOut.last().append(facesOfCellsMap[face.first][face.second]);
+        }
+    }
+    
+    /*
     Info<<"centerPointInd:"<<centerPointInd<<endl;
     Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
         
@@ -1525,6 +1618,7 @@ void computeClosedFaceFront
             closedFaceFrontMapOut.last().append(facesMapInCellsIn[face.first][face.second]);
         }
     }
+    */
 }
 
 List<bool> pointInFaceFront
