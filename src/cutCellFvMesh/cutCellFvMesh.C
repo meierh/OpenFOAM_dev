@@ -1241,6 +1241,10 @@ void computeClosedFaceFront
     DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
 )
 {
+    Info<<"---------------------------In Func-------------------"<<endl;
+    Info<<"centerPointInd:"<<centerPointInd<<endl;
+    Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
+    
     if(facesInCellsIn.size()!=facesMapInCellsIn.size())
         FatalErrorInFunction<<"Unequal range of parameters!"<< exit(FatalError);
     
@@ -1258,7 +1262,8 @@ void computeClosedFaceFront
             }
         }
     }
-    
+    Info<<"centerPointInd:"<<centerPointInd<<endl;
+    Info<<"facesOfCells:"<<facesOfCells<<endl;
     
     DynamicList<DynamicList<std::pair<label,label>>> uniqueCycles;
     DynamicList<std::unordered_map<label,label>> uniqueCyclesMap;    
@@ -1269,6 +1274,7 @@ void computeClosedFaceFront
         for(int j=0;j<facesOfCells[i].size();j++)
         {
             std::pair<label,label> startFace(i,j);
+            Info<<"start: "<<"("<<i<<"|"<<j<<")"<<endl;
             DynamicList<std::unordered_set<label>> usedCells;
             usedCells.setSize(1);
             usedCells[0].insert(i);
@@ -1282,6 +1288,22 @@ void computeClosedFaceFront
             
             while(!allDone)
             {
+                Info<<"\t\t"<<"faceCycle"<<endl;
+                for(int k=0;k<faceCycle.size();k++)
+                {
+                    Info<<"\t\t\t[";
+                    for(int l=0;l<faceCycle[k].size();l++)
+                    {
+                        Info<<" ("<<faceCycle[k][l].first<<"|"<<faceCycle[k][l].second<<")";
+                    }
+                    Info<<" ]";
+                    Info<<"   blocked:";
+                    for(auto key : usedCells[k])
+                        Info<<" "<<key;
+                    Info<<endl;
+                }
+                
+                
                 label len = faceCycle.size();
                 for(int k=0;k<len;k++)
                 //Iterate over all cycles
@@ -1303,9 +1325,14 @@ void computeClosedFaceFront
                         state[k] = CLOSED;
                         continue;
                     }
-                    else if((faceCycle[k].size()==1 && equalPnts!=4) || (faceCycle[k].size()==2 && equalPnts!=2))
+                    else if((faceCycle[k].size()==1 && equalPnts!=facesOfCells[faceCycle[k][0].first][faceCycle[k][0].second].size()) || (faceCycle[k].size()==2 && equalPnts!=2))
+                    {
+                        Info<<"faceCycle[k].size():"<<faceCycle[k].size()<<endl;
+                        Info<<"equalPnts:"<<equalPnts<<endl;
                         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
                     
+                    //Find the next faces
                     DynamicList<std::pair<label,label>> addedFaces;
                     for(int l=0;l<facesOfCells.size();l++)
                     {
@@ -1325,9 +1352,21 @@ void computeClosedFaceFront
                                 addedFaces.append(std::pair<label,label>(l,m));
                             }
                             else if(equalPnts!=1)
+                            {
+                                Info<<"currFace: ("<<currFace.first<<"|"<<currFace.second<<")"<<endl;
+                                Info<<"face: ("<<l<<"|"<<m<<" (";
+                                for(int n=0;n<facesOfCells[l][m].size();n++)
+                                {
+                                    if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[l][m][n])!=0)
+                                        Info<<" 1";
+                                }
+                                Info<<" )"<<endl;
                                 FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                            }
                         }
                     }
+                    
+                    //Add the next faces and duplicate if necessary
                     if(addedFaces.size()==0)
                     {
                         state[k] = FAIL;
@@ -1335,17 +1374,22 @@ void computeClosedFaceFront
                     else if(addedFaces.size()==1)
                     {
                         faceCycle[k].append(addedFaces[0]);
+                        usedCells[k].insert(addedFaces[0].first);
                     }
                     else
                     {
                         DynamicList<std::pair<label,label>> cpCycle = faceCycle[k];
                         fcState cpState = state[k];
                         faceCycle[k].append(addedFaces[0]);
+                        std::unordered_set<label> cpUsedCells = usedCells[k];
+                        usedCells[k].insert(addedFaces[0].first);
                         for(int o=1;o<addedFaces.size();o++)
                         {
                             faceCycle.append(cpCycle);
                             faceCycle.last().append(addedFaces[o]);
                             state.append(cpState);
+                            usedCells.append(cpUsedCells);
+                            usedCells.last().insert(addedFaces[o].first);
                         }
                     }
                 }
@@ -1355,6 +1399,9 @@ void computeClosedFaceFront
                     if(state[k]==OPEN)
                         noOpen=false;
                 }
+                if(noOpen)
+                    allDone=true;
+                Info<<endl;
             }
             for(int k=0;k<faceCycle.size();k++)
             //iterate across all found closed face cycles
@@ -1419,6 +1466,19 @@ void computeClosedFaceFront
         }
     }
     
+    for(int i=0;i<closedFaceFrontOut.size();i++)
+    {
+        Info<<"Face "<<i<<"  [";
+        for(int j=0;j<closedFaceFrontOut[i].size();j++)
+        {
+            Info<<closedFaceFrontOut[i][j]<<" ";
+        }
+        Info<<endl;
+    }
+    /*
+    if(centerPointInd==202631)
+        FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+    */
     /*
     Info<<"centerPointInd:"<<centerPointInd<<endl;
     Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
@@ -3075,6 +3135,10 @@ void Foam::cutCellFvMesh::newMeshEdges
         /*  Data separation of edges and connection to vertices
          *  Start
          */
+            Info<<"--------------------"<<endl;
+            Info<<"i:"<<i<<endl;
+            Info<<"edgeInd: "<<edgeInd<<endl;
+            Info<<"nbrOfPrevEdges: "<<nbrOfPrevEdges<<endl;
             label oldEdge = 0;
             label newEdge = 0;
             DynamicList<label> newEdgeLocalInd;
@@ -3086,7 +3150,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(edgeInd[j]>=nbrOfPrevEdges)
                 {
                     newEdge++;
-                    newEdgeLocalInd = j;
+                    newEdgeLocalInd.append(j);
                 }
                 else
                 {
@@ -3101,6 +3165,7 @@ void Foam::cutCellFvMesh::newMeshEdges
             
             std::unordered_map<label,label> cutEdgeLocalIndToNonZeroPntLocalInd;
             std::unordered_map<label,label> nonZeroPntLocalIndTocutEdgeLocalInd;
+            Info<<"newEdgeLocalInd:"<<newEdgeLocalInd<<endl;
             for(int j=0;j<newEdgeLocalInd.size();j++)
             {
                 edge zeroEdge = newMeshEdges_[edgeInd[newEdgeLocalInd[j]]];
@@ -3108,21 +3173,29 @@ void Foam::cutCellFvMesh::newMeshEdges
                 labelList edgePnts(2);
                 edgePnts[0] = zeroEdge.start();
                 edgePnts[1] = zeroEdge.end();
+                Info<<"j:"<<j<<"  zeroEdge:"<<zeroEdge<<endl;
+                Info<<"edgePnts:"<<edgePnts<<endl;
+                Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
                 for(int k=0;k<2;k++)
                 {
                     if(edgePnts[k]<nbrOfPrevPoints)
-                        edgePntsEdgeGlobInds[k].append(pointToEgde_[edgePnts[k]]);
-                    else
                         edgePntsEdgeGlobInds[k].append(pointToEdge[edgePnts[k]]);
+                    else
+                        edgePntsEdgeGlobInds[k].append(pointToEgde_[edgePnts[k]]);
                 }
+                Info<<"edgePntsEdgeGlobInds:"<<edgePntsEdgeGlobInds<<endl;
                 label nonZeroPntLocalIndForCutEdge=-1;
                 for(int k=0;k<edgePntsEdgeGlobInds[0].size();k++)
                 {
                     edge startEdge = newMeshEdges_[edgePntsEdgeGlobInds[0][k]];
+                    Info<<"  startEdge:"<<startEdge<<endl;
                     for(int l=0;l<edgePntsEdgeGlobInds[1].size();l++)
                     {
                         edge endEdge = newMeshEdges_[edgePntsEdgeGlobInds[1][k]];
+                        Info<<"    endEdge:"<<endEdge<<endl;
                         label comVertLocalInd = basisFaces[i].which(startEdge.commonVertex(endEdge));
+                        Info<<"    basisFaces[i]:"<<basisFaces[i]<<endl;
+                        Info<<"    comVertLocalInd:"<<comVertLocalInd<<endl;
                         if(comVertLocalInd!=-1)
                         {
                             if(nonZeroPntLocalIndForCutEdge==-1)
@@ -3134,6 +3207,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 if(nonZeroPntLocalIndForCutEdge==-1)
                     FatalErrorInFunction<<"No point. Can not happen!"<< exit(FatalError);
+                
+                if(i==585222)
+                    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+                
                 cutEdgeLocalIndToNonZeroPntLocalInd[j]=nonZeroPntLocalIndForCutEdge;
                 nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroPntLocalIndForCutEdge]=j;
             }
@@ -3665,8 +3742,10 @@ void Foam::cutCellFvMesh::newMeshEdges
                     computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                            zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                     Info<<"zeroPointsClosedFaces[j]:"<<zeroPointsClosedFaces[j]<<endl;
+                    /*
                     if(i==585222 && j==1)
                         FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+                    */
                 }
                 
                 List<List<bool>> vertexConnectedToVertex0(3);
@@ -3782,7 +3861,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(problematicFaceNewPoints[i]==0)
                 {
                     if(newEdgeLocalInd.size()!=1 || oldEdgeLocalInd.size()!=2)
+                    {
+                        Info<<"face: "<<i<<endl;
+                        Info<<"newEdgeLocalInd.size():"<<newEdgeLocalInd.size()<<endl;
+                        Info<<"oldEdgeLocalInd.size():"<<oldEdgeLocalInd.size()<<endl;
                         FatalErrorInFunction<<"Incorrect number of cut edges!"<< exit(FatalError);
+                    }
                         
                     label nonZeroPntLocalVerticeInd = -1;
                     for(int j=0;j<basisFaces[i].size();j++)
