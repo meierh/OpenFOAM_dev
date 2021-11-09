@@ -3176,6 +3176,8 @@ void Foam::cutCellFvMesh::newMeshEdges
                 Info<<"j:"<<j<<"  zeroEdge:"<<zeroEdge<<endl;
                 Info<<"edgePnts:"<<edgePnts<<endl;
                 Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
+                Info<<"    basisFaces[i]:"<<basisFaces[i]<<endl;
+                Info<<"faceEdges:"<<faceToEdge[i]<<endl;
                 for(int k=0;k<2;k++)
                 {
                     if(edgePnts[k]<nbrOfPrevPoints)
@@ -3184,35 +3186,74 @@ void Foam::cutCellFvMesh::newMeshEdges
                         edgePntsEdgeGlobInds[k].append(pointToEgde_[edgePnts[k]]);
                 }
                 Info<<"edgePntsEdgeGlobInds:"<<edgePntsEdgeGlobInds<<endl;
-                label nonZeroPntLocalIndForCutEdge=-1;
+                
+                DynamicList<label> nonZeroPntLocalIndForCutEdge;
                 for(int k=0;k<edgePntsEdgeGlobInds[0].size();k++)
                 {
                     edge startEdge = newMeshEdges_[edgePntsEdgeGlobInds[0][k]];
-                    Info<<"  startEdge:"<<startEdge<<endl;
+                    Info<<"  startEdge:"<<edgePntsEdgeGlobInds[0][k]<<startEdge<<endl;
                     for(int l=0;l<edgePntsEdgeGlobInds[1].size();l++)
                     {
-                        edge endEdge = newMeshEdges_[edgePntsEdgeGlobInds[1][k]];
-                        Info<<"    endEdge:"<<endEdge<<endl;
-                        label comVertLocalInd = basisFaces[i].which(startEdge.commonVertex(endEdge));
-                        Info<<"    basisFaces[i]:"<<basisFaces[i]<<endl;
+                        edge endEdge = newMeshEdges_[edgePntsEdgeGlobInds[1][l]];
+                        Info<<"    endEdge:"<<edgePntsEdgeGlobInds[1][l]<<endEdge<<endl;
+                        label comVertGlobalInd = startEdge.commonVertex(endEdge);
+                        Info<<"    comVertGlobalInd:"<<comVertGlobalInd<<endl;
+                        label comVertLocalInd = basisFaces[i].which(comVertGlobalInd);
                         Info<<"    comVertLocalInd:"<<comVertLocalInd<<endl;
                         if(comVertLocalInd!=-1)
                         {
-                            if(nonZeroPntLocalIndForCutEdge==-1)
-                                nonZeroPntLocalIndForCutEdge=comVertLocalInd;
-                            else
-                                FatalErrorInFunction<<"Double point. Can not happen!"<< exit(FatalError);
+                            nonZeroPntLocalIndForCutEdge.append(comVertLocalInd);
                         }
                     }
                 }
-                if(nonZeroPntLocalIndForCutEdge==-1)
+                if(nonZeroPntLocalIndForCutEdge.size()==0)
                     FatalErrorInFunction<<"No point. Can not happen!"<< exit(FatalError);
-                
+                else if(nonZeroPntLocalIndForCutEdge.size()==1)
+                {
+                    cutEdgeLocalIndToNonZeroPntLocalInd[j]=nonZeroPntLocalIndForCutEdge[0];
+                    nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroPntLocalIndForCutEdge[0]]=j;
+                }
+                else if(nonZeroPntLocalIndForCutEdge.size()==2)
+                {
+                    if(nonZeroPntLocalIndForCutEdge[0]<nbrOfPrevPoints && nonZeroPntLocalIndForCutEdge[1]<nbrOfPrevPoints)
+                    {
+                        label pnt0Side = pointsToSide_[basisFaces[i][nonZeroPntLocalIndForCutEdge[0]]];
+                        label pnt1Side = pointsToSide_[basisFaces[i][nonZeroPntLocalIndForCutEdge[1]]];
+                        if(pnt0Side==0 && pnt1Side==0)
+                            FatalErrorInFunction<<"No non zero point in face. Can not happen!"<< exit(FatalError);
+                        else if(pnt0Side!=0 && pnt1Side!=0)
+                        {
+                            Info<<"nonZeroPntLocalIndForCutEdge:"<<nonZeroPntLocalIndForCutEdge<<endl;
+                            Info<<"basisFaces[i]:"<<basisFaces[i]<<endl;
+                            for(int l=0;l<basisFaces[i].size();l++)
+                                Info<<" "<<pointsToSide_[basisFaces[i][l]];
+                            Info<<endl;
+                            FatalErrorInFunction<<"Only non zero point in face. Can not happen!"<< exit(FatalError);
+                        }
+                        else if(pnt0Side!=0)
+                        {
+                            cutEdgeLocalIndToNonZeroPntLocalInd[j]=nonZeroPntLocalIndForCutEdge[0];
+                            nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroPntLocalIndForCutEdge[0]]=j;
+                        }
+                        else if(pnt1Side!=0)
+                        {
+                            cutEdgeLocalIndToNonZeroPntLocalInd[j]=nonZeroPntLocalIndForCutEdge[1];
+                            nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroPntLocalIndForCutEdge[1]]=j;
+                        }
+                        else
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                    else
+                        FatalErrorInFunction<<"Double point. Can not happen!"<< exit(FatalError);
+                }
+                else
+                    FatalErrorInFunction<<"Multi point. Can not happen!"<< exit(FatalError);
+
+                    
+                /*
                 if(i==585222)
                     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
-                
-                cutEdgeLocalIndToNonZeroPntLocalInd[j]=nonZeroPntLocalIndForCutEdge;
-                nonZeroPntLocalIndTocutEdgeLocalInd[nonZeroPntLocalIndForCutEdge]=j;
+                */
             }
         /* End
          */
@@ -3527,6 +3568,11 @@ void Foam::cutCellFvMesh::newMeshEdges
                 labelList oldEdgesWithFacesTotalNbr(oldEdgeLocalInd.size(),0);
                 labelList oldEdgesWithFacesInFaceCellsNbr(oldEdgeLocalInd.size(),0);
                 // Counting as one for each cell with face
+                Info<<"oldEdgeLocalInd:"<<oldEdgeLocalInd<<endl;
+                for(int j=0;j<oldEdgeLocalInd.size();j++)
+                {
+                    Info<<"oldEdgeLocalInd["<<j<<"]:"<<newMeshEdges_[edgeInd[oldEdgeLocalInd[j]]]<<endl;
+                }
                 for(int j=0;j<oldEdgeLocalInd.size();j++)
                 {
                     //collect connected faces at old Edges in all connected cells
@@ -3558,7 +3604,21 @@ void Foam::cutCellFvMesh::newMeshEdges
                                 oneFaceContains = true;
                             }
                         }
+                        Info<<"j:"<<j<<" k:"<<k<<" ||";
+                        for(int a=0;a<thisCellFaceGroupsMap.size();a++)
+                        {
+                            Info<<"(";
+                            for(int b=0;b<thisCellFaceGroupsMap[a].size();b++)
+                            {
+                                Info<<"[";
+                                for(auto key: thisCellFaceGroupsMap[a][b])
+                                    Info<<key<<" ";
+                                Info<<"]"<<endl;
+                            }
+                            Info<<")"<<endl;
+                        }
                     }
+                    Info<<"j:"<<j<<" posClosedFacesAroundEdge:"<<posClosedFacesAroundEdge<<endl;
                     label faceCounter = 0;
                     for(int k=0;k<nbrRelCells;k++)
                     {
@@ -3579,6 +3639,12 @@ void Foam::cutCellFvMesh::newMeshEdges
                         else
                             FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                     }
+                }
+                
+                if(i==585222)
+                {
+                    Info<<"basisFaces["<<i<<"]:"<<basisFaces[i]<<endl;
+                    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
                 }
                 
                 label centralZeroPoint;
@@ -3873,10 +3939,26 @@ void Foam::cutCellFvMesh::newMeshEdges
                     {
                         if(pointDist[basisFaces[i][j]]!=0)
                         {
-                            if(nonZeroPntLocalVerticeInd!=-1)
+                            if(nonZeroPntLocalVerticeInd==-1)
+                            {
                                 nonZeroPntLocalVerticeInd = j;
+                                Info<<"Set:"<<j<<endl;
+                            }
                             else
+                            {
+                                Info<<"basisFaces["<<i<<"]:"<<basisFaces[i]<<endl;
+                                for(int k=0;k<basisFaces[i].size();k++)
+                                {
+                                    Info<<" pointDist["<<basisFaces[i][k]<<"]:"<<pointDist[basisFaces[i][k]];
+                                }
+                                Info<<endl;
+                                for(int k=0;k<basisFaces[i].size();k++)
+                                {
+                                    Info<<" pointsToSide_["<<basisFaces[i][k]<<"]:"<<pointsToSide_[basisFaces[i][k]];
+                                }
+                                Info<<endl;                                
                                 FatalErrorInFunction<<"Double non zero point. Can not happen!"<< exit(FatalError);
+                            }
                         }
                     }
                     if(nonZeroPntLocalVerticeInd==-1)
@@ -4019,6 +4101,9 @@ void Foam::cutCellFvMesh::newMeshEdges
                     */
                     if(!mustBeThreeEdges && !mustBeOnlyNewEdge && !mustBeOnlyOneOldEdge && !mustBeOTheNewAndOneOldEdge)
                     {
+                        Info<<"otherVertexXHasFaceConnectionOnlyToCenter[0]:"<<otherVertexXHasFaceConnectionOnlyToCenter[0]<<endl;
+                        Info<<"otherVertexXHasFaceConnectionOnlyToCenter[1]:"<<otherVertexXHasFaceConnectionOnlyToCenter[1]<<endl;
+                        Info<<"centerVertexHasNoFreeFaceConnection:"<<centerVertexHasNoFreeFaceConnection<<endl;
                         if(otherVertexXHasFaceConnectionOnlyToCenter[0] && otherVertexXHasFaceConnectionOnlyToCenter[1] && centerVertexHasNoFreeFaceConnection)
                         {
                         if((faceCells.size()==2 && oldEdgesWithFacesTotalNbr[0]>=2 && oldEdgesWithFacesTotalNbr[1]>=2)||
@@ -4052,7 +4137,17 @@ void Foam::cutCellFvMesh::newMeshEdges
                     else
                     {
                         if(faceCells.size()==2)
+                        {
+                            Info<<"basisFaces["<<i<<"]:"<<basisFaces[i]<<endl;
+                            Info<<"zeroPoints:"<<zeroPoints<<endl;
+                            Info<<"zeroPointsClosedFaces:"<<zeroPointsClosedFaces<<endl;                            
+                            Info<<"vertexConnectedToVertex0:"<<vertexConnectedToVertex0<<endl;
+                            Info<<"vertexConnectedToVertexCenter:"<<vertexConnectedToVertexCenter<<endl;
+                            Info<<"vertexConnectedToVertex1:"<<vertexConnectedToVertex1<<endl;
+                            Info<<"oldEdgesWithFacesTotalNbr[0]:"<<oldEdgesWithFacesTotalNbr[0]<<endl;
+                            Info<<"oldEdgesWithFacesTotalNbr[1]:"<<oldEdgesWithFacesTotalNbr[1]<<endl;
                             FatalErrorInFunction<< "Completely false face can not happen for inner face"<< exit(FatalError);
+                        }
                         
                         addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd[0]]);
                         addedEdgeToDelete.append(edgeInd[oldEdgeLocalInd[1]]);
