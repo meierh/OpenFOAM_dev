@@ -1354,7 +1354,7 @@ void computeClosedFaceFront
                             else if(equalPnts!=1)
                             {
                                 Info<<"currFace: ("<<currFace.first<<"|"<<currFace.second<<")"<<endl;
-                                Info<<"face: ("<<l<<"|"<<m<<" (";
+                                Info<<"face: ("<<l<<"|"<<m<<") (";
                                 for(int n=0;n<facesOfCells[l][m].size();n++)
                                 {
                                     if(facesOfCellsMap[currFace.first][currFace.second].count(facesOfCells[l][m][n])!=0)
@@ -3576,33 +3576,53 @@ void Foam::cutCellFvMesh::newMeshEdges
                 for(int j=0;j<oldEdgeLocalInd.size();j++)
                 {
                     //collect connected faces at old Edges in all connected cells
-                    const labelList& cellsOfEdge = edgeToCells[oldEdgeLocalInd[j]];
+                    const labelList& cellsOfEdge = edgeToCells[edgeInd[oldEdgeLocalInd[j]]];
+                    Info<<"oldEdgeLocalInd[j]:"<<oldEdgeLocalInd[j]<<endl;
+                    Info<<"edgeInd[oldEdgeLocalInd[j]]:"<<edgeInd[oldEdgeLocalInd[j]]<<endl;
+                    Info<<"edgeToCells[oldEdgeLocalInd[j]]:"<<edgeToCells[edgeInd[oldEdgeLocalInd[j]]]<<endl;
+                    edge thisOldEdge = newMeshEdges_[edgeInd[oldEdgeLocalInd[j]]];
                     label nbrRelCells = cellsOfEdge.size();
                     List<DynamicList<face>> posClosedFacesAroundEdge(nbrRelCells);
                     List<DynamicList<std::unordered_set<label>>> posClosedPointMapAroundEdge(nbrRelCells);
+                    Info<<"cellsOfEdge:"<<cellsOfEdge<<endl;
                     for(int k=0;k<cellsOfEdge.size();k++)
                     {
-                        DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiEdgeMap[cellsOfEdge[k]];
+                        DynamicList<DynamicList<std::unordered_set<label>>> thisCellFaceGroupsMap = cellNonConnectedMultiPointMap[cellsOfEdge[k]];
                         DynamicList<DynamicList<face>> thisCellFaceGroups = cellNonConnectedMultiFaces[cellsOfEdge[k]];
                         bool oneFaceContains = false;
+                        Info<<"k:"<<k<<"  cellsOfEdge[k]:"<<cellsOfEdge[k]<<" thisCellFaceGroups:"<<thisCellFaceGroups<<endl;
                         for(int l=0;l<thisCellFaceGroupsMap.size();l++)
                         {
-                            bool faceGroupContainsPoint = false;
+                            Info<<"[";
                             for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
                             {
-                                if(thisCellFaceGroupsMap[l][m].count(oldEdgeLocalInd[j])!=0)
+                                Info<<"(";
+                                for(auto key:thisCellFaceGroupsMap[l][m])
+                                    Info<<key<<" ";
+                                Info<<") ";
+                            }
+                            Info<<"]"<<endl;
+                        }
+                        for(int l=0;l<thisCellFaceGroupsMap.size();l++)
+                        {
+                            
+                            bool faceGroupContainsBothPoint = false;
+                            for(int m=0;m<thisCellFaceGroupsMap[l].size();m++)
+                            {
+                                if(thisCellFaceGroupsMap[l][m].count(thisOldEdge.start())!=0 && thisCellFaceGroupsMap[l][m].count(thisOldEdge.end())!=0)
                                 {
                                     if(oneFaceContains)
                                         FatalErrorInFunction<<"Seperate cut face groups share a point!"<< exit(FatalError);
-                                    faceGroupContainsPoint = true;
+                                    faceGroupContainsBothPoint = true;
                                 }
                             }
-                            if(faceGroupContainsPoint)
+                            if(faceGroupContainsBothPoint)
                             {
                                 posClosedPointMapAroundEdge[k] = thisCellFaceGroupsMap[l];
                                 posClosedFacesAroundEdge[k] = thisCellFaceGroups[l];
                                 oneFaceContains = true;
                             }
+                            Info<<"l:"<<l<<"  faceGroupContainsBothPoint:"<<faceGroupContainsBothPoint<<endl;
                         }
                         Info<<"j:"<<j<<" k:"<<k<<" ||";
                         for(int a=0;a<thisCellFaceGroupsMap.size();a++)
@@ -3617,6 +3637,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                             }
                             Info<<")"<<endl;
                         }
+                        Info<<endl;
                     }
                     Info<<"j:"<<j<<" posClosedFacesAroundEdge:"<<posClosedFacesAroundEdge<<endl;
                     label faceCounter = 0;
@@ -3644,7 +3665,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 if(i==585222)
                 {
                     Info<<"basisFaces["<<i<<"]:"<<basisFaces[i]<<endl;
-                    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+                    //FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
                 }
                 
                 label centralZeroPoint;
