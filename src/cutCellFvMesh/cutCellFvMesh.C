@@ -2790,26 +2790,33 @@ void Foam::cutCellFvMesh::newMeshEdges
     Info<<"cellNonConnectedMultiPoints[198219]:"<<cellNonConnectedMultiPoints[198219]<<endl;
     for(int i=0;i<meshCells.size();i++)
     {
+        //Info<<"cellNonConnectedMultiPoints[i]:"<<cellNonConnectedMultiPoints[i]<<endl;
         for(int j=0;j<cellNonConnectedMultiPoints[i].size();j++)
         {
+            //Info<<"cellNonConnectedMultiPoints[i][j]:"<<cellNonConnectedMultiPoints[i][j]<<endl;
+            bool facesWereRemoved = false;
             cellNonConnectedMultiFaces[i].append(DynamicList<face>());
             cellNonConnectedMultiPointMap[i].append(DynamicList<std::unordered_set<label>>());
             cellNonConnectedMultiEdgeMap[i].append(DynamicList<std::unordered_set<label>>());
             for(int k=0;k<cellNonConnectedMultiPoints[i][j].size();k++)
             {
+                //Info<<"cellNonConnectedMultiPoints[i][j][k]:"<<cellNonConnectedMultiPoints[i][j][k]<<endl;
                 bool faceInFace = false;
                 DynamicList<label> usedPoints;
                 for(int l=0;l<cellNonConnectedMultiPoints[i][j][k].size();l++)
                 {
                     label cutFacePnt = cellNonConnectedMultiPoints[i][j][k][l];
+                    /*
                     Info<<"cutFacePnt:"<<cutFacePnt<<endl;
                     Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
                     Info<<"basisPoints.size():"<<basisPoints.size()<<endl;
                     Info<<"face:"<<face(cellNonConnectedMultiPoints[i][j][k])<<endl;
+                    
                     for(int m=0;m<cellNonConnectedMultiPoints[i][j][k].size();m++)
                     {
                         Info<<cellNonConnectedMultiPoints[i][j][k][m]<<":"<<pointToEgde_[cellNonConnectedMultiPoints[i][j][k][m]]<<endl;
-                    }                    
+                    }          
+                    */
                     
                     if(cutFacePnt<nbrOfPrevPoints)
                     {
@@ -2838,7 +2845,59 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(allInFace)
                         faceInFace = true;
                 }
-                if(!faceInFace)
+                bool faceContainsFace = false;
+                for(int l=0;l<thisCell.size();l++)
+                {
+                    if(problematicFace[thisCell[l]])
+                    {
+                        face thisFace = basisFaces[thisCell[l]];
+                        label nbrOfPntsInFace=0;
+                        for(int l=0;l<cellNonConnectedMultiPoints[i][j][k].size();l++)
+                        {
+                            label cutFacePnt = cellNonConnectedMultiPoints[i][j][k][l];
+                            if(cutFacePnt<nbrOfPrevPoints)
+                            {
+                                if(thisFace.which(cutFacePnt)!=-1)
+                                    nbrOfPntsInFace++;
+                            }
+                            else
+                            {
+                                label pntEdgeInd = pointToEgde_[cutFacePnt];
+                                if(pntEdgeInd==-1)
+                                    FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                                edge pntEdge = newMeshEdges_[pntEdgeInd];
+                                if(thisFace.which(pntEdge.start())!=-1 && thisFace.which(pntEdge.end())!=-1)
+                                    nbrOfPntsInFace++;
+                            }
+                        }
+                        if(problematicFacePoints[thisCell[l]]==4)
+                        {
+                            if(nbrOfPntsInFace==2 || nbrOfPntsInFace==0)
+                            {}
+                            else if(nbrOfPntsInFace==4)
+                            {
+                                faceContainsFace=true;
+                            }
+                            else
+                                FatalErrorInFunction<<"Problematic four point face must have 4, 2 or 0 points in Face"<< exit(FatalError);                                
+                        }
+                        else if(problematicFacePoints[thisCell[l]]==3)
+                        {
+                            if(nbrOfPntsInFace==2 || nbrOfPntsInFace==0)
+                            {}
+                            else if(nbrOfPntsInFace==3)
+                            {
+                                faceContainsFace=true;
+                            }
+                            else
+                                FatalErrorInFunction<<"Problematic four point face must have 3, 2 or 0 points in Face"<< exit(FatalError);                                
+                        }
+                    }
+                }
+                if(faceContainsFace && !faceInFace)
+                    facesWereRemoved = true;
+                
+                if(!faceInFace && !faceContainsFace)
                 {
                     cellNonConnectedMultiFaces[i].last().append(face(cellNonConnectedMultiPoints[i][j][k]));
                     cellNonConnectedMultiPointMap[i].last().append(std::unordered_set<label>());
@@ -2849,10 +2908,39 @@ void Foam::cutCellFvMesh::newMeshEdges
                         cellNonConnectedMultiEdgeMap[i].last().last().insert(cellNonConnectedMultiEdges[i][j][k][l]);
                     }
                 }
+                //Info<<"faceInFace:"<<faceInFace<<endl;
+                //Info<<"faceContainsFace:"<<faceContainsFace<<endl;
             }
+            if(facesWereRemoved)
+            {
+                if(cellNonConnectedMultiFaces[i].last().size()==0)
+                    FatalErrorInFunction<<"Removed face from face Group but no face remained! Can not happen."<< exit(FatalError);
+            }
+            //Info<<"facesWereRemoved:"<<facesWereRemoved<<endl;
+        }
+        
+        if(i==198218 || i==198219 || i==198538 || i==198539 || i==211018 || i==211019 || i==211338 || i==211339)
+        {
+            Info<<"------Cell: "<<i<<"--------------------------------------------"<<endl;
+            Info<<"cellNonConnectedMultiPoints[i]:"<<cellNonConnectedMultiPoints[i]<<endl;
+            Info<<"cellNonConnectedMultiFaces[i]:"<<cellNonConnectedMultiFaces[i]<<endl;
+            std::unordered_set<label> newPnts;
+            for(int a=0;a<cellNonConnectedMultiPoints[i].size();a++)
+            {
+                for(int b=0;b<cellNonConnectedMultiPoints[i][a].size();b++)
+                {
+                    for(int c=0;c<cellNonConnectedMultiPoints[i][a][b].size();c++)
+                    {
+                        if(cellNonConnectedMultiPoints[i][a][b][c]>=nbrOfPrevPoints)
+                            newPnts.insert(cellNonConnectedMultiPoints[i][a][b][c]);
+                    }
+                }
+            }
+            for(label pnt:newPnts)
+                Info<<"pnt:"<<pnt<<" -> "<<newMeshEdges_[pointToEgde_[pnt]]<<endl; 
         }
     }
-    //FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
+    FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
     
     const labelListList& pointToCells = this->pointCells();
     const labelListList& edgeToCells = this->edgeCells();
@@ -4718,7 +4806,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     cellToEdges_ = cellToEdges_Cp;
     
     
-    //FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
+    FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::findCycles
