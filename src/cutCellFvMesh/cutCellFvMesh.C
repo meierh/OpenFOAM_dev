@@ -1235,12 +1235,14 @@ bool facesShareEdge
 void computeClosedFaceFront
 (
     label centerPointInd,
+    label faceInd,
     List<DynamicList<face>>& facesInCellsIn,
     List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
     DynamicList<DynamicList<face>>& closedFaceFrontOut,
     DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
 )
 {
+    const faceList& basisFaces = this->faces();
     Info<<"---------------------------In Func-------------------"<<endl;
     Info<<"centerPointInd:"<<centerPointInd<<endl;
     Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
@@ -1253,6 +1255,57 @@ void computeClosedFaceFront
     List<DynamicList<std::unordered_set<label>>> facesOfCellsMap(facesInCellsIn.size());
     for(int i=0;i<facesInCellsIn.size();i++)
     {
+        if(facesInCellsIn[i].size()>1)
+        {
+            DynamicList<label> faceInFace;
+            DynamicList<label> faceInCell;
+            DynamicList<label> faceMixed;
+            for(int j=0;j<facesInCellsIn[i].size();j++)
+            {
+                bool isFaceInFace = false;
+                bool isFaceMixed = false;
+                bool isFaceInCell = false;
+                face thisFace = basisFaces[faceInd];
+                DynamicList<label> usedPoints;
+                for(int k=0;k<facesInCellsIn[i][j].size();k++)
+                {
+                    label cutFacePnt = facesInCellsIn[i][j][k];                    
+                    if(cutFacePnt<nbrOfPrevPoints)
+                    {
+                        usedPoints.append(cutFacePnt);
+                    }
+                    else
+                    {
+                        label pntEdgeInd = pointToEgde_[cutFacePnt];
+                        if(pntEdgeInd==-1)
+                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                        edge pntEdge = newMeshEdges_[pntEdgeInd];
+                        usedPoints.append(pntEdge.start());
+                        usedPoints.append(pntEdge.end());
+                    }
+                }
+                bool allInFace = true;
+                label nbrPntsInFace=0;
+                for(int k=0;k<usedPoints.size();k++)
+                {
+                    if(thisFace.which(usedPoints[k])==-1)
+                        nbrPntsInFace++;
+                }
+                if(nbrPntsInFace==facesInCellsIn[i].size())
+                    faceInFace = true;
+                else if(nbrPntsInFace==3 && facesInCellsIn[i].size()>3)
+                    isFaceMixed = true;
+                else
+                    isFaceInCell = true;
+                    
+                
+                if(faceContainsFace && !faceInFace)
+                    facesWereRemoved = true;
+                
+                if(!faceInFace && !faceContainsFace)
+                {}
+            }
+        }
         for(int j=0;j<facesInCellsIn[i].size();j++)
         {
             if(facesMapInCellsIn[i][j].count(centerPointInd)!=0)
@@ -1351,7 +1404,7 @@ void computeClosedFaceFront
                             {
                                 addedFaces.append(std::pair<label,label>(l,m));
                             }
-                            else if(equalPnts!=1)
+                            else if(equalPnts!=1 && (facesOfCells[currFace.first][currFace.second].size()!=facesOfCells[l][m].size())
                             {
                                 Info<<"currFace: ("<<currFace.first<<"|"<<currFace.second<<")"<<endl;
                                 Info<<"face: ("<<l<<"|"<<m<<") (";
@@ -2800,13 +2853,13 @@ void Foam::cutCellFvMesh::newMeshEdges
             cellNonConnectedMultiEdgeMap[i].append(DynamicList<std::unordered_set<label>>());
             for(int k=0;k<cellNonConnectedMultiPoints[i][j].size();k++)
             {
-                //Info<<"cellNonConnectedMultiPoints[i][j][k]:"<<cellNonConnectedMultiPoints[i][j][k]<<endl;
                 bool faceInFace = false;
+                bool faceContainsFace = false;
+                /*
                 DynamicList<label> usedPoints;
                 for(int l=0;l<cellNonConnectedMultiPoints[i][j][k].size();l++)
                 {
                     label cutFacePnt = cellNonConnectedMultiPoints[i][j][k][l];
-                    /*
                     Info<<"cutFacePnt:"<<cutFacePnt<<endl;
                     Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
                     Info<<"basisPoints.size():"<<basisPoints.size()<<endl;
@@ -2816,7 +2869,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                     {
                         Info<<cellNonConnectedMultiPoints[i][j][k][m]<<":"<<pointToEgde_[cellNonConnectedMultiPoints[i][j][k][m]]<<endl;
                     }          
-                    */
                     
                     if(cutFacePnt<nbrOfPrevPoints)
                     {
@@ -2845,7 +2897,6 @@ void Foam::cutCellFvMesh::newMeshEdges
                     if(allInFace)
                         faceInFace = true;
                 }
-                bool faceContainsFace = false;
                 for(int l=0;l<thisCell.size();l++)
                 {
                     if(problematicFace[thisCell[l]])
@@ -2896,7 +2947,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 }
                 if(faceContainsFace && !faceInFace)
                     facesWereRemoved = true;
-                
+                */
                 if(!faceInFace && !faceContainsFace)
                 {
                     cellNonConnectedMultiFaces[i].last().append(face(cellNonConnectedMultiPoints[i][j][k]));
@@ -2911,11 +2962,13 @@ void Foam::cutCellFvMesh::newMeshEdges
                 //Info<<"faceInFace:"<<faceInFace<<endl;
                 //Info<<"faceContainsFace:"<<faceContainsFace<<endl;
             }
+            /*
             if(facesWereRemoved)
             {
                 if(cellNonConnectedMultiFaces[i].last().size()==0)
                     FatalErrorInFunction<<"Removed face from face Group but no face remained! Can not happen."<< exit(FatalError);
             }
+            */
             //Info<<"facesWereRemoved:"<<facesWereRemoved<<endl;
         }
         
@@ -2940,7 +2993,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 Info<<"pnt:"<<pnt<<" -> "<<newMeshEdges_[pointToEgde_[pnt]]<<endl; 
         }
     }
-    FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
+    //FatalErrorInFunction<< "Temp stop"<< exit(FatalError);
     
     const labelListList& pointToCells = this->pointCells();
     const labelListList& edgeToCells = this->edgeCells();
