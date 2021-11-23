@@ -1232,10 +1232,11 @@ bool facesShareEdge
     return false;
 }
 
-void computeClosedFaceFront
+void Foam::cutCellFvMesh::computeClosedFaceFront
 (
     label centerPointInd,
     label faceInd,
+    labelList& problematicFacePoints,
     List<DynamicList<face>>& facesInCellsIn,
     List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
     DynamicList<DynamicList<face>>& closedFaceFrontOut,
@@ -1253,70 +1254,147 @@ void computeClosedFaceFront
     //Remove faces not touching the centerPointInd
     List<DynamicList<face>> facesOfCells(facesInCellsIn.size());
     List<DynamicList<std::unordered_set<label>>> facesOfCellsMap(facesInCellsIn.size());
+    List<DynamicList<bool>> inFaceFaceOfCells(facesInCellsIn.size());
     for(int i=0;i<facesInCellsIn.size();i++)
     {
-        if(facesInCellsIn[i].size()>1)
-        {
-            DynamicList<label> faceInFace;
-            DynamicList<label> faceInCell;
-            DynamicList<label> faceMixed;
-            for(int j=0;j<facesInCellsIn[i].size();j++)
-            {
-                bool isFaceInFace = false;
-                bool isFaceMixed = false;
-                bool isFaceInCell = false;
-                face thisFace = basisFaces[faceInd];
-                DynamicList<label> usedPoints;
-                for(int k=0;k<facesInCellsIn[i][j].size();k++)
-                {
-                    label cutFacePnt = facesInCellsIn[i][j][k];                    
-                    if(cutFacePnt<nbrOfPrevPoints)
-                    {
-                        usedPoints.append(cutFacePnt);
-                    }
-                    else
-                    {
-                        label pntEdgeInd = pointToEgde_[cutFacePnt];
-                        if(pntEdgeInd==-1)
-                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
-                        edge pntEdge = newMeshEdges_[pntEdgeInd];
-                        usedPoints.append(pntEdge.start());
-                        usedPoints.append(pntEdge.end());
-                    }
-                }
-                bool allInFace = true;
-                label nbrPntsInFace=0;
-                for(int k=0;k<usedPoints.size();k++)
-                {
-                    if(thisFace.which(usedPoints[k])==-1)
-                        nbrPntsInFace++;
-                }
-                if(nbrPntsInFace==facesInCellsIn[i].size())
-                    faceInFace = true;
-                else if(nbrPntsInFace==3 && facesInCellsIn[i].size()>3)
-                    isFaceMixed = true;
-                else
-                    isFaceInCell = true;
-                    
-                
-                if(faceContainsFace && !faceInFace)
-                    facesWereRemoved = true;
-                
-                if(!faceInFace && !faceContainsFace)
-                {}
-            }
-        }
+        DynamicList<label> faceInFace;
+        DynamicList<label> faceInCell;
+        DynamicList<label> faceMixed;
+        label removedFaces=0;
         for(int j=0;j<facesInCellsIn[i].size();j++)
         {
+            //test if face contains center point
+            bool faceContainsCenterPnt=false;
             if(facesMapInCellsIn[i][j].count(centerPointInd)!=0)
+                faceContainsCenterPnt=true;
+            else
+                removedFaces++;
+            
+            bool isFaceInFace = false;
+            bool isFaceMixed = false;
+            bool isFaceInCell = false;
+            face thisFace = basisFaces[faceInd];
+            
+            //find all used points
+            std::unordered_set<label> usedPoints;
+            for(int k=0;k<facesInCellsIn[i][j].size();k++)
             {
-                facesOfCells[i].append(facesInCellsIn[i][j]);
-                facesOfCellsMap[i].append(facesMapInCellsIn[i][j]);
+                label cutFacePnt = facesInCellsIn[i][j][k];                    
+                if(cutFacePnt<nbrOfPrevPoints)
+                {
+                    usedPoints.insert(cutFacePnt);
+                }
+                else
+                {
+                    label pntEdgeInd = pointToEgde_[cutFacePnt];
+                    if(pntEdgeInd==-1)
+                        FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
+                    edge pntEdge = newMeshEdges_[pntEdgeInd];
+                    usedPoints.insert(pntEdge.start());
+                    usedPoints.insert(pntEdge.end());
+                }
             }
+            
+            //count used points in face
+            bool allInFace = true;
+            label nbrPntsInFace=0;
+            for(int pnt : usedPoints)
+            {
+                Info<<"pnt:"<<pnt<<endl;
+                if(thisFace.which(pnt)!=-1)
+                    nbrPntsInFace++;
+            }
+            
+            //evaluate situation 
+            if(problematicFacePoints[faceInd]==4)
+            {
+                if(nbrPntsInFace==2 || nbrPntsInFace==0)
+                    isFaceInCell=true;
+                else if(nbrPntsInFace==3)
+                    FatalErrorInFunction<<"Can not happen"<< exit(FatalError);
+                else if(nbrPntsInFace==4 && facesInCellsIn[i].size()==4)
+                    isFaceInFace=true;
+                else if(nbrPntsInFace==4 && facesInCellsIn[i].size()>4)
+                    isFaceMixed=true;
+                else
+                    FatalErrorInFunction<<"Problematic four point face must have 3, 2 or 0 points in Face"<< exit(FatalError);
+            }
+            else if(problematicFacePoints[faceInd]==3)
+            {
+                if(nbrPntsInFace==2 || nbrPntsInFace==1 || nbrPntsInFace==0)
+                    isFaceInCell=true;
+                else if(nbrPntsInFace==3 && facesInCellsIn[i][j].size()==3)
+                    isFaceInFace=true;
+                else if(nbrPntsInFace==3 && facesInCellsIn[i][j].size()>3)
+                    isFaceMixed=true;
+                else
+                {
+                    Info<<"basisFaces["<<faceInd<<"]:"<<basisFaces[faceInd]<<endl;
+                    Info<<"i:"<<i<<"  j:"<<j<<endl;
+                    Info<<"nbrPntsInFace:"<<nbrPntsInFace<<endl;
+                    FatalErrorInFunction<<"Problematic four point face must have 3, 2 or 0 points in Face"<< exit(FatalError);      
+                }
+            }                
+            else if(problematicFacePoints[faceInd]==2)
+            {
+                isFaceInCell=true;
+            }
+            else
+            {
+                Info<<"problematicFacePoints["<<faceInd<<"]:"<<problematicFacePoints[faceInd]<<endl;
+                FatalErrorInFunction<<"ProblematicFacePoints must be 4,3 or 2!"<< exit(FatalError);
+            }
+            if(faceContainsCenterPnt)
+            {
+                if(isFaceInFace && !isFaceMixed && !isFaceInCell)
+                    faceInFace.append(j);
+                else if(!isFaceInFace && isFaceMixed && !isFaceInCell)
+                    faceMixed.append(j);
+                else if(!isFaceInFace && !isFaceMixed && isFaceInCell)
+                    faceInCell.append(j);
+                else
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+            }
+        }
+        
+        if((removedFaces+faceInFace.size()+faceInCell.size()+faceMixed.size())!=facesInCellsIn[i].size())
+        {
+            Info<<"removedFaces:"<<removedFaces<<endl;
+            Info<<"faceInFace:"<<faceInFace<<endl;
+            Info<<"faceInCell:"<<faceInCell<<endl;
+            Info<<"faceMixed:"<<faceMixed<<endl;
+            Info<<"facesInCellsIn["<<i<<"]:"<<facesInCellsIn[i]<<endl;
+            FatalErrorInFunction<<"Faces lost! Can not happen."<< exit(FatalError);
+        }
+        if(faceInFace.size()==0 && (facesInCellsIn[i].size()-removedFaces)>1)
+        {
+            Info<<"facesInCellsIn["<<i<<"]:"<<facesInCellsIn[i]<<endl;
+            FatalErrorInFunction<<"One face in face must exist for multi face cells that call this function!"<< exit(FatalError);
+        }
+        if(faceMixed.size()>0 && (faceInFace.size()==0 || faceInCell.size()==0))
+            FatalErrorInFunction<<"Mixed face but not faceInFace and FaceInCell! Can not happen."<< exit(FatalError);
+        
+        Info<<"removedFaces:"<<removedFaces<<endl;
+        Info<<"faceInFace:"<<faceInFace<<endl;
+        Info<<"faceInCell:"<<faceInCell<<endl;
+        Info<<"faceMixed:"<<faceMixed<<endl;
+        for(int j=0;j<faceInFace.size();j++)
+        {
+            facesOfCells[i].append(facesInCellsIn[i][faceInFace[j]]);
+            facesOfCellsMap[i].append(facesMapInCellsIn[i][faceInFace[j]]);
+            inFaceFaceOfCells[i].append(true);
+        }
+        for(int j=0;j<faceInCell.size();j++)
+        {
+            facesOfCells[i].append(facesInCellsIn[i][faceInCell[j]]);
+            facesOfCellsMap[i].append(facesMapInCellsIn[i][faceInCell[j]]);
+            inFaceFaceOfCells[i].append(false);
         }
     }
     Info<<"centerPointInd:"<<centerPointInd<<endl;
     Info<<"facesOfCells:"<<facesOfCells<<endl;
+    
+    
     
     DynamicList<DynamicList<std::pair<label,label>>> uniqueCycles;
     DynamicList<std::unordered_map<label,label>> uniqueCyclesMap;    
@@ -1404,7 +1482,7 @@ void computeClosedFaceFront
                             {
                                 addedFaces.append(std::pair<label,label>(l,m));
                             }
-                            else if(equalPnts!=1 && (facesOfCells[currFace.first][currFace.second].size()!=facesOfCells[l][m].size())
+                            else if(equalPnts!=1 && (facesOfCells[currFace.first][currFace.second].size()!=facesOfCells[l][m].size()))
                             {
                                 Info<<"currFace: ("<<currFace.first<<"|"<<currFace.second<<")"<<endl;
                                 Info<<"face: ("<<l<<"|"<<m<<") (";
@@ -1526,12 +1604,13 @@ void computeClosedFaceFront
         {
             Info<<closedFaceFrontOut[i][j]<<" ";
         }
+        Info<<"]"<<endl;
         Info<<endl;
     }
-    /*
+    
     if(centerPointInd==202631)
         FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
-    */
+    
     /*
     Info<<"centerPointInd:"<<centerPointInd<<endl;
     Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
@@ -3539,7 +3618,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                     }
                                 }
                             }
-                            computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                            computeClosedFaceFront(zeroPoints[j],i,problematicFacePoints,posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                                     zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                         }
 
@@ -3967,7 +4046,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         Info<<"Cell:"<<cellsAtPoint[a]<<"  "<<oneCell.labels(basisFaces)<<endl<<"\t\t"<<oneCell.points(basisFaces,basisPoints)<<endl;
                     }
 
-                    computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                    computeClosedFaceFront(zeroPoints[j],i,problematicFacePoints,posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                            zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                     Info<<"zeroPointsClosedFaces[j]:"<<zeroPointsClosedFaces[j]<<endl;
                     /*
@@ -4732,7 +4811,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                             }
                         }
                     }
-                    computeClosedFaceFront(zeroPoints[j],posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
+                    computeClosedFaceFront(zeroPoints[j],i,problematicFacePoints,posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
                                            zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                 }                
                 List<List<bool>> vertexConnectedToVertex0(2);

@@ -312,6 +312,17 @@ class cutCellFvMesh   :   public fvMesh
             scalar& nurbsPara
         );
         
+        void computeClosedFaceFront
+        (
+            label centerPointInd,
+            label faceInd,
+            labelList& problematicFacePoints,
+            List<DynamicList<face>>& facesInCellsIn,
+            List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
+            DynamicList<DynamicList<face>>& closedFaceFrontOut,
+            DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
+        );
+        
         // Add faces for cutting the cells and create dependency data for creating cut cells
         // Adds to faces_;
         void newMeshFaces();
