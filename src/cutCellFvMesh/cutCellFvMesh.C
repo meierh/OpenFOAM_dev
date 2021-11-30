@@ -1239,6 +1239,7 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
     labelList& problematicFacePoints,
     List<DynamicList<face>>& facesInCellsIn,
     List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
+    DynamicList<bool> closedFaceFrontOutFaceInFace,
     DynamicList<DynamicList<face>>& closedFaceFrontOut,
     DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
 )
@@ -1395,7 +1396,8 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
     Info<<"facesOfCells:"<<facesOfCells<<endl;
     
     DynamicList<DynamicList<std::pair<label,label>>> uniqueCycles;
-    DynamicList<std::unordered_map<label,label>> uniqueCyclesMap;    
+    DynamicList<std::unordered_map<label,label>> uniqueCyclesMap; 
+    DynamicList<bool> uniqueCyclesFaceInFace;
     //Combine facesInCells to faceFronts
     enum fcState {OPEN=0,CLOSED=1,FAIL=-1};    
     for(int i=0;i<facesOfCells.size();i++)
@@ -1419,6 +1421,7 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
             
             while(!allDone)
             {
+                /*
                 Info<<"\t\t"<<"faceCycle"<<endl;
                 for(int k=0;k<faceCycle.size();k++)
                 {
@@ -1434,7 +1437,7 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
                     Info<<"   "<<"fcstate:"<<state[k];
                     Info<<endl;
                 }
-                
+                */
                 
                 label len = faceCycle.size();
                 for(int k=0;k<len;k++)
@@ -1636,6 +1639,14 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
                         cycleMap.insert(faceCycle[k][l]);
                     }
                     uniqueCyclesMap.append(cycleMap);
+                    
+                    bool oneFaceInFace = false;
+                    for(int l=0;l<faceCycle[k].size();l++)
+                    {
+                        std::pair<label,label> thisFace = faceCycle[k][l];
+                        oneFaceInFace |= inFaceFaceOfCells[thisFace.first][thisFace.second];
+                    }
+                    uniqueCyclesFaceInFace.append(oneFaceInFace);
                 }
             }
             
@@ -1654,6 +1665,14 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
                     for(auto key : usedCells[k])
                         Info<<" "<<key;
                     Info<<"   "<<"fcstate:"<<state[k];
+                    
+                    bool oneFaceInFace = false;
+                    for(int l=0;l<faceCycle[k].size();l++)
+                    {
+                        std::pair<label,label> thisFace = faceCycle[k][l];
+                        oneFaceInFace |= inFaceFaceOfCells[thisFace.first][thisFace.second];
+                    }
+                    Info<<"   oneFaceInFace:"<<oneFaceInFace;
                     Info<<endl;
                 }
                 //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
@@ -1673,6 +1692,7 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
     {
         closedFaceFrontOut.append(DynamicList<face>());
         closedFaceFrontMapOut.append(DynamicList<std::unordered_set<label>>());
+        closedFaceFrontOutFaceInFace.append(uniqueCyclesFaceInFace[i]);
         for(int j=0;j<uniqueCycles[i].size();j++)
         {
             std::pair<label,label> face = uniqueCycles[i][j];
@@ -1688,7 +1708,7 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
         {
             Info<<closedFaceFrontOut[i][j]<<" ";
         }
-        Info<<"]"<<endl;
+        Info<<"]  "<<closedFaceFrontOutFaceInFace<<endl;
         Info<<endl;
     }
     
@@ -3468,6 +3488,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         // four zero Points to list
                         List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                         List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
+                        List<DynamicList<bool>> zeroPointsClosedFaces_FaceInFace(zeroPoints.size());
                         for(int j=0;j<zeroPoints.size();j++)
                         {
                             //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
@@ -3502,7 +3523,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                                 }
                             }
                             computeClosedFaceFront(zeroPoints[j],i,problematicFacePoints,posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
-                                                    zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
+                                                   zeroPointsClosedFaces_FaceInFace[j],zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                         }
 
                         List<List<scalar>> edgeToOuterAngle(edgeInd.size());
@@ -3846,7 +3867,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                 List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
-                
+                List<DynamicList<bool>> zeroPointsClosedFaces_FaceInFace(zeroPoints.size());
                 for(int j=0;j<zeroPoints.size();j++)
                 {
                     //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
@@ -3930,7 +3951,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                     }
 
                     computeClosedFaceFront(zeroPoints[j],i,problematicFacePoints,posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
-                                           zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
+                                           zeroPointsClosedFaces_FaceInFace[j],zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                     Info<<"zeroPointsClosedFaces[j]:"<<zeroPointsClosedFaces[j]<<endl;
                     /*
                     if(i==585222 && j==1)
@@ -4662,6 +4683,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                 
                 List<DynamicList<DynamicList<face>>> zeroPointsClosedFaces(zeroPoints.size());
                 List<DynamicList<DynamicList<std::unordered_set<label>>>> zeroPointsClosedFaceMap(zeroPoints.size());
+                List<DynamicList<bool>> zeroPointsClosedFaces_FaceInFace(zeroPoints.size());
                 for(int j=0;j<zeroPoints.size();j++)
                 {
                     //collect all faces in neighboring cells connected to the point in posClosedFacesAroundPoint
@@ -4695,7 +4717,7 @@ void Foam::cutCellFvMesh::newMeshEdges
                         }
                     }
                     computeClosedFaceFront(zeroPoints[j],i,problematicFacePoints,posClosedFacesAroundPoint,posClosedPointMapAroundPoint,
-                                           zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
+                                           zeroPointsClosedFaces_FaceInFace[j],zeroPointsClosedFaces[j],zeroPointsClosedFaceMap[j]);
                 }                
                 List<List<bool>> vertexConnectedToVertex0(2);
                 List<List<bool>> vertexConnectedToVertex1(2);                    
