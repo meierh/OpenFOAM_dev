@@ -317,6 +317,7 @@ class cutCellFvMesh   :   public fvMesh
             label centerPointInd,
             label faceInd,
             labelList& problematicFacePoints,
+            const labelList& cellsInd,
             List<DynamicList<face>>& facesInCellsIn,
             List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
             DynamicList<bool> closedFaceFrontOutFaceInFace,
