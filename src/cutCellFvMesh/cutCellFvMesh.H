@@ -109,6 +109,13 @@ class cutCellFvMesh   :   public fvMesh
             //label of added edge or zero side edge for every cell or zero size
             DynamicList<DynamicList<label>> cellToEdges_;
             //labelListList cellToEdges_;
+            
+            //true if face is problematic due to zero points -> 4,3 or 2 zero points
+            List<bool> problematicFace;
+            //number of total zero points in problematic face
+            List<label> problematicFacePoints;
+            //number of total new zero points in problematic face
+            List<label> problematicFaceNewPoints;
       //End
             
       //Faces and data added by addMeshFaces function
@@ -320,9 +327,19 @@ class cutCellFvMesh   :   public fvMesh
             const labelList& cellsInd,
             List<DynamicList<face>>& facesInCellsIn,
             List<DynamicList<std::unordered_set<label>>>& facesMapInCellsIn,
-            DynamicList<bool> closedFaceFrontOutFaceInFace,
+            DynamicList<bool>& closedFaceFrontOutFaceInFace,
             DynamicList<DynamicList<face>>& closedFaceFrontOut,
             DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
+        );
+        
+        void groupEdgesToFaces
+        (
+            List<DynamicList<DynamicList<label>>>& cellNonconnectedEdges,
+            List<DynamicList<DynamicList<DynamicList<label>>>>& cellNonConnectedMultiPoints,
+            List<DynamicList<DynamicList<DynamicList<label>>>>& cellNonConnectedMultiEdges,
+            List<DynamicList<DynamicList<face>>>& cellNonConnectedMultiFaces,
+            List<DynamicList<DynamicList<std::unordered_set<label>>>>& cellNonConnectedMultiPointMap,
+            List<DynamicList<DynamicList<std::unordered_set<label>>>>& cellNonConnectedMultiEdgeMap
         );
         
         // Add faces for cutting the cells and create dependency data for creating cut cells
