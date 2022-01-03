@@ -185,8 +185,8 @@ class cutCellFvMesh   :   public fvMesh
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
             //list of indexes of plus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewPlusCell;
-            //list of all cells that have been deleted
-            labelList deletedCellsList;
+            //list of all cell, true for the ones that have been deleted
+            List<bool> deletedCell;
             //list of labels to map old cell index to new plus side cut cell index; deleted Cells are set to -1
             DynamicList<DynamicList<label>> mapOldCellsToNewCells;
             //list of labels to map new cell index to old cells

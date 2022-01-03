@@ -295,7 +295,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         Info<< " took \t"<< time_span.count() << " seconds."<<endl;
         Info<<"-------------------------------------------"<<endl;
 
-        Info<<"Combine resetPrimitives data";
+        Info<<"Combine resetPrimitives data"<<endl;
         t1 = std::chrono::high_resolution_clock::now();
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
@@ -311,6 +311,26 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
         neighbour.append(splitAndUnsplitFaceBoundaryNeighbor);
         neighbour.append(addedCutFaceNeighbor);
         neighbour.append(splitAndUnsplitFaceInteriorToBoundaryNeighbor);
+        
+        for(int i=0;i<owner.size();i++)
+        {
+            if(owner[i]<0)
+            {
+                Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+                Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
+                Info<<"owner[i]:"<<owner[i]<<endl;
+                Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+                FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
+            }
+            if(neighbour[i]<-1)
+            {
+                Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+                Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
+                Info<<"owner[i]:"<<owner[i]<<endl;
+                Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+                FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
+            }
+        }
         
         Info<<"3"<<endl;
         for(int i=0;i<patchStarts.size();i++)
@@ -348,7 +368,12 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     //printMesh();
     //FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
 
+    Info<<"Correcting face normal direction";
+    t1 = std::chrono::high_resolution_clock::now();
     correctFaceNormalDir(newMeshPoints_,faces,owner,neighbour);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
 
     const pointField& oldPoints = this->points();
     const faceList& oldFaceList = this->faces();
