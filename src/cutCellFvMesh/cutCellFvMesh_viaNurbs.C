@@ -331,6 +331,18 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                 FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
             }
         }
+
+        Info<<"addedCutFaceOwner[4420]:"<<addedCutFaceOwner[4420]<<endl;
+        Info<<"addedCutFaceNeighbor[4420]:"<<addedCutFaceNeighbor[4420]<<endl;
+        Info<<"addedCutFaces[4420]:"<<addedCutFaces[4420]<<endl;
+        
+        Info<<"splitAndUnsplitFacesInterior: "<<splitAndUnsplitFacesInterior.size()<<endl;
+        Info<<"splitAndUnsplitFacesBoundary: "<<splitAndUnsplitFacesBoundary.size()<<endl;
+        Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
+        Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
+        
+        //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+
         
         Info<<"3"<<endl;
         for(int i=0;i<patchStarts.size();i++)
@@ -387,6 +399,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
         
+    Info<<"Reset:"<<endl;
     resetPrimitives(Foam::clone(newMeshPoints_),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -396,11 +409,12 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
                     true);
     Info<<"First self test"<<endl;
     selfTestMesh();
-        
+    
     const cellList& newCells = this->cells();
     newCellVolume = scalarList(newCells.size());
     for(int i=0;i<newCellVolume.size();i++)
     {
+        Info<<"i:"<<i<<endl;
         newCellVolume[i] = newCells[i].mag(newMeshPoints_,this->faces());
     }
     
@@ -417,6 +431,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     Info<<"Written"<<endl;
     //printMesh();
     selfTestMesh();
+    Info<<"Ending"<<endl;
 }
  
 void Foam::cutCellFvMesh::projectNurbsSurface()

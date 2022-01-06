@@ -60,7 +60,7 @@ Foam::cutCellFvMesh::cutCellFvMesh
     }
     else if(state == delNegMesh)
     {
-        createNewMeshData_cutNeg();
+        createNewMeshData_cutNeg_plus();
 
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
@@ -629,9 +629,78 @@ void Foam::cutCellFvMesh::newMeshPoints
         
         if(pos == +1 && neg == -1)
         {
+            bool found;
+            vector lhsToRhs = basisPoints[endLabel]-basisPoints[startLabel];
+            
+            scalar lhsPhi = phiStart;
+            scalar lhsScale = 0;
+            vector lhsPoint = basisPoints[startLabel];
+            
+            scalar rhsPhi = phiEnd;
+            scalar rhsScale = 1;
+            vector rhsPoint = basisPoints[endLabel];
+            
+            scalar centerPhi;
+            scalar centerScale = 0.5;
+            vector centerPoint = basisPoints[startLabel]+0.5*lhsToRhs;
+            centerPhi = distToNurbs(centerPoint,found);
+            if(!found)
+                FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+            
+            enum SideIndicator {lhs_cnt, cnt_rhs};
+            SideIndicator side;
+            
+            label count = 0;
+            while(std::abs(centerPhi)>10e-10)
+            {
+                if(std::signbit(centerPhi)!=std::signbit(lhsPhi))
+                {
+                    rhsScale = centerScale;
+                    rhsPoint = basisPoints[startLabel]+rhsScale*lhsToRhs;
+                    rhsPhi = distToNurbs(rhsPoint,found);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);       
+                }
+                else if(std::signbit(centerPhi)!=std::signbit(rhsPhi))
+                {
+                    lhsScale = centerScale;
+                    lhsPoint = basisPoints[startLabel]+lhsScale*lhsToRhs;
+                    lhsPhi = distToNurbs(lhsPoint,found);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);  
+                }
+                else
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);              
+                
+                //Linear Interpolation
+                scalar m=(rhsPhi-lhsPhi)/(rhsScale-lhsScale);
+                scalar b=rhsPhi-m*rhsScale;
+                centerScale = -b/m; 
+                
+                //if linear interpolation fails use center point
+                if(centerScale<lhsScale || centerScale>rhsScale)
+                {
+                    centerScale = 0.5*(lhsScale+rhsScale);
+                }
+                
+                centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                centerPhi = distToNurbs(centerPoint,found);
+                if(!found)
+                    FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                
+                count++;
+                if(count>=100)
+                {
+                    Info<<endl;
+                    Info<<"phiStart:"<<phiStart<<endl;
+                    Info<<"phiEnd:"<<phiEnd<<endl;
+                    FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
+                }
+            }
+            
+            /*
             //Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
             Info<<phiStart<<" -> "<<phiEnd<<endl;
-            vector startToEnd = basisEdges[i].vec(basisPoints);
             //Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
             //scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
             //Info<<"norm_startToEnd: "<<norm_startToEnd<<endl;;
@@ -690,57 +759,68 @@ void Foam::cutCellFvMesh::newMeshPoints
                 
                 while(std::abs(phiN)>10e-10)
                 {
-                    if(count>=90)
+                    if(count<50)
                     {
-                        Info<<"Over 90"<<endl;
-                        Info<<"phiN: "<<phiN<<endl;
-                        Info<<"scalePointN: "<<scalePointN<<endl;
-                        Info<<"newPoint: "<<newPoint<<endl;
-                    }
-                    if(count>100)
-                    {
-                        FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
-                    }
-                    Info<<"scalePointO:"<<scalePointO<<endl;
-                    Info<<"scalePointN:"<<scalePointN<<endl;
-                    Info<<"phiO:"<<phiO<<endl;
-                    Info<<"phiN:"<<phiN<<endl;
-                    if(phiO!=phiN || scalePointO!=scalePointN)
-                    {
-                        scalar m=(phiO-phiN)/(scalePointO-scalePointN);
-                        Info<<"m:"<<m<<endl;
-                        scalar b=phiO-m*scalePointO;
-                        Info<<"b:"<<b<<endl;
-                        scalar x = -b/m;
-                        Info<<"x:"<<x<<endl;
-                        phiO = phiN;
-                        scalePointO = scalePointN;
-                        phiO = phiN;
-                        scalePointN = x;
+                        Info<<"-------------------------"<<endl;
+                        if(count>=100)
+                        {
+                            Info<<"Over 90"<<endl;
+                            Info<<"phiN: "<<phiN<<endl;
+                            Info<<"scalePointN: "<<scalePointN<<endl;
+                            Info<<"newPoint: "<<newPoint<<endl;
+                        }
+                        if(count>90)
+                        {
+                            Info<<endl;
+                            Info<<"phiStart:"<<phiStart<<endl;
+                            Info<<"phiEnd:"<<phiEnd<<endl;
+                            FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
+                        }
+                        //Info<<"scalePointO:"<<scalePointO<<endl;
+                        //Info<<"scalePointN:"<<scalePointN<<endl;
+                        //Info<<"phiO:"<<phiO<<endl;
+                        //Info<<"phiN:"<<phiN<<endl;
+                        if(phiO!=phiN || scalePointO!=scalePointN)
+                        {
+                            scalar m=(phiO-phiN)/(scalePointO-scalePointN);
+                            //Info<<"m:"<<m<<endl;
+                            scalar b=phiO-m*scalePointO;
+                            //Info<<"b:"<<b<<endl;
+                            scalar x = -b/m;
+                            //Info<<"x:"<<x<<endl;
+                            phiO = phiN;
+                            scalePointO = scalePointN;
+                            phiO = phiN;
+                            scalePointN = x;
+                        }
+                        else
+                        {
+                            if(std::signbit(phiO)!=std::signbit(phiStart))
+                            {
+                                scalar m=(phiO-phiStart)/(scalePointO-0);
+                                scalar b=phiO-m*scalePointO;
+                                scalePointN = -b/m;
+                            }
+                            else if(std::signbit(phiO)!=std::signbit(phiEnd))
+                            {
+                                scalar m=(phiO-phiEnd)/(scalePointO-1);
+                                scalar b=phiO-m*scalePointO;
+                                scalePointN = -b/m;
+                            }
+                            else
+                                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                        }
+                        newPoint = basisPoints[startLabel] + scalePointN * startToEnd;
+                        phiN = distToNurbs(newPoint,found);
+                        if(!found)
+                            FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                        count++;
+                        Info<<"--dist:"<<phiN<<endl;
                     }
                     else
                     {
-                        if(std::signbit(phiO)!=std::signbit(phiStart))
-                        {
-                            scalar m=(phiO-phiStart)/(scalePointO-0);
-                            scalar b=phiO-m*scalePointO;
-                            scalePointN = -b/m;
-                        }
-                        else if(std::signbit(phiO)!=std::signbit(phiEnd))
-                        {
-                            scalar m=(phiO-phiEnd)/(scalePointO-1);
-                            scalar b=phiO-m*scalePointO;
-                            scalePointN = -b/m;
-                        }
-                        else
-                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                        
                     }
-                    newPoint = basisPoints[startLabel] + scalePointN * startToEnd;
-                    phiN = distToNurbs(newPoint,found);
-                    if(!found)
-                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-                    count++;
-                    Info<<"--dist:"<<phiN<<endl;
                 }
                 //FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
             }
@@ -753,8 +833,18 @@ void Foam::cutCellFvMesh::newMeshPoints
                 Info<<phiStart<<" -> "<<phiEnd<<endl;
                 Info<<"Added: "<<newPoint<<endl<<endl;
             }
+            */
+            
+            Info<<"---------------------"<<count<<endl;
+            Info<<"lhsPhi:"<<lhsPhi<<"\t\t\t"<<"rhsPhi:"<<rhsPhi<<endl;
+            Info<<"lhsScale:"<<lhsScale<<"\t\t\t"<<"rhsScale:"<<rhsScale<<endl;
+            Info<<"lhsPoint:"<<lhsPoint<<"\t\t\t"<<"rhsPoint:"<<rhsPoint<<endl;
 
-            newMeshPointsInFunc.append(newPoint);
+            Info<<"\tcenterPhi:"<<centerPhi<<endl;
+            Info<<"\tcenterScale:"<<centerScale<<endl;
+            Info<<"\tcenterPoint:"<<centerPoint<<endl;
+
+            newMeshPointsInFunc.append(centerPoint);
             
             pointsToSide_.append(0);
             
@@ -807,6 +897,9 @@ void Foam::cutCellFvMesh::newMeshPoints
             edgeToPoint_[i] = -1;
         }
     }
+    //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
+
+    
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -6029,6 +6122,14 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
         }
     }
 
+    Info<<"cellNonConnectedMultiFaces[210379]:"<<cellNonConnectedMultiFaces[210379]<<endl;
+    const labelList& cellPointInds = meshCells[210379].labels(basisFaces);
+    for(int i=0;i<cellPointInds.size();i++)
+    {
+        Info<<cellPointInds[i]<<"   "<<basisPoints[cellPointInds[i]]<<endl;
+    }
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    
     Info<<"faceInFace[35]:"<<faceInFace[35]<<endl;
     Info<<"faceInCell[35]:"<<faceInCell[35]<<endl;
     Info<<"faceMixed[35]:"<<faceMixed[35]<<endl;
@@ -8436,6 +8537,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     const labelListList& cellToPoints = this->cellPoints();
     
     // Store old boundary patches
+    labelList oldFaceToPatchInd(meshFaces.size(),-1);
     patchStarts = labelList(boundMesh.size());
     patchSizes = labelList(boundMesh.size());
     Info<<endl;
@@ -8443,8 +8545,18 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     {
         patchStarts[i] = boundMesh[i].start();
         patchSizes[i] = boundMesh[i].faceCentres().size();
-        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        word namePatch = boundMesh[i].name();
+        Info<<namePatch<<"   BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
+    for(int i=0;i<patchStarts.size();i++)
+    {
+        for(int j=0;j<patchSizes[i];j++)
+        {
+            oldFaceToPatchInd[patchStarts[i]+j] = i;
+        }
+    }
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+
     
     //Prepare data storage for old to new cell index
     oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
@@ -8847,36 +8959,40 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
     }
     
-    label maxOldCellToNewCellInd = 0;
+    label maxOldCellToNewCellIndPlus = 0;
+    label maxOldCellToNewCellIndMinus = 0;
     for(int i=0;i<oldSplittedCellToNewPlusCell.size();i++)
     {
         for(int j=0;j<oldSplittedCellToNewPlusCell[i].size();j++)
         {
-            if(maxOldCellToNewCellInd<oldSplittedCellToNewPlusCell[i][j])
-                maxOldCellToNewCellInd = oldSplittedCellToNewPlusCell[i][j];
+            if(maxOldCellToNewCellIndPlus<oldSplittedCellToNewPlusCell[i][j])
+                maxOldCellToNewCellIndPlus = oldSplittedCellToNewPlusCell[i][j];
         }
         for(int j=0;j<oldSplittedCellToNewMinusCell[i].size();j++)
         {
-            if(maxOldCellToNewCellInd<oldSplittedCellToNewMinusCell[i][j])
-                maxOldCellToNewCellInd = oldSplittedCellToNewMinusCell[i][j];
+            if(maxOldCellToNewCellIndMinus<oldSplittedCellToNewMinusCell[i][j])
+                maxOldCellToNewCellIndMinus = oldSplittedCellToNewMinusCell[i][j];
         }
     }
-    label maxCellToNewCellInd = 0;
+    label maxCellToNewCellIndPlus = 0;
+    label maxCellToNewCellIndMinus = 0;
     for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
     {
         for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
         {
-            if(maxCellToNewCellInd<cellToNewPlusCellsIndexes[i][j])
-                maxCellToNewCellInd = cellToNewPlusCellsIndexes[i][j];
+            if(maxCellToNewCellIndPlus<cellToNewPlusCellsIndexes[i][j])
+                maxCellToNewCellIndPlus = cellToNewPlusCellsIndexes[i][j];
         }
         for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
         {
-            if(maxCellToNewCellInd<cellToNewMinusCellsIndexes[i][j])
-                maxCellToNewCellInd = cellToNewMinusCellsIndexes[i][j];
+            if(maxCellToNewCellIndMinus<cellToNewMinusCellsIndexes[i][j])
+                maxCellToNewCellIndMinus = cellToNewMinusCellsIndexes[i][j];
         }
     }
-    maxOldCellToNewCellInd++;
-    maxCellToNewCellInd++;
+    maxOldCellToNewCellIndPlus++;
+    maxOldCellToNewCellIndMinus++;
+    maxCellToNewCellIndPlus++;
+    maxCellToNewCellIndMinus++;
     
     Info<<"addedCellIndex:"<<addedCellIndex<<endl;
         
@@ -8885,6 +9001,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     addedCutFaces.setCapacity(cellToFaces_.size());
     addedCutFaceNeighbor.setCapacity(cellToFaces_.size());
     addedCutFaceOwner.setCapacity(cellToFaces_.size());
+    addedCutFacePatchInd.setCapacity(cellToFaces_.size());
     for(int i=0;i<cellToFaces_.size();i++)
     {
         for(int j=0;j<cellToFaces_[i].size();j++)
@@ -8924,24 +9041,30 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     addedCutFaces.append(addedFace);
                     addedCutFaceNeighbor.append(-1);
                     addedCutFaceOwner.append(i);
+                    addedCutFacePatchInd.append(patchStarts.size()-1);
                 }
                 else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
                 {
                     addedCutFaces.append(addedFace);
                     addedCutFaceNeighbor.append(-1);
                     addedCutFaceOwner.append(i);
+                    addedCutFacePatchInd.append(patchStarts.size()-1);
                 }
                 else if(oldSplittedCellToNewPlusCell[i].size()>1 && oldSplittedCellToNewMinusCell[i].size()==1)
                 {
                     addedCutFaces.append(addedFace);
                     addedCutFaceNeighbor.append(-1);
                     addedCutFaceOwner.append(oldSplittedCellToNewPlusCell[i][j]);
+                    addedCutFacePatchInd.append(patchStarts.size()-1);                    
                 }
                 else
                     FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
             }
         }
     }
+    
+    Info<<"addedCutFaces.size():"<<addedCutFaces.size()<<endl;
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
 
     //Info<<endl<<"cellToNewPlusCellsIndexes:"<<cellToNewPlusCellsIndexes<<endl;
     //Info<<endl<<"cellToNewMinusCellsIndexes:"<<cellToNewMinusCellsIndexes<<endl;
@@ -9038,6 +9161,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 }
                     
                 label newOwnerCell = -1;
+                label newOwnerCellPlusOrMinus = 0;
                 for(int k=0;k<ownerNewMinusCellsPointLabelsMap.size();k++)
                 {
                     bool allFacePntsInside = true;
@@ -9051,7 +9175,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     if(allFacePntsInside)
                     {
                         if(newOwnerCell==-1)
+                        {
                             newOwnerCell = ownerNewMinusCellsIndex[k];
+                            newOwnerCellPlusOrMinus = -1;
+                        }
                         else
                             FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
                     }                        
@@ -9083,7 +9210,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     if(allFacePntsInside)
                     {
                         if(newOwnerCell==-1)
+                        {
                             newOwnerCell = ownerNewPlusCellsIndex[k];
+                            newOwnerCellPlusOrMinus = +1;
+                        }
                         else
                             FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
                     }
@@ -9118,6 +9248,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
                 }
                 label newNeighborCell = -1;
+                label newNeighborCellPlusOrMinus = 0;
                 for(int k=0;k<neighbourNewMinusCellsPointLabelsMap.size();k++)
                 {
                     bool allFacePntsInside = true;
@@ -9131,7 +9262,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     if(allFacePntsInside)
                     {
                         if(newNeighborCell==-1)
+                        {
                             newNeighborCell = neighbourNewMinusCellsIndex[k];
+                            newNeighborCellPlusOrMinus = -1;
+                        }
                         else
                             FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
                     }
@@ -9162,7 +9296,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     if(allFacePntsInside)
                     {
                         if(newNeighborCell==-1)
+                        {
                             newNeighborCell = neighbourNewPlusCellsIndex[k];
+                            newNeighborCellPlusOrMinus = +1;
+                        }
                         else
                             FatalErrorInFunction<< "Old splitted face neigbours two newSplit Cells." << exit(FatalError);
                     }
@@ -9207,20 +9344,33 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     Info<<"newOwnerCell:"<<newOwnerCell<<endl;
                     Info<<"signFace1:"<<signFace1<<endl;
                     Info<<"face1:"<<face1<<endl;
+                    Info<<"newOwnerCellPlusOrMinus:"<<newOwnerCellPlusOrMinus<<endl;
+                    Info<<"newNeighborCellPlusOrMinus:"<<newNeighborCellPlusOrMinus<<endl;
+                    
                     //FatalErrorInFunction<< "Zero face must have no neighbor" << exit(FatalError);
                 }
                 if(signFace1==0)
                 {
-                    splitAndUnsplitFaceInteriorNeighbor.append(-1);
+                    if(newOwnerCellPlusOrMinus==+1 && newNeighborCellPlusOrMinus==-1)
+                    {
+                        splitAndUnsplitFaceInteriorNeighbor.append(-1);
+                        splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
+                    }
+                    else if(newOwnerCellPlusOrMinus==-1 && newNeighborCellPlusOrMinus==+1)
+                    {
+                        splitAndUnsplitFaceInteriorNeighbor.append(-1);
+                        splitAndUnsplitFaceInteriorOwner.append(newNeighborCell);
+                    }
+                    else
+                        FatalErrorInFunction<<"Zero face in face does not border a negative and a positive cell" << exit(FatalError);
                 }
                 else
                 {
                     splitAndUnsplitFaceInteriorNeighbor.append(newNeighborCell);
-                    addedSplitCellsInteriorNbr++;
+                    splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
                 }
-
-                splitAndUnsplitFaceInteriorOwner.append(newOwnerCell);
-
+                
+                addedSplitCellsInteriorNbr++;
                 addedOneFace = true;
                 
                 if(splitAndUnsplitFaceInteriorOwner.size()==751491)
@@ -9248,9 +9398,18 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             {
                 splitAndUnsplitFacesInterior.append(meshFaces[i]);
                 splitAndUnsplitFaceInteriorNeighbor.append(-1);
-                splitAndUnsplitFaceInteriorOwner.append(owner[i]);
-                addedOneFace = true;
+                // splitAndUnsplitFaceInteriorOwner.append(owner[i]); Old code
                 
+                label ownerCellSide = cellsToSide_[owner[i]];
+                label neighbourCellSide = cellsToSide_[neighbour[i]];
+                if(ownerCellSide==+1 && neighbourCellSide==-1)
+                    splitAndUnsplitFaceInteriorOwner.append(owner[i]);
+                else if(ownerCellSide==-1 && neighbourCellSide==+1)
+                    splitAndUnsplitFaceInteriorOwner.append(neighbour[i]);
+                else
+                    FatalErrorInFunction<<"Complete four point zero face must neighbor a negative and a positive cell"<< exit(FatalError);
+                
+                addedOneFace = true;                
             }
             // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
@@ -9270,21 +9429,25 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
     }
 
-    Info<<"maxOldCellToNewCellInd:"<<maxOldCellToNewCellInd<<endl;
-    Info<<"maxCellToNewCellInd:"<<maxCellToNewCellInd<<endl;
-    
-
+    Info<<endl;
+    Info<<"nbrOfOldCells:"<<meshCells.size()<<endl;
+    Info<<"maxOldCellToNewCellIndPlus:"<<maxOldCellToNewCellIndPlus<<endl;
+    Info<<"maxOldCellToNewCellIndMinus:"<<maxOldCellToNewCellIndMinus<<endl;
+    Info<<"maxCellToNewCellIndPlus:"<<maxCellToNewCellIndPlus<<endl;
+    Info<<"maxCellToNewCellIndMinus:"<<maxCellToNewCellIndMinus<<endl;
     Info<<"addedCellIndex:"<<addedCellIndex<<endl;
+    Info<<endl;
+    
     Info<<"1 splitAndUnsplitFaceInteriorOwner[751490]:"<<splitAndUnsplitFaceInteriorOwner[751490]<<endl;
     
     //Info<<endl<<"splitAndUnsplitFaceInteriorOwner"<<splitAndUnsplitFaceInteriorOwner<<endl;
     //Info<<endl<<"splitAndUnsplitFaceInteriorNeighbor"<<splitAndUnsplitFaceInteriorNeighbor<<endl;
     
-    Info<<"New Boundary"<<endl;
+    //Info<<"New Boundary"<<endl;
     for(int i=0;i<boundMesh.size();i++)
     {
         patchStarts[i] += addedSplitCellsInteriorNbr-neighbour.size();
-        Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        //Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
     
     //Info<<"Insert split faces boundary"<<endl;
@@ -9409,7 +9572,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         if(patchSizes[currBoundaryPatch] <= countOldBoundaryFaces)
         {
             patchSizes[currBoundaryPatch] = countNewBoundaryFaces;
-            Info<<"NewPatchSize["<<currBoundaryPatch<<"]: "<<patchSizes[currBoundaryPatch]<<endl;
+            //Info<<"NewPatchSize["<<currBoundaryPatch<<"]: "<<patchSizes[currBoundaryPatch]<<endl;
             currBoundaryPatch++;
             countNewBoundaryFaces = 0;
             countOldBoundaryFaces = 0;            
@@ -9479,7 +9642,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     //Info<<endl<<"cellReductionNumb: "<<cellReductionNumb<<endl;
     //Info<<endl<<"mapOldCellsToNewCells: "<<mapOldCellsToNewCells<<endl;
     
-    Info<<"countDel:"<<countDel<<endl;
     Info<<"4 splitAndUnsplitFaceInteriorOwner[751490]:"<<splitAndUnsplitFaceInteriorOwner[751490]<<endl;
 
     label maxNumOfNewCells = 0;
@@ -9502,9 +9664,13 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     maxNumOfNewCells++;
     maxNumOfNewCellsNonCorr++; // added
     //Info<<endl<<"mapOldCellsToNewCells: "<<mapOldCellsToNewCells<<endl;
-    Info<<endl<<"maxNumOfNewCells: "<<maxNumOfNewCells<<endl;
-    Info<<endl<<"maxNumOfNewCellsNonCorr: "<<maxNumOfNewCellsNonCorr<<endl;
-    Info<<endl<<"cellReductionNumb.size(): "<<cellReductionNumb.size()<<endl;
+    
+    Info<<endl;
+    Info<<"countDel:"<<countDel<<endl;
+    Info<<"maxNumOfNewCells: "<<maxNumOfNewCells<<endl;
+    Info<<"maxNumOfNewCellsNonCorr: "<<maxNumOfNewCellsNonCorr<<endl;
+    Info<<"cellReductionNumb.size(): "<<cellReductionNumb.size()<<endl;
+    Info<<endl;
     Info<<"5 splitAndUnsplitFaceInteriorOwner[751490]:"<<splitAndUnsplitFaceInteriorOwner[751490]<<endl;
     
     for(int i=cellReductionNumb.size();i<maxNumOfNewCellsNonCorr;i++)
@@ -9579,13 +9745,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     for(int i=0;i<splitAndUnsplitFacesInterior.size();i++)
     {
         if(splitAndUnsplitFaceInteriorNeighbor[i] == -1)
-        {
-            if(tempOwnerNonNeighb.size()==11)
-            {
-                Info<<"splitAndUnsplitFaceInteriorOwner["<<i<<"]:"<<splitAndUnsplitFaceInteriorOwner[i]<<endl;
-                FatalErrorInFunction<<"splitAndUnsplitFaceInteriorOwner temp stop"<< exit(FatalError); 
-            }
-                
+        {                
             tempFaceNonNeighb.append(splitAndUnsplitFacesInterior[i]);
             tempOwnerNonNeighb.append(splitAndUnsplitFaceInteriorOwner[i]);
             tempNeighbourNonNeighb.append(splitAndUnsplitFaceInteriorNeighbor[i]);
@@ -9603,7 +9763,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     Info<<"tempFaceNonNeighb:"<<tempFaceNonNeighb<<endl;
     Info<<"tempOwnerNonNeighb:"<<tempOwnerNonNeighb<<endl;
     Info<<"tempNeighbourNonNeighb:"<<tempNeighbourNonNeighb<<endl;            
-    FatalErrorInFunction<<"tempOwnerNonNeighb temp stop"<< exit(FatalError); 
+    //FatalErrorInFunction<<"tempOwnerNonNeighb temp stop"<< exit(FatalError); 
 
     //Info<<endl;
     //Info<<"tempNeighbourWithNeighb:"<<tempNeighbourWithNeighb<<endl;
@@ -9726,7 +9886,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             FatalErrorInFunction<<"splitAndUnsplitFacesBoundary Neighbour fail stop"<< exit(FatalError); 
         }       
     }
-    FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
+    //FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
@@ -9959,7 +10119,8 @@ void Foam::cutCellFvMesh::selfTestMesh()
             res = crossProds[k] && crossProds[k+1];
             if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10) && 
                crossProdsArea[k] >=partialThreeshold*maxFaceSize*(1.f/1e10) &&
-               crossProdsArea[k+1] >=partialThreeshold*maxFaceSize*(1.f/1e10)
+               crossProdsArea[k+1] >=partialThreeshold*maxFaceSize*(1.f/1e10) &&
+               meshFaces[i].size()<=4
               )
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
@@ -9979,6 +10140,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
                 Info<<"crossProdsArea["<<k<<"]:"<<crossProdsArea[k]<<endl;
                 Info<<"crossProdsArea["<<k+1<<"]:"<<crossProdsArea[k+1]<<endl;
                 Info<<"maxArea: "<<partialThreeshold*maxFaceSize*(1.f/1e10)<<endl;
+                Info<<"res:"<<res<<endl;
                 
                 FatalErrorInFunction
                 << "Face must not have a concave shape!"
@@ -10016,7 +10178,8 @@ void Foam::cutCellFvMesh::selfTestMesh()
             res = crossProds[k] && crossProds[k+1];
             if(res<0 && area>=partialThreeshold*maxFaceSize*(1.f/1e10) && 
                crossProdsArea[k] >=partialThreeshold*maxFaceSize*(1.f/1e10) &&
-               crossProdsArea[k+1] >=partialThreeshold*maxFaceSize*(1.f/1e10)
+               crossProdsArea[k+1] >=partialThreeshold*maxFaceSize*(1.f/1e10) &&
+               meshFaces[i].size()<=4
               )
             {
                 Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" ";
@@ -16508,7 +16671,7 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
         if(neighbour[i]!=-1)
             cellsFaces[neighbour[i]].append(i);
     }
-    FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
+    //FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
 
     DynamicList<cell> cellList;
     cellList.setSize(numCells);

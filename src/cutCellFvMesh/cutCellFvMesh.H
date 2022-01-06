@@ -156,6 +156,8 @@ class cutCellFvMesh   :   public fvMesh
             DynamicList<label> addedCutFaceOwner;
             // added split faces neighbor
             DynamicList<label> addedCutFaceNeighbor;
+            // added split faces patch Index
+            DynamicList<label> addedCutFacePatchInd;
             
             //insert interior splitted faces
             // added interior split faces
@@ -164,14 +166,18 @@ class cutCellFvMesh   :   public fvMesh
             DynamicList<label> splitAndUnsplitFaceInteriorOwner;
             // added interior split faces neighbor
             DynamicList<label> splitAndUnsplitFaceInteriorNeighbor;
+            // added interior split faces patch Index
+            DynamicList<label> splitAndUnsplitFacesInteriorPatchInd;
             
-            //insert interior splitted faces
-            // added interior split faces
+            //insert interior to boundary splitted faces
+            // added interior to boundary split faces
             DynamicList<face> splitAndUnsplitFacesInteriorToBoundary;
-            // added interior split faces owner
+            // added interior to boundary split faces owner
             DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryOwner;
-            // added interior split faces neighbor
+            // added interior to boundary split faces neighbor
             DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryNeighbor;
+            // added interior to boundary split faces patch Index
+            DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryPatchInd;
             
             //insert boundary splitted faces
             // added boundary split faces
@@ -180,6 +186,8 @@ class cutCellFvMesh   :   public fvMesh
             DynamicList<label> splitAndUnsplitFaceBoundaryOwner;
             // added boundary split faces neighbor
             DynamicList<label> splitAndUnsplitFaceBoundaryNeighbor;
+            // added boundary split faces patch Index
+            DynamicList<face> splitAndUnsplitFacesBoundaryPatchInd;
             
             //list of indexes of minus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
@@ -357,7 +365,6 @@ class cutCellFvMesh   :   public fvMesh
         void createNewMeshData();
         
         //rebuild mesh deleting negative side
-        void createNewMeshData_cutNeg();
         void createNewMeshData_cutNeg_plus();
         
         // project distance from Nurbs Surface on Points
