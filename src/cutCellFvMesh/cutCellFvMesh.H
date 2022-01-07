@@ -187,7 +187,7 @@ class cutCellFvMesh   :   public fvMesh
             // added boundary split faces neighbor
             DynamicList<label> splitAndUnsplitFaceBoundaryNeighbor;
             // added boundary split faces patch Index
-            DynamicList<face> splitAndUnsplitFacesBoundaryPatchInd;
+            DynamicList<label> splitAndUnsplitFacesBoundaryPatchInd;
             
             //list of indexes of minus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
