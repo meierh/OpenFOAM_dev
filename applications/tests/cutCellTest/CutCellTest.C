@@ -30,7 +30,7 @@ Description
 #include <math.h>
 #include <memory>
 
-#include "fvCFD.H"
+#include "dynamicRefineFvMesh.H"
 #include "cutCellFvMesh.H"
 #include "Nurbs.H"
 #include "KdTree.H"

@@ -1,22 +1,32 @@
 #ifndef CUTCELLFVMESH_H
 #define CUTCELLFVMESH_H
 
-#include "fvCFD.H"
+//#include "fvCFD.H"
+#include "dynamicRefineFvMesh.H"
 #include <functional>
 #include <memory>
 #include "BsTree.H"
 #include "KdTree.H"
 #include "Nurbs.H"
+#include "NurbsReader.H"
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
 #include <algorithm>
 #include <chrono>
 #include <queue>
+#include <filesystem>
+#include <sys/types.h>
+#include <dirent.h>
+#include <errno.h>
+#include <string.h>
+
+#include <stdio.h>
+
 
 namespace Foam
 {    
-class cutCellFvMesh   :   public fvMesh
+class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 {
     //Public attributes
     public:
@@ -151,41 +161,41 @@ class cutCellFvMesh   :   public fvMesh
             
             //insert cell split faces
             // added cell split faces
-            DynamicList<face> addedCutFaces;
+            DynamicList<face>  addedCutFaces;
             // added split faces owner
-            DynamicList<label> addedCutFaceOwner;
+            DynamicList<label> addedCutFacesOwner;
             // added split faces neighbor
-            DynamicList<label> addedCutFaceNeighbor;
+            DynamicList<label> addedCutFacesNeighbor;
             // added split faces patch Index
-            DynamicList<label> addedCutFacePatchInd;
+            DynamicList<label> addedCutFacesPatchInd;
             
             //insert interior splitted faces
             // added interior split faces
-            DynamicList<face> splitAndUnsplitFacesInterior;
+            DynamicList<face>  splitAndUnsplitFacesInterior;
             // added interior split faces owner
-            DynamicList<label> splitAndUnsplitFaceInteriorOwner;
+            DynamicList<label> splitAndUnsplitFacesInteriorOwner;
             // added interior split faces neighbor
-            DynamicList<label> splitAndUnsplitFaceInteriorNeighbor;
+            DynamicList<label> splitAndUnsplitFacesInteriorNeighbor;
             // added interior split faces patch Index
             DynamicList<label> splitAndUnsplitFacesInteriorPatchInd;
             
             //insert interior to boundary splitted faces
             // added interior to boundary split faces
-            DynamicList<face> splitAndUnsplitFacesInteriorToBoundary;
+            DynamicList<face>  splitAndUnsplitFacesInteriorToBoundary;
             // added interior to boundary split faces owner
-            DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryOwner;
+            DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryOwner;
             // added interior to boundary split faces neighbor
-            DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryNeighbor;
+            DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryNeighbor;
             // added interior to boundary split faces patch Index
-            DynamicList<label> splitAndUnsplitFaceInteriorToBoundaryPatchInd;
+            DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryPatchInd;
             
             //insert boundary splitted faces
             // added boundary split faces
-            DynamicList<face> splitAndUnsplitFacesBoundary;
+            DynamicList<face>  splitAndUnsplitFacesBoundary;
             // added boundary split faces owner
-            DynamicList<label> splitAndUnsplitFaceBoundaryOwner;
+            DynamicList<label> splitAndUnsplitFacesBoundaryOwner;
             // added boundary split faces neighbor
-            DynamicList<label> splitAndUnsplitFaceBoundaryNeighbor;
+            DynamicList<label> splitAndUnsplitFacesBoundaryNeighbor;
             // added boundary split faces patch Index
             DynamicList<label> splitAndUnsplitFacesBoundaryPatchInd;
             
@@ -239,6 +249,12 @@ class cutCellFvMesh   :   public fvMesh
             List<std::shared_ptr<Nurbs>> Curves,
             Time& runTime,
             std::unique_ptr<volScalarField>& solidFraction
+        );
+        
+        explicit cutCellFvMesh
+        (
+            const IOobject& io,
+            cutStatus state = delNegMesh
         );
         
         // Print Functions for debugg purposes

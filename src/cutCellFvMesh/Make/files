@@ -3,5 +3,6 @@ cutCellFvMesh_viaNurbs.C
 Nurbs.C
 KdTree.C
 BsTree.C
+NurbsReader.C
 
 LIB = $(FOAM_USER_LIBBIN)/libcutCellFvMesh

@@ -1,7 +1,14 @@
 EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
-    -I$(LIB_SRC)/meshTools/lnInclude
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/dynamicFvMesh/lnInclude \
+    -I$(LIB_SRC)/dynamicMesh/lnInclude \
+    -I$(WM_THIRD_PARTY_DIR)/tinyxml2
 
 LIB_LIBS = \
     -lfiniteVolume \
-    -lmeshTools
+    -lmeshTools \
+    -ldynamicFvMesh \
+    -ldynamicMesh \
+    $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a
+
