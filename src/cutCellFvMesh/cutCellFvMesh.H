@@ -15,13 +15,10 @@
 #include <algorithm>
 #include <chrono>
 #include <queue>
-#include <filesystem>
-#include <sys/types.h>
-#include <dirent.h>
-#include <errno.h>
-#include <string.h>
-
-#include <stdio.h>
+//#include <sys/types.h>
+//#include <dirent.h>
+//#include <string.h>
+//#include <stdio.h>
 
 
 namespace Foam
@@ -219,7 +216,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             //uncut cell to plus side cut cell face collection
             labelList oldCellToPlusCutCell;
         
-        List<std::shared_ptr<Nurbs>> Curves;
+        //List<std::shared_ptr<Nurbs>> Curves;
+        std::shared_ptr<std::vector<Nurbs>> Curves;
 
         std::unique_ptr<KdTree> MainTree;
         List<std::unique_ptr<BsTree>> NurbsTrees;
@@ -239,14 +237,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         explicit cutCellFvMesh
         (
             const IOobject& io,
-            List<std::shared_ptr<Nurbs>> Curves,
+            std::shared_ptr<std::vector<Nurbs>> Curves,
             cutStatus state = delNegMesh
         );
         
         explicit cutCellFvMesh
         (
             const IOobject& io,
-            List<std::shared_ptr<Nurbs>> Curves,
+            std::shared_ptr<std::vector<Nurbs>> Curves,
             Time& runTime,
             std::unique_ptr<volScalarField>& solidFraction
         );

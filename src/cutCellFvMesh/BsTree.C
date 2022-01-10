@@ -2,14 +2,14 @@
 
 Foam::BsTree::BsTree
 (
-    std::shared_ptr<Nurbs> Curve,
+    Nurbs Curve,
     label nbrSplitsBetweenCPs
 ):
 Curve(Curve),
-maxHeight(nbrSplitsBetweenCPs*this->Curve->nbrKnots()*this->Curve->degree())
+maxHeight(nbrSplitsBetweenCPs*this->Curve.nbrKnots()*this->Curve.degree())
 {
     _nil =  new Node();
-    root = newNode(_nil,this->Curve->min_U(),this->Curve->max_U());
+    root = newNode(_nil,this->Curve.min_U(),this->Curve.max_U());
     //Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
     //Info<<"Create first box from "<<root->min<<" to "<<root->max<<"//"<<(root->max == 1)<<endl;
     constructTree(root);
@@ -61,7 +61,7 @@ void Foam::BsTree::constructTree
 )
 {
     //Info<<"Construct Tree at "<<height<<endl;
-    thisNode->MinMaxBox = Curve->computeBoundingBox(thisNode->min,thisNode->max);
+    thisNode->MinMaxBox = Curve.computeBoundingBox(thisNode->min,thisNode->max);
     //Info<<"Computed Box"<<endl;
     scalar maxWidth = 0;
     for(int d=0;d<3;d++)
@@ -69,8 +69,8 @@ void Foam::BsTree::constructTree
         maxWidth = std::max(thisNode->MinMaxBox.Max[d]-thisNode->MinMaxBox.Min[d],maxWidth);
     }
     //Info<<"Computed maxWidth "<<maxWidth<<endl;
-    maxWidth = maxWidth-2*Curve->getBoundingBoxOverhang();
-    if(maxWidth > Curve->getBoundingBoxOverhang() && height<maxHeight)
+    maxWidth = maxWidth-2*Curve.getBoundingBoxOverhang();
+    if(maxWidth > Curve.getBoundingBoxOverhang() && height<maxHeight)
     {
         thisNode->left = newNode(thisNode,thisNode->min,thisNode->divideBound);
         thisNode->right = newNode(thisNode,thisNode->divideBound,thisNode->max);
@@ -120,7 +120,7 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint
     //Info<<"\tPoint: "<<point<<endl;
     DynamicList<scalar> testU = nearestPoints(point);
     if(testU.size() == 0)
-        return Curve->min_U()-1;
+        return Curve.min_U()-1;
     
     /*
     Info<<"BsTree nearest Points: ";
@@ -133,7 +133,7 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint
     scalar u_min;
     for(int i=0;i<testU.size();i++)
     {
-        u_min = Curve->newtonIterateNearestNeighbour(testU[i],point);
+        u_min = Curve.newtonIterateNearestNeighbour(testU[i],point);
         u_min_List.append(u_min);
         
         /*
@@ -149,7 +149,7 @@ scalar Foam::BsTree::closestParaOnNurbsToPoint
     u_min_Dist.setCapacity(u_min_List.size());
     for(int i=0;i<u_min_List.size();i++)
     {
-        u_min_Dist.append(euklidianNorm(Curve->Curve_Derivative(0,u_min_List[i])-point));
+        u_min_Dist.append(euklidianNorm(Curve.Curve_Derivative(0,u_min_List[i])-point));
     }
     scalar u_min_Dist_min = u_min_Dist[0];
     scalar u_min_min = u_min_List[0];

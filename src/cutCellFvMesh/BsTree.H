@@ -24,13 +24,13 @@ class BsTree
         Node* _nil;
         Node* root;
                 
-        const std::shared_ptr<Nurbs> Curve;
+        const Nurbs Curve;
         const label maxHeight;
         
     public:
-        explicit BsTree
+        BsTree
         (
-            std::shared_ptr<Nurbs> Curve,
+            Nurbs Curve,
             label nbrSplitsBetweenCPs = 1
         );
         ~BsTree();

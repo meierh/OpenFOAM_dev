@@ -3,6 +3,7 @@
 
 #include "fvCFD.H"
 #include <memory>
+#include "Nurbs.H"
 
 namespace Foam
 {   
@@ -36,7 +37,7 @@ class Nurbs
         const scalar deltaX;
         
     public:
-        explicit Nurbs
+        Nurbs
         (
             scalarList knots,
             List<vector> controlPoints,

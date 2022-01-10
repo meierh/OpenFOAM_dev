@@ -3,18 +3,18 @@
 Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
-    List<std::shared_ptr<Nurbs>> Curves,
+    std::shared_ptr<std::vector<Nurbs>> Curves,
     Time& runTime,
     std::unique_ptr<volScalarField>& solidFraction
 ):
 dynamicRefineFvMesh(io),
-Curves(std::move(Curves)),
-MainTree(new KdTree(this->Curves)),
-NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
+Curves(Curves),
+MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
+NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
 {
-    for(int i=0;i<this->Curves.size();i++)
+    for(unsigned long i=0;i<(*(this->Curves)).size();i++)
     {
-        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree(this->Curves[i])));
+        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree((*(this->Curves))[i])));
     }
     Info<<"Prepared all Data"<<endl;
     
@@ -184,14 +184,16 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
 Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
-    List<std::shared_ptr<Nurbs>> Curves,
+    std::shared_ptr<std::vector<Nurbs>> Curves,
     cutStatus state
 ):
 dynamicRefineFvMesh(io),
-Curves(std::move(Curves)),
-MainTree(new KdTree(this->Curves)),
-NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
+Curves(Curves),
+MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
+NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
 {
+    //MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
+    //NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
     /*
     const objectRegistry& reg = this->thisDb();
     fileName path = reg.time().timePath();
@@ -222,9 +224,9 @@ NurbsTrees(List<std::unique_ptr<BsTree>>(this->Curves.size()))
     std::chrono::duration<double> time_span;
     
     Info<<"Created Main Tree"<<endl;
-    for(int i=0;i<this->Curves.size();i++)
+    for(unsigned long i=0;i<(*(this->Curves)).size();i++)
     {
-        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree(this->Curves[i])));
+        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree((*(this->Curves))[i])));
     }
     Info<<"Prepared all Data"<<endl;
     
@@ -508,7 +510,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             label thisNurbs = (*firstOrderNearNurbs)[k];
             scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(points[i]);
             //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
-            if(thisNodePara < this->Curves[thisNurbs]->min_U())
+            if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
             {
                 /*
                 if(i==testInd)
@@ -532,7 +534,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             }
             */
             paraToNurbsSurface.append(thisNodePara);
-            distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,points[i]));
+            distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,points[i]));
             t8 = std::chrono::high_resolution_clock::now();
             time_span4 += t8-t7; 
         }
@@ -596,77 +598,15 @@ Foam::cutCellFvMesh::cutCellFvMesh
 ):
 dynamicRefineFvMesh(io)
 {
-    
-    const objectRegistry& reg = this->thisDb();
     fileName runDirectory = this->fvMesh::polyMesh::objectRegistry::rootPath();
     fileName caseName = this->fvMesh::polyMesh::objectRegistry::caseName();
-    fileName caseDirectory = runDirectory+"/"+caseName;
-    wordList namesOfIOobjects = reg.names();
-    fileName constantDirectory = caseDirectory+"/constant";
-
-    DIR  *dir = NULL;
-    const char *pathConstantDirectory = constantDirectory.c_str();
-    dir = opendir(pathConstantDirectory);
-    if(dir==NULL)
-        FatalIOError<<"Error reading Nurbs file. Could not open the directory!"<<exit(FatalIOError);
-    DynamicList<word> directoryFiles;
-    struct dirent *dp;
-    while((dp=readdir(dir))!=NULL)
-    {
-        if(dp->d_name==NULL)
-            FatalIOError<<"Reading existing files name as null pointer!"<<exit(FatalIOError);
-        directoryFiles.append(word(dp->d_name));
-    }
-    DynamicList<word> xmlFiles;
-    for(int i=0;i<directoryFiles.size();i++)
-    {
-        std::size_t fileEndingStart = directoryFiles[i].rfind(".");
-        if(fileEndingStart==std::string::npos)
-            continue;
-        word fileEnding = directoryFiles[i].substr(fileEndingStart,directoryFiles[i].size()-fileEndingStart);
-        if(fileEnding.compare(".xml")==0)
-            xmlFiles.append(directoryFiles[i]);
-    }
-    if(xmlFiles.size()==0)
-        FatalIOError<<"No Nurbs file found!"<<exit(FatalIOError);
-    if(xmlFiles.size()>1)
-        Info<<"Multiple Nurbs files found. First one will be used!"<<endl;
-
-    word fullPath = constantDirectory+"/"+xmlFiles[0];
-    XMLDocument nurbsDoc;
-	XMLError xmlErrorID = nurbsDoc.LoadFile(fullPath.c_str());
-    Info<<"nurbsDoc.ErrorID():"<<xmlErrorID<<endl;
-    if(xmlErrorID!=0)
-        FatalIOError<<"Reading Nurbs file failed!"<<exit(FatalIOError);
+    NurbsReader Reader(runDirectory,caseName);
+    Curves = Reader.getNurbsCurves();
+    MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
+    NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
     
-    XMLElement* nurbsList = nurbsDoc.RootElement();
-    const char* rootName = nurbsList->Name();
-    Info<<"rootName:"<<rootName<<endl;
-    for(XMLNode* nurbsCurve=nurbsList->FirstChild(); nurbsCurve!=NULL; nurbsCurve=nurbsCurve->NextSibling())
-    {
-        const char* node1Name = nurbsCurve->Value();
-        Info<<"node1Name:"<<node1Name<<endl;
-        for(XMLNode* node2=nurbsCurve->FirstChild(); node2!=NULL; node2=node2->NextSibling())
-        {
-            const char* node2Name = node2->Value();
-            Info<<"\t node2Name:"<<node2Name<<endl;
-            for(XMLNode* node3=node2->FirstChild(); node3!=NULL; node3=node3->NextSibling())
-            {
-                const char* node3Name = node3->Value();
-                Info<<"\t\t node3Name:"<<node3Name<<endl;
-                for(XMLNode* node4=node3->FirstChild(); node4!=NULL; node4=node4->NextSibling())
-                {
-                    const char* node4Name = node4->Value();
-                    Info<<"\t\t\t node4Name:"<<node4Name<<endl;
-                    for(XMLNode* node5=node4->FirstChild(); node5!=NULL; node5=node5->NextSibling())
-                    {
-                        const char* node5Name = node5->Value();
-                        Info<<"\t\t\t\t node5Name:"<<node5Name<<endl;
-                    }
-                }
-            }
-        }
-    }
+    //std::shared_ptr<std::vector<Nurbs>> nurbsCurves = Reader.getNurbsCurves();
+
     
     /*
     std::chrono::high_resolution_clock::time_point t1;

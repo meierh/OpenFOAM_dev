@@ -4,21 +4,21 @@
 
 Foam::KdTree::KdTree
 (
-    List<std::shared_ptr<Nurbs>> Items,
+    std::shared_ptr<std::vector<Nurbs>> Items,
     label maxCurvesPerNode
 ):
 Items(Items),
 maxCurvesPerNode(maxCurvesPerNode)
 {
-    listMinMaxBoxes = List<BoundingBox>(this->Items.size());
+    listMinMaxBoxes = List<BoundingBox>((*(this->Items)).size());
     
-    for(int i=0;i<this->Items.size();i++)
+    for(int i=0;i<(*(this->Items)).size();i++)
     {
-        listMinMaxBoxes[i] = this->Items[i]->computeBoundingBox();
+        listMinMaxBoxes[i] = (*(this->Items))[i].computeBoundingBox();
     }
     //Info<<listMinMaxBoxes[0].Min<<" "<<listMinMaxBoxes[0].Max<<endl;
     
-    labelList nurbsCurves(this->Items.size());
+    labelList nurbsCurves((*(this->Items)).size());
     for(int i=0;i<nurbsCurves.size();i++)
     {
         nurbsCurves[i] = i;

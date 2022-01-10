@@ -1064,14 +1064,14 @@ scalar Foam::cutCellFvMesh::distToNurbs
         label thisNurbs = (*firstOrderNearNurbs)[k];
         scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
         //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
-        if(thisNodePara < this->Curves[thisNurbs]->min_U())
+        if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
         {
             dist = std::numeric_limits<scalar>::max();
             continue;
         }
         allOutSideNurbsBox = false;
         paraToNurbsSurface.append(thisNodePara);
-        distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
+        distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,pnt));
     }
     if(allOutSideNurbsBox)
     {
@@ -1114,7 +1114,7 @@ scalar Foam::cutCellFvMesh::nearestNurbsIndexPara
         label thisNurbs = (*firstOrderNearNurbs)[k];
         scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
         //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
-        if(thisNodePara < this->Curves[thisNurbs]->min_U())
+        if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
         {
             dist = std::numeric_limits<scalar>::max();
             continue;
@@ -1122,7 +1122,7 @@ scalar Foam::cutCellFvMesh::nearestNurbsIndexPara
         allOutSideNurbsBox = false;
         indNurbs.append(thisNurbs);
         paraToNurbsSurface.append(thisNodePara);
-        distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
+        distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,pnt));
     }
     if(allOutSideNurbsBox)
     {
@@ -1197,14 +1197,14 @@ Foam::vector Foam::cutCellFvMesh::vectorToNurbs
         label thisNurbs = (*firstOrderNearNurbs)[k];
         scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
         //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
-        if(thisNodePara < this->Curves[thisNurbs]->min_U())
+        if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
         {
             dist = std::numeric_limits<scalar>::max();
             continue;
         }
         allOutSideNurbsBox = false;
         paraToNurbsSurface.append(thisNodePara);
-        distToNurbsSurface.append(this->Curves[thisNurbs]->distanceToNurbsSurface(thisNodePara,pnt));
+        distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,pnt));
         nurbsInd.append(thisNurbs);
     }
     if(allOutSideNurbsBox)
@@ -1227,7 +1227,7 @@ Foam::vector Foam::cutCellFvMesh::vectorToNurbs
     foundFlag = true;
     dist = minDistToNurbsSurface;
     scalar para = minParaToNurbsSurface;
-    vector nurbsPoint = this->Curves[minNurbs]->Curve_Derivative(0,para);
+    vector nurbsPoint = (*(this->Curves))[minNurbs].Curve_Derivative(0,para);
     vector pointToNurbsVector = nurbsPoint-pnt;
     return pointToNurbsVector;
 }
