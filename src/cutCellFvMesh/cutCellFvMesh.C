@@ -488,7 +488,7 @@ void Foam::cutCellFvMesh::newMeshPoints
     
     pointsToSide(basisPoints);
     //Info<<"Point to Side done"<<endl;
-    
+        
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
@@ -630,6 +630,7 @@ void Foam::cutCellFvMesh::newMeshPoints
         if(pos == +1 && neg == -1)
         {
             bool found;
+            nurbsReference reference;
             vector lhsToRhs = basisPoints[endLabel]-basisPoints[startLabel];
             
             scalar lhsPhi = phiStart;
@@ -643,7 +644,7 @@ void Foam::cutCellFvMesh::newMeshPoints
             scalar centerPhi;
             scalar centerScale = 0.5;
             vector centerPoint = basisPoints[startLabel]+0.5*lhsToRhs;
-            centerPhi = distToNurbs(centerPoint,found);
+            centerPhi = distToNurbs(centerPoint,found,reference);
             if(!found)
                 FatalErrorInFunction<<"Not found!"<< exit(FatalError);
             
@@ -684,7 +685,7 @@ void Foam::cutCellFvMesh::newMeshPoints
                 }
                 
                 centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
-                centerPhi = distToNurbs(centerPoint,found);
+                centerPhi = distToNurbs(centerPoint,found,reference);
                 if(!found)
                     FatalErrorInFunction<<"Not found!"<< exit(FatalError);
                 
@@ -698,143 +699,6 @@ void Foam::cutCellFvMesh::newMeshPoints
                 }
             }
             
-            /*
-            //Info<<basisPoints[startLabel]<<" -> "<<basisPoints[endLabel]<<endl;
-            Info<<phiStart<<" -> "<<phiEnd<<endl;
-            //Info<<"startToEnd: "<<basisEdges[i].vec(basisPoints)<<endl;;
-            //scalar norm_startToEnd = basisEdges[i].mag(basisPoints);
-            //Info<<"norm_startToEnd: "<<norm_startToEnd<<endl;;
-            //scalar distPhi = std::abs(phiEnd-phiStart);
-            //Info<<"distPhi: "<<distPhi<<endl;;
-            //scalar norm_phiStart = std::abs(phiStart);
-            //Info<<"norm_phiStart: "<<norm_phiStart<<endl;;
-            scalar scalePoint = phiStart / (phiStart - phiEnd);
-            //Info<<"scalePoint: "<<scalePoint<<endl;;
-            vector newPoint = basisPoints[startLabel] + scalePoint * startToEnd;
-            Info<<"--------------------------------------"<<endl;
-            Info<<"dist: "<<distToNursOfEdge(basisPoints[startLabel],basisPoints[endLabel],11)<<endl;
-            bool found;
-            Info<<"Start: "<<basisPoints[startLabel]<<distToNurbs(basisPoints[startLabel],found)<<endl;
-            Info<<"End: "<<basisPoints[endLabel]<<distToNurbs(basisPoints[endLabel],found)<<endl;
-            label count=0;
-            scalar distOfNew = distToNurbs(newPoint,found);
-            if(!found)
-                FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-            Info<<"startPoint: "<<basisPoints[startLabel]<<endl;
-            Info<<"startToEnd:"<<startToEnd<<endl;
-            Info<<"phiN: "<<distOfNew<<endl;
-            Info<<"scalePointN: "<<scalePoint<<endl;
-            Info<<"newPoint: "<<newPoint<<endl;
-            Info<<"distOfNew: "<<distOfNew<<endl;
-            if(std::abs(distOfNew)>10e-10)
-            {
-                scalar scalePointN;
-                scalar scalePointO = scalePoint;
-                scalar phiN;
-                scalar phiO = distOfNew;
-                Info<<"phiO:"<<phiO<<endl;
-                Info<<"phiStart:"<<phiStart<<endl;
-                if(std::signbit(phiO)!=std::signbit(phiStart))
-                {
-                    scalar m=(phiO-phiStart)/(scalePointO-0);
-                    scalar b=phiO-m*scalePointO;
-                    scalePointN = -b/m;
-                }
-                else if(std::signbit(phiO)!=std::signbit(phiEnd))
-                {
-                    scalar m=(phiO-phiEnd)/(scalePointO-1);
-                    scalar b=phiO-m*scalePointO;
-                    scalePointN = -b/m;
-                }
-                else
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-
-                newPoint = basisPoints[startLabel] + scalePointN * startToEnd;
-                phiN = distToNurbs(newPoint,found);
-                Info<<"phiN: "<<phiN<<endl;
-                Info<<"scalePointN: "<<scalePointN<<endl;
-                Info<<"newPoint: "<<newPoint<<endl;
-                if(!found)
-                    FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-                
-                while(std::abs(phiN)>10e-10)
-                {
-                    if(count<50)
-                    {
-                        Info<<"-------------------------"<<endl;
-                        if(count>=100)
-                        {
-                            Info<<"Over 90"<<endl;
-                            Info<<"phiN: "<<phiN<<endl;
-                            Info<<"scalePointN: "<<scalePointN<<endl;
-                            Info<<"newPoint: "<<newPoint<<endl;
-                        }
-                        if(count>90)
-                        {
-                            Info<<endl;
-                            Info<<"phiStart:"<<phiStart<<endl;
-                            Info<<"phiEnd:"<<phiEnd<<endl;
-                            FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
-                        }
-                        //Info<<"scalePointO:"<<scalePointO<<endl;
-                        //Info<<"scalePointN:"<<scalePointN<<endl;
-                        //Info<<"phiO:"<<phiO<<endl;
-                        //Info<<"phiN:"<<phiN<<endl;
-                        if(phiO!=phiN || scalePointO!=scalePointN)
-                        {
-                            scalar m=(phiO-phiN)/(scalePointO-scalePointN);
-                            //Info<<"m:"<<m<<endl;
-                            scalar b=phiO-m*scalePointO;
-                            //Info<<"b:"<<b<<endl;
-                            scalar x = -b/m;
-                            //Info<<"x:"<<x<<endl;
-                            phiO = phiN;
-                            scalePointO = scalePointN;
-                            phiO = phiN;
-                            scalePointN = x;
-                        }
-                        else
-                        {
-                            if(std::signbit(phiO)!=std::signbit(phiStart))
-                            {
-                                scalar m=(phiO-phiStart)/(scalePointO-0);
-                                scalar b=phiO-m*scalePointO;
-                                scalePointN = -b/m;
-                            }
-                            else if(std::signbit(phiO)!=std::signbit(phiEnd))
-                            {
-                                scalar m=(phiO-phiEnd)/(scalePointO-1);
-                                scalar b=phiO-m*scalePointO;
-                                scalePointN = -b/m;
-                            }
-                            else
-                                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                        }
-                        newPoint = basisPoints[startLabel] + scalePointN * startToEnd;
-                        phiN = distToNurbs(newPoint,found);
-                        if(!found)
-                            FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-                        count++;
-                        Info<<"--dist:"<<phiN<<endl;
-                    }
-                    else
-                    {
-                        
-                    }
-                }
-                //FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
-            }
-            Info<<"End"<<endl;
-            
-            if(startLabel==14315 || endLabel==14315)
-            {
-                Info<<"startLabel:"<<startLabel<<endl;
-                Info<<"endLabel:"<<endLabel<<endl;
-                Info<<phiStart<<" -> "<<phiEnd<<endl;
-                Info<<"Added: "<<newPoint<<endl<<endl;
-            }
-            */
-            
             Info<<"---------------------"<<count<<endl;
             Info<<"lhsPhi:"<<lhsPhi<<"\t\t\t"<<"rhsPhi:"<<rhsPhi<<endl;
             Info<<"lhsScale:"<<lhsScale<<"\t\t\t"<<"rhsScale:"<<rhsScale<<endl;
@@ -845,6 +709,8 @@ void Foam::cutCellFvMesh::newMeshPoints
             Info<<"\tcenterPoint:"<<centerPoint<<endl;
 
             newMeshPointsInFunc.append(centerPoint);
+            
+            meshPointNurbsReference.append(reference);
             
             pointsToSide_.append(0);
             
@@ -1048,6 +914,17 @@ scalar Foam::cutCellFvMesh::distToNurbs
     bool& foundFlag
 )
 {
+    nurbsReference throwAway;
+    return distToNurbs(pnt,foundFlag,throwAway);
+}
+
+scalar Foam::cutCellFvMesh::distToNurbs
+(
+    point pnt,
+    bool& foundFlag,
+    nurbsReference& reference
+)
+{
     scalar dist;
     std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
     if(firstOrderNearNurbs->size()==0)
@@ -1058,6 +935,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
     }
     DynamicList<scalar> distToNurbsSurface;
     DynamicList<scalar> paraToNurbsSurface;
+    DynamicList<label> indToNurbsSurface;
     bool allOutSideNurbsBox = true;
     for(int k=0;k<firstOrderNearNurbs->size();k++)
     {
@@ -1072,6 +950,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
         allOutSideNurbsBox = false;
         paraToNurbsSurface.append(thisNodePara);
         distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,pnt));
+        indToNurbsSurface.append(thisNurbs);
     }
     if(allOutSideNurbsBox)
     {
@@ -1079,12 +958,22 @@ scalar Foam::cutCellFvMesh::distToNurbs
         return -1;
     }
     scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
+    scalar minDistparaToNurbsSurface;
+    label minDistindToNurbsSurface;
     for(int k=0;k<distToNurbsSurface.size();k++)
     {
         if(distToNurbsSurface[k] < minDistToNurbsSurface)
+        {
             minDistToNurbsSurface = distToNurbsSurface[k];
+            minDistparaToNurbsSurface = paraToNurbsSurface[k];
+            minDistindToNurbsSurface = indToNurbsSurface[k];
+        }
     }
     foundFlag = true;
+    nurbsReference temp;
+    temp.nurbsInd = minDistindToNurbsSurface;
+    temp.nurbsPara = minDistparaToNurbsSurface;
+    reference=temp;
     dist = minDistToNurbsSurface;
     return dist;
 }
@@ -2899,12 +2788,14 @@ void Foam::cutCellFvMesh::newMeshEdges
         cellNonConnectedMultiEdgeMap
     );
     
+    /*
     Info<<"faceToEdges_:"<<faceToEdges_[585222]<<endl;
     for(int i=0;i<faceToEdges_[585222].size();i++)
     {
         Info<<"edge:"<<newMeshEdges_[faceToEdges_[585222][i]]<<endl;
     }
-    //FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
+    FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
+    */
     
     const labelListList& pointToCells = this->pointCells();
     const labelListList& edgeToCells = this->edgeCells();
@@ -4821,6 +4712,8 @@ void Foam::cutCellFvMesh::newMeshEdges
     for(int i=0;i<addedEdgeToDelete.size();i++)
         mapEdgesToDelete.insert(addedEdgeToDelete[i]);
     
+    /*
+    
     Info<<endl<<"deleteEdges:"<<addedEdgeToDelete.size()<<endl;
     
     Info<<"In delete Map:"<<mapEdgesToDelete.count(1598790)<<endl;
@@ -4838,7 +4731,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     Info<<"edgeToFaces_[1598790]:"<<edgeToFaces_[1598790]<<endl;
     Info<<"edgeToCells_[1598790]:"<<edgeToCells_[1598790]<<endl;
     Info<<"faceToEdges_[585222]:"<<faceToEdges_[585222]<<endl;
-    /*
+
     Info<<"cellToEdges_[1598790]:"<<cellToEdges_[edgeToCells_[1598790][0]]<<endl;
     */
     
@@ -4962,7 +4855,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     /*
     Info<<"Prev Nbr Edges:"<<newMeshEdges_.size()<<endl;
     Info<<"After Nbr Edges:"<<newMeshEdges_Cp.size()<<endl;
-    */
+    
     Info<<endl<<"data intermed:"<<endl;
     
     Info<<"newMeshEdges_Cp.size():"<<newMeshEdges_Cp.size()<<endl;
@@ -4977,7 +4870,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     Info<<"edgeToCells_Cp[1598790]:"<<edgeToCells_Cp[1598790]<<endl;
     Info<<"faceToEdges_Cp[585222]:"<<faceToEdges_Cp[585222]<<endl;
 
-    /*
+    
     Info<<"faceToEdges_Cp[1598790]:"<<faceToEdges_Cp[edgeToFaces_Cp[1598790][0]]<<endl;
     Info<<"cellToEdges_Cp[1598790]:"<<cellToEdges_Cp[edgeToCells_Cp[1598790][0]]<<endl;
     */
@@ -4989,6 +4882,7 @@ void Foam::cutCellFvMesh::newMeshEdges
     faceToEdges_ = faceToEdges_Cp;
     cellToEdges_ = cellToEdges_Cp;
     
+    /*
     Info<<endl<<"data after:"<<endl;
     
     Info<<"newMeshEdges_.size():"<<newMeshEdges_.size()<<endl;
@@ -5001,15 +4895,16 @@ void Foam::cutCellFvMesh::newMeshEdges
     Info<<"edgeToFaces_[1598790]:"<<edgeToFaces_[1598790]<<endl;
     Info<<"edgeToCells_[1598790]:"<<edgeToCells_[1598790]<<endl;
     Info<<"faceToEdges_[585222]:"<<faceToEdges_[585222]<<endl;
-    /*
+    
     Info<<"faceToEdges_[1598790]:"<<faceToEdges_[edgeToFaces_[1598790][0]]<<endl;
     Info<<"cellToEdges_[1598790]:"<<cellToEdges_[edgeToCells_[1598790][0]]<<endl;
-    */
+    
     
     Info<<"--------------------------------"<<endl;
     Info<<"faceToEdges_Cp["<<585222<<"]:"<<faceToEdges_Cp[585222]<<endl;
     Info<<"faceToEdges_["<<585222<<"]:"<<faceToEdges_[585222]<<endl;
-    //FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
+    FatalErrorInFunction<< "Temp stop end"<< exit(FatalError);
+    */
 }
 
 void Foam::cutCellFvMesh::findCycles
@@ -5783,8 +5678,6 @@ void Foam::cutCellFvMesh::groupEdgesToFaces
         }
     //End
     }
-    Info<<"cellNonConnectedMultiEdges[198219]:"<<cellNonConnectedMultiEdges[198219]<<endl;
-    Info<<"cellNonConnectedMultiPoints[198219]:"<<cellNonConnectedMultiPoints[198219]<<endl;
     
     for(int i=0;i<meshCells.size();i++)
     {
@@ -5938,7 +5831,6 @@ void Foam::cutCellFvMesh::groupEdgesToFaces
                 Info<<"pnt:"<<pnt<<" -> "<<newMeshEdges_[pointToEgde_[pnt]]<<endl; 
         }
     }
-    Info<<"cellNonConnectedMultiFaces[198219]:"<<cellNonConnectedMultiFaces[198219]<<endl;
 }
 
 void Foam::cutCellFvMesh::newMeshFaces_plus
@@ -6013,10 +5905,12 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
         cellNonConnectedMultiPointMap,
         cellNonConnectedMultiEdgeMap
     );
+    /*
     Info<<"-----------------------------------"<<endl;
     Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
     Info<<"cellNonConnectedMultiFaces[35]:"<<cellNonConnectedMultiFaces[35]<<endl;
     Info<<"cellNonConnectedMultiFaces[36]:"<<cellNonConnectedMultiFaces[36]<<endl;
+    */
     
     /*
     Info<<"faceToEdges_:"<<faceToEdges_[585222]<<endl;
@@ -6072,8 +5966,10 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                             if(thisFace.which(cutFacePnt)!=-1)
                             {
                                 nbrPntsInFace[l]++;
+                                /*
                                 if(i==35 || i==36)
                                     Info<<"Old point:"<<cutFacePnt<<" in face: "<<currCell[l]<<endl;
+                                */
                             }
                         }
                     }
@@ -6089,8 +5985,10 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                             if(thisFace.which(pntEdge.start())!=-1 && thisFace.which(pntEdge.end())!=-1)
                             {
                                 nbrPntsInFace[l]++;
+                                /*
                                 if(i==35 || i==36)
                                     Info<<"Old point:"<<cutFacePnt<<" on edge:"<<pntEdge<<"in face: "<<currCell[l]<<endl;
+                                */
                             }
                         }
                     }
@@ -6100,11 +5998,13 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
                     if(maxNbrPntsInFace<nbrPntsInFace[l])
                         maxNbrPntsInFace = nbrPntsInFace[l];
                 }
+                /*
                 if(i==35 || i==36)
                 {
                     Info<<"nbrPntsInFace:"<<nbrPntsInFace<<endl;
                     Info<<"maxNbrPntsInFace:"<<maxNbrPntsInFace<<endl;
                 }
+                */
                 //evaluate situation
                 if(maxNbrPntsInFace==2 || maxNbrPntsInFace==1 || maxNbrPntsInFace==0)
                     isFaceInCell=true;
@@ -6122,6 +6022,7 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
         }
     }
 
+    /*
     Info<<"cellNonConnectedMultiFaces[210379]:"<<cellNonConnectedMultiFaces[210379]<<endl;
     const labelList& cellPointInds = meshCells[210379].labels(basisFaces);
     for(int i=0;i<cellPointInds.size();i++)
@@ -6138,7 +6039,7 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
     Info<<"faceMixed[36]:"<<faceMixed[36]<<endl;
     //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
 
-    /*
+    
     Info<<"faceInFace[198219]:"<<faceInFace[198219]<<endl;
     Info<<"faceInCell[198219]:"<<faceInCell[198219]<<endl;
     Info<<"faceMixed[198219]:"<<faceMixed[198219]<<endl;
@@ -8553,6 +8454,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             oldFaceToPatchInd[patchStarts[i]+j] = i;
         }
     }
+    /*
     Info<<"oldFaceToPatchInd.size():"<<oldFaceToPatchInd.size()<<endl;
     Info<<"oldFaceToPatchInd[1508799]:"<<oldFaceToPatchInd[1508799]<<endl;
     Info<<"oldFaceToPatchInd[1508800]:"<<oldFaceToPatchInd[1508800]<<endl<<endl;
@@ -8568,7 +8470,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     
     Info<<"oldFaceToPatchInd[1563199]:"<<oldFaceToPatchInd[1563199]<<endl;
     Info<<"oldFaceToPatchInd[1563200]:"<<oldFaceToPatchInd[1563200]<<endl<<endl;
-
+    */
     
 
     //Prepare data storage for old to new cell index
@@ -9225,7 +9127,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     }
                     */
                 }
-                if((newNeighborCell==-1 && signFace1 != 0) || splitAndUnsplitFacesInteriorOwner.size()==751490)  //||(signFace1==0 && newNeighborCell!=-1))
+                if(newNeighborCell==-1 && signFace1 != 0)
                 {
                     Info<<"---"<<endl;
                     Info<<"ownerNewMinusCellsPointLabels:"<<ownerNewMinusCellsPointLabels<<endl;
@@ -9255,7 +9157,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                     Info<<"newOwnerCellPlusOrMinus:"<<newOwnerCellPlusOrMinus<<endl;
                     Info<<"newNeighborCellPlusOrMinus:"<<newNeighborCellPlusOrMinus<<endl;
                     
-                    //FatalErrorInFunction<< "Zero face must have no neighbor" << exit(FatalError);
+                    FatalErrorInFunction<< "No neighbor face must be zero face" << exit(FatalError);
                 }
                 if(signFace1==0)
                 {
@@ -9600,16 +9502,19 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     }
     patchSizes[patchSizes.size()-1] = addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size();
     
+    /*
     Info<<"splitAndUnsplitFacesInterior.size():"<<splitAndUnsplitFacesInterior.size()<<endl;
     Info<<"splitAndUnsplitFacesBoundary.size():"<<splitAndUnsplitFacesBoundary.size()<<endl;
     Info<<"addedCutFaces.size():"<<addedCutFaces.size()<<endl;
     Info<<"splitAndUnsplitFacesInteriorToBoundary.size():"<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl<<endl;
+    
 
     for(int i=0;i<boundMesh.size();i++)
     {
         word namePatch = boundMesh[i].name();
         Info<<namePatch<<"   BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
+    */
     
     //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
     

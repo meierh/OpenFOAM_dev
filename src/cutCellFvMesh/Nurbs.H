@@ -23,18 +23,28 @@ struct BoundingBox
     
 class Nurbs
 {
-    private:
-        const scalarList knots;
-        const List<vector> controlPoints;
-        const scalarList weights;
+    private:      
+        const scalarList initialKnots;
+        const List<vector> initialControlPoints;
+        const scalarList initialWeights;
         const int m;
         const int n;
         const int p;
-        List<vector> weightedControlPoints;
         const scalar _min_U;
         const scalar _max_U;
         const scalar diameter;
         const scalar deltaX;
+        bool nurbsMoved = false;
+        
+        scalarList knots;
+        List<vector> controlPoints;
+        scalarList weights;
+        List<vector> weightedControlPoints;
+
+        scalarList knots_prev;
+        List<vector> controlPoints_prev;
+        scalarList weights_prev;
+        List<vector> weightedControlPoints_prev;
         
     public:
         Nurbs
@@ -43,13 +53,19 @@ class Nurbs
             List<vector> controlPoints,
             scalarList weights,
             int degree,
-            scalar diameter=0,
-            scalar deltaX=0
+            scalar diameter=0.2,
+            scalar deltaX=0.2
         );
+        
+        enum nurbsStatus
+        {
+            curr = 0,
+            prev
+        };
         
         scalar getBoundingBoxOverhang() const {return diameter+deltaX;}
         
-        vector Curve_Derivative(int k,scalar u) const;
+        vector Curve_Derivative(int k,scalar u,nurbsStatus state=curr) const;
         
         BoundingBox computeBoundingBox(scalar start_u, scalar end_u) const;
         
@@ -67,15 +83,18 @@ class Nurbs
         scalar newtonIterateNearestNeighbour_alt(scalar u_0,vector point) const;
         
         scalar distanceToNurbsSurface(scalar para, vector point) const;
+        
+        void moveNurbs(List<vector> controlPoints);
+        vector movementVector(scalar u);
                 
         void print() const {Info<<controlPoints[0]<<"->"<<controlPoints[1]<<endl;}
         void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}
                 
     private:
-        scalar B_Spline_Basis(int i, int p, scalar u) const;
-        template <typename T> T Control_Point_Derivative(int k, int i, const List<T>&  controlPoints) const;
-        scalar Weights_B_Spline_Derivative(int k, scalar u) const;
-        vector A(int k, scalar u) const;
+        scalar B_Spline_Basis(int i, int p, scalar u, nurbsStatus state=curr) const;
+        template <typename T> T Control_Point_Derivative(int k, int i, const List<T>&  controlPoints, nurbsStatus state=curr) const;
+        scalar Weights_B_Spline_Derivative(int k, scalar u, nurbsStatus state=curr) const;
+        vector A(int k, scalar u, nurbsStatus state=curr) const;
         int binomial(int n, int k) const;
         scalar supremum_Derivative2(scalar start_u, scalar end_u) const;
         vector vectorCurveToPoint_Derivative(int k,scalar para,vector point) const;

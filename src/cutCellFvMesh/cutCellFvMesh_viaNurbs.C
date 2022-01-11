@@ -190,7 +190,8 @@ Foam::cutCellFvMesh::cutCellFvMesh
 dynamicRefineFvMesh(io),
 Curves(Curves),
 MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
-NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
+NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size())),
+ibAlgorithm(state)
 {
     //MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
     //NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
@@ -270,7 +271,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
     faceList faces(0);
     labelList owner(0);
     labelList neighbour(0);        
-    if(state == internalCut)
+    if(ibAlgorithm == internalCut)
     {
         createNewMeshData();
     
@@ -286,7 +287,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
         neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
         neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
     }
-    else if(state == delNegMesh)
+    else if(ibAlgorithm == delNegMesh)
     {
         Info<<"-------------------------------------------"<<endl;
         Info<<"Create new Mesh data and cut negative cells";
@@ -334,6 +335,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
             }
         }
 
+        /*
         Info<<"addedCutFaceOwner[4420]:"<<addedCutFacesOwner[4420]<<endl;
         Info<<"addedCutFaceNeighbor[4420]:"<<addedCutFacesNeighbor[4420]<<endl;
         Info<<"addedCutFaces[4420]:"<<addedCutFaces[4420]<<endl;
@@ -343,8 +345,8 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
         Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
         Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
         
-        //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-
+        FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+        */
         
         Info<<"3"<<endl;
         for(int i=0;i<patchStarts.size();i++)
@@ -442,6 +444,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
 {
     const pointField& points = this->points();
     pointDist = scalarList(points.size());
+    meshPointNurbsReference.setSize(points.size());
     
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
@@ -500,9 +503,8 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         
         t3 = std::chrono::high_resolution_clock::now();
         DynamicList<scalar> distToNurbsSurface;
-        distToNurbsSurface.setCapacity(10);
         DynamicList<scalar> paraToNurbsSurface;
-        paraToNurbsSurface.setCapacity(10);
+        DynamicList<label> indToNurbsSurface;
         bool allOutSideNurbsBox = true;
         for(int k=0;k<firstOrderNearNurbs->size();k++)
         {
@@ -535,6 +537,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             */
             paraToNurbsSurface.append(thisNodePara);
             distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,points[i]));
+            indToNurbsSurface.append(thisNurbs);
             t8 = std::chrono::high_resolution_clock::now();
             time_span4 += t8-t7; 
         }
@@ -542,13 +545,15 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             continue;
         
         scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
-        //scalar minDistparaToNurbsSurface;
+        scalar minDistparaToNurbsSurface;
+        label minDistindToNurbsSurface;
         for(int k=0;k<distToNurbsSurface.size();k++)
         {
             if(distToNurbsSurface[k] < minDistToNurbsSurface)
             {
                 minDistToNurbsSurface = distToNurbsSurface[k];
-                //minDistparaToNurbsSurface = paraToNurbsSurface[k];
+                minDistparaToNurbsSurface = paraToNurbsSurface[k];
+                minDistindToNurbsSurface = indToNurbsSurface[k];
             }
         }
         t4 = std::chrono::high_resolution_clock::now();
@@ -565,6 +570,10 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         */
         
         pointDist[i] = minDistToNurbsSurface;
+        nurbsReference temp;
+        temp.nurbsInd = minDistindToNurbsSurface;
+        temp.nurbsPara = minDistparaToNurbsSurface;
+        meshPointNurbsReference[i] = temp;
         
         //Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
         /*
@@ -596,17 +605,29 @@ Foam::cutCellFvMesh::cutCellFvMesh
     const IOobject& io,
     cutStatus state
 ):
-dynamicRefineFvMesh(io)
+dynamicRefineFvMesh(io),
+ibAlgorithm(state)
 {
+    // Initialize mesh class
     fileName runDirectory = this->fvMesh::polyMesh::objectRegistry::rootPath();
     fileName caseName = this->fvMesh::polyMesh::objectRegistry::caseName();
     NurbsReader Reader(runDirectory,caseName);
     Curves = Reader.getNurbsCurves();
     MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
     NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
+    Info<<"Created Main Tree"<<endl;
+    for(unsigned long i=0;i<(*(this->Curves)).size();i++)
+    {
+        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree((*(this->Curves))[i])));
+    }
+    Info<<"Prepared all Data"<<endl;
     
-    //std::shared_ptr<std::vector<Nurbs>> nurbsCurves = Reader.getNurbsCurves();
-
+    // Refine nurbs cut surface
+    //refineTheImmersedBoundary();
+    
+    //Apply the immersed boundary cut method
+    cutTheImmersedBoundary();
+    
     
     /*
     std::chrono::high_resolution_clock::time_point t1;
@@ -825,4 +846,286 @@ dynamicRefineFvMesh(io)
     selfTestMesh();
     Info<<"Ending"<<endl;
     */
+}
+
+void Foam::cutCellFvMesh::refineTheImmersedBoundary
+()
+{
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::duration<double> time_span;
+    Info<<"Projection of distance field ";
+    t1 = std::chrono::high_resolution_clock::now();
+    projectNurbsSurface();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Collect all cutCells"<<endl;
+    const pointField& points = this->points();
+    const faceList& faces = this->faces();
+    const cellList& cells = this->cells();
+    const labelList& owner  = this->owner();
+    const labelList& neighbour  = this->neighbour();
+    DynamicList<label> iBCells;
+    for(int i=0;i<cells.size();i++)
+    {
+        labelList cellLabels = cells[i].labels(faces);        
+        bool nullExist = false;
+        bool posExist = false;
+        bool negExist = false;
+        for(int k=0;k<cellLabels.size();k++)
+        {
+            if(pointDist[cellLabels[k]] == 0)
+                nullExist = true;
+            else if(pointDist[cellLabels[k]] > 0)
+                posExist = true;
+            else
+                negExist = true;
+        }
+        
+        if(nullExist || (posExist && negExist))
+        {
+            iBCells.append(i);
+        }
+    }
+    std::unordered_set<label> refineCellsMap;
+    for(int i=0;i<iBCells.size();i++)
+    {
+        refineCellsMap.insert(iBCells[i]);
+        for(int j=0;j<cells[iBCells[i]].size();j++)
+        {
+            label faceLabel = cells[iBCells[i]][j];
+            label neighborCell = -1;
+            neighborCell = (owner[faceLabel]==iBCells[i] && neighbour[faceLabel]!=-1)*neighbour[faceLabel]+
+                                 (neighbour[faceLabel]==iBCells[i])*owner[faceLabel];
+            refineCellsMap.insert(neighborCell);
+        }
+    }
+    refineCellsMap.erase(-1);
+    DynamicList<label> refineCells;
+    for(const label& cell:refineCellsMap)
+        refineCells.append(cell);
+        
+    
+    this->refine(refineCells);
+    this->write();    
+}
+
+void Foam::cutCellFvMesh::cutTheImmersedBoundary
+(
+)
+{
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::duration<double> time_span;
+    
+    Info<<"Projection of distance field ";
+    t1 = std::chrono::high_resolution_clock::now();
+    projectNurbsSurface();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Adding of cut points";
+    t1 = std::chrono::high_resolution_clock::now();
+    newMeshPoints();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Adding of cut edges";
+    t1 = std::chrono::high_resolution_clock::now();
+    newMeshEdges();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+        
+    edgesToSide();
+    
+    Info<<"Adding of cut faces";
+    t1 = std::chrono::high_resolution_clock::now();
+    newMeshFaces_plus();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t"<< time_span.count() << " seconds."<<endl;
+        
+    Info<<"Cutting old faces";
+    t1 = std::chrono::high_resolution_clock::now();
+    cutOldFaces_plus();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+        
+    faceList faces(0);
+    labelList owner(0);
+    labelList neighbour(0);        
+    if(ibAlgorithm == internalCut)
+    {
+        createNewMeshData();
+    
+        faces.append(addedCutFaces);
+        faces.append(splitAndUnsplitFacesInterior);
+        faces.append(splitAndUnsplitFacesBoundary);
+    
+        owner.append(addedCutFacesOwner);
+        owner.append(splitAndUnsplitFacesInteriorOwner);
+        owner.append(splitAndUnsplitFacesBoundaryOwner);
+    
+        neighbour.append(addedCutFacesNeighbor);
+        neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
+        neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
+    }
+    else if(ibAlgorithm == delNegMesh)
+    {
+        Info<<"-------------------------------------------"<<endl;
+        Info<<"Create new Mesh data and cut negative cells";
+        t1 = std::chrono::high_resolution_clock::now();
+        createNewMeshData_cutNeg_plus();
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        Info<< " took \t"<< time_span.count() << " seconds."<<endl;
+        Info<<"-------------------------------------------"<<endl;
+
+        Info<<"Combine resetPrimitives data"<<endl;
+        t1 = std::chrono::high_resolution_clock::now();
+        faces.append(splitAndUnsplitFacesInterior);
+        faces.append(splitAndUnsplitFacesBoundary);
+        faces.append(addedCutFaces);
+        faces.append(splitAndUnsplitFacesInteriorToBoundary);
+    
+        owner.append(splitAndUnsplitFacesInteriorOwner);
+        owner.append(splitAndUnsplitFacesBoundaryOwner);
+        owner.append(addedCutFacesOwner);
+        owner.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
+        
+        neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
+        neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
+        neighbour.append(addedCutFacesNeighbor);
+        neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
+        
+        for(int i=0;i<owner.size();i++)
+        {
+            if(owner[i]<0)
+            {
+                Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+                Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
+                Info<<"owner[i]:"<<owner[i]<<endl;
+                Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+                FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
+            }
+            if(neighbour[i]<-1)
+            {
+                Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+                Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
+                Info<<"owner[i]:"<<owner[i]<<endl;
+                Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+                FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
+            }
+        }
+
+        /*
+        Info<<"addedCutFaceOwner[4420]:"<<addedCutFacesOwner[4420]<<endl;
+        Info<<"addedCutFaceNeighbor[4420]:"<<addedCutFacesNeighbor[4420]<<endl;
+        Info<<"addedCutFaces[4420]:"<<addedCutFaces[4420]<<endl;
+        
+        Info<<"splitAndUnsplitFacesInterior: "<<splitAndUnsplitFacesInterior.size()<<endl;
+        Info<<"splitAndUnsplitFacesBoundary: "<<splitAndUnsplitFacesBoundary.size()<<endl;
+        Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
+        Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
+        
+        FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+        */
+
+        
+        Info<<"3"<<endl;
+        for(int i=0;i<patchStarts.size();i++)
+        {
+            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        }
+
+        /*
+        patchStarts[patchStarts.size()-1] = patchStarts.last()+patchSizes.last();
+        patchSizes[patchSizes.size()-1] = addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size();
+        */
+        
+        //Info<<endl;
+        //Info<<"faces: "<<faces<<endl;
+        //Info<<"owner: "<<owner<<endl;
+        //Info<<"neighbour: "<<neighbour<<endl;
+        
+        
+        Info<<"--"<<endl;
+        for(int i=0;i<patchStarts.size();i++)
+        {
+            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
+        }
+        Info<<"InteriorFacesSize: "<<splitAndUnsplitFacesInterior.size()<<endl;
+        Info<<"BoundaryFaceSize: "<<splitAndUnsplitFacesBoundary.size()+addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
+
+        Info<<"splitAndUnsplitFacesInterior: "<<splitAndUnsplitFacesInterior.size()<<endl;
+        Info<<"splitAndUnsplitFacesBoundary: "<<splitAndUnsplitFacesBoundary.size()<<endl;
+        Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
+        Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
+
+        
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
+    }
+    //printMesh();
+    //FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
+
+    Info<<"Correcting face normal direction";
+    t1 = std::chrono::high_resolution_clock::now();
+    correctFaceNormalDir(newMeshPoints_,faces,owner,neighbour);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+
+    const pointField& oldPoints = this->points();
+    const faceList& oldFaceList = this->faces();
+    const cellList& oldCells = this->cells();
+    
+    oldCellVolume = scalarList(oldCells.size());
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+    }
+    
+    testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
+        
+    Info<<"Reset:"<<endl;
+    resetPrimitives(Foam::clone(newMeshPoints_),
+                    Foam::clone(faces),
+                    Foam::clone(owner),
+                    Foam::clone(neighbour),
+                    patchSizes,
+                    patchStarts,
+                    true);
+    Info<<"First self test"<<endl;
+    selfTestMesh();
+    
+    const cellList& newCells = this->cells();
+    newCellVolume = scalarList(newCells.size());
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        Info<<"i:"<<i<<endl;
+        newCellVolume[i] = newCells[i].mag(newMeshPoints_,this->faces());
+    }
+    
+    Info<<"Agglomerate small cut-cells";
+    t1 = std::chrono::high_resolution_clock::now();
+    agglomerateSmallCells_cutNeg_plus(newCellVolume,oldCellVolume,partialThreeshold);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
+
+    //printMesh();
+    Info<<"Please write"<<endl;
+    this->write();
+    Info<<"Written"<<endl;
+    //printMesh();
+    selfTestMesh();
+    Info<<"Ending"<<endl;
 }

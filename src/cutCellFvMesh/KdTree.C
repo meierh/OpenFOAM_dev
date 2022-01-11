@@ -12,7 +12,7 @@ maxCurvesPerNode(maxCurvesPerNode)
 {
     listMinMaxBoxes = List<BoundingBox>((*(this->Items)).size());
     
-    for(int i=0;i<(*(this->Items)).size();i++)
+    for(unsigned long i=0;i<(*(this->Items)).size();i++)
     {
         listMinMaxBoxes[i] = (*(this->Items))[i].computeBoundingBox();
     }

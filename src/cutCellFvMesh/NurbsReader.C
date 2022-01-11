@@ -16,7 +16,7 @@ std::shared_ptr<std::vector<Nurbs>> Foam::NurbsReader::getNurbsCurves()
 Foam::word Foam::NurbsReader::getXMLPath()
 {
     fileName caseDirectory = runDirectory+"/"+caseName;
-    fileName constantDirectory = caseDirectory+"/constant";
+    fileName constantDirectory = caseDirectory;
 
     DIR  *dir = NULL;
     const char *pathConstantDirectory = constantDirectory.c_str();

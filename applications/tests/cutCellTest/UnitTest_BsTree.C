@@ -17,7 +17,7 @@ void Foam::UnitTest_BsTree()
     controlPoints[1] = vector(1,1,0);    
     controlPoints[2] = vector(0,1,0);
     //Info<<"Kontrollpunkte"<<endl;
-    std::shared_ptr<Nurbs> QuarterCircle(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.05,0.05)));
+    Nurbs QuarterCircle(knots,controlPoints,weights,testdegree,0.05,0.05);
     
     BsTree Tree(QuarterCircle);
     
@@ -38,10 +38,10 @@ void Foam::UnitTest_BsTree()
         " d_1:"<<Tree.Curve->distCurveToPoint_Deriv1(resIn[i],testPointInside)<<
         " d_2:"<<Tree.Curve->distCurveToPoint_Deriv2(resIn[i],testPointInside)<<endl;
     */
-    scalar nearest = Tree.Curve->newtonIterateNearestNeighbour(resIn.last(),testPointInside);
+    scalar nearest = Tree.Curve.newtonIterateNearestNeighbour(resIn.last(),testPointInside);
     Info<<"UnitTest BsTree nearest Point on Nurbs found 1/5"<<endl;
     
-    nearest = Tree.Curve->newtonIterateNearestNeighbour_alt(resIn.last(),testPointInside);
+    nearest = Tree.Curve.newtonIterateNearestNeighbour_alt(resIn.last(),testPointInside);
     Info<<"UnitTest BsTree nearest Point on Nurbs found 2/5"<<endl;
 
     nearest = Tree.closestParaOnNurbsToPoint(testPointInside);
@@ -54,7 +54,7 @@ void Foam::UnitTest_BsTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(0,0,1);    
-    std::shared_ptr<Nurbs> Line(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.3,1)));
+    Nurbs Line(knots,controlPoints,weights,testdegree,0.3,1);
     
     BsTree Tree2(Line);
     vector pointOnNurbs(0,0,0.6);
@@ -63,7 +63,7 @@ void Foam::UnitTest_BsTree()
     //Info<<closestPara<<" "<<Tree2.Curve->Curve_Derivative(0,closestPara)<<endl;
     Info<<"UnitTest BsTree nearest Point on Nurbs found 4/5"<<endl;
     //Info<<"Compute closest Distance ";
-    scalar closestDist = Tree2.Curve->distanceToNurbsSurface(closestPara,pointOnNurbs);
+    scalar closestDist = Tree2.Curve.distanceToNurbsSurface(closestPara,pointOnNurbs);
     Info<<"UnitTest BsTree nearest Point on Nurbs found 5/5"<<endl;
     //Info<<closestDist<<endl;
 }

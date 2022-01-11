@@ -67,7 +67,7 @@ double randFrom(double min, double max)
     return min + (rand() / div);
 }
 
-std::unique_ptr<Nurbs> generateRandomNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
+Nurbs generateRandomNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
 {
     scalarList knots(6);
     knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=1; knots[4]=1; knots[5]=1;    
@@ -86,12 +86,12 @@ std::unique_ptr<Nurbs> generateRandomNurbs(scalar minCoord, scalar maxCoord, sca
         end[d] = randFrom(minCoord,maxCoord);
     controlPoints[0]=start; controlPoints[1]=end;
     
-    return std::unique_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,degree,diameter,delta_X));
+    return Nurbs(knots,controlPoints,weights,degree,diameter,delta_X);
 }
 
-List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
+std::shared_ptr<std::vector<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoord, scalar diameter, scalar delta_X, int degree)
 {
-    List<std::shared_ptr<Nurbs>> items(0);
+    std::shared_ptr<std::vector<Nurbs>> items = std::make_shared<std::vector<Nurbs>>();
     int testdegree = 2;
     scalarList knots;
     scalarList weights;
@@ -107,8 +107,8 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights = scalarList(2);
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
-    controlPoints[0]=vector(0,0,0)+shiftVector; controlPoints[1]=vector(1,0,0)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    controlPoints[0]=vector(0,0,0)+shiftVector; controlPoints[1]=vector(1,0,0)+shiftVector;
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //1) X1Y[0,1]Z0
     knots = scalarList(6);
@@ -117,7 +117,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0,0)+shiftVector; controlPoints[1]=vector(1,1,0)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
     
     //2) X[1,0]Y1Z0
     knots = scalarList(6);
@@ -126,7 +126,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,1,0)+shiftVector; controlPoints[1]=vector(0,1,0)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //3) X0Y[1,0]Z0
     knots = scalarList(6);
@@ -135,7 +135,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,1,0)+shiftVector; controlPoints[1]=vector(0,0,0)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //4) X0Y0Z[0,1]
     knots = scalarList(6);
@@ -144,7 +144,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,0,0)+shiftVector; controlPoints[1]=vector(0,0,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //5) X1Y0Z[0,1]
     knots = scalarList(6);
@@ -153,7 +153,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0,0)+shiftVector; controlPoints[1]=vector(1,0,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //6) X1Y1Z[0,1]
     knots = scalarList(6);
@@ -162,7 +162,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,1,0)+shiftVector; controlPoints[1]=vector(1,1,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //7) X0Y1Z[0,1]
     knots = scalarList(6);
@@ -171,7 +171,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,1,0)+shiftVector; controlPoints[1]=vector(0,1,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //8) X[0,1]Y0Z1
     knots = scalarList(6);
@@ -180,7 +180,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,0,1)+shiftVector; controlPoints[1]=vector(1,0,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //9) X1Y[0,1]Z1
     knots = scalarList(6);
@@ -189,7 +189,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0,1)+shiftVector; controlPoints[1]=vector(1,1,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
     
     //10) X[1,0]Y1Z1
     knots = scalarList(6);
@@ -198,7 +198,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,1,1)+shiftVector; controlPoints[1]=vector(0,1,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
 
     //11) X0Y[1,0]Z1
     knots = scalarList(6);
@@ -207,7 +207,7 @@ List<std::shared_ptr<Nurbs>> generateShiftedNurbs(scalar minCoord, scalar maxCoo
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,1,1)+shiftVector; controlPoints[1]=vector(0,0,1)+shiftVector;    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,diameter,delta_X));
     
     return items;
 }
@@ -282,7 +282,7 @@ void Foam::UnitTest_KdTree()
     scalarList knots;
     scalarList weights;
     List<vector> controlPoints;
-    List<std::shared_ptr<Nurbs>> items(0);
+    std::shared_ptr<std::vector<Nurbs>> items = std::make_shared<std::vector<Nurbs>>();
 
     //0) X[0,1]Y0Z0
     knots = scalarList(6);
@@ -290,8 +290,8 @@ void Foam::UnitTest_KdTree()
     weights = scalarList(2);
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
-    controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(1,0,0);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(1,0,0);
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //1) X1Y[0,1]Z0
     knots = scalarList(6);
@@ -300,7 +300,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0,0); controlPoints[1]=vector(1,1,0);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
     
     //2) X[1,0]Y1Z0
     knots = scalarList(6);
@@ -309,7 +309,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,1,0); controlPoints[1]=vector(0,1,0);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //3) X0Y[1,0]Z0
     knots = scalarList(6);
@@ -318,7 +318,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,1,0); controlPoints[1]=vector(0,0,0);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //4) X0Y0Z[0,1]
     knots = scalarList(6);
@@ -327,7 +327,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(0,0,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //5) X1Y0Z[0,1]
     knots = scalarList(6);
@@ -336,7 +336,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0,0); controlPoints[1]=vector(1,0,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //6) X1Y1Z[0,1]
     knots = scalarList(6);
@@ -345,7 +345,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,1,0); controlPoints[1]=vector(1,1,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //7) X0Y1Z[0,1]
     knots = scalarList(6);
@@ -354,7 +354,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,1,0); controlPoints[1]=vector(0,1,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //8) X[0,1]Y0Z1
     knots = scalarList(6);
@@ -363,7 +363,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,0,1); controlPoints[1]=vector(1,0,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //9) X1Y[0,1]Z1
     knots = scalarList(6);
@@ -372,7 +372,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,0,1); controlPoints[1]=vector(1,1,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
     
     //10) X[1,0]Y1Z1
     knots = scalarList(6);
@@ -381,7 +381,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(1,1,1); controlPoints[1]=vector(0,1,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     //11) X0Y[1,0]Z1
     knots = scalarList(6);
@@ -390,7 +390,7 @@ void Foam::UnitTest_KdTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,1,1); controlPoints[1]=vector(0,0,1);    
-    items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1)));
+    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,0.1));
 
     
     KdTree testTree(items);
@@ -517,10 +517,10 @@ void Foam::UnitTest_KdTree()
     
     for(int run=0;run<NUM_RUNS;run++)
     {
-        List<std::shared_ptr<Nurbs>> thisRunNurbsCurves(0);
+        std::shared_ptr<std::vector<Nurbs>> thisRunNurbsCurves = std::make_shared<std::vector<Nurbs>>();
         for(int numNurbs=0;numNurbs<NUM_NURBS;numNurbs++)
         {
-            thisRunNurbsCurves.append(std::move(generateRandomNurbs(minCoord, maxCoord, diameter, delta_X, degree)));
+            thisRunNurbsCurves->push_back(std::move(generateRandomNurbs(minCoord, maxCoord, diameter, delta_X, degree)));
         }
         KdTree Tree(thisRunNurbsCurves);
         
@@ -561,10 +561,12 @@ void Foam::UnitTest_KdTree()
     treesWithIncreasing = 0;
     for(int run=0;run<NUM_RUNS;run++)
     {
-        List<std::shared_ptr<Nurbs>> thisRunNurbsCurves(0);
+        std::shared_ptr<std::vector<Nurbs>> thisRunNurbsCurves = std::make_shared<std::vector<Nurbs>>();
         for(int numNurbs=0;numNurbs<NUM_NURBS;numNurbs++)
         {
-            thisRunNurbsCurves.append(generateShiftedNurbs(minCoord, maxCoord, diameter, delta_X, degree));
+            std::shared_ptr<std::vector<Nurbs>> temp = generateShiftedNurbs(minCoord, maxCoord, diameter, delta_X, degree);
+            for(int j=0;j<temp->size();j++)
+                thisRunNurbsCurves->push_back((*temp)[j]);
         }
         KdTree Tree(thisRunNurbsCurves);
         
@@ -600,7 +602,7 @@ void Foam::UnitTest_KdTree()
                 for(int i=0;i<BruteForceRes.size();i++)
                 {
                     Info<<BruteForceRes[i]<<" ";
-                    Tree.Items[BruteForceRes[i]]->printBox();
+                    (*(Tree.Items))[BruteForceRes[i]].printBox();
                     Info<<endl;
                 }
                 Info<<endl;

@@ -89,10 +89,10 @@ int main(int argc, char *argv[])
     (*weights)[6] = 1;    (*weights)[7] = sqrt(2)/2;    (*weights)[8] = 1;
     Info<<"Gewichte"<<endl;
     
-    std::unique_ptr<List<vector>> controlPoints(new List<vector>(9));
-    (*controlPoints)[0] = vector(1,0,0);    (*controlPoints)[1] = vector(1,1,0);    (*controlPoints)[2] = vector(0,1,0);
-    (*controlPoints)[3] = vector(-1,1,0);   (*controlPoints)[4] = vector(-1,0,0);   (*controlPoints)[5] = vector(-1,-1,0);
-    (*controlPoints)[6] = vector(0,-1,0);   (*controlPoints)[7] = vector(1,-1,0);   (*controlPoints)[8] = vector(1,0,0);
+    std::unique_ptr<List<Foam::vector>> controlPoints(new List<Foam::vector>(9));
+    (*controlPoints)[0] = Foam::vector(1,0,0);    (*controlPoints)[1] = Foam::vector(1,1,0);    (*controlPoints)[2] = Foam::vector(0,1,0);
+    (*controlPoints)[3] = Foam::vector(-1,1,0);   (*controlPoints)[4] = Foam::vector(-1,0,0);   (*controlPoints)[5] = Foam::vector(-1,-1,0);
+    (*controlPoints)[6] = Foam::vector(0,-1,0);   (*controlPoints)[7] = Foam::vector(1,-1,0);   (*controlPoints)[8] = Foam::vector(1,0,0);
     Info<<"Kontrollpunkte"<<endl;
     
     /*

@@ -32,10 +32,18 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             delNegMesh = 0,
             internalCut
         };
-
+        
+        struct nurbsReference
+        {
+            label nurbsInd=-1;
+            scalar nurbsPara=-1;
+        };
 
     //Private Attributes
     private:
+        // Type of cut immersed boundary algorithm
+        cutStatus ibAlgorithm;
+        
         // Threshold of cell size difference
         scalar partialThreeshold = 0.25;
         
@@ -74,6 +82,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<point> newMeshPointsInFunc;
             pointField newMeshPoints_;
         
+            //Reference nurbs curves for zero points
+            DynamicList<nurbsReference> meshPointNurbsReference;
+            
             //label of edge for every added Point and -1 for intersection point
             //labelList pointToEgde_;
             DynamicList<label> pointToEgde_;
@@ -255,6 +266,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             cutStatus state = delNegMesh
         );
         
+        void cutTheImmersedBoundary();
+        void refineTheImmersedBoundary();
+
+        
         // Print Functions for debugg purposes
         void printAddedPoints();
         void printAddedEdges();
@@ -287,7 +302,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // Adds to points_.
         void newMeshPoints();
         
+        scalar distToNurbs(point pnt,bool& foundFlag,nurbsReference& reference);
         scalar distToNurbs(point pnt,bool& foundFlag);
+
         label sideToNurbs(point pnt,bool& foundFlag);
         
         // Add edges for cutting the cells and create dependency data for creating cut cells
