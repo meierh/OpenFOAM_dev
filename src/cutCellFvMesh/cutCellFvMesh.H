@@ -20,9 +20,13 @@
 //#include <string.h>
 //#include <stdio.h>
 
+#include "motionSolver.H"
+#include "mapPolyMesh.H"
 
 namespace Foam
-{    
+{
+class motionSolver;
+    
 class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 {
     //Public attributes
@@ -41,6 +45,12 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 
     //Private Attributes
     private:
+        // cellMinDimToStructureDim
+        scalar cellDimToStructureDimLimit;
+        
+        //Motion Solver pointer
+        autoPtr<motionSolver> motionPtr_;
+        
         // Type of cut immersed boundary algorithm
         cutStatus ibAlgorithm;
         
@@ -263,7 +273,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         explicit cutCellFvMesh
         (
             const IOobject& io,
-            cutStatus state = delNegMesh
+            cutStatus state = delNegMesh,
+            scalar cellDimToStructureDimLimit = 0.1
         );
         
         void cutTheImmersedBoundary();
@@ -278,7 +289,27 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void printNewMeshData();
         void printMesh();
         void selfTestMesh();
-    
+        
+        //- Return the motionSolver
+        const motionSolver& motion() const;
+
+        //- Update the mesh for both mesh motion and topology change
+        virtual bool update();
+        
+        //Compute immersed boundary mesh points movement vector
+        void moveTheMesh();
+        
+        // move the Nurbs
+        void moveNurbsCurves(List<List<vector>> movedControlPoints);
+
+        //- Write the underlying polyMesh and other data
+        virtual bool writeObject
+        (
+            IOstream::streamFormat fmt,
+            IOstream::versionNumber ver,
+            IOstream::compressionType cmp,
+            const bool write = true
+        ) const;
 
     //Private Memberfunctions
     private:
@@ -498,6 +529,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList& mergeFaceOfCell,
             scalar partialThreeshold
         );
+        
+        void checkForHexCellsInCutArea();
+        
+        scalar minNurbsRadius();
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }

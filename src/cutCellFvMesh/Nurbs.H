@@ -86,6 +86,8 @@ class Nurbs
         
         void moveNurbs(List<vector> controlPoints);
         vector movementVector(scalar u);
+        
+        scalar radius() const {return diameter/2;};
                 
         void print() const {Info<<controlPoints[0]<<"->"<<controlPoints[1]<<endl;}
         void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}

@@ -29,14 +29,18 @@ initialWeights(weights),
 knots(knots),
 controlPoints(controlPoints),
 weights(weights),
-m(this->knots.size()),
-n(this->controlPoints.size()),
+knots_prev(knots),
+controlPoints_prev(controlPoints),
+weights_prev(weights),
+m(knots.size()),
+n(controlPoints.size()),
 p(degree),
-_min_U(this->knots.first()),
-_max_U(this->knots.last()),
+_min_U(knots.first()),
+_max_U(knots.last()),
 diameter(diameter),
 deltaX(deltaX)
 {
+    //Info<<"Construct Nurbs"<<endl;
     if(this->weights.size() != this->controlPoints.size())
     {
         FatalErrorInFunction
@@ -67,10 +71,12 @@ deltaX(deltaX)
     //Info<<"Constructed"<<endl;
     
     this->weightedControlPoints = List<vector>(n);
+    this->weightedControlPoints_prev = List<vector>(n);
     for(int i=0;i<n;i++)
     {
         //Info<<i<<endl;
         this->weightedControlPoints[i] = this->weights[i] * this->controlPoints[i];
+        this->weightedControlPoints_prev[i] = this->weights[i] * this->controlPoints[i];
     }
     //Info<<"Constructed"<<endl;
 }
@@ -316,6 +322,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox
     scalar end
 ) const
 {
+    //Info<<"Compute Bounding Box"<<endl;
     if(start < _min_U || start >= _max_U)
     {
         FatalErrorInFunction

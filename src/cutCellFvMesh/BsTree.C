@@ -8,6 +8,7 @@ Foam::BsTree::BsTree
 Curve(Curve),
 maxHeight(nbrSplitsBetweenCPs*this->Curve.nbrKnots()*this->Curve.degree())
 {
+    //Info<<"Constructe the tree"<<endl;
     _nil =  new Node();
     root = newNode(_nil,this->Curve.min_U(),this->Curve.max_U());
     //Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
