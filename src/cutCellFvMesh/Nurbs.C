@@ -614,6 +614,9 @@ vector Foam::Nurbs::movementVector
 {
     vector C_curr = Curve_Derivative(0,u,curr);
     vector C_prev = Curve_Derivative(0,u,prev);
+    //Info<<"C_curr:"<<C_curr<<endl;
+    //Info<<"C_prev:"<<C_prev<<endl;
+    //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);            
     return C_curr-C_prev;
 }
 

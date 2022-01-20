@@ -699,6 +699,7 @@ void Foam::cutCellFvMesh::newMeshPoints
                 }
             }
             
+            /*
             Info<<"---------------------"<<count<<endl;
             Info<<"lhsPhi:"<<lhsPhi<<"\t\t\t"<<"rhsPhi:"<<rhsPhi<<endl;
             Info<<"lhsScale:"<<lhsScale<<"\t\t\t"<<"rhsScale:"<<rhsScale<<endl;
@@ -707,6 +708,7 @@ void Foam::cutCellFvMesh::newMeshPoints
             Info<<"\tcenterPhi:"<<centerPhi<<endl;
             Info<<"\tcenterScale:"<<centerScale<<endl;
             Info<<"\tcenterPoint:"<<centerPoint<<endl;
+            */
 
             newMeshPointsInFunc.append(centerPoint);
             

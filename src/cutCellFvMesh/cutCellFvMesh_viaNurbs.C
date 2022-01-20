@@ -612,6 +612,7 @@ ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {
+    Info<<"cellDimToStructureDimLimit:"<<cellDimToStructureDimLimit<<endl;
     const objectRegistry& reg = this->thisDb();
     wordList namesIO = reg.names();
     const objectRegistry& parentReg = reg.parent();
@@ -662,13 +663,16 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary();
+    this->write();
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
 {
     scalar oldCellDimToStructureDim = std::numeric_limits<scalar>::max();
+    label refinementIteration=0;
     while(true)
     {
+        Info<<"-------------------------------------------------"<<endl;
         // Project distance to points
         std::chrono::high_resolution_clock::time_point t1;
         std::chrono::high_resolution_clock::time_point t2;
@@ -687,6 +691,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         const cellList& cells = this->cells();
         const labelList& owner  = this->owner();
         const labelList& neighbour  = this->neighbour();
+        const hexRef8& cutterEngine = this->meshCutter();
+        const labelList& cellRefinementLevel = cutterEngine.cellLevel();
         DynamicList<label> iBCells;
         for(int i=0;i<cells.size();i++)
         {
@@ -725,9 +731,22 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             {
                 label faceLabel = cells[iBCells[i]][j];
                 label neighborCell = -1;
+                if(owner[faceLabel]==iBCells[i] && faceLabel<neighbour.size())
+                    neighborCell = neighbour[faceLabel];
+                else if(neighbour[faceLabel]==iBCells[i])
+                    neighborCell = owner[faceLabel];
                 
-                neighborCell = (owner[faceLabel]==iBCells[i] && neighbour[faceLabel]!=-1)*neighbour[faceLabel]+
-                                    (neighbour[faceLabel]==iBCells[i])*owner[faceLabel];
+                if(neighborCell<-1 || neighborCell>=cells.size())
+                {
+                    Info<<endl;
+                    Info<<"iBCells[i]:"<<iBCells[i]<<endl;
+                    Info<<"face:"<<faceLabel<<endl;
+                    Info<<"owner[faceLabel]:"<<owner[faceLabel]<<endl;
+                    Info<<"neighbour[faceLabel]:"<<neighbour[faceLabel]<<endl;
+                    Info<<"neighbour[faceLabel]:"<<neighbour[faceLabel]<<endl;
+                    Info<<"neighborCell:"<<neighborCell<<endl;
+                    FatalErrorInFunction<<"False cell"<< exit(FatalError);
+                }
                 refineCellsMap.insert(neighborCell);
             }
         }
@@ -736,9 +755,102 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         for(const label& cell:refineCellsMap)
             refineCells.append(cell);
         
+        Info<<"refineCells.size():"<<refineCells.size()<<endl;
+        //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
+        
+        // Collect reRefinement cells
+        Info<<"Collect all reRefinment cells"<<endl;
+        DynamicList<label> reRefinementCells;
+        reRefinementCells.append(refineCells);
+        std::unordered_set<label> reRefinementCellsMap;
+        for(const label& cell: reRefinementCells)
+            reRefinementCellsMap.insert(cell);
+        bool reRefinementDone=false;
+        label cellLoopStartInd=0;
+        label cellLoopEndInd=reRefinementCells.size();
+        while(true)
+        {
+            std::unordered_set<label> duplicateTest;
+            for(const label& insTest: reRefinementCells)
+            {
+                if(duplicateTest.count(insTest)!=0)
+                    FatalErrorInFunction<<"Duplicate"<< exit(FatalError);
+                else
+                    duplicateTest.insert(insTest);
+            }
+            
+            Info<<"cellLoopStartInd:"<<cellLoopStartInd<<endl;
+            Info<<"cellLoopEndInd:"<<cellLoopEndInd<<endl;
+            bool cellsAppended = false;
+            for(int i=cellLoopStartInd;i<cellLoopEndInd;i++)
+            {
+                label refineCellLevel = cellRefinementLevel[reRefinementCells[i]];
+                for(int j=0;j<cells[reRefinementCells[i]].size();j++)
+                {
+                    label faceLabel = cells[reRefinementCells[i]][j];
+                    label neighborCell = -1;
+                    if(owner[faceLabel]==reRefinementCells[i] && faceLabel<neighbour.size())
+                        neighborCell = neighbour[faceLabel];
+                    else if(neighbour[faceLabel]==reRefinementCells[i])
+                        neighborCell = owner[faceLabel];
+                    
+                    if(neighborCell!=-1 && reRefinementCellsMap.count(neighborCell)==0)
+                    {
+                        label neighbourRefineCellLevel = cellRefinementLevel[neighborCell];
+                        label refineLvlDiff = refineCellLevel-neighbourRefineCellLevel;
+                        if(refineLvlDiff>0 || refineLvlDiff<-1)
+                        {
+                            if(refineLvlDiff<-1 || refineLvlDiff>1)
+                            {
+                                Info<<"cell:"<<reRefinementCells[i]<<" refLevel:"<<refineCellLevel<<endl;
+                                Info<<"neighborCell:"<<neighborCell<<" refLevel:"<<neighbourRefineCellLevel<<endl;
+                                FatalErrorInFunction<<"Can not happen."<< exit(FatalError);
+                            }
+                            if(refineLvlDiff>0)
+                            {
+                                reRefinementCells.append(neighborCell);
+                                reRefinementCellsMap.insert(neighborCell);
+                                cellsAppended=true;
+                            }
+                        }
+                    }
+                }
+            }
+            if(cellsAppended)
+            {
+                cellLoopStartInd=cellLoopEndInd;
+                cellLoopEndInd=reRefinementCells.size();
+            }
+            else
+                break;
+        }        
+        DynamicList<label> tempCells;
+        for(int i=refineCells.size();i<reRefinementCells.size();i++)
+        {
+            tempCells.append(reRefinementCells[i]);
+            if(refineCellsMap.count(reRefinementCells[i])!=0)
+                FatalErrorInFunction<<"reRefinement of refine cells"<< exit(FatalError);
+        }
+        reRefinementCells = tempCells;
+        
+        for(int i=0;i<reRefinementCells.size();i++)
+        {
+            if(reRefinementCells[i]<0 || reRefinementCells[i]>=cells.size())
+            {
+                Info<<"reRefinementCells[i]:"<<reRefinementCells[i]<<endl;
+                FatalErrorInFunction<<"Invalid cell"<< exit(FatalError);
+            }
+        }
+        
+        Info<<"cells:"<<cells.size()<<endl;
+        this->refine(reRefinementCells);
+        const cellList& cells2 = this->cells();
+        const faceList& faces2 = this->faces();
+        Info<<"cells:"<<cells2.size()<<endl;        
+        
         for(int i=0;i<refineCells.size();i++)
         {
-            if(refineCells[i]<0 || refineCells[i]>=cells.size())
+            if(refineCells[i]<0 || refineCells[i]>=cells2.size())
             {
                 Info<<"refineCellsMap:"<<refineCellsMap.count(refineCells[i])<<endl;
                 Info<<"refineCells[i]:"<<refineCells[i]<<endl;
@@ -751,8 +863,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         scalar maxEdgeLen = std::numeric_limits<scalar>::min();
         for(int i=0;i<refineCells.size();i++)
         {
-            Info<<"Cell:"<<refineCells[i]<<endl;
-            edgeList cellEdges = cells[refineCells[i]].edges(faces);
+            //Info<<"Cell:"<<refineCells[i]<<endl;
+            edgeList cellEdges = cells2[refineCells[i]].edges(faces2);
             for(const edge& oneEdge: cellEdges)
             {
                 scalar oneEdgeLen = oneEdge.mag(points);
@@ -766,9 +878,21 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         if(cellDimToStructureDim>=oldCellDimToStructureDim)
             FatalErrorInFunction<<"No progress in near nurbs refinement"<< exit(FatalError);
 
+        Info<<"cellRefinementLevel[3874]:"<<cellRefinementLevel[3874]<<endl;
+        Info<<"cellRefinementLevel[15225]:"<<cellRefinementLevel[15225]<<endl;
         Info<<"Refine"<<endl;
+        Info<<cellDimToStructureDim<<"/"<<cellDimToStructureDimLimit<<endl;
+        
+        /*
+        if(refinementIteration==2)
+            FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
+        */
+        
         if(cellDimToStructureDim > cellDimToStructureDimLimit)
+        {
             this->refine(refineCells);
+            refinementIteration++;
+        }
         else
             break;
     }
@@ -790,7 +914,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
     
-    checkForHexCellsInCutArea();
+    //checkForHexCellsInCutArea();
     
     Info<<"Adding of cut points";
     t1 = std::chrono::high_resolution_clock::now();
@@ -1015,6 +1139,13 @@ bool Foam::cutCellFvMesh::writeObject
 
 void Foam::cutCellFvMesh::moveTheMesh()
 {
+    point minVec = point(-1,-1,-1);
+    scalar minLen = std::numeric_limits<scalar>::max();
+    point avgVec = point(0,0,0);
+    label cntAvg = 0;
+    point maxVec = point(0,0,0);
+    scalar maxLen = 0;
+    
     const pointField& meshPoints = this->points();
     pointField newPoints(meshPoints.size());
     
@@ -1030,10 +1161,39 @@ void Foam::cutCellFvMesh::moveTheMesh()
             if(reference.nurbsInd==-1 || reference.nurbsPara==-1)
                 FatalErrorInFunction<<"Zero point has no reference nurbs. Can not happen!"<< exit(FatalError);            
             vector pointMotion = (*(this->Curves))[reference.nurbsInd].movementVector(reference.nurbsPara);
+            if(Foam::mag(pointMotion)>1)
+            {
+                Info<<"meshPoints["<<i<<"]:"<<meshPoints[i]<<endl;
+                Info<<"reference.nurbsInd:"<<reference.nurbsInd<<endl;
+                Info<<"reference.nurbsPara:"<<reference.nurbsPara<<endl;
+                Info<<"pointMotion:"<<endl;
+                FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);            
+            }
             newPoints[i] +=  pointMotion;
+            
+            
+            if(maxLen<Foam::mag(pointMotion))
+            {
+                maxLen = Foam::mag(pointMotion);
+                maxVec = pointMotion;
+            }
+            if(minLen>Foam::mag(pointMotion))
+            {
+                minLen = Foam::mag(pointMotion);
+                minVec = pointMotion;
+            }
+            avgVec+=pointMotion;
+            cntAvg++;
         }
     }
+    avgVec/=cntAvg;
+    
+    //Info<<"maxVec:"<<maxVec<<endl;
+    //Info<<"minVec:"<<minVec<<endl;
+    //Info<<"avgVec:"<<avgVec<<endl;
+    
     motionPtr_->movePoints(newPoints);
+    //Info<<"Moved "<<newPoints.size()<<" points"<<endl;
 }
 
 void Foam::cutCellFvMesh::moveNurbsCurves

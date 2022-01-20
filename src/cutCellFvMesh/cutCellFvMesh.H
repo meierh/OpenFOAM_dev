@@ -274,7 +274,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         (
             const IOobject& io,
             cutStatus state = delNegMesh,
-            scalar cellDimToStructureDimLimit = 0.1
+            scalar cellDimToStructureDimLimit = 0.51
         );
         
         void cutTheImmersedBoundary();
