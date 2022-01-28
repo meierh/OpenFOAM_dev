@@ -196,6 +196,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInteriorNeighbor;
             // added interior split faces patch Index
             DynamicList<label> splitAndUnsplitFacesInteriorPatchInd;
+            // faceInd to sub list index
+            std::unordered_map<label,label> sAUFI_NewToOldMap;
+            std::unordered_multimap<label,label> sAUFI_OldToNewMap;
             
             //insert interior to boundary splitted faces
             // added interior to boundary split faces
@@ -206,6 +209,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryNeighbor;
             // added interior to boundary split faces patch Index
             DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryPatchInd;
+            // faceInd to sub list index
+            std::unordered_map<label,label> sAUFITB_NewToOldMap;
+            std::unordered_multimap<label,label> sAUFITB_OldToNewMap;
             
             //insert boundary splitted faces
             // added boundary split faces
@@ -216,6 +222,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesBoundaryNeighbor;
             // added boundary split faces patch Index
             DynamicList<label> splitAndUnsplitFacesBoundaryPatchInd;
+            // faceInd to sub list index
+            std::unordered_map<label,label> sAUFB_NewToOldMap;
+            std::unordered_multimap<label,label> sAUFB_OldToNewMap;
             
             //list of indexes of minus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
@@ -227,7 +236,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<DynamicList<label>> mapOldCellsToNewCells;
             //list of labels to map new cell index to old cells
             labelList mapNewCellsToOldCells;
-      //End
+        //End
             
         //Data for solidFraction Computation
             //index of faces for all cut cell faces
@@ -236,7 +245,39 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList oldCellToMinusCutCell;
             //uncut cell to plus side cut cell face collection
             labelList oldCellToPlusCutCell;
+        //End
         
+        //mapPolyMesh Data
+            //polyMesh&       mesh;
+            label           nOldPoints;
+            label           nOldFaces;
+            label           nOldCells;
+            labelList       pointMap;
+            labelList       reversePointMap;
+            List<objectMap> pointsFromPoints;
+            labelList       faceMap;
+            List<objectMap> facesFromPoints;
+            List<objectMap> facesFromEdges;
+            List<objectMap> facesFromFaces;
+            labelList       cellMap;
+            List<objectMap> cellsFromPoints;
+            List<objectMap> cellsFromEdges;
+            List<objectMap> cellsFromFaces;
+            List<objectMap> cellsFromCells;
+            labelList       reverseFaceMap;
+            labelList       reverseCellMap;
+            labelHashSet    flipFaceFlux;
+            labelListList   patchPointMap;
+            labelListList   pointZoneMap;
+            labelListList   faceZonePointMap;
+            labelListList   faceZoneFaceMap;
+            labelListList   cellZoneMap;
+            pointField      preMotionPoints;
+            labelList       oldPatchStarts;
+            labelList       oldPatchNMeshPoints;
+            autoPtr<scalarField> oldCellVolumesPtr;
+        //End
+            
         //List<std::shared_ptr<Nurbs>> Curves;
         std::shared_ptr<std::vector<Nurbs>> Curves;
 
@@ -337,6 +378,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         scalar distToNurbs(point pnt,bool& foundFlag);
 
         label sideToNurbs(point pnt,bool& foundFlag);
+        
+        std::unique_ptr<mapPolyMesh> CutCellPolyMeshMap;
         
         // Add edges for cutting the cells and create dependency data for creating cut cells
         // Adds to edges_;
@@ -531,7 +574,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         );
         
         void checkForHexCellsInCutArea();
-        
+                
         scalar minNurbsRadius();
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);

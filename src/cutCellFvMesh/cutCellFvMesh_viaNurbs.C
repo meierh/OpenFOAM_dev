@@ -657,13 +657,47 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     Info<<"Before refinement"<<endl;
     testForNonHexMesh(*this);    
     // Refine nurbs cut surface
-    refineTheImmersedBoundary();
+    //refineTheImmersedBoundary();
     Info<<"After refinement"<<endl;
     testForNonHexMesh(*this);
     
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary();
-    this->write();
+    
+    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
+    for(int i=0;i<boundMesh.size();i++)
+    {
+        Info<<"-----------------------------------"<<endl;
+        Info<<"boundMesh["<<i<<"].name:"<<boundMesh[i].name()<<endl;
+        Info<<"boundMesh["<<i<<"].start:"<<boundMesh[i].start()<<endl;
+        Info<<"boundMesh["<<i<<"].size:"<<boundMesh[i].size()<<endl;
+        Info<<"boundMesh["<<i<<"].nPoints:"<<boundMesh[i].nPoints()<<endl;
+    }
+    
+    fileName meshFilesPath = thisDb().time().path();
+    fileName inst = this->meshDir();
+    Info<<"meshFilesPath:"<<meshFilesPath<<endl;
+    Info<<"inst:"<<inst<<endl;
+    this->removeFiles("constant");
+    /*
+    writeObject
+    (
+        time().writeFormat(),
+        IOstream::currentVersion,
+        time().writeCompression(),
+        true;
+    );
+    */
+    Foam::fileOperations::masterUncollatedFileOperation::mv("0/polyMesh","constant/polyMesh",false); 
+    //this->write();
+
+    
+    //Initialize after cutting the mesh!!! Otherwise the fields gets messed up during cutting the mesh
+    //Do not write the mesh before adding the motion solver
+    motionPtr_.clear();
+    motionPtr_ = motionSolver::New(*this,dynamicMeshDict());
+    
+    //this->write();
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
@@ -843,7 +877,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         }
         
         Info<<"cells:"<<cells.size()<<endl;
-        this->refine(reRefinementCells);
+        autoPtr<mapPolyMesh> reRefineMap = this->refine(reRefinementCells);
+        this->motionPtr_->updateMesh(reRefineMap);
         const cellList& cells2 = this->cells();
         const faceList& faces2 = this->faces();
         Info<<"cells:"<<cells2.size()<<endl;        
@@ -890,7 +925,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         
         if(cellDimToStructureDim > cellDimToStructureDimLimit)
         {
-            this->refine(refineCells);
+            autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
+            this->motionPtr_->updateMesh(refineMap);
             refinementIteration++;
         }
         else
@@ -899,9 +935,7 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
     //this->write();    
 }
 
-void Foam::cutCellFvMesh::cutTheImmersedBoundary
-(
-)
+void Foam::cutCellFvMesh::cutTheImmersedBoundary()
 {
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
@@ -946,6 +980,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
         
+    pointField points(0);
     faceList faces(0);
     labelList owner(0);
     labelList neighbour(0);        
@@ -1013,6 +1048,152 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
             }
         }
 
+        //Prepare face data for mapPolyMesh
+        cellMap = labelList(mapNewCellsToOldCells.size(),-1);
+        reverseCellMap = labelList(mapOldCellsToNewCells.size(),-1);
+        for(int i=0;i<cellMap.size();i++)
+        {
+            cellMap[i] = mapNewCellsToOldCells[i];
+        }
+        for(int i=0;i<mapOldCellsToNewCells.size();i++)
+        {
+            if(mapOldCellsToNewCells.size()==1)
+                reverseCellMap[i] = mapOldCellsToNewCells[i][0];
+            else if(mapOldCellsToNewCells.size()>1)
+            /* reverseCellMap only supports old to new one to one mapping
+             * solution: map the smallest, the "original cell ind"
+             */
+            {
+                label smallestCell = std::numeric_limits<label>::max();
+                for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
+                    if(smallestCell>mapOldCellsToNewCells[i][j])
+                        smallestCell = mapOldCellsToNewCells[i][j];
+                reverseCellMap[i] = smallestCell;
+            }
+        }
+        cellsFromPoints = List<objectMap>();
+        cellsFromEdges = List<objectMap>();
+        cellsFromFaces = List<objectMap>();
+        cellsFromCells = List<objectMap>();
+        //End
+        
+        
+        // Prepare face data for mapPolyMesh
+        faceMap = labelList(faces.size());
+        reverseFaceMap = labelList(nOldFaces,-1);
+        label index=0;
+        for(int i=0;i<splitAndUnsplitFacesInterior.size();i++,index++)
+            faceMap[index] =  sAUFI_NewToOldMap[i];
+        for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++,index++)
+            faceMap[index] =  sAUFB_NewToOldMap[i];
+        for(int i=0;i<addedCutFaces.size();i++,index++)
+            faceMap[index] =  -1;
+        for(int i=0;i<splitAndUnsplitFacesInteriorToBoundary.size();i++,index++)
+            faceMap[index] =  sAUFITB_NewToOldMap[i];
+        
+        for(auto item=sAUFI_OldToNewMap.begin();item!=sAUFI_OldToNewMap.end();item++)
+            reverseFaceMap[item->first] = item->second;
+        for(auto item=sAUFITB_OldToNewMap.begin();item!=sAUFITB_OldToNewMap.end();item++)
+            reverseFaceMap[item->first] = item->second;
+        for(auto item=sAUFB_OldToNewMap.begin();item!=sAUFB_OldToNewMap.end();item++)
+            reverseFaceMap[item->first] = item->second;
+
+        facesFromFaces = List<objectMap>();
+        facesFromEdges = List<objectMap>();
+        facesFromPoints = List<objectMap>();
+        //End
+        
+        
+        // Prepare face data for mapPolyMesh
+        std::unordered_set<label> usedPoints;
+        for(int i=0;i<faces.size();i++)
+            for(int j=0;j<faces[i].size();j++)
+                usedPoints.insert(faces[i][j]);
+
+        DynamicList<point> meshPoints;
+        std::unordered_map<label,label> pointOldPosToNewPos;
+        std::unordered_map<label,label> pointNewPosToOldPos;
+        std::unordered_map<label,label> pointIndMap;
+        for(int i=0;i<nOldPoints;i++)
+        {
+            if(usedPoints.count(i)!=0)
+            {
+                pointOldPosToNewPos.insert(std::pair<label,label>(i,meshPoints.size()));
+                pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),i));
+                pointIndMap.insert(std::pair<label,label>(i,meshPoints.size()));
+                meshPoints.append(newMeshPoints_[i]);
+            }
+        }
+        for(int i=nOldPoints;i<newMeshPoints_.size();i++)
+        {
+            if(usedPoints.count(i)!=0)
+            {
+                pointIndMap.insert(std::pair<label,label>(i,meshPoints.size()));
+                pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),-1));
+                meshPoints.append(newMeshPoints_[i]);
+            }
+        }
+        Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<endl;
+        Info<<"meshPoints.size():"<<meshPoints.size()<<endl;
+        pointField resetPointList(meshPoints.size());
+        for(int i=0;i<meshPoints.size();i++)
+        {
+            resetPointList[i] = meshPoints[i];
+        }
+        pointMap = labelList(meshPoints.size());
+        for(int i=0;i<meshPoints.size();i++)
+            pointMap[i] = pointNewPosToOldPos[i];
+        
+        reversePointMap = labelList(nOldPoints);
+        for(int i=0;i<nOldPoints;i++)
+        {
+            if(usedPoints.count(i)==0)
+            {
+                reversePointMap[i] = -1;
+            }
+            else
+            {
+                reversePointMap[i] = pointOldPosToNewPos[i];
+            }
+        }
+        pointsFromPoints = List<objectMap>();
+        
+        for(face& oneFace: faces)
+            for(label& oneVertice: oneFace)
+            {
+                point oldPoint = newMeshPoints_[oneVertice];
+                point newPoint = meshPoints[pointIndMap[oneVertice]];
+                if(oldPoint != newPoint)
+                    FatalErrorInFunction<< "Can not happen"<<endl<< exit(FatalError);
+                oneVertice = pointIndMap[oneVertice];
+            }
+        points = meshPoints;
+        
+        flipFaceFlux = labelHashSet(0);
+        
+        
+        
+        const fvBoundaryMesh& fvBound = this->boundary();
+        for(int i=0;i<fvBound.size();i++)
+        {
+            Info<<"fvPatch:"<<i<<endl;
+            Info<<"name:"<<fvBound[i].name()<<endl;
+            Info<<"start:"<<fvBound[i].start()<<endl;
+            Info<<"size:"<<fvBound[i].size()<<endl;
+
+            const fvPatch& patch = fvBound[fvBound[i].name()];
+            Info<<"------------------"<<endl;
+        }
+        
+        const auto& mPZ = this->pointZones();
+        Info<<"PointZones-----------:"<<mPZ.names()<<endl;
+        const auto& mFZ = this->faceZones();
+        Info<<"FaceZones-----------:"<<mFZ.names()<<endl;
+        const auto& mCZ = this->cellZones();
+        Info<<"CellZones-----------:"<<mCZ.names()<<endl;
+           
+                
+        //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
         /*
         Info<<"addedCutFaceOwner[4420]:"<<addedCutFacesOwner[4420]<<endl;
         Info<<"addedCutFaceNeighbor[4420]:"<<addedCutFacesNeighbor[4420]<<endl;
@@ -1067,7 +1248,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
 
     Info<<"Correcting face normal direction";
     t1 = std::chrono::high_resolution_clock::now();
-    correctFaceNormalDir(newMeshPoints_,faces,owner,neighbour);
+    correctFaceNormalDir(points,faces,owner,neighbour);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
@@ -1080,18 +1261,58 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
     for(int i=0;i<oldCellVolume.size();i++)
     {
         oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+        if(oldCellVolume[i]==0.0)
+        {
+            Info<<"oldCells["<<i<<"]:"<<oldCells[i]<<endl;
+            FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+        }   
     }
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
-        
+    
     Info<<"Reset:"<<endl;
-    resetPrimitives(Foam::clone(newMeshPoints_),
+    resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
                     Foam::clone(owner),
                     Foam::clone(neighbour),
                     patchSizes,
                     patchStarts,
-                    true);
+                    false);
+    
+    //this->updateMesh();
+    for(int i=0;i<patchStarts.size();i++)
+    {
+        Info<<"Patch "<<i<<endl;
+        std::unordered_set<label> pointLabels;
+        label index = patchStarts[i];
+        Info<<"start:"<<patchStarts[i]<<endl;
+        Info<<"size:"<<patchSizes[i]<<endl;
+        for(int j=0;j<patchSizes[i];j++)
+        {
+            face oneFace = faces[index];
+            for(int k=0;k<oneFace.size();k++)
+            {
+                pointLabels.insert(oneFace[k]);
+            }
+            index++;
+        }
+        Info<<"nbrPoints:"<<pointLabels.size()<<endl;
+        Info<<"------------------"<<endl;
+    }
+    auto& faceZones = this->faceZones();
+    const fvBoundaryMesh& fvBound = this->boundary();
+    for(int i=0;i<fvBound.size();i++)
+    {
+        Info<<"fvPatch:"<<i<<endl;
+        Info<<"name:"<<fvBound[i].name()<<endl;
+        Info<<"start:"<<fvBound[i].start()<<endl;
+        Info<<"size:"<<fvBound[i].size()<<endl;
+        //GeometricField& field;
+        
+        Info<<"------------------"<<endl;
+    }
+    
+    //this->update();
     Info<<"First self test"<<endl;
     selfTestMesh();
     
@@ -1099,8 +1320,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
     newCellVolume = scalarList(newCells.size());
     for(int i=0;i<newCellVolume.size();i++)
     {
-        Info<<"i:"<<i<<endl;
-        newCellVolume[i] = newCells[i].mag(newMeshPoints_,this->faces());
+        //Info<<"i:"<<i<<endl;
+        newCellVolume[i] = newCells[i].mag(points,this->faces());
     }
     
     Info<<"Agglomerate small cut-cells";
@@ -1112,7 +1333,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary
 
     //printMesh();
     Info<<"Please write"<<endl;
-    this->write();
+    //this->write();
     Info<<"Written"<<endl;
     //printMesh();
     selfTestMesh();

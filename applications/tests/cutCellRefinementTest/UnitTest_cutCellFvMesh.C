@@ -39,6 +39,7 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     );
     
     
+    /*
     while (runTime.loop())
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
@@ -51,8 +52,8 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
             << nl << endl;
     }
-    
-    nurbsMesh.write();
+    */
+    //nurbsMesh.write();
 
     Info<< "End\n" << endl;
     
