@@ -53,7 +53,7 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
             << nl << endl;
     }
     */
-    //nurbsMesh.write();
+    nurbsMesh.write();
 
     Info<< "End\n" << endl;
     

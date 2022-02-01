@@ -674,12 +674,13 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
         Info<<"boundMesh["<<i<<"].nPoints:"<<boundMesh[i].nPoints()<<endl;
     }
     
+    /*
     fileName meshFilesPath = thisDb().time().path();
     fileName inst = this->meshDir();
     Info<<"meshFilesPath:"<<meshFilesPath<<endl;
     Info<<"inst:"<<inst<<endl;
     this->removeFiles("constant");
-    /*
+    
     writeObject
     (
         time().writeFormat(),
@@ -687,7 +688,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
         time().writeCompression(),
         true;
     );
-    */
+
     Foam::fileOperations::masterUncollatedFileOperation::mv("0/polyMesh","constant/polyMesh",false); 
     //this->write();
 
@@ -696,7 +697,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     //Do not write the mesh before adding the motion solver
     motionPtr_.clear();
     motionPtr_ = motionSolver::New(*this,dynamicMeshDict());
-    
+    */
     //this->write();
 }
 
@@ -928,6 +929,22 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
             this->motionPtr_->updateMesh(refineMap);
             refinementIteration++;
+            Info<<"----------------------------------------"<<endl;
+            const labelListList& patchPointMap_=refineMap->patchPointMap();
+            Info<<"refineMap patchPointMap:"<<patchPointMap_.size()<<endl;
+            for(int i=0;i<patchPointMap_.size();i++)
+            {
+                Info<<"patchPointMap"<<i<<":"<<patchPointMap_[i].size()<<endl;
+            }
+            Info<<patchPointMap_[2]<<endl;
+            Info<<patchPointMap_[2][0]<<endl;
+            Info<<patchPointMap_[2][1155]<<endl;
+            std::unordered_set<label> allInd;
+            for(const label& ind : patchPointMap_[2])
+                allInd.insert(ind);
+            Info<<"allInd.size():"<<allInd.size()<<endl;
+            Info<<"allInd:-1:"<<allInd.count(-1)<<endl;
+            Info<<"----------------------------------------"<<endl;
         }
         else
             break;
@@ -983,7 +1000,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     pointField points(0);
     faceList faces(0);
     labelList owner(0);
-    labelList neighbour(0);        
+    labelList neighbour(0);
+    List<std::unordered_map<label,label>> oldPointIndToPatchInd;
     if(ibAlgorithm == internalCut)
     {
         createNewMeshData();
@@ -1159,6 +1177,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         pointsFromPoints = List<objectMap>();
         
         for(face& oneFace: faces)
+        {
             for(label& oneVertice: oneFace)
             {
                 point oldPoint = newMeshPoints_[oneVertice];
@@ -1167,31 +1186,38 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     FatalErrorInFunction<< "Can not happen"<<endl<< exit(FatalError);
                 oneVertice = pointIndMap[oneVertice];
             }
+        }
         points = meshPoints;
         
         flipFaceFlux = labelHashSet(0);
-        
-        
-        
-        const fvBoundaryMesh& fvBound = this->boundary();
-        for(int i=0;i<fvBound.size();i++)
+                
+        const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
+        oldPointIndToPatchInd.setSize(boundaryMesh.size());
+        oldPatchStarts = labelList(boundaryMesh.size());
+        oldPatchNMeshPoints = labelList(boundaryMesh.size());
+        for(int i=0;i<boundaryMesh.size();i++)
         {
-            Info<<"fvPatch:"<<i<<endl;
-            Info<<"name:"<<fvBound[i].name()<<endl;
-            Info<<"start:"<<fvBound[i].start()<<endl;
-            Info<<"size:"<<fvBound[i].size()<<endl;
-
-            const fvPatch& patch = fvBound[fvBound[i].name()];
-            Info<<"------------------"<<endl;
+            oldPatchStarts[i] = boundaryMesh[i].start();
+            const polyPatch& onePatch = boundaryMesh[i];
+            const labelList& patchPoints = onePatch.boundaryPoints();
+            oldPatchNMeshPoints[i] = patchPoints.size();
+            for(int j=0;j<patchPoints.size();j++)
+                oldPointIndToPatchInd[i].insert(std::pair<label,label>(patchPoints[j],j));
         }
+        patchPointMap = labelListList(boundaryMesh.size());
         
-        const auto& mPZ = this->pointZones();
-        Info<<"PointZones-----------:"<<mPZ.names()<<endl;
-        const auto& mFZ = this->faceZones();
-        Info<<"FaceZones-----------:"<<mFZ.names()<<endl;
-        const auto& mCZ = this->cellZones();
-        Info<<"CellZones-----------:"<<mCZ.names()<<endl;
-           
+        pointZoneMap = labelListList(0);
+        faceZonePointMap = labelListList(0);
+        faceZoneFaceMap = labelListList(0);
+        cellZoneMap = labelListList(0);
+        
+        preMotionPoints = Foam::clone(this->points());
+        
+        const DimensionedField<scalar,volMesh>& cellVolumes = this->V();
+        const scalarField& volField = cellVolumes.field();
+        oldCellVolumesPtr = autoPtr<scalarField>(new scalarField(Foam::clone(volField)));
+        
+        //Info<<"oldCellVolumesPtr:"<<*oldCellVolumesPtr<<endl;
                 
         //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
         /*
@@ -1278,6 +1304,19 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     patchSizes,
                     patchStarts,
                     false);
+    
+    const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
+    for(int i=0;i<boundaryMesh.size();i++)
+    {
+        oldPatchStarts[i] = boundaryMesh[i].start();
+        const polyPatch& onePatch = boundaryMesh[i];
+        const labelList& patchPoints = onePatch.boundaryPoints();
+        patchPointMap[i].setSize(patchPoints.size());
+        for(int j=0;j<patchPoints.size();j++)
+        {
+            patchPointMap[j] = oldPointIndToPatchInd[patchPoints[j]];
+        }
+    }
     
     //this->updateMesh();
     for(int i=0;i<patchStarts.size();i++)
