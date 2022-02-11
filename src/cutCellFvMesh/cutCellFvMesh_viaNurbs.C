@@ -926,7 +926,10 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         
         if(cellDimToStructureDim > cellDimToStructureDimLimit)
         {
+            Info<<"Pre mesh cell nbr:"<<this->cells().size()<<endl;
             autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
+            Info<<"mapPolyMesh cell nbr:"<<refineMap->mesh().cells().size()<<endl;
+            //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
             this->motionPtr_->updateMesh(refineMap);
             refinementIteration++;
             Info<<"----------------------------------------"<<endl;
@@ -1122,7 +1125,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         //End
         
         
-        // Prepare face data for mapPolyMesh
+        // Prepare point data for mapPolyMesh
         std::unordered_set<label> usedPoints;
         for(int i=0;i<faces.size();i++)
             for(int j=0;j<faces[i].size();j++)
@@ -1147,7 +1150,18 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             if(usedPoints.count(i)!=0)
             {
                 pointIndMap.insert(std::pair<label,label>(i,meshPoints.size()));
-                pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),-1));
+                label masterPnt;
+                label addedPointEdgeInd = pointToEgde_[i];
+                edge addedPointEdge = this->edges()[addedPointEdgeInd];
+                if(pointsToSide_[addedPointEdge.start()]==1 && pointsToSide_[addedPointEdge.end()]==-1)
+                    masterPnt = addedPointEdge.start();
+                else if(pointsToSide_[addedPointEdge.end()]==1 && pointsToSide_[addedPointEdge.start()]==-1)
+                    masterPnt = addedPointEdge.end();
+                else
+                    FatalErrorInFunction<<"Can not happen"<<endl<< exit(FatalError);
+                pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),masterPnt));
+
+                //pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),-1));
                 meshPoints.append(newMeshPoints_[i]);
             }
         }
@@ -1161,6 +1175,10 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         pointMap = labelList(meshPoints.size());
         for(int i=0;i<meshPoints.size();i++)
             pointMap[i] = pointNewPosToOldPos[i];
+        /*
+        Info<<"pointMap["<<92<<"]:"<<pointMap[92]<<endl;
+        FatalErrorInFunction<< "Temp Stop"<<endl<< exit(FatalError);
+        */
         
         reversePointMap = labelList(nOldPoints);
         for(int i=0;i<nOldPoints;i++)
@@ -1296,6 +1314,59 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
+    {
+        Foam::motionSolver* rawPtr = motionPtr_.ptr();  
+        Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
+        displacementMotionSolver* dMS;
+        try{
+            dMS = dynamic_cast<displacementMotionSolver*>(rawPtr);
+        }catch(...){
+            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+        }    
+        pointVectorField& pVF = dMS->pointDisplacement();
+        
+        UList<vector> mapFO = UList<vector>();
+
+        
+        Info<<"dMS null:"<<(dMS==0)<<endl;
+                
+        auto& intFieldPointDispl = pVF.primitiveFieldRef();
+        auto& boundFieldPointDispl = pVF.boundaryFieldRef();
+        Info<<"boundaryTypes:"<<boundFieldPointDispl.types()<<endl;
+        Info<<"dispField size:"<<pVF.size()<<endl;
+        Info<<"cellNbr:"<<this->cells().size()<<endl;
+        Info<<"pointNbr:"<<this->points().size()<<endl;
+        Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
+        for(int i=0;i<boundFieldPointDispl.size();i++)
+        {
+            Info<<"i:"<<i;
+            pointPatchField<vector>* onePatch = &boundFieldPointDispl[i];
+            const Field<vector>& onePatchField = onePatch->primitiveField();
+            Info<<"   field size:"<<onePatchField.size();
+            const pointPatch& onePointPatch = (boundFieldPointDispl[i]).patch();
+            Info<<"   patch size:"<<onePointPatch.size()<<endl;
+        }        
+        motionPtr_.set(rawPtr);
+        
+        Info<<"Create Field 1"<<endl;
+        pointVectorField pDispl = pointVectorField
+        (
+            IOobject
+            (
+                "pointDisplacement",
+                this->time().timeName(),
+                *this,
+                IOobject::MUST_READ,
+                IOobject::AUTO_WRITE
+            ),
+            pointMesh::New(*this)
+        );
+        Info<<"Created Field 1"<<endl;
+        Info<<"pDispl:"<<pDispl.primitiveField()<<endl;
+        Info<<"pDispl.size():"<<pDispl.size()<<endl;
+        //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    }
+    
     Info<<"Reset:"<<endl;
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
@@ -1304,6 +1375,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     patchSizes,
                     patchStarts,
                     false);
+    topoChanging(true);
+    Info<<"Reset done"<<endl;
     
     const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
     for(int i=0;i<boundaryMesh.size();i++)
@@ -1314,11 +1387,115 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         patchPointMap[i].setSize(patchPoints.size());
         for(int j=0;j<patchPoints.size();j++)
         {
-            patchPointMap[j] = oldPointIndToPatchInd[patchPoints[j]];
+            patchPointMap[i][j] = oldPointIndToPatchInd[i][patchPoints[j]];
         }
     }
     
-    //this->updateMesh();
+    Info<<"Refine map"<<endl;
+    refineMapPtr = std::unique_ptr<mapPolyMesh>
+    (
+        new mapPolyMesh
+        (
+            *this,
+            nOldPoints,nOldFaces,nOldCells,
+            pointMap,pointsFromPoints,
+            faceMap,facesFromPoints,facesFromEdges,facesFromFaces,
+            cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,cellsFromCells,
+            reversePointMap,reverseFaceMap,reverseCellMap,
+            flipFaceFlux,
+            patchPointMap,
+            pointZoneMap,faceZonePointMap,faceZoneFaceMap,cellZoneMap,
+            preMotionPoints,
+            oldPatchStarts,oldPatchNMeshPoints,
+            oldCellVolumesPtr 
+        )
+    );
+    Info<<"Refine map done"<<endl;
+    
+    motionPtr_->updateMesh(*refineMapPtr);
+
+    {
+        Foam::motionSolver* rawPtr = motionPtr_.ptr();  
+        Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
+        displacementMotionSolver* dMS;
+        try{
+            dMS = dynamic_cast<displacementMotionSolver*>(rawPtr);
+        }catch(...){
+            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+        }
+        pointVectorField& pVF = dMS->pointDisplacement();
+        Info<<"pVF.primitiveField():"<<pVF.primitiveField()<<endl;
+        List<vector> mapFO = List<vector>(nOldPoints,vector());
+        labelList mapAddressing  = pointMap;
+        pVF.map(mapFO,mapAddressing);
+        Info<<"pVF.primitiveField():"<<pVF.primitiveField()<<endl;       
+        
+        Info<<"dMS null:"<<(dMS==0)<<endl;
+        auto& intFieldPointDispl = pVF.primitiveFieldRef();
+        auto& boundFieldPointDispl = pVF.boundaryFieldRef();
+        Info<<"boundaryTypes:"<<boundFieldPointDispl.types()<<endl;
+        Info<<"dispField size:"<<pVF.size()<<endl;
+        Info<<"cellNbr:"<<this->cells().size()<<endl;
+        Info<<"pointNbr:"<<this->points().size()<<endl;        Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
+        for(int i=0;i<boundFieldPointDispl.size();i++)
+        {
+            Info<<"i:"<<i;
+            pointPatchField<vector>* onePatch = &boundFieldPointDispl[i];
+            
+            valuePointPatchField<vector>* oneValuePatch;
+            try{
+                oneValuePatch = dynamic_cast<valuePointPatchField<vector>*>(onePatch);
+            }catch(...){
+                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+            }                
+            Info<<"   patchfield size:"<<oneValuePatch->size();
+            const Field<vector>& onePatchField = onePatch->primitiveField();
+            Info<<"   internalfield size:"<<onePatchField.size();
+            const pointPatch& onePointPatch = (boundFieldPointDispl[i]).patch();
+            Info<<"   patch size:"<<onePointPatch.size();
+            
+            //Info<<"MapStart"<<endl;
+            labelList patchPoints = onePatch->patch().meshPoints();
+            //Info<<"MeshPoints:"<<onePatch->patch().meshPoints()<<endl;
+            List<vector> mapFO = List<vector>(nOldPoints,vector());
+            labelList mapAddressing(patchPoints.size());
+            for(int j=0;j<patchPoints.size();j++)
+                mapAddressing[j] = pointMap[patchPoints[j]];            
+            //Info<<"mapAddressing:"<<mapAddressing<<endl;
+            oneValuePatch->map(mapFO,mapAddressing);
+            
+            //Info<<"MapDone"<<endl;
+            
+            Info<<"   new patchfield size:"<<oneValuePatch->size()<<endl;
+        }
+        Info<<"field:--------------------------"<<endl;
+        
+        motionPtr_.set(rawPtr);
+        
+        Info<<"Create Field 2"<<endl;
+        /*
+        pointVectorField pDispl = pointVectorField
+        (
+            IOobject
+            (
+                "pointDisplacement",
+                this->time().timeName(),
+                *this,
+                IOobject::MUST_READ,
+                IOobject::AUTO_WRITE
+            ),
+            pointMesh::New(*this)
+        );
+        */
+        Info<<"Created Field 2"<<endl;
+    }
+    
+    
+    Info<<"Update"<<endl;
+    //this->update();
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+
+    
     for(int i=0;i<patchStarts.size();i++)
     {
         Info<<"Patch "<<i<<endl;

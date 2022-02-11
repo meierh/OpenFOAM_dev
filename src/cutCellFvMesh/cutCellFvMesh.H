@@ -21,11 +21,17 @@
 //#include <stdio.h>
 
 #include "motionSolver.H"
+#include "points0MotionSolver.H"
+#include "displacementMotionSolver.H"
+#include "valuePointPatchField.H"
+
 #include "mapPolyMesh.H"
 
 namespace Foam
 {
-class motionSolver;
+//class motionSolver;
+//class points0MotionSolver;
+//class displacementMotionSolver;
     
 class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 {
@@ -276,6 +282,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList       oldPatchStarts;
             labelList       oldPatchNMeshPoints;
             autoPtr<scalarField> oldCellVolumesPtr;
+            
+            std::unique_ptr<mapPolyMesh> refineMapPtr;
         //End
             
         //List<std::shared_ptr<Nurbs>> Curves;
