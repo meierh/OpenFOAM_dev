@@ -24,7 +24,10 @@
 #include "points0MotionSolver.H"
 #include "displacementMotionSolver.H"
 #include "valuePointPatchField.H"
-
+#include "fixedValuePointPatchField.H"
+#include "motionDiffusivity.H"
+#include "displacementLaplacianFvMotionSolver.H"
+#include "patchWave.H"
 #include "mapPolyMesh.H"
 
 namespace Foam

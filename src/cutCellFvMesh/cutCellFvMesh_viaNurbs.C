@@ -1,6 +1,11 @@
 #include "cutCellFvMesh.H"
 void testForNonHexMesh(fvMesh& mesh);
 
+Foam::scalar normEuler(Foam::vector pnt)
+{
+    return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
+}
+
 Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
@@ -664,6 +669,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary();
     
+    /*
     const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     for(int i=0;i<boundMesh.size();i++)
     {
@@ -673,6 +679,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
         Info<<"boundMesh["<<i<<"].size:"<<boundMesh[i].size()<<endl;
         Info<<"boundMesh["<<i<<"].nPoints:"<<boundMesh[i].nPoints()<<endl;
     }
+    */
     
     /*
     fileName meshFilesPath = thisDb().time().path();
@@ -690,7 +697,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     );
 
     Foam::fileOperations::masterUncollatedFileOperation::mv("0/polyMesh","constant/polyMesh",false); 
-    //this->write();
+    this->write();
 
     
     //Initialize after cutting the mesh!!! Otherwise the fields gets messed up during cutting the mesh
@@ -699,6 +706,10 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     motionPtr_ = motionSolver::New(*this,dynamicMeshDict());
     */
     //this->write();
+    Info<<"owner:"<<this->owner()<<endl;
+
+    
+    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
@@ -1132,6 +1143,9 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                 usedPoints.insert(faces[i][j]);
 
         DynamicList<point> meshPoints;
+        DynamicList<label> pointsToSide;
+        DynamicList<nurbsReference> meshPointNurbsReference;
+
         std::unordered_map<label,label> pointOldPosToNewPos;
         std::unordered_map<label,label> pointNewPosToOldPos;
         std::unordered_map<label,label> pointIndMap;
@@ -1143,6 +1157,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                 pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),i));
                 pointIndMap.insert(std::pair<label,label>(i,meshPoints.size()));
                 meshPoints.append(newMeshPoints_[i]);
+                pointsToSide.append(pointsToSide_[i]);
+                meshPointNurbsReference.append(this->meshPointNurbsReference[i]);
             }
         }
         for(int i=nOldPoints;i<newMeshPoints_.size();i++)
@@ -1163,10 +1179,14 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
 
                 //pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),-1));
                 meshPoints.append(newMeshPoints_[i]);
+                pointsToSide.append(pointsToSide_[i]);
+                meshPointNurbsReference.append(this->meshPointNurbsReference[i]);
             }
         }
+        pointsToSide_ = pointsToSide;
         Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<endl;
         Info<<"meshPoints.size():"<<meshPoints.size()<<endl;
+        
         pointField resetPointList(meshPoints.size());
         for(int i=0;i<meshPoints.size();i++)
         {
@@ -1205,6 +1225,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                 oneVertice = pointIndMap[oneVertice];
             }
         }
+        this->meshPointNurbsReference = meshPointNurbsReference;
         points = meshPoints;
         
         flipFaceFlux = labelHashSet(0);
@@ -1234,55 +1255,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         const DimensionedField<scalar,volMesh>& cellVolumes = this->V();
         const scalarField& volField = cellVolumes.field();
         oldCellVolumesPtr = autoPtr<scalarField>(new scalarField(Foam::clone(volField)));
-        
-        //Info<<"oldCellVolumesPtr:"<<*oldCellVolumesPtr<<endl;
                 
-        //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-        /*
-        Info<<"addedCutFaceOwner[4420]:"<<addedCutFacesOwner[4420]<<endl;
-        Info<<"addedCutFaceNeighbor[4420]:"<<addedCutFacesNeighbor[4420]<<endl;
-        Info<<"addedCutFaces[4420]:"<<addedCutFaces[4420]<<endl;
-        
-        Info<<"splitAndUnsplitFacesInterior: "<<splitAndUnsplitFacesInterior.size()<<endl;
-        Info<<"splitAndUnsplitFacesBoundary: "<<splitAndUnsplitFacesBoundary.size()<<endl;
-        Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
-        Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
-        
-        FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-        */
-
-        
-        Info<<"3"<<endl;
-        for(int i=0;i<patchStarts.size();i++)
-        {
-            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-        }
-
-        /*
-        patchStarts[patchStarts.size()-1] = patchStarts.last()+patchSizes.last();
-        patchSizes[patchSizes.size()-1] = addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size();
-        */
-        
-        //Info<<endl;
-        //Info<<"faces: "<<faces<<endl;
-        //Info<<"owner: "<<owner<<endl;
-        //Info<<"neighbour: "<<neighbour<<endl;
-        
-        
-        Info<<"--"<<endl;
-        for(int i=0;i<patchStarts.size();i++)
-        {
-            Info<<"BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-        }
-        Info<<"InteriorFacesSize: "<<splitAndUnsplitFacesInterior.size()<<endl;
-        Info<<"BoundaryFaceSize: "<<splitAndUnsplitFacesBoundary.size()+addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
-
-        Info<<"splitAndUnsplitFacesInterior: "<<splitAndUnsplitFacesInterior.size()<<endl;
-        Info<<"splitAndUnsplitFacesBoundary: "<<splitAndUnsplitFacesBoundary.size()<<endl;
-        Info<<"addedCutFaces: "<<addedCutFaces.size()<<endl;
-        Info<<"splitAndUnsplitFacesInteriorToBoundary: "<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl;
-
-        
         t2 = std::chrono::high_resolution_clock::now();
         time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
         Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
@@ -1368,6 +1341,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     }
     
     Info<<"Reset:"<<endl;
+    clearAddressing(true);
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -1375,8 +1349,38 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     patchSizes,
                     patchStarts,
                     false);
-    topoChanging(true);
+    this->topoChanging(true);
     Info<<"Reset done"<<endl;
+    
+    Foam::motionSolver* rawPtr = motionPtr_.ptr();  
+    Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
+    displacementLaplacianFvMotionSolver* dMS;
+    try{
+        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
+    }catch(...){
+        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }        
+    pointVectorField& pVF = dMS->pointDisplacement();
+    Info<<" nbrPoints:"<<this->points().size()<<endl;
+    pVF.Field<vector>::operator=(Field<vector>(this->points().size(),Foam::zero()));
+    pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
+    for(int i=0;i<boundFieldPointDispl.size();i++)
+    {
+        Info<<"i:"<<i<<endl;
+        pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[i];
+        const pointPatch& boundaryPointPatch = boundaryPatchField->patch();
+        const labelList& patchPoints = boundaryPointPatch.meshPoints();
+        fixedValuePointPatchField<vector>* fVPPF;
+        try{
+            fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
+            if(fVPPF==NULL)
+                FatalErrorInFunction<< "Cast to fixedValuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+        }catch(...){
+            FatalErrorInFunction<< "Cast to fixedValuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+        }
+        fVPPF->valuePointPatchField<vector>::operator=(Field<vector>(patchPoints.size(),Foam::zero()));
+    }
+    motionPtr_.set(rawPtr);
     
     const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
     for(int i=0;i<boundaryMesh.size();i++)
@@ -1411,85 +1415,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         )
     );
     Info<<"Refine map done"<<endl;
-    
-    motionPtr_->updateMesh(*refineMapPtr);
-
-    {
-        Foam::motionSolver* rawPtr = motionPtr_.ptr();  
-        Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
-        displacementMotionSolver* dMS;
-        try{
-            dMS = dynamic_cast<displacementMotionSolver*>(rawPtr);
-        }catch(...){
-            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
-        }
-        pointVectorField& pVF = dMS->pointDisplacement();
-        Info<<"pVF.primitiveField():"<<pVF.primitiveField()<<endl;
-        List<vector> mapFO = List<vector>(nOldPoints,vector());
-        labelList mapAddressing  = pointMap;
-        pVF.map(mapFO,mapAddressing);
-        Info<<"pVF.primitiveField():"<<pVF.primitiveField()<<endl;       
-        
-        Info<<"dMS null:"<<(dMS==0)<<endl;
-        auto& intFieldPointDispl = pVF.primitiveFieldRef();
-        auto& boundFieldPointDispl = pVF.boundaryFieldRef();
-        Info<<"boundaryTypes:"<<boundFieldPointDispl.types()<<endl;
-        Info<<"dispField size:"<<pVF.size()<<endl;
-        Info<<"cellNbr:"<<this->cells().size()<<endl;
-        Info<<"pointNbr:"<<this->points().size()<<endl;        Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
-        for(int i=0;i<boundFieldPointDispl.size();i++)
-        {
-            Info<<"i:"<<i;
-            pointPatchField<vector>* onePatch = &boundFieldPointDispl[i];
-            
-            valuePointPatchField<vector>* oneValuePatch;
-            try{
-                oneValuePatch = dynamic_cast<valuePointPatchField<vector>*>(onePatch);
-            }catch(...){
-                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
-            }                
-            Info<<"   patchfield size:"<<oneValuePatch->size();
-            const Field<vector>& onePatchField = onePatch->primitiveField();
-            Info<<"   internalfield size:"<<onePatchField.size();
-            const pointPatch& onePointPatch = (boundFieldPointDispl[i]).patch();
-            Info<<"   patch size:"<<onePointPatch.size();
-            
-            //Info<<"MapStart"<<endl;
-            labelList patchPoints = onePatch->patch().meshPoints();
-            //Info<<"MeshPoints:"<<onePatch->patch().meshPoints()<<endl;
-            List<vector> mapFO = List<vector>(nOldPoints,vector());
-            labelList mapAddressing(patchPoints.size());
-            for(int j=0;j<patchPoints.size();j++)
-                mapAddressing[j] = pointMap[patchPoints[j]];            
-            //Info<<"mapAddressing:"<<mapAddressing<<endl;
-            oneValuePatch->map(mapFO,mapAddressing);
-            
-            //Info<<"MapDone"<<endl;
-            
-            Info<<"   new patchfield size:"<<oneValuePatch->size()<<endl;
-        }
-        Info<<"field:--------------------------"<<endl;
-        
-        motionPtr_.set(rawPtr);
-        
-        Info<<"Create Field 2"<<endl;
-        /*
-        pointVectorField pDispl = pointVectorField
-        (
-            IOobject
-            (
-                "pointDisplacement",
-                this->time().timeName(),
-                *this,
-                IOobject::MUST_READ,
-                IOobject::AUTO_WRITE
-            ),
-            pointMesh::New(*this)
-        );
-        */
-        Info<<"Created Field 2"<<endl;
-    }
-    
     
     Info<<"Update"<<endl;
     //this->update();
@@ -1554,6 +1479,19 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     //printMesh();
     selfTestMesh();
     Info<<"Ending"<<endl;
+    
+     volScalarField y_
+     (
+         IOobject
+         (
+             "y",
+             this->time().timeName(),
+             *this
+         ),
+         *this,
+         dimless,
+         zeroGradientFvPatchScalarField::typeName
+     );
 }
 
 bool Foam::cutCellFvMesh::update()
@@ -1576,6 +1514,12 @@ bool Foam::cutCellFvMesh::writeObject
 
 void Foam::cutCellFvMesh::moveTheMesh()
 {
+    
+    Info<<"owner:"<<this->owner()<<endl;
+
+    
+    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    
     point minVec = point(-1,-1,-1);
     scalar minLen = std::numeric_limits<scalar>::max();
     point avgVec = point(0,0,0);
@@ -1586,9 +1530,13 @@ void Foam::cutCellFvMesh::moveTheMesh()
     const pointField& meshPoints = this->points();
     pointField newPoints(meshPoints.size());
     
+    Info<<"meshPoints.size():"<<meshPoints.size()<<endl;
+    Info<<"pointsToSide_.size():"<<pointsToSide_.size()<<endl;
+    
     if(meshPoints.size()!=meshPointNurbsReference.size())
         FatalErrorInFunction<<"Unequal point number for reference ("<<meshPointNurbsReference.size()<<") and points ("<<meshPoints.size()<<"). Can not happen!"<< exit(FatalError);  
     
+    std::unordered_map<label,vector> cutCellPointToMotion;
     for(int i=0;i<meshPoints.size();i++)
     {
         newPoints[i] = meshPoints[i];
@@ -1607,6 +1555,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
                 FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);            
             }
             newPoints[i] +=  pointMotion;
+            cutCellPointToMotion.insert(std::pair<label,vector>(i,pointMotion));
             
             
             if(maxLen<Foam::mag(pointMotion))
@@ -1625,12 +1574,150 @@ void Foam::cutCellFvMesh::moveTheMesh()
     }
     avgVec/=cntAvg;
     
-    //Info<<"maxVec:"<<maxVec<<endl;
-    //Info<<"minVec:"<<minVec<<endl;
-    //Info<<"avgVec:"<<avgVec<<endl;
+    Info<<"maxVec:"<<maxVec<<endl;
+    Info<<"minVec:"<<minVec<<endl;
+    Info<<"avgVec:"<<avgVec<<endl;
+    Info<<"cntAvg:"<<cntAvg<<endl;
     
-    motionPtr_->movePoints(newPoints);
-    //Info<<"Moved "<<newPoints.size()<<" points"<<endl;
+    Foam::motionSolver* rawPtr = motionPtr_.ptr();  
+    Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
+    displacementLaplacianFvMotionSolver* dMS;
+    try{
+        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
+    }catch(...){
+        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }
+    
+    pointVectorField& pVF = dMS->pointDisplacement();
+    Info<<" nbrPoints:"<<this->points().size()<<endl;
+    pVF.Field<vector>::operator=(Field<vector>(this->points().size(),Foam::zero()));
+    pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
+    Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
+    pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[boundFieldPointDispl.size()-1];
+    const pointPatch& boundaryPointPatch = boundaryPatchField->patch();
+    const labelList& patchPoints = boundaryPointPatch.meshPoints();
+    Info<<"   boundaryPatchfield size:"<<boundaryPatchField->size();
+    Info<<"   meshPoints size:"<<patchPoints.size();
+    fixedValuePointPatchField<vector>* fVPPF;
+    try{
+        fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
+    }catch(...){
+        FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+    }
+    Info<<"    fixedValuePointPatchField:"<<fVPPF->size()<<endl;
+    Info<<"cutCellPointToMotion.size():"<<cutCellPointToMotion.size()<<endl;
+    if(patchPoints.size()!=cutCellPointToMotion.size())
+        FatalErrorInFunction<<"Wrong patch"<<endl<< exit(FatalError);
+    
+    Field<vector> movingPointsField(patchPoints.size());
+    for(int j=0;j<patchPoints.size();j++)
+    {
+        movingPointsField[j] = Vector<scalar>(Foam::zero());//cutCellPointToMotion[patchPoints[j]];
+    }
+    label intFieldSize = fVPPF->primitiveField().size();
+
+    //Info<<"    movingPointsField:"<<movingPointsField.size()<<endl;
+    //Info<<"movingPointsField:"<<movingPointsField<<endl;
+    fVPPF->valuePointPatchField<vector>::operator=(movingPointsField);    
+    Info<<"    fixedValuePointPatchField:"<<fVPPF->size()<<endl;
+    Info<<"    fVPPF->updated():"<<fVPPF->updated()<<endl;
+    if(fVPPF->updated())
+        FatalErrorInFunction<< "Already updated. Can not happen!"<<endl<< exit(FatalError);
+    
+    //rawPtr->solve();
+    
+    motionPtr_.set(rawPtr);
+    
+    Info<<"owner:"<<this->owner()<<endl;
+
+    
+    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    
+    Info<<"Moved Set movement to field"<<endl;
+    
+    surfaceScalarField* weights_ = new surfaceScalarField
+     (
+         IOobject
+         (
+             "weights",
+             this->pointsInstance(),
+             *this,
+             IOobject::NO_READ,
+             IOobject::NO_WRITE,
+             false // Do not register
+         ),
+         *this,
+         dimless
+     );
+     surfaceScalarField& weights = *weights_;
+ 
+     // Set local references to mesh data
+     // (note that we should not use fvMesh sliced fields at this point yet
+     //  since this causes a loop when generating weighting factors in
+     //  coupledFvPatchField evaluation phase)
+     const labelUList& owner = this->owner();
+     const labelUList& neighbour = this->neighbour();
+ 
+     const vectorField& Cf = this->faceCentres();
+     const vectorField& C = this->cellCentres();
+     const vectorField& Sf = this->faceAreas();
+ 
+     // ... and reference to the internal field of the weighting factors
+     scalarField& w = weights.primitiveFieldRef();
+
+         Info<<"1"<<endl;
+
+    Info<<"owner:"<<owner<<endl;
+     forAll(owner, facei)
+     {
+         Info<<endl<<"facei:"<<facei<<endl;
+         Info<<"Sf[facei]:"<<Sf[facei]<<endl;
+         Info<<"owner[facei]:"<<owner[facei]<<" / "<<C.size()<<endl;
+         Info<<"C[owner[facei]]:"<<C[owner[facei]]<<endl;
+         Info<<"C[neighbour[facei]]:"<<C[neighbour[facei]]<<endl;
+         // Note: mag in the dot-product.
+         // For all valid meshes, the non-orthogonality will be less that
+         // 90 deg and the dot-product will be positive.  For invalid
+         // meshes (d & s <= 0), this will stabilise the calculation
+         // but the result will be poor.
+         const scalar SfdOwn = mag(Sf[facei]&(Cf[facei] - C[owner[facei]]));
+         const scalar SfdNei = mag(Sf[facei]&(C[neighbour[facei]] - Cf[facei]));
+         const scalar SfdOwnNei = SfdOwn + SfdNei;
+ 
+         Info<<facei<<"  SfdOwn:"<<SfdOwn<<"     SfdNei:"<<SfdNei<<"     SfdOwnNei:"<<SfdOwnNei<<"     vGreat:"<<vGreat<<endl;
+         if (SfdNei/vGreat < SfdOwnNei)
+         {
+            Info<<"   "<<facei<<"  SfdOwn:"<<SfdOwn<<"     SfdNei:"<<SfdNei<<"     SfdOwnNei:"<<SfdOwnNei<<endl;
+             w[facei] = SfdNei/SfdOwnNei;
+         }
+         else
+         {
+             const scalar dOwn = mag(Cf[facei] - C[owner[facei]]);
+             const scalar dNei = mag(C[neighbour[facei]] - Cf[facei]);
+             const scalar dOwnNei = dOwn + dNei;
+             
+            Info<<"   "<<facei<<"  dOwn:"<<dOwn<<"     dNei:"<<dNei<<"     dOwnNei:"<<dOwnNei<<endl;
+             
+             w[facei] = dNei/dOwnNei;
+         }
+     }
+         Info<<"2"<<endl;
+
+    
+     surfaceScalarField::Boundary& wBf =
+         weights.boundaryFieldRef();
+ 
+        /*
+     forAll(this->boundary(), patchi)
+     {
+         this->boundary()[patchi].makeWeights(wBf[patchi]);
+     }
+        */
+    Info<<"Moved Set movement to field"<<endl;
+
+
+     FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+
 }
 
 void Foam::cutCellFvMesh::moveNurbsCurves

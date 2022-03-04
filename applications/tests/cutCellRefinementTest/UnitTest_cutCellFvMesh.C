@@ -37,23 +37,26 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
             Foam::IOobject::MUST_READ
         )
     );
+    nurbsMesh.write();
+
     
     
-    /*
     while (runTime.loop())
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
         nurbsMesh.moveNurbsCurves(simpleCurveMovementFunc(runTime));
         nurbsMesh.moveTheMesh();
+        Info<<"nurbsMesh.update()"<<endl;
         nurbsMesh.update();        
+        Info<<"runTime.write()"<<endl;
         runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
             << nl << endl;
     }
-    */
-    nurbsMesh.write();
+    
+    //nurbsMesh.write();
 
     Info<< "End\n" << endl;
     
