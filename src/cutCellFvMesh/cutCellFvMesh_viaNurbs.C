@@ -1016,6 +1016,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     labelList owner(0);
     labelList neighbour(0);
     List<std::unordered_map<label,label>> oldPointIndToPatchInd;
+    polyTopoChange meshCutTopoChange(*this);
     if(ibAlgorithm == internalCut)
     {
         createNewMeshData();
@@ -1160,6 +1161,10 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                 pointsToSide.append(pointsToSide_[i]);
                 meshPointNurbsReference.append(this->meshPointNurbsReference[i]);
             }
+            else
+            {
+                meshCutTopoChange.removePoint(i,-1);
+            }
         }
         for(int i=nOldPoints;i<newMeshPoints_.size();i++)
         {
@@ -1181,6 +1186,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                 meshPoints.append(newMeshPoints_[i]);
                 pointsToSide.append(pointsToSide_[i]);
                 meshPointNurbsReference.append(this->meshPointNurbsReference[i]);
+                
+                meshCutTopoChange.addPoint(newMeshPoints_[i],-1,-1,true);
             }
         }
         pointsToSide_ = pointsToSide;
@@ -1195,10 +1202,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         pointMap = labelList(meshPoints.size());
         for(int i=0;i<meshPoints.size();i++)
             pointMap[i] = pointNewPosToOldPos[i];
-        /*
-        Info<<"pointMap["<<92<<"]:"<<pointMap[92]<<endl;
-        FatalErrorInFunction<< "Temp Stop"<<endl<< exit(FatalError);
-        */
         
         reversePointMap = labelList(nOldPoints);
         for(int i=0;i<nOldPoints;i++)
@@ -1213,6 +1216,92 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             }
         }
         pointsFromPoints = List<objectMap>();
+        
+        // Organize faces for meshCutTopoChange
+        // Start
+        for(int i=0;i<reverseFaceMap.size();i++)
+        {
+            if(reverseFaceMap[i]==-1)
+                meshCutTopoChange.removeFace(i,-1);
+        }
+        label index=0;
+        for(int i=0;i<splitAndUnsplitFacesInterior.size();i++,index++)
+        {
+            meshCutTopoChange.modifyFace(
+                splitAndUnsplitFacesInterior[i],
+                sAUFI_NewToOldMap[i],
+                splitAndUnsplitFacesInteriorOwner[i],
+                splitAndUnsplitFacesInteriorNeighbor[i],
+                false,
+                -1,
+                -1,
+                false
+                );
+        }
+        for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++,index++)
+        {
+            meshCutTopoChange.modifyFace(
+                splitAndUnsplitFacesBoundary[i],
+                sAUFB_NewToOldMap[i],
+                splitAndUnsplitFacesBoundaryOwner[i],
+                splitAndUnsplitFacesBoundaryNeighbor[i],
+                false,
+                this->boundaryMesh().whichPatch(sAUFB_NewToOldMap[i]),
+                -1,
+                false
+                );
+        }
+        for(int i=0;i<addedCutFaces.size();i++,index++)
+        {
+            meshCutTopoChange.addFace(
+                addedCutFaces[i],
+                addedCutFacesOwner[i],
+                addedCutFacesNeighbor[i],
+                -1,
+                -1,
+                -1,
+                false,
+                this->boundaryMesh().types().size()-1,
+                -1,
+                false
+                );
+        }
+        for(int i=0;i<splitAndUnsplitFacesInteriorToBoundary.size();i++,index++)
+        {
+            meshCutTopoChange.addFace(
+                splitAndUnsplitFacesInteriorToBoundary[i],
+                splitAndUnsplitFacesInteriorToBoundaryOwner[i],
+                splitAndUnsplitFacesInteriorToBoundaryNeighbor[i],
+                -1,
+                -1,
+                -1,
+                false,
+                this->boundaryMesh().types().size()-1,
+                -1,
+                false
+                );
+        }
+        //End
+        
+        // Organize cells for meshCutTopoChange
+        // Start
+        cellMap = labelList(mapNewCellsToOldCells.size(),-1);
+        reverseCellMap = labelList(mapOldCellsToNewCells.size(),-1);
+        for(int i=0;i<reverseCellMap.size();i++)
+        {
+            if(reverseFaceMap[i]==-1)
+                meshCutTopoChange.removeCell(i,-1);
+        }
+        DynamicList<label> addingCellMaster;
+        for(int i=0;i<mapNewCellsToOldCells.size();i++)
+        {
+            label oldCell = mapNewCellsToOldCells[i];
+            if(oldSplittedCellToNewPlusCell[oldCell].size()>0)
+            {
+                meshCutTopoChange.addCell(-1,-1,-1,oldCell,-1);
+            }
+        }
+        // End
         
         for(face& oneFace: faces)
         {
