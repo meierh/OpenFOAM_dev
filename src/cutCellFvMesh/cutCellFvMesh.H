@@ -29,6 +29,7 @@
 #include "displacementLaplacianFvMotionSolver.H"
 #include "patchWave.H"
 #include "mapPolyMesh.H"
+#include "polyTopoChange.H"
 
 namespace Foam
 {

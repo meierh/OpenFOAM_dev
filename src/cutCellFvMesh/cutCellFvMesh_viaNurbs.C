@@ -1046,6 +1046,12 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
 
         Info<<"Combine resetPrimitives data"<<endl;
         t1 = std::chrono::high_resolution_clock::now();
+
+        correctFaceNormalDir(newMeshPoints_,splitAndUnsplitFacesInterior,splitAndUnsplitFacesInteriorOwner,splitAndUnsplitFacesInteriorNeighbor);
+        correctFaceNormalDir(newMeshPoints_,splitAndUnsplitFacesBoundary,splitAndUnsplitFacesBoundaryOwner,splitAndUnsplitFacesBoundaryNeighbor);
+        correctFaceNormalDir(newMeshPoints_,addedCutFaces,addedCutFacesOwner,addedCutFacesNeighbor);
+        correctFaceNormalDir(newMeshPoints_,splitAndUnsplitFacesInteriorToBoundary,splitAndUnsplitFacesInteriorToBoundaryOwner,splitAndUnsplitFacesInteriorToBoundaryNeighbor);        
+        
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
         faces.append(addedCutFaces);
@@ -1224,7 +1230,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             if(reverseFaceMap[i]==-1)
                 meshCutTopoChange.removeFace(i,-1);
         }
-        label index=0;
+        index=0;
         for(int i=0;i<splitAndUnsplitFacesInterior.size();i++,index++)
         {
             meshCutTopoChange.modifyFace(
@@ -1376,6 +1382,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
+    /*
     {
         Foam::motionSolver* rawPtr = motionPtr_.ptr();  
         Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
@@ -1428,9 +1435,10 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         Info<<"pDispl.size():"<<pDispl.size()<<endl;
         //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     }
+    */
     
     Info<<"Reset:"<<endl;
-    clearAddressing(true);
+    //clearAddressing(true);
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -1568,19 +1576,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     //printMesh();
     selfTestMesh();
     Info<<"Ending"<<endl;
-    
-     volScalarField y_
-     (
-         IOobject
-         (
-             "y",
-             this->time().timeName(),
-             *this
-         ),
-         *this,
-         dimless,
-         zeroGradientFvPatchScalarField::typeName
-     );
 }
 
 bool Foam::cutCellFvMesh::update()
