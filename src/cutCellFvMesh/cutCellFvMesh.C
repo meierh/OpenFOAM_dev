@@ -16586,3 +16586,224 @@ void Foam::cutCellFvMesh::correctFaceNormalDir
         }
     }
 }
+
+List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
+(
+    const pointField& points,
+    const faceList& faces,
+    const labelList& owner,
+    const labelList& neighbour
+)
+{
+    Info<<"Correct0"<<endl;
+    scalar maxFaceSize = -1,avgFaceSize=0,minFaceSize;
+    Info<<"Correct01"<<endl;
+    if(faces.size()>0) minFaceSize = faces[0].mag(points);
+    Info<<"Correct02"<<endl;
+    for(int i=0;i<faces.size();i++)
+    {
+        scalar thisFaceSize = faces[i].mag(points);
+        avgFaceSize+=thisFaceSize;
+        if(maxFaceSize<thisFaceSize)
+            maxFaceSize=thisFaceSize;
+        if(minFaceSize>thisFaceSize)
+            minFaceSize=thisFaceSize;
+    }
+    Info<<"Correct03"<<endl;
+    avgFaceSize /= faces.size();
+    Info<<"owner.size()="<<owner.size()<<endl;
+    Info<<"neighbour.size()="<<neighbour.size()<<endl;
+    
+    label numCellsOwner = 0;
+    label numCellsNeighbour = 0;
+    for(int i=0;i<owner.size();i++)
+    {
+        numCellsOwner = std::max(numCellsOwner,owner[i]);
+    }
+    for(int i=0;i<neighbour.size();i++)
+    {
+        numCellsNeighbour = std::max(numCellsNeighbour,neighbour[i]);
+    }
+    numCellsOwner++;
+    numCellsNeighbour++;
+    Info<<"numCellsOwner:"<<numCellsOwner<<endl;
+    Info<<"numCellsNeighbour:"<<numCellsNeighbour<<endl;  
+
+    Info<<"Correct1"<<endl;
+    label numCells = std::max(numCellsOwner,numCellsNeighbour);
+    List<DynamicList<label>> cellsFaces(numCells);
+
+    Info<<"Correct2::"<<cellsFaces.size()<<endl;
+
+    //Info<<"Correct2"<<endl;
+    
+    if(owner.size() != neighbour.size())
+        FatalErrorInFunction<<"Can not happen"<< exit(FatalError); 
+
+    /*
+    for(int i=0;i<owner.size();i++)
+        Info<<"i:"<<i<<" owner["<<i<<"]:"<<owner[i]<<" neighbour["<<i<<"]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+    */
+    Info<<"owner.size():"<<owner.size()<<endl;
+    Info<<"cellsFaces.size():"<<cellsFaces.size()<<endl;
+    
+    for(int i=0;i<owner.size();i++)
+    {
+        if(owner[i]<0 || owner[i]>=numCells)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"face["<<i<<"]:"<<faces[i]<<endl;
+            Info<<"owner[i]:"<<owner[i]<<endl;
+            Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+            FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
+        }
+        if(neighbour[i]<-1 || neighbour[i]>=numCells)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"face["<<i<<"]:"<<faces[i]<<endl;
+            Info<<"owner[i]:"<<owner[i]<<endl;
+            Info<<"neighbour[i]:"<<neighbour[i]<<endl;
+            Info<<"numCells:"<<numCells<<endl;
+            FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
+        }       
+    }
+    for(int i=0;i<owner.size();i++)
+    {
+        Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
+        cellsFaces[owner[i]].append(i);
+        if(neighbour[i]!=-1)
+            cellsFaces[neighbour[i]].append(i);
+    }
+    //FatalErrorInFunction<<"Temporary stop"<< exit(FatalError); 
+
+    DynamicList<cell> cellList;
+    cellList.setSize(numCells);
+    
+    Info<<"Correct3"<<endl;
+    
+    for(int i=0;i<numCells;i++)
+    {
+        labelList cellFaces = cellsFaces[i];
+        cell oneCell(cellFaces);
+        cellList[i] = oneCell;
+    }
+    
+    Info<<"Correct4"<<endl;
+
+    List<bool> flipFaces(faces.size(),false);
+    
+    for(int i=0;i<faces.size();i++)
+    {
+        //Info<<"Test face "<<i<<endl;
+        point centreFace = faces[i].centre(points);
+        vector normalFace = faces[i].normal(points);
+    
+        vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
+        if((faceCentreToOwnerCentre && normalFace)>=0)
+        {
+            flipFaces[i] = true;
+            /*
+            DynamicList<label> reversedFaceList;
+            for(int k=faces[i].size()-1;k>=0;k++)
+            {
+                reversedFaceList.append(faces[i][k]);
+            }
+            face newFace(reversedFaceList);
+            face[i] = newFace;
+            */
+        }
+    }
+    Info<<"Correct5"<<endl;
+    
+    for(int i=0;i<faces.size();i++)
+    {
+        //Info<<"Test face "<<i<<endl;
+        point centreFace = faces[i].centre(points);
+        vector normalFace = faces[i].normal(points);
+        scalar area = faces[i].mag(points);
+    
+        vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
+        if((faceCentreToOwnerCentre && normalFace)>=0)
+        {
+            if((area >= maxFaceSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0 && norm2(faceCentreToOwnerCentre)!=0)
+            {
+                Info<<endl<<endl;
+                Info<<"Face:"<<i<<" Owner:"<<owner[i]<<" "<<endl;;
+                if(i < neighbour.size())
+                    Info<<"Neighbor:"<<neighbour[i]<<" ";
+                Info<<endl;
+                for(int k=0;k<faces[i].size();k++)
+                {
+                    Info<<faces[i][k]<<points[faces[i][k]]<<"->";
+                }
+                Info<<endl<<" with face centre:"<<centreFace;
+                Info<<endl<<" and face normal vector:"<<normalFace;
+                Info<<endl<<" and area:"<<area<<endl;
+                Info<<"nbrOfPrevPoints: "<<nbrOfPrevPoints<<endl;
+                Info<<"nbrOfPrevFaces: "<<nbrOfPrevFaces<<endl;
+                
+                Info<<"------------------------------------"<<endl;
+            
+                cell oneCell = cellList[owner[i]];
+                Info<<"Owner Cell centre is: "<<oneCell.centre(points,faces)<<endl;
+                Info<<"Owner Cell: "<<oneCell<<endl;
+                Info<<"Owner Cell Size: "<<oneCell.size()<<endl;
+                Info<<"Owner Cell volume: "<<oneCell.mag(points,faces)<<endl;
+            
+                for(int k=0;k<oneCell.size();k++)
+                {
+                    label oneFaceInd = oneCell[k];
+                    face oneFace = faces[oneFaceInd];
+                    Info<<"Face "<<k<<" area: "<<oneFace.mag(points)<<"::";
+                    for(int kk=0;kk<oneFace.size();kk++)
+                    {
+                        Info<<oneFace[kk]<<points[oneFace[kk]]<<"->";
+                    }
+                    Info<<endl;
+                }
+                
+                Info<<"------------------------------------"<<endl;
+            
+                if(i < neighbour.size())
+                {
+                    cell oneCell = cellList[neighbour[i]];
+                    Info<<"Neighbour Cell centre is: "<<oneCell.centre(points,faces)<<endl;
+                    Info<<"Neighbour Cell: "<<oneCell<<endl;
+                    Info<<"Neighbour Cell Size: "<<oneCell.size()<<endl;
+                    Info<<"Neighbour Cell volume: "<<oneCell.mag(points,faces)<<endl;
+            
+                    for(int k=0;k<oneCell.size();k++)
+                    {
+                    label oneFaceInd = oneCell[k];
+                    face oneFace = faces[oneFaceInd];
+                    Info<<"Face "<<k<<" area: "<<oneFace.mag(points)<<"::";
+                    for(int kk=0;kk<oneFace.size();kk++)
+                    {
+                        Info<<oneFace[kk]<<points[oneFace[kk]]<<"->";
+                    }
+                    Info<<endl;
+                    }
+                }
+            
+                FatalErrorInFunction
+                <<"Normal vector is "<<normalFace<<" while faceCentreToOwnerCentre is "<<faceCentreToOwnerCentre<<"!"
+                <<" They must have a opposite direction"
+                << exit(FatalError);
+            }
+            else
+            {
+                for(int j=0;j<faces[i].size();j++)
+                {
+                    for(int k=0;k<faces[i].size();k++)
+                    {
+                        if(j!=k && faces[i][j]==faces[i][k])
+                        {
+                            Info<<"faces["<<i<<"]: "<<faces[i]<<endl;
+                            FatalErrorInFunction<<"Face with zero area has duplicate points"<<exit(FatalError);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

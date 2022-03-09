@@ -491,7 +491,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
         // correct the point order in faces to correct the normal dir 
         void correctFaceNormalDir(const pointField& points,faceList& faces,const labelList& owner,const labelList& neighbour);
-        
+        List<bool> correctListFaceNormalDir(const pointField& points,faceList& faces,const labelList& owner,const labelList& neighbour);
+
         //cell agglomeration
         void agglomerateSmallCells_cutNeg
         (
