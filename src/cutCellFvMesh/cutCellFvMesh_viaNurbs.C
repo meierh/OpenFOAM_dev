@@ -617,6 +617,14 @@ ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {
+    /*
+    Info<<"faces.size():"<<this->faces()<<endl;
+    Info<<"faceOwner.size():"<<this->faceOwner()<<endl;
+    Info<<"faceNeighbour.size():"<<this->faceNeighbour()<<endl;    
+    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    */
+    
+    /*
     Info<<"cellDimToStructureDimLimit:"<<cellDimToStructureDimLimit<<endl;
     const objectRegistry& reg = this->thisDb();
     wordList namesIO = reg.names();
@@ -624,9 +632,12 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     wordList parNamesIO = parentReg.names();
     const objectRegistry& parentparentReg = parentReg.parent();
     wordList parparNamesIO = parentparentReg.names();
-    //Info<<"namesIO:"<<namesIO<<endl;
-    //Info<<"parNamesIO:"<<parNamesIO<<endl;
-    //Info<<"parparNamesIO:"<<parparNamesIO<<endl;
+    Info<<"namesIO:"<<namesIO<<endl;
+    Info<<"parNamesIO:"<<parNamesIO<<endl;
+    Info<<"parparNamesIO:"<<parparNamesIO<<endl;
+    */
+    
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
@@ -706,10 +717,10 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     motionPtr_ = motionSolver::New(*this,dynamicMeshDict());
     */
     //this->write();
-    Info<<"owner:"<<this->owner()<<endl;
+    //Info<<"owner:"<<this->faceOwner()<<endl;
 
     
-    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
@@ -735,8 +746,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         const pointField& points = this->points();
         const faceList& faces = this->faces();
         const cellList& cells = this->cells();
-        const labelList& owner  = this->owner();
-        const labelList& neighbour  = this->neighbour();
+        const labelList& owner  = this->faceOwner();
+        const labelList& neighbour  = this->faceNeighbour();
         const hexRef8& cutterEngine = this->meshCutter();
         const labelList& cellRefinementLevel = cutterEngine.cellLevel();
         DynamicList<label> iBCells;
@@ -1045,12 +1056,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         Info<<"-------------------------------------------"<<endl;
 
         Info<<"Combine resetPrimitives data"<<endl;
-        t1 = std::chrono::high_resolution_clock::now();
-
-        correctFaceNormalDir(newMeshPoints_,splitAndUnsplitFacesInterior,splitAndUnsplitFacesInteriorOwner,splitAndUnsplitFacesInteriorNeighbor);
-        correctFaceNormalDir(newMeshPoints_,splitAndUnsplitFacesBoundary,splitAndUnsplitFacesBoundaryOwner,splitAndUnsplitFacesBoundaryNeighbor);
-        correctFaceNormalDir(newMeshPoints_,addedCutFaces,addedCutFacesOwner,addedCutFacesNeighbor);
-        correctFaceNormalDir(newMeshPoints_,splitAndUnsplitFacesInteriorToBoundary,splitAndUnsplitFacesInteriorToBoundaryOwner,splitAndUnsplitFacesInteriorToBoundaryNeighbor);        
+        t1 = std::chrono::high_resolution_clock::now();  
         
         faces.append(splitAndUnsplitFacesInterior);
         faces.append(splitAndUnsplitFacesBoundary);
@@ -1293,9 +1299,9 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         // Start
         cellMap = labelList(mapNewCellsToOldCells.size(),-1);
         reverseCellMap = labelList(mapOldCellsToNewCells.size(),-1);
-        for(int i=0;i<reverseCellMap.size();i++)
+        for(int i=0;i<deletedCell.size();i++)
         {
-            if(reverseFaceMap[i]==-1)
+            if(deletedCell[i])
                 meshCutTopoChange.removeCell(i,-1);
         }
         DynamicList<label> addingCellMaster;
@@ -1308,6 +1314,29 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             }
         }
         // End
+
+        List<bool> flipFace = correctListFaceNormalDir(
+            pointField(meshCutTopoChange.points()),meshCutTopoChange.faces(),
+            meshCutTopoChange.faceOwner(),meshCutTopoChange.faceNeighbour());
+        
+        for(int i=0;i<flipFace.size();i++)
+        {
+            if(flipFace[i])
+            {
+                face faceToFlip = meshCutTopoChange.faces()[i];
+                faceToFlip.flip();
+                meshCutTopoChange.modifyFace(
+                    faceToFlip,
+                    i,
+                    meshCutTopoChange.faceOwner()[i],
+                    meshCutTopoChange.faceNeighbour()[i],
+                    false,
+                    meshCutTopoChange.region()[i],
+                    -1,
+                    false
+                );
+            }
+        }
         
         for(face& oneFace: faces)
         {
@@ -1439,6 +1468,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     
     Info<<"Reset:"<<endl;
     //clearAddressing(true);
+    
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -1446,8 +1476,28 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     patchSizes,
                     patchStarts,
                     false);
+    
+    //this->topoChanging(true);
+    Info<<"face 1412: "<<meshCutTopoChange.faces()[1412]<<endl;
+    Info<<"owner 1412: "<<meshCutTopoChange.faceOwner()[1412]<<endl;
+    Info<<"neighbour 1412: "<<meshCutTopoChange.faceNeighbour()[1412]<<endl;
+    Info<<"498 removed: "<<meshCutTopoChange.cellRemoved(498)<<endl;
+    Info<<"644 removed: "<<meshCutTopoChange.cellRemoved(644)<<endl;
+    Info<<"original face 1412:"<<this->faces()[1412]<<endl;
+    Info<<"reverseFaceMap 1412:"<<reverseFaceMap[1412]<<endl;
+    Info<<"faceToSide 1412:"<<facesToSide_[1412]<<endl;
+    Info<<"cellToSide 498:"<<cellsToSide_[498]<<endl;
+    Info<<"cellToSide 644:"<<cellsToSide_[644]<<endl;
+    
+    //Info<<"owner before:"<<this->faceOwner()<<endl;
     this->topoChanging(true);
+    //this->polyMesh::clearAddressing(true);
+    //this->polyMesh::clearOut();
+    //autoPtr<mapPolyMesh> refineMapPtr = meshCutTopoChange.changeMesh(*this,true);
+    //this->polyMesh::clearAddressing(true);
     Info<<"Reset done"<<endl;
+    Info<<"owner after:"<<this->faceOwner()<<endl;    
+   
     
     Foam::motionSolver* rawPtr = motionPtr_.ptr();  
     Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
@@ -1479,6 +1529,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     }
     motionPtr_.set(rawPtr);
     
+    /*
     const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
     for(int i=0;i<boundaryMesh.size();i++)
     {
@@ -1512,12 +1563,12 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         )
     );
     Info<<"Refine map done"<<endl;
+    */
     
     Info<<"Update"<<endl;
     //this->update();
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
 
-    
+    /*
     for(int i=0;i<patchStarts.size();i++)
     {
         Info<<"Patch "<<i<<endl;
@@ -1549,6 +1600,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         
         Info<<"------------------"<<endl;
     }
+    */
     
     //this->update();
     Info<<"First self test"<<endl;
@@ -1598,11 +1650,8 @@ bool Foam::cutCellFvMesh::writeObject
 
 void Foam::cutCellFvMesh::moveTheMesh()
 {
-    
-    Info<<"owner:"<<this->owner()<<endl;
-
-    
-    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    //Info<<"owner:"<<this->owner()<<endl;    
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     point minVec = point(-1,-1,-1);
     scalar minLen = std::numeric_limits<scalar>::max();
@@ -1696,29 +1745,62 @@ void Foam::cutCellFvMesh::moveTheMesh()
     Field<vector> movingPointsField(patchPoints.size());
     for(int j=0;j<patchPoints.size();j++)
     {
-        movingPointsField[j] = Vector<scalar>(Foam::zero());//cutCellPointToMotion[patchPoints[j]];
+        movingPointsField[j] = cutCellPointToMotion[patchPoints[j]];
     }
     label intFieldSize = fVPPF->primitiveField().size();
 
     //Info<<"    movingPointsField:"<<movingPointsField.size()<<endl;
     //Info<<"movingPointsField:"<<movingPointsField<<endl;
-    fVPPF->valuePointPatchField<vector>::operator=(movingPointsField);    
+    fVPPF->setSize(movingPointsField.size());
+    for(int i=0;i<fVPPF->size();i++)
+        (*fVPPF)[i] = movingPointsField[i];
+    //valuePointPatchField<vector>::operator==(movingPointsField);
     Info<<"    fixedValuePointPatchField:"<<fVPPF->size()<<endl;
     Info<<"    fVPPF->updated():"<<fVPPF->updated()<<endl;
     if(fVPPF->updated())
         FatalErrorInFunction<< "Already updated. Can not happen!"<<endl<< exit(FatalError);
     
+    
+    volVectorField& vVF = dMS->cellDisplacement();
+    Info<<"nbrCells:"<<this->cells().size()<<endl;
+    Info<<"cellDisp Field size:"<<vVF.size()<<endl;
+    Info<<"cellDisp Field:"<<vVF.primitiveFieldRef()<<endl;
+    if(this->cells().size()!=vVF.size())
+        vVF.setSize(this->cells().size());
+        //vVF.Field<vector>::operator==(Field<vector>(this->cells().size()));
+    Info<<"cellDisp Field size:"<<vVF.size()<<endl;
+    Info<<"cellDisp Field:"<<vVF.primitiveFieldRef()<<endl;
+    volVectorField::Boundary& vVF_Bound = vVF.boundaryFieldRef();
+    for(int i=0;i<vVF_Bound.size();i++)
+    {
+        fvPatchField<vector>& boundField = vVF_Bound[i];
+        const fvPatch& boundPatch = boundField.patch();
+        Info<<"boundPatch size:"<<boundPatch.size()<<endl;
+        //Info<<"boundField size:"<<boundField<<endl;
+        Info<<"boundField size:"<<boundField.size()<<endl;
+        if(boundPatch.size()!=boundField.size())
+            boundField.setSize(boundPatch.size());
+        Info<<"boundField size:"<<boundField.size()<<endl;
+        //Info<<"boundField size:"<<boundField<<endl;
+        Info<<"---"<<endl;
+    }
+    
+    
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    
+    
     //rawPtr->solve();
     
     motionPtr_.set(rawPtr);
     
-    Info<<"owner:"<<this->owner()<<endl;
+    //Info<<"owner:"<<this->faceOwner()<<endl;
 
     
-    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     Info<<"Moved Set movement to field"<<endl;
     
+    /*
     surfaceScalarField* weights_ = new surfaceScalarField
      (
          IOobject
@@ -1739,8 +1821,8 @@ void Foam::cutCellFvMesh::moveTheMesh()
      // (note that we should not use fvMesh sliced fields at this point yet
      //  since this causes a loop when generating weighting factors in
      //  coupledFvPatchField evaluation phase)
-     const labelUList& owner = this->owner();
-     const labelUList& neighbour = this->neighbour();
+     const labelUList& owner = this->faceOwner();
+     const labelUList& neighbour = this->faceNeighbour();
  
      const vectorField& Cf = this->faceCentres();
      const vectorField& C = this->cellCentres();
@@ -1791,6 +1873,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
      surfaceScalarField::Boundary& wBf =
          weights.boundaryFieldRef();
  
+     */
         /*
      forAll(this->boundary(), patchi)
      {
@@ -1800,7 +1883,6 @@ void Foam::cutCellFvMesh::moveTheMesh()
     Info<<"Moved Set movement to field"<<endl;
 
 
-     FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
 
 }
 

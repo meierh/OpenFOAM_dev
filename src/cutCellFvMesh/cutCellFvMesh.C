@@ -2092,8 +2092,8 @@ void Foam::cutCellFvMesh::newMeshEdges
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
-    const labelList& cellOwner = this->owner();
-    const labelList& cellNeighbor = this->neighbour();
+    const labelList& cellOwner = this->faceOwner();
+    const labelList& cellNeighbor = this->faceNeighbour();
     const labelListList& faceToEdge = this->faceEdges();
     const labelListList& cellToEdge = this->cellEdges();
     const labelListList& pointToEdge = this->pointEdges();
@@ -5843,8 +5843,8 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
     const cellList& meshCells = this->cells();
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
-    const labelList& cellOwner = this->owner();
-    const labelList& cellNeighbor = this->neighbour();
+    const labelList& cellOwner = this->faceOwner();
+    const labelList& cellNeighbor = this->faceNeighbour();
     const edgeList& basisEdges = this->edges();
     const labelListList& edgeToFaces = this->edgeFaces();
     const labelListList& faceToEdge = this->faceEdges();
@@ -6717,8 +6717,8 @@ void Foam::cutCellFvMesh::cutOldFaces_plus
     const faceList& meshFaces = this->faces();
     //const edgeList& meshEdges = this->edges();
     //const pointField& meshPoints = this->points();
-    const labelList& cellOwner = this->owner();
-    const labelList& cellNeighbor = this->neighbour();
+    const labelList& cellOwner = this->faceOwner();
+    const labelList& cellNeighbor = this->faceNeighbour();
     
     cellsToSide();
     
@@ -16649,7 +16649,7 @@ List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
     
     for(int i=0;i<owner.size();i++)
     {
-        if(owner[i]<0 || owner[i]>=numCells)
+        if(owner[i]<-1 || owner[i]>=numCells)
         {
             Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
             Info<<"face["<<i<<"]:"<<faces[i]<<endl;
@@ -16665,12 +16665,22 @@ List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
             Info<<"neighbour[i]:"<<neighbour[i]<<endl;
             Info<<"numCells:"<<numCells<<endl;
             FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
-        }       
+        }
+        if(owner[i]<-0 && faces[i].size()!=0)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"face["<<i<<"]:"<<faces[i]<<endl;
+            Info<<"owner[i]:"<<owner[i]<<endl;
+            Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+            FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
+        }
     }
+    Info<<"End"<<endl;
     for(int i=0;i<owner.size();i++)
     {
         Info<<"i:"<<i<<" owner[i]:"<<owner[i]<<" neighbour[i]:"<<neighbour[i]<<" / "<<neighbour.size()<<" /-/ "<<cellsFaces.size()<<" numCells: "<<numCells<<endl;
-        cellsFaces[owner[i]].append(i);
+        if(owner[i]!=-1)
+            cellsFaces[owner[i]].append(i);
         if(neighbour[i]!=-1)
             cellsFaces[neighbour[i]].append(i);
     }
@@ -16694,6 +16704,9 @@ List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
     
     for(int i=0;i<faces.size();i++)
     {
+        if(faces[i].size()==0)
+            continue;
+        
         //Info<<"Test face "<<i<<endl;
         point centreFace = faces[i].centre(points);
         vector normalFace = faces[i].normal(points);
@@ -16717,14 +16730,21 @@ List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
     
     for(int i=0;i<faces.size();i++)
     {
-        //Info<<"Test face "<<i<<endl;
+        if(faces[i].size()==0)
+            continue;
+        
+        Info<<"Test face "<<i<<endl;
         point centreFace = faces[i].centre(points);
         vector normalFace = faces[i].normal(points);
         scalar area = faces[i].mag(points);
     
         vector faceCentreToOwnerCentre = cellList[owner[i]].centre(points,faces)-centreFace;
-        if((faceCentreToOwnerCentre && normalFace)>=0)
+        Info<<"faceCentreToOwnerCentre:"<<faceCentreToOwnerCentre<<endl;
+        Info<<"normalFace:"<<normalFace<<endl;
+        Info<<"faceCentreToOwnerCentre && normalFace:"<<(faceCentreToOwnerCentre&&normalFace)<<endl;
+        if((faceCentreToOwnerCentre && normalFace)>=0 && !flipFaces[i])
         {
+            Info<<"In 1"<<endl;
             if((area >= maxFaceSize*partialThreeshold*(1.f/1e10)) && norm2(normalFace)!=0 && norm2(faceCentreToOwnerCentre)!=0)
             {
                 Info<<endl<<endl;
@@ -16764,7 +16784,7 @@ List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
                 
                 Info<<"------------------------------------"<<endl;
             
-                if(i < neighbour.size())
+                if(neighbour[i]>=0)
                 {
                     cell oneCell = cellList[neighbour[i]];
                     Info<<"Neighbour Cell centre is: "<<oneCell.centre(points,faces)<<endl;
@@ -16805,5 +16825,9 @@ List<bool> Foam::cutCellFvMesh::correctListFaceNormalDir
                 }
             }
         }
+        Info<<"End"<<endl;
     }
+    Info<<"Comp End"<<endl;
+    
+    return flipFaces;
 }
