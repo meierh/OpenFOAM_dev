@@ -197,7 +197,8 @@ dynamicRefineFvMesh(io),
 Curves(Curves),
 MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
 NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size())),
-ibAlgorithm(state)
+ibAlgorithm(state),
+motionPtr_(motionSolver::New(*this,dynamicMeshDict()))
 {
     //MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
     //NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
@@ -483,6 +484,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
 
     for(int i=0;i<points.size();i++)
     {
+        //Info<<i<<"/"<<points.size()<<endl;
         //Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
         //label testInd = 202631;
         
@@ -1467,7 +1469,12 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     */
     
     Info<<"Reset:"<<endl;
-    //clearAddressing(true);
+
+
+    
+    Info<<"this->points.size():"<<this->points().size()<<endl;
+    Info<<"this->nPoints():"<<this->nPoints()<<endl;
+    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
     
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
@@ -1476,6 +1483,26 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     patchSizes,
                     patchStarts,
                     false);
+    
+    std::unordered_set<label> activePnts;
+    for(int i=0;i<this->faces().size();i++)
+        for(int j=0;j<this->faces()[i].size();j++)
+            activePnts.insert(this->faces()[i][j]);
+
+    label cnt=0;
+    for(int i=0;i<points.size();i++)
+        if(activePnts.count(i)!=0)
+            cnt++;
+    
+    if(cnt!=this->points().size())
+        FatalErrorInFunction<< "Invalid point number"<<endl<< exit(FatalError);
+    
+    Info<<"active Points:"<<cnt<<endl;    
+    Info<<"this->points.size():"<<this->points().size()<<endl;
+    Info<<"this->nPoints():"<<this->nPoints()<<endl;
+    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
+    
+    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     //this->topoChanging(true);
     Info<<"face 1412: "<<meshCutTopoChange.faces()[1412]<<endl;
@@ -1496,9 +1523,62 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     //autoPtr<mapPolyMesh> refineMapPtr = meshCutTopoChange.changeMesh(*this,true);
     //this->polyMesh::clearAddressing(true);
     Info<<"Reset done"<<endl;
-    Info<<"owner after:"<<this->faceOwner()<<endl;    
-   
+    Info<<"owner after:"<<this->faceOwner()<<endl;
+
+
+    Foam::motionSolver* rawPtr = motionPtr_.ptr();  
+    displacementLaplacianFvMotionSolver* dMS;
+    try{
+        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
+        if(dMS==NULL)
+            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }catch(...){
+        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }
     
+    pointVectorField& pVF = dMS->pointDisplacement();
+    if(this->points().size()!=pVF.size())
+        pVF.setSize(this->points().size());
+
+    pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
+    //Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
+    for(int i=0;i<boundFieldPointDispl.size();i++)
+    {
+        pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[i];
+        const pointPatch& boundaryPointPatch = boundaryPatchField->patch();
+        const labelList& patchPoints = boundaryPointPatch.meshPoints();
+        fixedValuePointPatchField<vector>* fVPPF;
+        try{
+            fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
+            if(fVPPF==NULL)
+                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+        }catch(...){
+            FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+        }
+        fVPPF->setSize(patchPoints.size());       
+    }
+
+    volVectorField& vVF = dMS->cellDisplacement();
+    if(this->cells().size()!=vVF.size())
+        vVF.setSize(this->cells().size());
+
+    volVectorField::Boundary& vVF_Bound = vVF.boundaryFieldRef();
+    for(int i=0;i<vVF_Bound.size();i++)
+    {
+        fvPatchField<vector>& boundField = vVF_Bound[i];
+        const fvPatch& boundPatch = boundField.patch();
+        if(boundPatch.size()!=boundField.size())
+            boundField.setSize(boundPatch.size());
+    }
+    
+    pointField& pointsNull = dMS->points0();
+    pointsNull.setSize(this->points().size());
+    for(int i=0;i<this->points().size();i++)
+        pointsNull[i] = this->points()[i];    
+    
+    motionPtr_.set(rawPtr);    
+   
+    /*
     Foam::motionSolver* rawPtr = motionPtr_.ptr();  
     Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
     displacementLaplacianFvMotionSolver* dMS;
@@ -1528,7 +1608,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         fVPPF->valuePointPatchField<vector>::operator=(Field<vector>(patchPoints.size(),Foam::zero()));
     }
     motionPtr_.set(rawPtr);
-    
+    */
     /*
     const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
     for(int i=0;i<boundaryMesh.size();i++)
@@ -1717,13 +1797,16 @@ void Foam::cutCellFvMesh::moveTheMesh()
     displacementLaplacianFvMotionSolver* dMS;
     try{
         dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
+        if(dMS==NULL)
+            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
     }catch(...){
         FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
     }
     
     pointVectorField& pVF = dMS->pointDisplacement();
     Info<<" nbrPoints:"<<this->points().size()<<endl;
-    pVF.Field<vector>::operator=(Field<vector>(this->points().size(),Foam::zero()));
+    if(this->points().size()!=pVF.size())
+        pVF.setSize(this->points().size());
     pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
     Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
     pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[boundFieldPointDispl.size()-1];
@@ -1734,6 +1817,8 @@ void Foam::cutCellFvMesh::moveTheMesh()
     fixedValuePointPatchField<vector>* fVPPF;
     try{
         fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
+        if(fVPPF==NULL)
+            FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
     }catch(...){
         FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
     }
@@ -1760,7 +1845,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
     if(fVPPF->updated())
         FatalErrorInFunction<< "Already updated. Can not happen!"<<endl<< exit(FatalError);
     
-    
+    /*
     volVectorField& vVF = dMS->cellDisplacement();
     Info<<"nbrCells:"<<this->cells().size()<<endl;
     Info<<"cellDisp Field size:"<<vVF.size()<<endl;
@@ -1784,6 +1869,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
         //Info<<"boundField size:"<<boundField<<endl;
         Info<<"---"<<endl;
     }
+    */
     
     
     //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
@@ -1880,10 +1966,38 @@ void Foam::cutCellFvMesh::moveTheMesh()
          this->boundary()[patchi].makeWeights(wBf[patchi]);
      }
         */
+
+        
+    /*
+    Info<<"this->points.size():"<<this->points().size()<<endl;
+    Info<<"this->nPoints():"<<this->nPoints()<<endl;
+    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
+    
+    
+    tmp<pointField> x = motionPtr_->newPoints();	
+    Info<<"newPoints size:"<<x->size()<<endl;
+    
+    
+    rawPtr = motionPtr_.ptr();  
+    //Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
+    try{
+        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
+    }catch(...){
+        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }    
+    pointVectorField& pVF2 = dMS->pointDisplacement();
+    Info<<"pointDisplacement.size():"<<pVF2.primitiveField().size()<<endl;
+    Info<<"points0().size():"<<dMS->points0().size()<<endl;
+
+    motionPtr_.set(rawPtr);        
+    
+    Info<<"this->points.size():"<<this->points().size()<<endl;
+    Info<<"this->nPoints():"<<this->nPoints()<<endl;
+    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
+    
+    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     Info<<"Moved Set movement to field"<<endl;
-
-
-
+    */
 }
 
 void Foam::cutCellFvMesh::moveNurbsCurves

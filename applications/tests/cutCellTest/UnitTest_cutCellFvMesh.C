@@ -17,7 +17,7 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     weights[0] = 1;    weights[1] = 1;   weights[2] = 1;    weights[3] = 1; 
     controlPoints = List<vector>(4);
     
-    scalar deltaX = 1;
+    scalar deltaX = 0.1;
 
 // First row    
     controlPoints[0]=vector(1,-0.5,-0.5); controlPoints[1]=vector(1,-0.25,-0.375);

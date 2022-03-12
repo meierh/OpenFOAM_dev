@@ -12,8 +12,8 @@ Foam::List<Foam::List<Foam::vector>> simpleCurveMovementFunc(Time& runTime)
     
     Foam::List<Foam::vector> movementVector(4);
     movementVector[0] = Foam::vector(0,0,0);
-    movementVector[1] = Foam::vector(0,0.1,0);
-    movementVector[2] = Foam::vector(0,-0.1,0);
+    movementVector[1] = Foam::vector(0,4,0);
+    movementVector[2] = Foam::vector(0,-4,0);
     movementVector[3] = Foam::vector(0,0,0);
     
     Foam::List<Foam::List<Foam::vector>> resultingCPs(1,List<Foam::vector>(4));
