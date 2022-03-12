@@ -21,33 +21,31 @@ struct BoundingBox
     bool isInside(vector point) const;
 };
     
-class Nurbs
+class Nurbs1D
 {
-    private:      
-        const scalarList initialKnots;
-        const List<vector> initialControlPoints;
-        const scalarList initialWeights;
+    private:
+        enum timeState {initial=0,previous=1,current=2};
+        enum dimState {u=0};
+        
+        // Outer List[initial,previous,current] - Inner List[u,v]
+        List<List<List<vector>>> controlPoints;
+        List<List<scalarList>> knots;
+        List<List<scalarList>> weights;
+        List<List<List<vector>>> weightedControlPoints;
+        
         const int m;
         const int n;
         const int p;
-        const scalar _min_U;
-        const scalar _max_U;
+        
+        const scalarlist minPara;
+        const scalarlist maxPara;
         const scalar diameter;
         const scalar deltaX;
+        
         bool nurbsMoved = false;
         
-        scalarList knots;
-        List<vector> controlPoints;
-        scalarList weights;
-        List<vector> weightedControlPoints;
-
-        scalarList knots_prev;
-        List<vector> controlPoints_prev;
-        scalarList weights_prev;
-        List<vector> weightedControlPoints_prev;
-        
     public:
-        Nurbs
+        Nurbs1D
         (
             scalarList knots,
             List<vector> controlPoints,
@@ -59,8 +57,8 @@ class Nurbs
         
         enum nurbsStatus
         {
-            curr = 0,
-            prev
+            prev = 1,
+            curr = 2
         };
         
         scalar getBoundingBoxOverhang() const {return diameter+deltaX;}

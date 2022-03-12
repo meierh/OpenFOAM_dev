@@ -14,7 +14,7 @@ bool Foam::BoundingBox::isInside(vector point) const
     return inside;
 }
 
-Foam::Nurbs::Nurbs
+Foam::Nurbs1D::Nurbs1D
 (
     scalarList knots,
     List<vector> controlPoints,
@@ -23,29 +23,36 @@ Foam::Nurbs::Nurbs
     scalar diameter,
     scalar deltaX
 ):
-initialKnots(knots),
-initialControlPoints(controlPoints),
-initialWeights(weights),
-knots(knots),
-controlPoints(controlPoints),
-weights(weights),
-knots_prev(knots),
-controlPoints_prev(controlPoints),
-weights_prev(weights),
+controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
+knots(List<List<scalarList>>(3,List<scalarList>(1))),
+weights(List<List<scalarList>>(3,List<scalarList>(1))),
+weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 m(knots.size()),
 n(controlPoints.size()),
 p(degree),
-_min_U(knots.first()),
-_max_U(knots.last()),
+minPara(scalarList(1,knots.first())),
+maxPara(scalarList(1,knots.last())),
 diameter(diameter),
 deltaX(deltaX)
 {
+    controlPoints[initial][u] = controlPoints;
+    controlPoints[previous][u] = controlPoints;
+    controlPoints[current][u] = controlPoints;
+    
+    knots[initial][u] = knots;
+    knots[previous][u] = knots;
+    knots[current][u] = knots;
+
+    weights[initial][u] = weights;
+    weights[previous][u] = weights;
+    weights[current][u] = weights;
+    
     //Info<<"Construct Nurbs"<<endl;
-    if(this->weights.size() != this->controlPoints.size())
+    if(weights.size() != controlPoints.size())
     {
         FatalErrorInFunction
         << " A Nurbs Curve must have an equal amount of control Points and weights!"<<endl
-        << " Currently there are "<<this->weights.size()<<" weights and "<<this->controlPoints.size()<<" control Points!"
+        << " Currently there are "<<weights.size()<<" weights and "<<controlPoints.size()<<" control Points!"
         << exit(FatalError);
     }
     //m = knots->size();
@@ -70,15 +77,15 @@ deltaX(deltaX)
     //Info<<_max_U<<endl;
     //Info<<"Constructed"<<endl;
     
-    this->weightedControlPoints = List<vector>(n);
-    this->weightedControlPoints_prev = List<vector>(n);
+    weightedControlPoints[initial][u] = List<vector>(n);
+    weightedControlPoints[previous][u] = List<vector>(n);
+    weightedControlPoints[current][u] = List<vector>(n);
     for(int i=0;i<n;i++)
     {
-        //Info<<i<<endl;
-        this->weightedControlPoints[i] = this->weights[i] * this->controlPoints[i];
-        this->weightedControlPoints_prev[i] = this->weights[i] * this->controlPoints[i];
+        weightedControlPoints[initial][u][i] = weights[initial][u][i] * controlPoints[initial][u][i];
+        weightedControlPoints[previous][u][i] = weights[previous][u][i] * controlPoints[previous][u][i];
+        weightedControlPoints[current][u][i] = weights[current][u][i] * controlPoints[current][u][i];
     }
-    //Info<<"Constructed"<<endl;
 }
 
 scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
@@ -86,10 +93,11 @@ scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
     int i,
     int p,
     scalar u,
-    nurbsStatus state
+    nurbsStatus state,
+    dimState dState
 ) const
 {
-    scalarList knots = (state==curr)*this->knots+(state==prev)*this->knots_prev;
+    scalarList& knots = this->knots[state][dState];
     
     if(i+p+1 >= knots.size())
     {
@@ -124,7 +132,7 @@ scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
         {
             factor2 = factor2_Z / factor2_N;
         }
-        return factor1*B_Spline_Basis(i,p-1,u,state) + factor2*B_Spline_Basis(i+1,p-1,u,state);
+        return factor1*B_Spline_Basis(i,p-1,u,state,dState) + factor2*B_Spline_Basis(i+1,p-1,u,state,dState);
     }
 }
 
@@ -198,7 +206,7 @@ scalar Foam::Nurbs::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3
     return res;
 }
 
-vector Foam::Nurbs::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4 S.97
+vector Foam::Nurbs::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4,3.3 S.97
 (
     int k,
     scalar u,
