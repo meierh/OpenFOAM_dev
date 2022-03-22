@@ -139,13 +139,23 @@ scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
 template <typename T>
 T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
 (
-    int k,
-    int i,
+    List<int> k_l,
+    List<int> i_j,
     const List<T>&  controlPoints,
     nurbsStatus state
 ) const
 {
-    scalarList knots = (state==curr)*this->knots+(state==prev)*this->knots_prev;
+    dimState treatedDim;
+    if(k_l.size=1)
+        treatedDim=dimState.u;
+    else
+    {
+        if(k_l[0] >= k_l[1])
+            treatedDim=dimState.u;
+        else
+            treatedDim=dimState.v;
+    }
+    scalarListList& knots = this->knots[state];
 
     if(m < controlPoints.size()+p+1)
     {
@@ -161,30 +171,59 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
         << " Currently there are "<<m<<" knots and i:"<<i<<" k:"<<k
         << exit(FatalError);
     }
-    if(k==0)
+    
+
+    
+    label derivTotal=0;
+    for(int x=0;x<k_l.size();x++)
+        derivTotal+=k_l[x];
+    
+    if(derivTotal==0)
     {
-        if(i>=controlPoints.size())
+        if(i_j.size()==1)
         {
-            FatalErrorInFunction
-            << " Something is wrong here. i:"<<i<<" while controlPoints.size():"<<controlPoints.size()<<endl
-            << exit(FatalError);
+            if(i_j[0]>=controlPoints[0].size())
+            {
+                FatalErrorInFunction
+                << " Something is wrong here. i:"<<i_j[0]<<" while controlPoints.size():"<<controlPoints.size()<<endl
+                << exit(FatalError);
+            }
+            return controlPoints[i_j[0]][0];
         }
-        return controlPoints[i];
+        else
+        {
+            if(i_j[0]>=controlPoints.size() || i_j[1]>=controlPoints[0].size())
+            {
+                FatalErrorInFunction
+                << " Something is wrong here. i:"<<i_j[0]<<" while controlPoints.size():"<<controlPoints[0].size()<<" or "
+                <<"j:"<<i_j[1]<<" while controlPoints.size():"<<controlPoints.size() <<endl
+                << exit(FatalError);
+            }
+            return controlPoints[i_j[0]][i_j[1]];
+        }
     }
     else
     {
         scalar koeff = 0;
-        scalar nenner = knots[i+p+1] - knots[i+k];
+        scalar nenner = knots[treatedDim][i_j[treatedDim]+p_q[treatedDim]+1]
+                        - knots[treatedDim][i_j[treatedDim]+k_l[treatedDim]];
         if(nenner == 0)
         {
             koeff = 0;
         }
         else
         {
-            koeff = (p-k+1)/nenner;
+            koeff = (p_q[treatedDim]-k_l[treatedDim]+1)/nenner;
         }
-        T P_ip1_km1 = Control_Point_Derivative(k-1,i+1,controlPoints,state);
-        T P_i_km1 = Control_Point_Derivative(k-1,i,controlPoints,state);
+        List<int> k_l_next(k_l);
+        k_l_next[treatedDim]--;
+        
+        List<int> i_j_next(i_j);
+        i_j_next[treatedDim]--;
+        
+        
+        T P_ip1_km1 = Control_Point_Derivative(k_l_next,i_j_next,controlPoints,state);
+        T P_i_km1 = Control_Point_Derivative(k_l_next,i_j,controlPoints,state);
         
         return koeff*(P_ip1_km1 - P_i_km1);
     }
@@ -192,16 +231,34 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
 
 scalar Foam::Nurbs::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3.4 S.97
 (
-    int k,
-    scalar u,
+    List<int> k_l,
+    scalarList u_v,
     nurbsStatus state
 ) const
 {
-    scalarList weights = (state==curr)*this->weights+(state==prev)*this->weights_prev;
-    scalar res = 0;
-    for(int i = 0;i<n-k;i++)
+    scalarListList& weights = this->weights[state];
+    scalarList res(n_m[0]-k_l[0]);
+    List<int> i_j(k_l.size());
+    
+    for(i_j[1]=0; i_j[1]<n_m[1]-k_l[1]; i_j[1]++)
     {
-        res += B_Spline_Basis(i+k,p-k,u,state) * Control_Point_Derivative<scalar>(k,i,weights,state);
+        scalar subRes = 0;
+        for(i_j[0]=0; i_j[0]<n_m[0]-k_l[0]; i_j[0]++)
+        {
+            //previous implementation was B_Spline_Basis(i+k,...) why?
+            List<int>
+            subRes += B_Spline_Basis(i_j[0],p_q[0]-k_l[0],u[0],state) * Control_Point_Derivative<scalar>(k_l,i_j,weights,state);
+        }
+        subResb
+    }
+    
+    for(int dim=0;dim<k_l.size();dim++)
+    {
+        scalar subRes=Control_Point_Derivative<scalar>(k_l,i_j,weights,state);
+        for(int ij=0; ij<n_m[dim]-k_l[dim]; ij++)
+        {
+            res += B_Spline_Basis(i+k,p-k,u,state) * Control_Point_Derivative<scalar>(k,i,weights,state);
+        }
     }
     return res;
 }

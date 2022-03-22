@@ -25,17 +25,19 @@ class Nurbs1D
 {
     private:
         enum timeState {initial=0,previous=1,current=2};
-        enum dimState {u=0};
+        enum dimState {u=0,v=1};
         
         // Outer List[initial,previous,current] - Inner List[u,v]
-        List<List<List<vector>>> controlPoints;
         List<List<scalarList>> knots;
-        List<List<scalarList>> weights;
+        
+        // Outer List[initial,previous,current] - Inner Matrix[dim(u),dim(v)]
+        List<List<List<vector>>> controlPoints;
+        List<scalarListList> weights;
         List<List<List<vector>>> weightedControlPoints;
         
-        const int m;
+        const labelList n_m;
         const int n;
-        const int p;
+        const labelList p_q;
         
         const scalarlist minPara;
         const scalarlist maxPara;
