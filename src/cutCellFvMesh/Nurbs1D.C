@@ -27,25 +27,25 @@ controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 knots(List<List<scalarList>>(3,List<scalarList>(1))),
 weights(List<List<scalarList>>(3,List<scalarList>(1))),
 weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
-m(knots.size()),
-n(controlPoints.size()),
-p(degree),
+n_m({knots.size()}), // former m
+cPdim({controlPoints.size()}),
+p_q({degree}),
 minPara(scalarList(1,knots.first())),
 maxPara(scalarList(1,knots.last())),
 diameter(diameter),
 deltaX(deltaX)
 {
-    controlPoints[initial][u] = controlPoints;
-    controlPoints[previous][u] = controlPoints;
-    controlPoints[current][u] = controlPoints;
+    this->controlPoints[initial][u] = controlPoints;
+    this->controlPoints[previous][u] = controlPoints;
+    this->controlPoints[current][u] = controlPoints;
     
-    knots[initial][u] = knots;
-    knots[previous][u] = knots;
-    knots[current][u] = knots;
+    this->knots[initial][u] = knots;
+    this->knots[previous][u] = knots;
+    this->knots[current][u] = knots;
 
-    weights[initial][u] = weights;
-    weights[previous][u] = weights;
-    weights[current][u] = weights;
+    this->weights[initial][u] = weights;
+    this->weights[previous][u] = weights;
+    this->weights[current][u] = weights;
     
     //Info<<"Construct Nurbs"<<endl;
     if(weights.size() != controlPoints.size())
@@ -60,11 +60,11 @@ deltaX(deltaX)
     //p = degree;
     //this->diameter = diameter;
     //this->deltaX = deltaX;
-    if(m < n+p+1)
+    if(n_m[u] < cPdim[u]+p_q[u]+1)
     {
         FatalErrorInFunction
         << " A Nurbs Curve must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
-        << " Currently there are "<<m<<" knots and "<<n<<" control Points and degree "<<p
+        << " Currently there are "<<n_m[u]<<" knots and "<<cPdim[u]<<" control Points and degree "<<p_q[u]<<" in u direction"
         << exit(FatalError);
     }
     //this->knots = std::unique_ptr<scalarList>(std::move(knots));
@@ -77,18 +77,18 @@ deltaX(deltaX)
     //Info<<_max_U<<endl;
     //Info<<"Constructed"<<endl;
     
-    weightedControlPoints[initial][u] = List<vector>(n);
-    weightedControlPoints[previous][u] = List<vector>(n);
-    weightedControlPoints[current][u] = List<vector>(n);
-    for(int i=0;i<n;i++)
+    this->weightedControlPoints[initial][u] = List<vector>(n);
+    this->weightedControlPoints[previous][u] = List<vector>(n);
+    this->weightedControlPoints[current][u] = List<vector>(n);
+    for(int i=0;i<cPdim[u];i++)
     {
-        weightedControlPoints[initial][u][i] = weights[initial][u][i] * controlPoints[initial][u][i];
-        weightedControlPoints[previous][u][i] = weights[previous][u][i] * controlPoints[previous][u][i];
-        weightedControlPoints[current][u][i] = weights[current][u][i] * controlPoints[current][u][i];
+        this->weightedControlPoints[initial][u][i] =
+        this->weightedControlPoints[previous][u][i] =
+        this->weightedControlPoints[current][u][i] = this->weights[current][u][i] * this->controlPoints[current][u][i];
     }
 }
 
-scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
+scalar Foam::Nurbs1D::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
 (
     int i,
     int p,
@@ -137,11 +137,11 @@ scalar Foam::Nurbs::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
 }
 
 template <typename T>
-T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
+T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
 (
     List<int> k_l,
     List<int> i_j,
-    const List<T>&  controlPoints,
+    const List<List<T>>&  controlPoints,
     nurbsStatus state
 ) const
 {
@@ -171,8 +171,6 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
         << " Currently there are "<<m<<" knots and i:"<<i<<" k:"<<k
         << exit(FatalError);
     }
-    
-
     
     label derivTotal=0;
     for(int x=0;x<k_l.size();x++)
@@ -229,62 +227,44 @@ T Foam::Nurbs::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
     }
 }
 
-scalar Foam::Nurbs::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3.4 S.97
-(
-    List<int> k_l,
-    scalarList u_v,
-    nurbsStatus state
-) const
-{
-    scalarListList& weights = this->weights[state];
-    scalarList res(n_m[0]-k_l[0]);
-    List<int> i_j(k_l.size());
-    
-    for(i_j[1]=0; i_j[1]<n_m[1]-k_l[1]; i_j[1]++)
-    {
-        scalar subRes = 0;
-        for(i_j[0]=0; i_j[0]<n_m[0]-k_l[0]; i_j[0]++)
-        {
-            //previous implementation was B_Spline_Basis(i+k,...) why?
-            List<int>
-            subRes += B_Spline_Basis(i_j[0],p_q[0]-k_l[0],u[0],state) * Control_Point_Derivative<scalar>(k_l,i_j,weights,state);
-        }
-        subResb
-    }
-    
-    for(int dim=0;dim<k_l.size();dim++)
-    {
-        scalar subRes=Control_Point_Derivative<scalar>(k_l,i_j,weights,state);
-        for(int ij=0; ij<n_m[dim]-k_l[dim]; ij++)
-        {
-            res += B_Spline_Basis(i+k,p-k,u,state) * Control_Point_Derivative<scalar>(k,i,weights,state);
-        }
-    }
-    return res;
-}
-
-vector Foam::Nurbs::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4,3.3 S.97
+scalar Foam::Nurbs1D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3.4 S.97
 (
     int k,
     scalar u,
     nurbsStatus state
 ) const
 {
-    List<vector> weightedControlPoints = (state==curr)*this->weightedControlPoints+(state==prev)*this->weightedControlPoints_prev;
+    scalarListList& weights = this->weights[state];
+    scalar res = 0;    
+    for(int i=0; i<n_m[0]-k; i++)
+    {
+        res += B_Spline_Basis(i,p_q[0]-k,u,state) * Control_Point_Derivative<scalar>(k,i,weights,state);
+    }    
+    return res;
+}
+
+vector Foam::Nurbs1D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4,3.3 S.97
+(
+    int k,
+    scalar u,
+    nurbsStatus state
+) const
+{
+    List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
 
     //Info<<"n-k:"<<n-k<<endl;
     vector res(0,0,0);
-    for(int i=0;i<n-k;i++)
+    for(int i=0;i<n_m[0]-k;i++)
     {
         //Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
-        res += B_Spline_Basis(i+k,p-k,u,state) * Control_Point_Derivative<vector>(k,i,weightedControlPoints,state);
+        res += B_Spline_Basis(i,p-k,u,state) * Control_Point_Derivative<vector>(k,i,weightedControlPoints,state);
         //Info<<"Done"<<endl;
     }
     //Info<<"Return "<<res<<endl;
     return res;
 }
 
-int Foam::Nurbs::binomial
+int Foam::Nurbs1D::binomial
 (
     int n,
     int k
@@ -300,7 +280,7 @@ int Foam::Nurbs::binomial
     }
 }
 
-vector Foam::Nurbs::Curve_Derivative
+vector Foam::Nurbs1D::Curve_Derivative
 (
     int k,
     scalar u,
@@ -347,9 +327,10 @@ vector Foam::Nurbs::Curve_Derivative
     return (A_res-B)/w;
 }
 
-Foam::BoundingBox Foam::Nurbs::computeBoundingBox() const
+Foam::BoundingBox Foam::Nurbs1D::computeBoundingBox() const
 {
-    if(controlPoints.size() == 0)
+    List<List<vector>>>& controlPoints = this->controlPoints[current];
+    if(controlPoints.size() == 0 || controlPoints[0].size() == 0)
     {
         FatalErrorInFunction
         << " Nurbs Curve has no controlPoints. Therefore no bounds can be computed!"<<endl
@@ -357,53 +338,53 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox() const
     }
     
     BoundingBox MinMaxBox;
-    MinMaxBox.Min = controlPoints.first();
-    MinMaxBox.Max = controlPoints.first();
+    MinMaxBox.Min = MinMaxBox.Max = controlPoints.first().first();
     
-    for(int i=0;i<n;i++)
+    for(int i=0;i<cPdim[0];i++)
     {
-        for(int d=0;d<3;d++)
+        for(int j=0;j<cPdim[1];j++)
         {
-            if(controlPoints[i][d] > MinMaxBox.Max[d])
-                MinMaxBox.Max[d] = controlPoints[i][d];
-                
-            if(controlPoints[i][d] < MinMaxBox.Min[d])
-                MinMaxBox.Min[d] = controlPoints[i][d];
+            for(int d=0;d<3;d++)
+            {
+                if(controlPoints[i][j][d] > MinMaxBox.Max[d])
+                    MinMaxBox.Max[d] = controlPoints[i][j][d];
+                    
+                if(controlPoints[i][j][d] < MinMaxBox.Min[d])
+                    MinMaxBox.Min[d] = controlPoints[i][j][d];
+            }
         }
-    }
-    
+    }    
     for(int d=0;d<3;d++)
     {
         MinMaxBox.Min[d] = MinMaxBox.Min[d]-(2*deltaX+diameter);
         MinMaxBox.Max[d] = MinMaxBox.Max[d]+(2*deltaX+diameter);
-    }
-    
+    }    
     return MinMaxBox;
 }
 
-Foam::BoundingBox Foam::Nurbs::computeBoundingBox
+Foam::BoundingBox Foam::Nurbs1D::computeBoundingBox
 (
-    scalar start,
-    scalar end
+    scalar start_u,
+    scalar end_u
 ) const
 {
     //Info<<"Compute Bounding Box"<<endl;
-    if(start < _min_U || start >= _max_U)
+    if(start_u < minPara[u] || start_u >= maxPara[u])
     {
         FatalErrorInFunction
-        << " Start value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<")"<<endl
+        << " Start value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<")"<<endl
         << exit(FatalError);
     }
-    if(end < _min_U || end >= _max_U)
+    if(end_u < minPara[u] || end_u >= maxPara[u])
     {
         FatalErrorInFunction
-        << " End value of Bounding Box has to be in ["<<_min_U<<","<<_max_U<<") but is "<<end<<endl
+        << " End value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<end<<endl
         << exit(FatalError);
     }
     
-    vector startP = Curve_Derivative(0,start);
+    vector startP = Curve_Derivative(0,start_u);
     //Info<<"StartP: "<<startP<<endl;
-    vector endP = Curve_Derivative(0,end);
+    vector endP = Curve_Derivative(0,end_u);
     //Info<<"EndP: "<<endP<<endl;
     BoundingBox Box;
     for(int d=0;d<3;d++)
@@ -418,7 +399,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox
             Box.Max[d] = endP[d];
     }
     //Info<<"Initial Bounding Box"<<endl;
-    scalar koeff = (1.0/8.0)*(end-start)*(end-start)*supremum_Derivative2(start,end);
+    scalar koeff = (1.0/8.0)*(end_u-start_u)*(end_u-start_u)*supremum_Derivative2(start_u,end_u);
     for(int d=0;d<3;d++)
     {
         Box.Min[d] -= (koeff+diameter+deltaX);
@@ -427,7 +408,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox
     return Box;    
 }
 
-scalar Foam::Nurbs::supremum_Derivative2
+scalar Foam::Nurbs1D::supremum_Derivative2
 (
     scalar start_u,
     scalar end_u
@@ -460,7 +441,7 @@ scalar Foam::Nurbs::supremum_Derivative2
     return sup;
 }
 
-vector Foam::Nurbs::vectorCurveToPoint_Derivative
+vector Foam::Nurbs1D::vectorCurveToPoint_Derivative
 (
     int k,
     scalar para,
@@ -474,7 +455,7 @@ vector Foam::Nurbs::vectorCurveToPoint_Derivative
         return C;
 }
 
-scalar Foam::Nurbs::distCurveToPoint_Deriv0
+scalar Foam::Nurbs1D::distCurveToPoint_Deriv0
 (
     scalar para,
     vector point
@@ -483,7 +464,7 @@ scalar Foam::Nurbs::distCurveToPoint_Deriv0
     return euklidianNorm(vectorCurveToPoint_Derivative(0,para,point));
 }
 
-scalar Foam::Nurbs::distCurveToPoint_Deriv1
+scalar Foam::Nurbs1D::distCurveToPoint_Deriv1
 (
     scalar para,
     vector point
@@ -506,7 +487,7 @@ scalar Foam::Nurbs::distCurveToPoint_Deriv1
     return (C_P && C_D1)/std::sqrt(C_P && C_P);
 }
 
-scalar Foam::Nurbs::distCurveToPoint_Deriv2
+scalar Foam::Nurbs1D::distCurveToPoint_Deriv2
 (
     scalar para,
     vector point
@@ -546,7 +527,7 @@ scalar Foam::Nurbs::distCurveToPoint_Deriv2
     return ((C_D2 && C_P)+(C_D1 && C_D1))/(C_P && C_P);    
 }
 
-scalar Foam::Nurbs::newtonIterateNearestNeighbour_alt
+scalar Foam::Nurbs1D::newtonIterateNearestNeighbour_alt
 (
     scalar u_0,
     vector point
@@ -582,7 +563,7 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour_alt
     return u_0;
 }
 
-scalar Foam::Nurbs::newtonIterateNearestNeighbour
+scalar Foam::Nurbs1D::newtonIterateNearestNeighbour
 (
     scalar u_0,
     vector point
@@ -640,7 +621,7 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour
     return u_0;
 }
 
-scalar Foam::Nurbs::distanceToNurbsSurface
+scalar Foam::Nurbs1D::distanceToNurbsSurface
 (
     scalar para,
     vector point
@@ -651,7 +632,7 @@ scalar Foam::Nurbs::distanceToNurbsSurface
     return distToCentre - diameter;
 }
 
-void Foam::Nurbs::moveNurbs
+void Foam::Nurbs1D::moveNurbs
 (
     List<vector> controlPoints
 )
@@ -672,7 +653,7 @@ void Foam::Nurbs::moveNurbs
     nurbsMoved = true;
 }
 
-vector Foam::Nurbs::movementVector
+vector Foam::Nurbs1D::movementVector
 (
     scalar u
 )

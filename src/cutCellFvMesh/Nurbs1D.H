@@ -32,11 +32,11 @@ class Nurbs1D
         
         // Outer List[initial,previous,current] - Inner Matrix[dim(u),dim(v)]
         List<List<List<vector>>> controlPoints;
-        List<scalarListList> weights;
+        List<List<List<scalar>>> weights;
         List<List<List<vector>>> weightedControlPoints;
         
         const labelList n_m;
-        const int n;
+        const labelList cPdim;
         const labelList p_q;
         
         const scalarlist minPara;
@@ -71,13 +71,13 @@ class Nurbs1D
         
         BoundingBox computeBoundingBox() const;
         
-        scalar min_U() const {return _min_U;}
+        scalar min_U() const {return minPara[u];}
         
-        scalar max_U() const {return std::nexttoward(_max_U,_min_U);}
+        scalar max_U() const {return std::nexttoward(maxPara[u],minPara[u]);}
         
-        int nbrKnots() const {return knots.size();}
+        int nbrKnotsU() const {return knots[u].size();}
         
-        int degree() const {return p;}
+        int degreeU() const {return p_q[u];}
         
         scalar newtonIterateNearestNeighbour(scalar u_0,vector point) const;
         scalar newtonIterateNearestNeighbour_alt(scalar u_0,vector point) const;
@@ -94,7 +94,7 @@ class Nurbs1D
                 
     private:
         scalar B_Spline_Basis(int i, int p, scalar u, nurbsStatus state=curr) const;
-        template <typename T> T Control_Point_Derivative(int k, int i, const List<T>&  controlPoints, nurbsStatus state=curr) const;
+        template <typename T> T Control_Point_Derivative(List<int> k_l, List<int> i_j, const List<List<T>>& controlPoints, nurbsStatus state=curr) const;
         scalar Weights_B_Spline_Derivative(int k, scalar u, nurbsStatus state=curr) const;
         vector A(int k, scalar u, nurbsStatus state=curr) const;
         int binomial(int n, int k) const;
