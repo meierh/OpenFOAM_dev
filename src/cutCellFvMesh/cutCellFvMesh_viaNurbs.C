@@ -9,7 +9,7 @@ Foam::scalar normEuler(Foam::vector pnt)
 Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
-    std::shared_ptr<std::vector<Nurbs>> Curves,
+    std::shared_ptr<std::vector<Nurbs1D>> Curves,
     Time& runTime,
     std::unique_ptr<volScalarField>& solidFraction
 ):
@@ -190,7 +190,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
 Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
-    std::shared_ptr<std::vector<Nurbs>> Curves,
+    std::shared_ptr<std::vector<Nurbs1D>> Curves,
     cutStatus state
 ):
 dynamicRefineFvMesh(io),
@@ -2002,7 +2002,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
 
 void Foam::cutCellFvMesh::moveNurbsCurves
 (
-    List<List<vector>> movedControlPoints
+    List<List<List<vector>>> movedControlPoints
 )
 {
     if((*(this->Curves)).size()!=static_cast<unsigned long>(movedControlPoints.size()))
@@ -2118,9 +2118,9 @@ void Foam::cutCellFvMesh::checkForHexCellsInCutArea()
 scalar Foam::cutCellFvMesh::minNurbsRadius()
 {
     scalar minRadius = std::numeric_limits<scalar>::max();
-    for(const Nurbs& oneNurbs: *Curves)
+    for(const Nurbs1D& oneNurbs1D: *Curves)
     {
-        scalar radius = oneNurbs.radius();
+        scalar radius = oneNurbs1D.radius();
         minRadius = (radius<minRadius)?radius:minRadius;
     }
     return minRadius;

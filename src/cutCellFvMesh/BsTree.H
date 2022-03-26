@@ -3,7 +3,7 @@
 
 #include "fvCFD.H"
 #include <memory>
-#include "Nurbs.H"
+#include "Nurbs1D.H"
 
 namespace Foam
 {
@@ -24,13 +24,13 @@ class BsTree
         Node* _nil;
         Node* root;
                 
-        const Nurbs Curve;
+        const Nurbs1D Curve;
         const label maxHeight;
         
     public:
         BsTree
         (
-            Nurbs Curve,
+            Nurbs1D Curve,
             label nbrSplitsBetweenCPs = 1
         );
         ~BsTree();

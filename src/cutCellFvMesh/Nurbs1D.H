@@ -3,7 +3,7 @@
 
 #include "fvCFD.H"
 #include <memory>
-#include "Nurbs.H"
+//#include "Nurbs.H"
 
 namespace Foam
 {   
@@ -39,8 +39,8 @@ class Nurbs1D
         const labelList cPdim;
         const labelList p_q;
         
-        const scalarlist minPara;
-        const scalarlist maxPara;
+        const scalarList minPara;
+        const scalarList maxPara;
         const scalar diameter;
         const scalar deltaX;
         
@@ -84,7 +84,7 @@ class Nurbs1D
         
         scalar distanceToNurbsSurface(scalar para, vector point) const;
         
-        void moveNurbs(List<vector> controlPoints);
+        void moveNurbs(List<List<vector>> controlPoints);
         vector movementVector(scalar u);
         
         scalar radius() const {return diameter/2;};

@@ -438,7 +438,7 @@ scalar Foam::Nurbs1D::supremum_Derivative2
     {
         sup += maxD2[d] * maxD2[d];
     }
-    return sup;
+    return std::sqrt(sup);
 }
 
 vector Foam::Nurbs1D::vectorCurveToPoint_Derivative
@@ -634,22 +634,29 @@ scalar Foam::Nurbs1D::distanceToNurbsSurface
 
 void Foam::Nurbs1D::moveNurbs
 (
-    List<vector> controlPoints
+    List<List<vector>> controlPoints
 )
 {
     if(controlPoints.size() != this->controlPoints.size())
         FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
+    for(int i=0;i<controlPoints.size();i++)
+        if(controlPoints[i].size() != this->controlPoints[i].size())
+            FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
     
-    knots_prev = this->knots;
-    controlPoints_prev = this->controlPoints;
-    weights_prev = this->weights;
-    weightedControlPoints_prev = this->weightedControlPoints;
+    knots[previous] = knots[current];
+    this->controlPoints[previous] = this->controlPoints[current];
+    weights[previous] = weights[current];
+    weightedControlPoints[previous] = weightedControlPoints[current];
     
-    this->controlPoints = controlPoints;    
-    this->weightedControlPoints = List<vector>(n);
-    for(int i=0;i<n;i++)
-        this->weightedControlPoints[i] = this->weights[i] * this->controlPoints[i];
+    this->controlPoints[current] = controlPoints;
     
+    for(int i=0;i<weightedControlPoints[current].size();i++)
+    {
+        for(int j=0;j<weightedControlPoints[current][i].size();j++)
+        {
+            weightedControlPoints[current][i][j] = weights[current][i][j] * controlPoints[current][i][j];
+        }
+    }   
     nurbsMoved = true;
 }
 

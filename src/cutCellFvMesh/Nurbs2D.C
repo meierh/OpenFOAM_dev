@@ -311,22 +311,23 @@ scalar Foam::Nurbs2D::supremum_Derivative2
             vector dv2 = Surface_Derivative(0,2,Ux,Vx);
             vector dudv = Surface_Derivative(1,1,Ux,Vx);
 
-        }
-        res = Curve_Derivative(2,p);
-        for(int d=0;d<3;d++)
-        {
-            res[d] = std::abs(res[d]);
-            maxD2[d] = std::max(res[d],maxD2[d]);
-        }        
+            vector maxVec(0,0,0);
+            for(int d=0;d<3;d++)
+            {
+                maxVec[d] = std::max(std::abs(du2[d]),std::abs(dv2[d]),std::abs(dudv[d]));
+                maxD2[d] = std::max(maxVec[d],maxD2[d]);
+            }    
+        }  
     }
     scalar sup = 0;
     for(int d=0;d<3;d++)
     {
-        sup += maxD2[d] * maxD2[d];
+        sup += maxD2[d];
     }
     return sup;
 }
 
+/*
 vector Foam::Nurbs::vectorCurveToPoint_Derivative
 (
     int k,
@@ -340,7 +341,9 @@ vector Foam::Nurbs::vectorCurveToPoint_Derivative
     else
         return C;
 }
+*/
 
+/*
 scalar Foam::Nurbs::distCurveToPoint_Deriv0
 (
     scalar para,
@@ -349,62 +352,30 @@ scalar Foam::Nurbs::distCurveToPoint_Deriv0
 {
     return euklidianNorm(vectorCurveToPoint_Derivative(0,para,point));
 }
+*/
 
+/*
 scalar Foam::Nurbs::distCurveToPoint_Deriv1
 (
     scalar para,
     vector point
 ) const
 {
-    /*
-    vector PointToCurve = vectorCurveToPoint_Derivative(0,para,point);
-    vector PointToCurve_D1 = vectorCurveToPoint_Derivative(1,para,point);
-    scalar N = euklidianNorm(PointToCurve);
-    scalar Z = 0;
-    for(int d=0;d<3;d++)
-        Z += PointToCurve[d]*PointToCurve_D1[d];
-    return N/Z;
-    */
-    
     vector C = Curve_Derivative(0,para);
     vector C_D1 = Curve_Derivative(1,para);
     vector C_P = C-point;
     
     return (C_P && C_D1)/std::sqrt(C_P && C_P);
 }
+*/
 
+/*
 scalar Foam::Nurbs::distCurveToPoint_Deriv2
 (
     scalar para,
     vector point
 ) const
-{
-    /*
-    vector PointToCurve = vectorCurveToPoint_Derivative(0,para,point);
-    vector PointToCurve_D1 = vectorCurveToPoint_Derivative(1,para,point);
-    vector PointToCurve_D2 = vectorCurveToPoint_Derivative(2,para,point);
-    
-    //Info<<endl<<"Computed all vectors"<<PointToCurve<<PointToCurve_D1<<PointToCurve_D2<<endl;
-    
-    scalar v_i_2 = 0;
-    for(int d=0;d<3;d++)
-        v_i_2 += PointToCurve[d]*PointToCurve[d];
-    
-    scalar v_i_D0_D1 = 0;
-    for(int d=0;d<3;d++)
-        v_i_D0_D1 += PointToCurve[d]*PointToCurve_D1[d];
-    
-    scalar v_i_D0_D2 = 0;
-    for(int d=0;d<3;d++)
-        v_i_D0_D2 += PointToCurve[d]*PointToCurve_D2[d];
-    
-    scalar sqrt_v_i_2 = std::sqrt(v_i_2);
-    scalar sum1 = -(1/(sqrt_v_i_2*sqrt_v_i_2*sqrt_v_i_2))*v_i_D0_D1*v_i_D0_D1;
-    scalar sum2 = (1/(sqrt_v_i_2))*(v_i_2+v_i_D0_D2);
-    
-    return sum1+sum2;
-    */
-    
+{    
     vector C = Curve_Derivative(0,para);
     vector C_D1 = Curve_Derivative(1,para);
     vector C_D2 = Curve_Derivative(2,para);
@@ -412,54 +383,32 @@ scalar Foam::Nurbs::distCurveToPoint_Deriv2
     
     return ((C_D2 && C_P)+(C_D1 && C_D1))/(C_P && C_P);    
 }
+*/
 
-scalar Foam::Nurbs::newtonIterateNearestNeighbour_alt
+scalarList Foam::Nurbs2D::newtonIterateNearestNeighbour
 (
     scalar u_0,
+    scalar v_0,
     vector point
 ) const
 {
-    scalar change = distCurveToPoint_Deriv1(u_0,point)/distCurveToPoint_Deriv2(u_0,point);
-    //bool posSign = (change > 0);
-    int i=0;
-    scalar f = distCurveToPoint_Deriv1(u_0,point);
-    while(abs(f) > 1e-6)
-    {   
-        /*
-        Info<<"u:"<<u_0<<"    "<<"change:"<<change<<endl;
-        Info<<vectorCurveToPoint_Derivative(0,u_0,point)<<
-        " d:"<<distCurveToPoint_Deriv0(u_0,point)<<
-        " d_1:"<<distCurveToPoint_Deriv1(u_0,point)<<
-        " d_2:"<<distCurveToPoint_Deriv2(u_0,point)<<endl;
-        */
-        u_0 = u_0 - change;
-        f = distCurveToPoint_Deriv1(u_0,point);
-        change = f/distCurveToPoint_Deriv2(u_0,point);
-        if(i++ > 1000000)
-            break;
-    }
-    /*
-    Info<<"Count: "<<i<<endl;
-    Info<<"u:"<<u_0<<"    "<<"change:"<<change<<endl;
-    Info<<vectorCurveToPoint_Derivative(0,u_0,point)<<
-    " d:"<<distCurveToPoint_Deriv0(u_0,point)<<
-    " d_1:"<<distCurveToPoint_Deriv1(u_0,point)<<
-    " d_2:"<<distCurveToPoint_Deriv2(u_0,point)<<endl;
-    */
-    return u_0;
-}
-
-scalar Foam::Nurbs::newtonIterateNearestNeighbour
-(
-    scalar u_0,
-    vector point
-) const
-{
-    vector C = Curve_Derivative(0,u_0);
-    vector C_D1 = Curve_Derivative(1,u_0);
-    vector C_D2 = Curve_Derivative(2,u_0);
-    scalar f = (point-C) && C_D1;
-    scalar f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
+    vector S = Surface_Derivative(0,0,u_0,v_0);
+    
+    vector S_D1u = Surface_Derivative(1,0,u_0,v_0);
+    vector S_D1v = Surface_Derivative(0,1,u_0,v_0);
+    
+    vector S_D2u2 = Surface_Derivative(2,0,u_0,v_0);
+    vector S_D2v2 = Surface_Derivative(0,2,u_0,v_0);
+    vector S_D2uv = Surface_Derivative(1,1,u_0,v_0);
+    
+    scalar f1 = S_D1u && (point-C);
+    scalar f2 = S_D1v && (point-C);
+    
+    scalar f1_u = S_D2u2 && (S-point) + S_D1u && S_D1u;
+    scalar f1_v,f2_u;
+    f1_v = f2_u = S_D2uv && (S-point) + S_D1u && S_D1v;
+    scalar f2_v = S_D2v2 && (S-point) + S_D1v && S_D1v;
+    
     scalar epsilon = 1e-10;
     int iterations = 0;
     int maxIterations = 100;
@@ -467,23 +416,41 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour
     //Info<<"It:0 f("<<u_0<<")="<<f<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
+    scalar min_V = this->min_V();
+    scalar max_V = this->max_V();
     int hitMaxOrMinCounter = 0;
     while(abs(f) > epsilon)
     {
         iterations++;
-        C = Curve_Derivative(0,u_0);
-        //Info<<"\tC("<<u_0<<"): "<<C<<endl;
-        C_D1 = Curve_Derivative(1,u_0);
-        //Info<<"\tC_D1("<<u_0<<"): "<<C_D1<<endl;
-        C_D2 = Curve_Derivative(2,u_0);
-        //Info<<"\tC_D2("<<u_0<<"): "<<C_D2<<endl;
-        f = (point-C) && C_D1;
-        //Info<<"\tf("<<u_0<<"): "<<f<<endl;
-        f_D1 = -(C_D1 && C_D1)+((point-C)&&C_D2);
-        //Info<<"\tf_D1("<<u_0<<"): "<<f_D1<<endl;
-        if(f_D1 == 0 || iterations > maxIterations)
+        
+        S = Surface_Derivative(0,0,u_0,v_0);
+    
+        S_D1u = Surface_Derivative(1,0,u_0,v_0);
+        S_D1v = Surface_Derivative(0,1,u_0,v_0);
+    
+        S_D2u2 = Surface_Derivative(2,0,u_0,v_0);
+        S_D2v2 = Surface_Derivative(0,2,u_0,v_0);
+        S_D2uv = Surface_Derivative(1,1,u_0,v_0);
+    
+        f1 = S_D1u && (point-C);
+        f2 = S_D1v && (point-C);
+    
+        f1_u = S_D2u2 && (S-point) + S_D1u && S_D1u;
+        f1_v = f2_u = S_D2uv && (S-point) + S_D1u && S_D1v;
+        f2_v = S_D2v2 && (S-point) + S_D1v && S_D1v;
+
+        //Test for singularity and maxIteration
+        scalar detJ = f1_u*f2_v-f1_v*f2_u;
+        //Prepare for cramer rule
+        scalar detJ_1 = (-f1)*f2_v-f1_v*(-f2);
+        scalar detJ_2 = f1_u*(-f2)-(-f1)*f2_u;        
+        
+        if((f1_u*f2_v-f1_v*f2_u) == 0 || iterations > maxIterations)
             break;
-        u_0 = u_0 - (f/f_D1);
+        
+        u_0 = u_0 + detJ_1/detJ;
+        v_0 = v_0 + detJ_2/detJ;
+        
         //Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
         if(u_0 > max_U)
         {
@@ -492,7 +459,6 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour
             if(hitMaxOrMinCounter >= 2)
                 break;
             hitMaxOrMinCounter++;
-
         }
         if(u_0 < min_U)
         {
@@ -502,54 +468,48 @@ scalar Foam::Nurbs::newtonIterateNearestNeighbour
                 break;
             hitMaxOrMinCounter++;
         }
+        if(v_0 > max_V)
+        {
+            v_0 = max_V;
+            //Info<<"Break: f("<<u_0<<")"<<endl;
+            if(hitMaxOrMinCounter >= 2)
+                break;
+            hitMaxOrMinCounter++;
+        }
+        if(v_0 < min_V)
+        {
+            v_0 = min_V;
+            //Info<<"Break: f("<<u_0<<")"<<endl;
+            if(hitMaxOrMinCounter >= 2)
+                break;
+            hitMaxOrMinCounter++;
+        }
     }
     //Info<<"Res U: "<<u_0<<endl;
-    return u_0;
+    return {u_0,v_0};
 }
 
-scalar Foam::Nurbs::distanceToNurbsSurface
+scalar Foam::Nurbs2D::distanceToNurbsSurface
 (
-    scalar para,
+    scalar paraU,
+    scalar paraV,
     vector point
 ) const
 {
-    vector C = Curve_Derivative(0,para);
+    vector S = Surface_Derivative(0,0,paraU,paraV);
     scalar distToCentre = euklidianNorm(C-point);
     return distToCentre - diameter;
 }
 
-void Foam::Nurbs::moveNurbs
-(
-    List<vector> controlPoints
-)
-{
-    if(controlPoints.size() != this->controlPoints.size())
-        FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
-    
-    knots_prev = this->knots;
-    controlPoints_prev = this->controlPoints;
-    weights_prev = this->weights;
-    weightedControlPoints_prev = this->weightedControlPoints;
-    
-    this->controlPoints = controlPoints;    
-    this->weightedControlPoints = List<vector>(n);
-    for(int i=0;i<n;i++)
-        this->weightedControlPoints[i] = this->weights[i] * this->controlPoints[i];
-    
-    nurbsMoved = true;
-}
-
 vector Foam::Nurbs::movementVector
 (
-    scalar u
+    scalar u,
+    scalar v
 )
 {
-    vector C_curr = Curve_Derivative(0,u,curr);
-    vector C_prev = Curve_Derivative(0,u,prev);
-    //Info<<"C_curr:"<<C_curr<<endl;
-    //Info<<"C_prev:"<<C_prev<<endl;
-    //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);            
-    return C_curr-C_prev;
+    vector S_curr = Surface_Derivative(0,0,u,v,curr);
+    vector S_prev = Surface_Derivative(0,0,u,v,prev);           
+    return S_curr-S_prev;
 }
 
 

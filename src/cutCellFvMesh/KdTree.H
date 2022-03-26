@@ -4,7 +4,7 @@
 #include "fvCFD.H"
 #include <memory>
 #include <vector>
-#include "Nurbs.H"
+#include "Nurbs1D.H"
 
 namespace Foam
 {   
@@ -25,7 +25,7 @@ class KdTree
         Node* _nil;
         Node* root;
                 
-        std::shared_ptr<std::vector<Nurbs>> Items;
+        std::shared_ptr<std::vector<Nurbs1D>> Items;
         label maxCurvesPerNode;
 
         List<Foam::BoundingBox> listMinMaxBoxes;
@@ -33,7 +33,7 @@ class KdTree
     public:
         KdTree
         (
-            std::shared_ptr<std::vector<Nurbs>> Items,
+            std::shared_ptr<std::vector<Nurbs1D>> Items,
             label maxCurvesPerNode=1
         );
         

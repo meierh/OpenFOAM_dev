@@ -7,7 +7,7 @@
 #include <memory>
 #include "BsTree.H"
 #include "KdTree.H"
-#include "Nurbs.H"
+#include "Nurbs1D.H"
 #include "NurbsReader.H"
 #include <unordered_set>
 #include <unordered_map>
@@ -291,7 +291,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         //End
             
         //List<std::shared_ptr<Nurbs>> Curves;
-        std::shared_ptr<std::vector<Nurbs>> Curves;
+        std::shared_ptr<std::vector<Nurbs1D>> Curves;
 
         std::unique_ptr<KdTree> MainTree;
         List<std::unique_ptr<BsTree>> NurbsTrees;
@@ -311,14 +311,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         explicit cutCellFvMesh
         (
             const IOobject& io,
-            std::shared_ptr<std::vector<Nurbs>> Curves,
+            std::shared_ptr<std::vector<Nurbs1D>> Curves,
             cutStatus state = delNegMesh
         );
         
         explicit cutCellFvMesh
         (
             const IOobject& io,
-            std::shared_ptr<std::vector<Nurbs>> Curves,
+            std::shared_ptr<std::vector<Nurbs1D>> Curves,
             Time& runTime,
             std::unique_ptr<volScalarField>& solidFraction
         );

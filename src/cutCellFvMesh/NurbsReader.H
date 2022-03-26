@@ -13,7 +13,7 @@
 #include <cstring>
 #include <ctime>
 #include <memory>
-#include "Nurbs.H"
+#include "Nurbs1D.H"
 #include <vector>
 
 #if defined( _MSC_VER ) || defined (WIN32)
@@ -39,14 +39,14 @@ class NurbsReader
     public:
         explicit NurbsReader(fileName runDirectory, fileName caseName);
         NurbsReader(const NurbsReader&) = delete;
-        std::shared_ptr<std::vector<Nurbs>> getNurbsCurves();  
+        std::shared_ptr<std::vector<Nurbs1D>> getNurbsCurves();  
         
     private:
         word getXMLPath();
-        std::shared_ptr<std::vector<Nurbs>> readOutNurbsFromXML();
+        std::shared_ptr<std::vector<Nurbs1D>> readOutNurbsFromXML();
         
         word fullXMLPath;
-        std::shared_ptr<std::vector<Nurbs>> nurbsCurves;
+        std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves;
         fileName runDirectory;
         fileName caseName;
 };
