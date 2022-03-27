@@ -1,4 +1,4 @@
-#include "Nurbs.H"
+#include "Nurbs2D.H"
 #include <math.h> 
 
 Foam::Nurbs2D::Nurbs2D
@@ -7,22 +7,11 @@ Foam::Nurbs2D::Nurbs2D
     List<List<vector>> controlPoints,
     scalarListList weights,
     int degree_p,
-    int degree_q
+    int degree_q,
     scalar diameter,
     scalar deltaX
 ):
-testContructorParameters(knots,controlPoints),
-controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
-knots(List<List<scalarList>>(3,List<scalarList>(1))),
-weights(List<List<scalarList>>(3,List<scalarList>(1))),
-weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
-n_m({knots[0].size(),knots[1].size()}), // former m
-cPdim({controlPoints.size(),controlPoints[0].size()}),
-p_q({degree_p,degree_q}),
-minPara(scalarList({knots[u].first(),knots[v].first()})),
-maxPara(scalarList({knots[u].last(),knots[v].last()})),
-diameter(diameter),
-deltaX(deltaX)
+Nurbs1D(knots,controlPoints,weights,degree_p,degree_q,diameter,deltaX)
 {
     this->controlPoints[initial] = controlPoints;
     this->controlPoints[previous] = controlPoints;
@@ -88,7 +77,7 @@ deltaX(deltaX)
     this->weightedControlPoints[current] = List<List<vector>>(cPdim[u]);
     for(int i=0;i<cPdim[u];i++)
     {
-        this->weightedControlPoints[initial][i] = List<vector>>(cPdim[v]);
+        this->weightedControlPoints[initial][i] = List<vector>(cPdim[v]);
         for(int j=0;j<cPdim[v];j++)
         {
             this->weightedControlPoints[initial][i][j] =
@@ -96,14 +85,6 @@ deltaX(deltaX)
             this->weightedControlPoints[current][i][j] = this->weights[current][i][j] * this->controlPoints[current][i][j];
         }
     }
-}
-
-void Foam::Nurbs2D::testContructorParameters(List<scalarList> knots, List<List<vector>> controlPoints)
-{
-    if(knots.size() != 2)
-        FatalErrorInFunction<<"Knots vector is not two-dimensional"<<exit(FatalError);
-    if(controlPoints.size()<1)
-        FatalErrorInFunction<<"Control Point vector is not two-dimensional"<<exit(FatalError);
 }
 
 scalar Foam::Nurbs2D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3.4 S.97
@@ -115,14 +96,14 @@ scalar Foam::Nurbs2D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8
     nurbsStatus state
 ) const
 {
-    scalarListList& weights = this->weights[state];
+    const scalarListList& weights = this->weights[state];
     scalar res = 0;    
     for(int i=0; i<n_m[u]-k; i++)
     {
         for(int j=0; j<n_m[v]-l; j++)
         {
-            res += B_Spline_Basis(i,p_q[u]-k,u,state) *
-                   B_Spline_Basis(j,p_q[v]-l,v,state) * 
+            res += B_Spline_Basis(i,p_q[u]-k,u,dimState::u,state) *
+                   B_Spline_Basis(j,p_q[v]-l,v,dimState::v,state) * 
                    Control_Point_Derivative<scalar>({k,l},{i,j},weights,state);
         }
     }
@@ -138,7 +119,7 @@ vector Foam::Nurbs2D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
     nurbsStatus state
 ) const
 {
-    List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
+    const List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
 
     //Info<<"n-k:"<<n-k<<endl;
     vector res(0,0,0);
@@ -146,8 +127,8 @@ vector Foam::Nurbs2D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
     {
         for(int j=0; j<n_m[v]-l; j++)
         {
-            res += B_Spline_Basis(i,p_q[u]-k,u,state) *
-                   B_Spline_Basis(j,p_q[v]-l,v,state) * 
+            res += B_Spline_Basis(i,p_q[u]-k,u,dimState::u,state) *
+                   B_Spline_Basis(j,p_q[v]-l,v,dimState::v,state) * 
                    Control_Point_Derivative<vector>({k,l},{i,j},weightedControlPoints,state);
         }
     }
@@ -161,23 +142,22 @@ vector Foam::Nurbs2D::Surface_Derivative
     int l,
     scalar u,
     scalar v,
-    nurbsStatus state=curr
+    nurbsStatus state
 ) const
 {
     if(state==prev && !nurbsMoved)
         FatalErrorInFunction<< "Prev nurbs status can only be used if Nurbs has been moved"<< exit(FatalError);
     
-    if(u>=maxPara[dimState.u] || u<minPara[dimState.u] || v>=maxPara[dimState.v] || v<minPara[dimState.v])
+    if(u>=maxPara[dimState::u] || u<minPara[dimState::u] || v>=maxPara[dimState::v] || v<minPara[dimState::v])
     {
         FatalErrorInFunction
-        << " Parameter u:"<<u<<" and v:"<<v<<" has to be within ["<<minPara[dimState.u]<<","<<maxPara[dimState.u]<<"),["<<minPara[dimState.v]<<","<<maxPara[dimState.v]<<") !"<<endl
+        << " Parameter u:"<<u<<" and v:"<<v<<" has to be within ["<<minPara[dimState::u]<<","<<maxPara[dimState::u]<<"),["<<minPara[dimState::v]<<","<<maxPara[dimState::v]<<") !"<<endl
         << exit(FatalError);
     }
-    if(k > p_q[dimState.u] || l > p_q[dimState.v])
-    )
+    if(k > p_q[dimState::u] || l > p_q[dimState::v])
     {
         FatalErrorInFunction
-        << " Called the ("<<k<<","<<l<<")-th Derivative of a ("<<p_q[dimState.u]<<","<<p_q[dimState.v]<<")-th order Nurbs. This will not work!"<<endl
+        << " Called the ("<<k<<","<<l<<")-th Derivative of a ("<<p_q[dimState::u]<<","<<p_q[dimState::v]<<")-th order Nurbs. This will not work!"<<endl
         << exit(FatalError);
     }
     
@@ -220,38 +200,37 @@ vector Foam::Nurbs2D::Surface_Derivative
     return (A_res-B_i_0-B_0_j-B_i_j)/w;    
 }
 
-Foam::BoundingBox Foam::Nurbs::computeBoundingBox
+Foam::BoundingBox Foam::Nurbs2D::computeBoundingBox
 (
     scalar start_u,
     scalar start_v,
     scalar end_u,
     scalar end_v
-)
 ) const
 {
     //Info<<"Compute Bounding Box"<<endl;
     if(start_u < minPara[u] || start_u >= maxPara[u])
     {
         FatalErrorInFunction
-        << " Start value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<")"<<endl
+        << " Start value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is"<<start_u<<endl
         << exit(FatalError);
     }
     if(end_u < minPara[u] || end_u >= maxPara[u])
     {
         FatalErrorInFunction
-        << " End value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<end<<endl
+        << " End value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<end_u<<endl
         << exit(FatalError);
     }
     if(start_v < minPara[v] || start_v >= maxPara[v])
     {
         FatalErrorInFunction
-        << " Start value of Bounding Box has to be in ["<<minPara[v]<<","<<maxPara[v]<<")"<<endl
+        << " Start value of Bounding Box has to be in ["<<minPara[v]<<","<<maxPara[v]<<") but is "<<start_v<<endl
         << exit(FatalError);
     }
     if(end_v < minPara[v] || end_v >= maxPara[v])
     {
         FatalErrorInFunction
-        << " End value of Bounding Box has to be in ["<<minPara[v]<<","<<maxPara[v]<<") but is "<<end<<endl
+        << " End value of Bounding Box has to be in ["<<minPara[v]<<","<<maxPara[v]<<") but is "<<end_v<<endl
         << exit(FatalError);
     }
     
@@ -259,7 +238,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox
     
     vector startP = Surface_Derivative(0,0,start_u,start_v);
     //Info<<"StartP: "<<startP<<endl;
-    vector endP = Curve_Derivative(0,end_u);
+    vector endP = Surface_Derivative(0,0,end_u,end_v);
     //Info<<"EndP: "<<endP<<endl;
     BoundingBox Box;
     for(int d=0;d<3;d++)
@@ -274,7 +253,7 @@ Foam::BoundingBox Foam::Nurbs::computeBoundingBox
             Box.Max[d] = endP[d];
     }
     //Info<<"Initial Bounding Box"<<endl;
-    scalar koeff = (1.0/8.0)*(end_u-start_u)*(end_u-start_u)*supremum_Derivative2(start_u,end_u);
+    scalar koeff = (1.0/8.0)*(end_u-start_u)*(end_u-start_u)*supremum_Derivative2(start_u,start_v,end_u,end_v);
     for(int d=0;d<3;d++)
     {
         Box.Min[d] -= (koeff+diameter+deltaX);
@@ -314,7 +293,7 @@ scalar Foam::Nurbs2D::supremum_Derivative2
             vector maxVec(0,0,0);
             for(int d=0;d<3;d++)
             {
-                maxVec[d] = std::max(std::abs(du2[d]),std::abs(dv2[d]),std::abs(dudv[d]));
+                maxVec[d] = std::max({std::abs(du2[d]),std::abs(dv2[d]),std::abs(dudv[d])});
                 maxD2[d] = std::max(maxVec[d],maxD2[d]);
             }    
         }  
@@ -385,7 +364,7 @@ scalar Foam::Nurbs::distCurveToPoint_Deriv2
 }
 */
 
-scalarList Foam::Nurbs2D::newtonIterateNearestNeighbour
+FixedList<scalar,2> Foam::Nurbs2D::newtonIterateNearestNeighbour
 (
     scalar u_0,
     scalar v_0,
@@ -401,13 +380,13 @@ scalarList Foam::Nurbs2D::newtonIterateNearestNeighbour
     vector S_D2v2 = Surface_Derivative(0,2,u_0,v_0);
     vector S_D2uv = Surface_Derivative(1,1,u_0,v_0);
     
-    scalar f1 = S_D1u && (point-C);
-    scalar f2 = S_D1v && (point-C);
+    scalar f1 = S_D1u && (S-point);
+    scalar f2 = S_D1v && (S-point);
     
-    scalar f1_u = S_D2u2 && (S-point) + S_D1u && S_D1u;
+    scalar f1_u = (S_D2u2 && (S-point)) + (S_D1u && S_D1u);
     scalar f1_v,f2_u;
-    f1_v = f2_u = S_D2uv && (S-point) + S_D1u && S_D1v;
-    scalar f2_v = S_D2v2 && (S-point) + S_D1v && S_D1v;
+    f1_v = f2_u = (S_D2uv && (S-point)) + (S_D1u && S_D1v);
+    scalar f2_v = (S_D2v2 && (S-point)) + (S_D1v && S_D1v);
     
     scalar epsilon = 1e-10;
     int iterations = 0;
@@ -419,7 +398,7 @@ scalarList Foam::Nurbs2D::newtonIterateNearestNeighbour
     scalar min_V = this->min_V();
     scalar max_V = this->max_V();
     int hitMaxOrMinCounter = 0;
-    while(abs(f) > epsilon)
+    while((abs(f1)+abs(f2)) > epsilon)
     {
         iterations++;
         
@@ -432,12 +411,12 @@ scalarList Foam::Nurbs2D::newtonIterateNearestNeighbour
         S_D2v2 = Surface_Derivative(0,2,u_0,v_0);
         S_D2uv = Surface_Derivative(1,1,u_0,v_0);
     
-        f1 = S_D1u && (point-C);
-        f2 = S_D1v && (point-C);
+        f1 = S_D1u && (S-point);
+        f2 = S_D1v && (S-point);
     
-        f1_u = S_D2u2 && (S-point) + S_D1u && S_D1u;
-        f1_v = f2_u = S_D2uv && (S-point) + S_D1u && S_D1v;
-        f2_v = S_D2v2 && (S-point) + S_D1v && S_D1v;
+        f1_u = (S_D2u2 && (S-point)) + (S_D1u && S_D1u);
+        f1_v = f2_u = (S_D2uv && (S-point)) + (S_D1u && S_D1v);
+        f2_v = (S_D2v2 && (S-point)) + (S_D1v && S_D1v);
 
         //Test for singularity and maxIteration
         scalar detJ = f1_u*f2_v-f1_v*f2_u;
@@ -486,7 +465,7 @@ scalarList Foam::Nurbs2D::newtonIterateNearestNeighbour
         }
     }
     //Info<<"Res U: "<<u_0<<endl;
-    return {u_0,v_0};
+    return FixedList<scalar,2>{u_0,v_0};
 }
 
 scalar Foam::Nurbs2D::distanceToNurbsSurface
@@ -497,11 +476,11 @@ scalar Foam::Nurbs2D::distanceToNurbsSurface
 ) const
 {
     vector S = Surface_Derivative(0,0,paraU,paraV);
-    scalar distToCentre = euklidianNorm(C-point);
+    scalar distToCentre = euklidianNorm(S-point);
     return distToCentre - diameter;
 }
 
-vector Foam::Nurbs::movementVector
+vector Foam::Nurbs2D::movementVector
 (
     scalar u,
     scalar v

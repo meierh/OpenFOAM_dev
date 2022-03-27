@@ -4,7 +4,7 @@
 
 Foam::KdTree::KdTree
 (
-    std::shared_ptr<std::vector<Nurbs>> Items,
+    std::shared_ptr<std::vector<Nurbs1D>> Items,
     label maxCurvesPerNode
 ):
 Items(Items),

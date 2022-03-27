@@ -2,11 +2,11 @@
 
 Foam::BsTree::BsTree
 (
-    Nurbs Curve,
+    Nurbs1D Curve,
     label nbrSplitsBetweenCPs
 ):
 Curve(Curve),
-maxHeight(nbrSplitsBetweenCPs*this->Curve.nbrKnots()*this->Curve.degree())
+maxHeight(nbrSplitsBetweenCPs*this->Curve.nbrKnotsU()*this->Curve.degreeU())
 {
     //Info<<"Constructe the tree"<<endl;
     _nil =  new Node();

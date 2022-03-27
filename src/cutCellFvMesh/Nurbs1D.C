@@ -1,4 +1,4 @@
-#include "Nurbs.H"
+#include "Nurbs1D.H"
 #include <math.h> 
 
 bool Foam::BoundingBox::isInside(vector point) const
@@ -77,9 +77,9 @@ deltaX(deltaX)
     //Info<<_max_U<<endl;
     //Info<<"Constructed"<<endl;
     
-    this->weightedControlPoints[initial][u] = List<vector>(n);
-    this->weightedControlPoints[previous][u] = List<vector>(n);
-    this->weightedControlPoints[current][u] = List<vector>(n);
+    this->weightedControlPoints[initial][u] = List<vector>(cPdim[u]);
+    this->weightedControlPoints[previous][u] = List<vector>(cPdim[u]);
+    this->weightedControlPoints[current][u] = List<vector>(cPdim[u]);
     for(int i=0;i<cPdim[u];i++)
     {
         this->weightedControlPoints[initial][u][i] =
@@ -88,16 +88,42 @@ deltaX(deltaX)
     }
 }
 
+Foam::Nurbs1D::Nurbs1D
+(
+    List<scalarList> knots,
+    List<List<vector>> controlPoints,
+    scalarListList weights,
+    int degree_p,
+    int degree_q,
+    scalar diameter,
+    scalar deltaX
+):
+controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
+knots(List<List<scalarList>>(3,List<scalarList>(1))),
+weights(List<List<scalarList>>(3,List<scalarList>(1))),
+weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
+n_m(knots.size()==2 ? labelList({knots[0].size(),knots[1].size()}) : labelList({})), // former m
+cPdim(controlPoints.size()==2 ? labelList({controlPoints.size(),controlPoints[0].size()}) : labelList({})),
+p_q({degree_p,degree_q}),
+minPara(knots.size()==2 ? scalarList({knots[u].first(),knots[v].first()}) : scalarList({})),
+maxPara(knots.size()==2 ? scalarList({knots[u].last(),knots[v].last()}) : scalarList({})),
+diameter(diameter),
+deltaX(deltaX)
+{
+    if(knots.size()!=2 || controlPoints.size()!=2)
+        FatalErrorInFunction<<"Illformed 2D Nurbs"<< exit(FatalError);
+}
+
 scalar Foam::Nurbs1D::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
 (
     int i,
     int p,
     scalar u,
-    nurbsStatus state,
-    dimState dState
+    dimState dState,
+    nurbsStatus state
 ) const
 {
-    scalarList& knots = this->knots[state][dState];
+    const scalarList& knots = this->knots[state][dState];
     
     if(i+p+1 >= knots.size())
     {
@@ -132,7 +158,7 @@ scalar Foam::Nurbs1D::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
         {
             factor2 = factor2_Z / factor2_N;
         }
-        return factor1*B_Spline_Basis(i,p-1,u,state,dState) + factor2*B_Spline_Basis(i+1,p-1,u,state,dState);
+        return factor1*B_Spline_Basis(i,p-1,u,dState,state) + factor2*B_Spline_Basis(i+1,p-1,u,dState,state);
     }
 }
 
@@ -146,30 +172,33 @@ T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
 ) const
 {
     dimState treatedDim;
-    if(k_l.size=1)
-        treatedDim=dimState.u;
+    if(k_l.size()==1)
+        treatedDim=dimState::u;
     else
     {
         if(k_l[0] >= k_l[1])
-            treatedDim=dimState.u;
+            treatedDim=dimState::u;
         else
-            treatedDim=dimState.v;
+            treatedDim=dimState::v;
     }
-    scalarListList& knots = this->knots[state];
+    const scalarListList& knots = this->knots[state];
 
-    if(m < controlPoints.size()+p+1)
+    for(int uv=0;uv<k_l.size();uv++)
     {
-        FatalErrorInFunction
-        << " A Nurbs Curve must have a number of knots greater or equal than the number of control Points plus the degree plus one"<<endl
-        << " Currently there are "<<m<<" knots and "<<controlPoints.size()<<" control Points and degree "<<p
-        << exit(FatalError);
-    }
-    if(m <= i+k)
-    {
-        FatalErrorInFunction
-        << " Procedure must not be called with an i+k greater or equal than the number of knot points"<<endl
-        << " Currently there are "<<m<<" knots and i:"<<i<<" k:"<<k
-        << exit(FatalError);
+        if(n_m[uv] < controlPoints.size()+p_q[uv]+1)
+        {
+            FatalErrorInFunction
+            << " A Nurbs Curve must have a number of knots greater or equal than the number of control Points plus the degree plus one"<<endl
+            << " Currently there are "<<n_m[uv]<<" knots and "<<controlPoints.size()<<" control Points and degree "<<p_q[uv]
+            << exit(FatalError);
+        }
+        if(n_m[uv] <= i_j[uv]+k_l[uv])
+        {
+            FatalErrorInFunction
+            << " Procedure must not be called with an i+k greater or equal than the number of knot points"<<endl
+            << " Currently there are "<<n_m[uv]<<" knots and i_j[uv]:"<<i_j[uv]<<" k_l[uv]:"<<k_l[uv]
+            << exit(FatalError);
+        }
     }
     
     label derivTotal=0;
@@ -234,11 +263,11 @@ scalar Foam::Nurbs1D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8
     nurbsStatus state
 ) const
 {
-    scalarListList& weights = this->weights[state];
+    const scalarListList& weights = this->weights[state];
     scalar res = 0;    
     for(int i=0; i<n_m[0]-k; i++)
     {
-        res += B_Spline_Basis(i,p_q[0]-k,u,state) * Control_Point_Derivative<scalar>(k,i,weights,state);
+        res += B_Spline_Basis(i,p_q[0]-k,u,dimState::u,state) * Control_Point_Derivative<scalar>({k},{i},weights,state);
     }    
     return res;
 }
@@ -250,14 +279,14 @@ vector Foam::Nurbs1D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
     nurbsStatus state
 ) const
 {
-    List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
+    const List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
 
     //Info<<"n-k:"<<n-k<<endl;
     vector res(0,0,0);
-    for(int i=0;i<n_m[0]-k;i++)
+    for(int i=0;i<n_m[u]-k;i++)
     {
         //Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
-        res += B_Spline_Basis(i,p-k,u,state) * Control_Point_Derivative<vector>(k,i,weightedControlPoints,state);
+        res += B_Spline_Basis(i,p_q[u]-k,u,dimState::u,state) * Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state);
         //Info<<"Done"<<endl;
     }
     //Info<<"Return "<<res<<endl;
@@ -290,16 +319,16 @@ vector Foam::Nurbs1D::Curve_Derivative
     if(state==prev && !nurbsMoved)
         FatalErrorInFunction<< "Prev nurbs status can only be used if Nurbs has been moved"<< exit(FatalError);
     
-    if(u>=_max_U || u<_min_U)
+    if(u>=maxPara[u] || u<minPara[u])
     {
         FatalErrorInFunction
-        << " Parameter u has to be within ["<<_min_U<<","<<_max_U<<") but is "<<u<<"!"<<endl
+        << " Parameter u has to be within ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<u<<"!"<<endl
         << exit(FatalError);
     }
-    if(k > p)
+    if(k > p_q[u])
     {
         FatalErrorInFunction
-        << " Called the "<<k<<"-th Derivative of a "<<p<<"-th order Nurbs. This will not work!"<<endl
+        << " Called the "<<k<<"-th Derivative of a "<<p_q[u]<<"-th order Nurbs. This will not work!"<<endl
         << exit(FatalError);
     }
     //Info<<"-----------------------"<<endl;
@@ -329,7 +358,7 @@ vector Foam::Nurbs1D::Curve_Derivative
 
 Foam::BoundingBox Foam::Nurbs1D::computeBoundingBox() const
 {
-    List<List<vector>>>& controlPoints = this->controlPoints[current];
+    const List<List<vector>>& controlPoints = this->controlPoints[current];
     if(controlPoints.size() == 0 || controlPoints[0].size() == 0)
     {
         FatalErrorInFunction
@@ -372,13 +401,13 @@ Foam::BoundingBox Foam::Nurbs1D::computeBoundingBox
     if(start_u < minPara[u] || start_u >= maxPara[u])
     {
         FatalErrorInFunction
-        << " Start value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<")"<<endl
+        << " Start value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is"<<start_u<<endl
         << exit(FatalError);
     }
     if(end_u < minPara[u] || end_u >= maxPara[u])
     {
         FatalErrorInFunction
-        << " End value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<end<<endl
+        << " End value of Bounding Box has to be in ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<end_u<<endl
         << exit(FatalError);
     }
     
@@ -654,7 +683,7 @@ void Foam::Nurbs1D::moveNurbs
     {
         for(int j=0;j<weightedControlPoints[current][i].size();j++)
         {
-            weightedControlPoints[current][i][j] = weights[current][i][j] * controlPoints[current][i][j];
+            weightedControlPoints[current][i][j] = weights[current][i][j] * this->controlPoints[current][i][j];
         }
     }   
     nurbsMoved = true;

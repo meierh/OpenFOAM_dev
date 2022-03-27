@@ -20,12 +20,17 @@ class BsTree
             scalar divideBound;
             BoundingBox MinMaxBox;
         };
-                
+        const Nurbs1D Curve;
+
         Node* _nil;
         Node* root;
-                
-        const Nurbs1D Curve;
+        
+    protected:              
         const label maxHeight;
+        
+        BsTree(label maxHeight):
+            Curve(Nurbs1D(scalarList(),List<vector>(),scalarList(),0)),
+            maxHeight(maxHeight){};
         
     public:
         BsTree
@@ -37,12 +42,13 @@ class BsTree
         
         DynamicList<scalar> nearestPoints(vector point) const;
         scalar closestParaOnNurbsToPoint(vector point) const;
-                
-    private:
-        Node *newNode(Node* parent = nullptr,scalar min=0, scalar max=0);
-        void constructTree(Node* thisNode, int height=0);
         
+    protected:
+        void constructTree(Node* thisNode, int height=0);
         void recursiveNodeDeleter(Node* thisNode);
+
+    private:
+        Node *newNode(Node* parent = nullptr,scalar min=0, scalar max=0);        
         
         void traverseBsTree
         (

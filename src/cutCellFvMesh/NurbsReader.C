@@ -8,7 +8,7 @@ Foam::NurbsReader::NurbsReader(fileName runDirectory, fileName caseName)
     nurbsCurves = readOutNurbsFromXML();
 }
 
-std::shared_ptr<std::vector<Nurbs>> Foam::NurbsReader::getNurbsCurves()
+std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::getNurbsCurves()
 {
     return nurbsCurves;
 }
@@ -50,9 +50,9 @@ Foam::word Foam::NurbsReader::getXMLPath()
     return fullPath;
 }
 
-std::shared_ptr<std::vector<Nurbs>> Foam::NurbsReader::readOutNurbsFromXML()
+std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
 {
-    std::shared_ptr<std::vector<Nurbs>> nurbsCurves = make_shared<std::vector<Nurbs>>();
+    std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves = make_shared<std::vector<Nurbs1D>>();
     
     XMLDocument nurbsDoc;
 	XMLError xmlErrorID = nurbsDoc.LoadFile(fullXMLPath.c_str());
@@ -163,7 +163,7 @@ std::shared_ptr<std::vector<Nurbs>> Foam::NurbsReader::readOutNurbsFromXML()
         Info<<"coefList:"<<coefList<<endl;
         Info<<"nurbsDegree:"<<nurbsDegree<<endl;        
         
-        nurbsCurves->push_back(Nurbs(knotList, coefList, weightList, nurbsDegree));
+        nurbsCurves->push_back(Nurbs1D(knotList, coefList, weightList, nurbsDegree));
     }
     return nurbsCurves;
 }

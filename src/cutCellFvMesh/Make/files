@@ -4,6 +4,7 @@ Nurbs1D.C
 Nurbs2D.C
 KdTree.C
 BsTree.C
+QuadTree.C
 NurbsReader.C
 
 LIB = $(FOAM_USER_LIBBIN)/libcutCellFvMesh

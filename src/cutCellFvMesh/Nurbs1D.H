@@ -23,10 +23,7 @@ struct BoundingBox
     
 class Nurbs1D
 {
-    private:
-        enum timeState {initial=0,previous=1,current=2};
-        enum dimState {u=0,v=1};
-        
+    protected:      
         // Outer List[initial,previous,current] - Inner List[u,v]
         List<List<scalarList>> knots;
         
@@ -45,6 +42,9 @@ class Nurbs1D
         const scalar deltaX;
         
         bool nurbsMoved = false;
+        
+        enum timeState {initial=0,previous=1,current=2};
+        enum dimState {u=0,v=1};
         
     public:
         Nurbs1D
@@ -92,8 +92,19 @@ class Nurbs1D
         void print() const {Info<<controlPoints[0]<<"->"<<controlPoints[1]<<endl;}
         void printBox() const {Info<<computeBoundingBox().Min<<"->"<<computeBoundingBox().Max<<endl;}
                 
-    private:
-        scalar B_Spline_Basis(int i, int p, scalar u, nurbsStatus state=curr) const;
+    protected:
+        Nurbs1D
+        (
+            List<scalarList> knots,
+            List<List<vector>> controlPoints,
+            scalarListList weights,
+            int degree_p,
+            int degree_q,
+            scalar diameter,
+            scalar deltaX
+        ); 
+        
+        scalar B_Spline_Basis(int i, int p, scalar u, dimState dState, nurbsStatus state=curr) const;
         template <typename T> T Control_Point_Derivative(List<int> k_l, List<int> i_j, const List<List<T>>& controlPoints, nurbsStatus state=curr) const;
         scalar Weights_B_Spline_Derivative(int k, scalar u, nurbsStatus state=curr) const;
         vector A(int k, scalar u, nurbsStatus state=curr) const;

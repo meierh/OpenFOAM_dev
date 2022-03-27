@@ -353,7 +353,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void moveTheMesh();
         
         // move the Nurbs
-        void moveNurbsCurves(List<List<vector>> movedControlPoints);
+        void moveNurbsCurves(List<List<List<vector>>> movedControlPoints);
 
         //- Write the underlying polyMesh and other data
         virtual bool writeObject
