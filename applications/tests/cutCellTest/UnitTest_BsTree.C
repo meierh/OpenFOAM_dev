@@ -1,4 +1,4 @@
-#include "Nurbs.H"
+#include "Nurbs1D.H"
 #include "BsTree.H"
 
 void Foam::UnitTest_BsTree()
@@ -17,7 +17,7 @@ void Foam::UnitTest_BsTree()
     controlPoints[1] = vector(1,1,0);    
     controlPoints[2] = vector(0,1,0);
     //Info<<"Kontrollpunkte"<<endl;
-    Nurbs QuarterCircle(knots,controlPoints,weights,testdegree,0.05,0.05);
+    Nurbs1D QuarterCircle(knots,controlPoints,weights,testdegree,0.05,0.05);
     
     BsTree Tree(QuarterCircle);
     
@@ -54,7 +54,7 @@ void Foam::UnitTest_BsTree()
     weights[0] = 1;    weights[1] = 1;    
     controlPoints = List<vector>(2);
     controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(0,0,1);    
-    Nurbs Line(knots,controlPoints,weights,testdegree,0.3,1);
+    Nurbs1D Line(knots,controlPoints,weights,testdegree,0.3,1);
     
     BsTree Tree2(Line);
     vector pointOnNurbs(0,0,0.6);

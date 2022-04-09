@@ -32,7 +32,8 @@ Description
 
 #include "dynamicRefineFvMesh.H"
 #include "cutCellFvMesh.H"
-#include "Nurbs.H"
+#include "Nurbs1D.H"
+#include "UnitTestNurbs1D.H"
 #include "KdTree.H"
 #include "BsTree.H"
 
@@ -41,10 +42,10 @@ Description
 void UnitTests(int argc, char *argv[],Time& runTime)
 {
     Info<<"---------------------------Unit Test---------------------------"<<endl;
-    UnitTest_Nurbs();
-    UnitTest_KdTree();
-    UnitTest_BsTree();
-    UnitTest_cutCellFvMesh(argc,argv,runTime);
+    TESTNURBS1D TestClass;
+    //UnitTest_KdTree();
+    //UnitTest_BsTree();
+    //UnitTest_cutCellFvMesh(argc,argv,runTime);
     Info<<"-------------------------Unit Test End-------------------------"<<endl;
 
 }
@@ -95,150 +96,6 @@ int main(int argc, char *argv[])
     (*controlPoints)[6] = Foam::vector(0,-1,0);   (*controlPoints)[7] = Foam::vector(1,-1,0);   (*controlPoints)[8] = Foam::vector(1,0,0);
     Info<<"Kontrollpunkte"<<endl;
     
-    /*
-    Nurbs Circle(std::move(knots),std::move(controlPoints),std::move(weights),testdegree);
-       
-    Info<<"Derivative 0"<<endl;
-    Info<<Circle.Curve_Derivative(0,0)<<endl;
-    Info<<Circle.Curve_Derivative(0,1)<<endl;
-    Info<<Circle.Curve_Derivative(0,2)<<endl;
-    Info<<Circle.Curve_Derivative(0,3)<<endl;
-    Info<<Circle.Curve_Derivative(0,3.999)<<endl<<endl;
-    
-    Info<<"Derivative 1"<<endl;
-    Info<<Circle.Curve_Derivative(1,0)<<endl;
-    Info<<Circle.Curve_Derivative(1,1)<<endl;
-    Info<<Circle.Curve_Derivative(1,2)<<endl;
-    Info<<Circle.Curve_Derivative(1,3)<<endl;
-    Info<<Circle.Curve_Derivative(1,3.999)<<endl<<endl;
-    
-    Info<<"Derivative 2"<<endl;
-    Info<<Circle.Curve_Derivative(2,0)<<endl;
-    Info<<Circle.Curve_Derivative(2,1)<<endl;
-    Info<<Circle.Curve_Derivative(2,2)<<endl;
-    Info<<Circle.Curve_Derivative(2,3)<<endl;
-    Info<<Circle.Curve_Derivative(2,3.999)<<endl<<endl;
-    
-    BoundingBox MiMa = Circle.computeBoundingBox();
-    Info<<"Max: "<<MiMa.Max<<endl;
-    Info<<"Min: "<<MiMa.Min<<endl;
-    */
-        
-    //std::unique_ptr<List<Nurbs*>> items(new List<Nurbs*>());
-
-    //items->append(new Nurbs(std::move(knots),std::move(controlPoints),std::move(weights),testdegree,0));
-    
-    //Info<<"KdTree"<<endl;
-    //KdTree Tree(std::move(items),2);
-    
-    /*
-    Foam::cutCellPolyMesh basisMesh
-    (
-        Foam::IOobject
-        (
-            Foam::polyMesh::defaultRegion,
-            runTime.timeName(),
-            runTime,
-            Foam::IOobject::MUST_READ
-        ),
-        [](const vector coord)->scalar
-        {
-            scalar center_x = 0;
-            scalar center_y = 0;
-            scalar radius = 0.472;
-    
-            scalar x = coord.x();
-            scalar y = coord.y();
-            scalar x_c = x-center_x;
-            scalar y_c = y-center_y;
-            return std::sqrt(x_c*x_c+y_c*y_c)-radius;
-        }
-    );
-    */
-    
-    //basisMesh.printAddedPoints();
-    //basisMesh.printAddedEdges();
-    //basisMesh.printAddedFaces();
-    //basisMesh.printCutFaces();
-    //basisMesh.printNewMeshData();
-
-    // ---
-    // Write the grid
-    
-    /*
-    Info << nl << "Writing extruded mesh to time = " << runTime.timeName() << nl << endl;
-    Info<< "nPoints: "<<basisMesh.nPoints() <<endl;
-    Info<< "nInternalFaces: "<<basisMesh.nInternalFaces()<<endl;
-    Info<< "nFaces: "<<basisMesh.nFaces()<<endl;
-    Info<< "nCells: "<<basisMesh.nCells()<<endl;
-    */
-    
-    /*
-    labelList Hello = basisMesh.faces()[0];
-    for(int i=0;i<Hello.size();i++)
-    {
-        Info<<Hello[i]<<endl;
-    }
-    face thisFace = basisMesh.faces()[0];
-
-    for(int i=0;i<Hello.size();i++)
-    {
-        Info<<"|"<<thisFace.prevLabel(i)<<"|"<<endl;
-    }
-    */
-    /*
-    labelList CutCells = getCutCells(basisMesh);
-    pointField newPoints = addedPoints(basisMesh);
-    
-    volScalarField phi // note that pressure is a scalar field
-    (
-        IOobject
-        (
-            "phi", // name of the field
-            runTime.timeName(), // name of the current time, i.e. the time folder to read from
-            basisMesh,
-            IOobject::MUST_READ,
-            IOobject::AUTO_WRITE
-        ),
-        basisMesh // initialises the field to match the size of the mesh with default (0) values
-    );
-    
-    for (label cellI=0; cellI<basisMesh.C().size(); cellI++)
-    {
-        phi[cellI] = 0;
-    }
-    
-    for(int i=0; i<CutCells.size();i++)
-    {
-        phi[CutCells[i]] = 1;
-    }
-    */
-    
-    /*
-    addedMeshStructures newItems = addingMeshItems(basisMesh);
-    cutCellData cutCells = createCutCells(basisMesh,newItems);
-    modifyMesh(basisMesh,newItems,cutCells);
-    
-    pointField points = basisMesh.points();
-    cellList cells = basisMesh.cells();
-    faceList faces = basisMesh.faces();
-    for(int i=0;i<cells.size();i++)
-    {
-        Info<<"Cell:"<<i<<" centre:"<<cells[i].centre(points,faces)<<endl;
-        for(int k=0;k<cells[i].size();k++)
-        {
-            Info<<"\t";
-            face oneFace = faces[cells[i][k]];
-            for(int j=0;j<oneFace.size();j++)
-            {
-                Info<<points[oneFace[j]]<<"->";
-            }
-            Info<<endl;
-        }
-    }
-    */
-    
-    //basisMesh.write();
     runTime.loop();
     runTime.write();
 

@@ -37,9 +37,9 @@ class QuadTree : public BsTree
             Nurbs2D Surface,
             label nbrSplitsBetweenCPs = 1
         );
-        ~QuadTree();
+        //~QuadTree();
         
-        DynamicList<scalar> nearestPoints(vector point) const;
+        DynamicList<FixedList<scalar,2>> nearestPoints(vector point) const;
         //scalar closestParaOnNurbsToPoint(vector point) const=delete;
         FixedList<scalar,2> closestParaOnNurbsToPoint(vector point) const;
                 
@@ -48,14 +48,7 @@ class QuadTree : public BsTree
         Node *newNode(Node* parent = nullptr,scalar minU=0, scalar maxU=0, scalar minV=0, scalar maxV=0);
         void constructTree(Node* thisNode, int height=0);
         void recursiveNodeDeleter(Node* thisNode);
-        
-        void traverseBsTree
-        (
-            Node* currentNode,
-            vector point,
-            DynamicList<scalar>& coordNurbs
-        ) const = delete;
-        
+               
         void traverseBsTree
         (
             Node* currentNode,

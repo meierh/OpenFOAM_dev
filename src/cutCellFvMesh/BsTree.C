@@ -111,6 +111,8 @@ void Foam::BsTree::traverseBsTree
         traverseBsTree(currentNode->left,point,coordNurbs);
         traverseBsTree(currentNode->right,point,coordNurbs);
     }
+    else
+        FatalErrorInFunction<<"Unbalanced Bstree"<<exit(FatalError);
 }
 
 scalar Foam::BsTree::closestParaOnNurbsToPoint

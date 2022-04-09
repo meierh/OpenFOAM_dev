@@ -116,6 +116,7 @@ class Nurbs1D
         scalar distCurveToPoint_Deriv2(scalar para,vector point) const;
         
         friend void UnitTest_BsTree();
+        friend class TESTNURBS1D;
 };
 
 void UnitTest_Nurbs();

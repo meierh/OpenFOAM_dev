@@ -23,8 +23,8 @@ Foam::Nurbs1D::Nurbs1D
     scalar diameter,
     scalar deltaX
 ):
-controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 knots(List<List<scalarList>>(3,List<scalarList>(1))),
+controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 weights(List<List<scalarList>>(3,List<scalarList>(1))),
 weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 n_m({knots.size()}), // former m
@@ -86,6 +86,7 @@ deltaX(deltaX)
         this->weightedControlPoints[previous][u][i] =
         this->weightedControlPoints[current][u][i] = this->weights[current][u][i] * this->controlPoints[current][u][i];
     }
+    //Info<<"Construct Nurbs done"<<endl;
 }
 
 Foam::Nurbs1D::Nurbs1D
@@ -98,8 +99,8 @@ Foam::Nurbs1D::Nurbs1D
     scalar diameter,
     scalar deltaX
 ):
-controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 knots(List<List<scalarList>>(3,List<scalarList>(1))),
+controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 weights(List<List<scalarList>>(3,List<scalarList>(1))),
 weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 n_m(knots.size()==2 ? labelList({knots[0].size(),knots[1].size()}) : labelList({})), // former m
@@ -125,6 +126,7 @@ scalar Foam::Nurbs1D::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50
 {
     const scalarList& knots = this->knots[state][dState];
     
+    //Info<<"i:"<<i<<"  p:"<<p<<endl;
     if(i+p+1 >= knots.size())
     {
         FatalErrorInFunction
@@ -171,18 +173,24 @@ T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
     nurbsStatus state
 ) const
 {
-    dimState treatedDim;
+    //Info<<"k_l:"<<k_l<<"  i_j:"<<i_j<<endl;
+    dimState treatedDim=dimState::u;
     if(k_l.size()==1)
         treatedDim=dimState::u;
-    else
+    else if(k_l.size()==2)
     {
         if(k_l[0] >= k_l[1])
             treatedDim=dimState::u;
         else
             treatedDim=dimState::v;
     }
+    else
+        FatalErrorInFunction<<"Parameter k_l must be of size 1 or 2!"<<exit(FatalError);
+        
     const scalarListList& knots = this->knots[state];
-
+    
+    //Info<<"treatedDim:"<<treatedDim<<endl;
+    
     for(int uv=0;uv<k_l.size();uv++)
     {
         if(n_m[uv] < controlPoints.size()+p_q[uv]+1)
@@ -205,17 +213,20 @@ T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
     for(int x=0;x<k_l.size();x++)
         derivTotal+=k_l[x];
     
+    //Info<<"derivTotal:"<<derivTotal<<endl;
+    
     if(derivTotal==0)
     {
         if(i_j.size()==1)
         {
-            if(i_j[0]>=controlPoints[0].size())
+            //Info<<"controlPoints:"<<controlPoints<<endl;
+            if(controlPoints.size()!=1 || i_j[0]>=controlPoints[0].size())
             {
                 FatalErrorInFunction
-                << " Something is wrong here. i:"<<i_j[0]<<" while controlPoints.size():"<<controlPoints.size()<<endl
+                << " Something is wrong here. controlPoints.size()="<<controlPoints.size()<<"  i:"<<i_j[0]<<" while controlPoints.size():"<<controlPoints[0].size()<<endl
                 << exit(FatalError);
             }
-            return controlPoints[i_j[0]][0];
+            return controlPoints[0][i_j[0]];
         }
         else
         {
@@ -265,9 +276,9 @@ scalar Foam::Nurbs1D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8
 {
     const scalarListList& weights = this->weights[state];
     scalar res = 0;    
-    for(int i=0; i<n_m[0]-k; i++)
+    for(int i=0; i<cPdim[dimState::u]-k; i++)
     {
-        res += B_Spline_Basis(i,p_q[0]-k,u,dimState::u,state) * Control_Point_Derivative<scalar>({k},{i},weights,state);
+        res += B_Spline_Basis(i,p_q[dimState::u]-k,u,dimState::u,state) * Control_Point_Derivative<scalar>({k},{i},weights,state);
     }    
     return res;
 }
@@ -281,12 +292,17 @@ vector Foam::Nurbs1D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
 {
     const List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
 
-    //Info<<"n-k:"<<n-k<<endl;
+    //Info<<"n_m:"<<n_m<<endl;
+    //Info<<"cPdim:"<<cPdim<<endl;
+    //Info<<"n_m[u]-k:"<<n_m[dimState::u]-k<<endl;
     vector res(0,0,0);
-    for(int i=0;i<n_m[u]-k;i++)
+    for(int i=0;i<cPdim[dimState::u]-k;i++)
     {
         //Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
-        res += B_Spline_Basis(i,p_q[u]-k,u,dimState::u,state) * Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state);
+        //Info<<"B_Spline_Basis("<<i<<","<<p_q[dimState::u]-k<<","<<u<<")"<<endl;
+        Info<<"B_Spline_Basis("<<i+k<<","<<p_q[dimState::u]-k<<","<<u<<","<<dimState::u<<","<<state<<"):"<<B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state)<<endl;
+        Info<<"Control_Point_Derivative<vector>("<<k<<","<<i<<","<<weightedControlPoints<<","<<state<<"):"<<Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state)<<endl;
+        res += B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state) * Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state);
         //Info<<"Done"<<endl;
     }
     //Info<<"Return "<<res<<endl;
@@ -331,10 +347,11 @@ vector Foam::Nurbs1D::Curve_Derivative
         << " Called the "<<k<<"-th Derivative of a "<<p_q[u]<<"-th order Nurbs. This will not work!"<<endl
         << exit(FatalError);
     }
-    //Info<<"-----------------------"<<endl;
+    Info<<"-----------------------"<<endl;
     vector A_res = A(k,u,state);
+    Info<<"\tA:"<<A_res;
     scalar w = Weights_B_Spline_Derivative(0,u,state);
-    //Info<<"A:"<<A_res<<" w:"<<w<<endl;
+    Info<<"  w:"<<w<<endl;
     vector B(0,0,0);
     for(int i=1;i<k+1;i++)
     {
@@ -342,7 +359,7 @@ vector Foam::Nurbs1D::Curve_Derivative
         scalar w_i = Weights_B_Spline_Derivative(i,u,state);
         vector C_kmi = Curve_Derivative(k-i,u,state);
         B += koeff * w_i * C_kmi;
-        //Info<<koeff<<"  "<<w_i<<"   "<<C_kmi<<endl;
+        Info<<"\tkoeff:"<<koeff<<"  w_i:"<<w_i<<"  C_kmi:"<<C_kmi<<endl;
     }
     
     //Info<<"A_"<<k<<"_:"<<A_res<<endl;

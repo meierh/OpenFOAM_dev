@@ -8,7 +8,7 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     scalarList knots;
     scalarList weights;
     List<vector> controlPoints;
-    std::shared_ptr<std::vector<Nurbs>> items = std::make_shared<std::vector<Nurbs>>();
+    std::shared_ptr<std::vector<Nurbs1D>> items = std::make_shared<std::vector<Nurbs1D>>();
     
     knots = scalarList(7);
     knots[0]=0; knots[1]=0; knots[2]=0; knots[3]=0.5;
@@ -22,53 +22,53 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
 // First row    
     controlPoints[0]=vector(1,-0.5,-0.5); controlPoints[1]=vector(1,-0.25,-0.375);
     controlPoints[2]=vector(1,-0.125,-0.25); controlPoints[3]=vector(1,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(1,-0.5,0.5); controlPoints[1]=vector(1,-0.25,0.375);
     controlPoints[2]=vector(1,-0.125,0.25); controlPoints[3]=vector(1,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(1,0.5,-0.5); controlPoints[1]=vector(1,0.25,-0.375);
     controlPoints[2]=vector(1,0.125,-0.25); controlPoints[3]=vector(1,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(1,0.5,0.5); controlPoints[1]=vector(1,0.25,0.375);
     controlPoints[2]=vector(1,0.125,0.25); controlPoints[3]=vector(1,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
 
 // Second row
     controlPoints[0]=vector(2,0,-1); controlPoints[1]=vector(2,0,-0.66);
     controlPoints[2]=vector(2,0,-0.33); controlPoints[3]=vector(2,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(2,-1,0); controlPoints[1]=vector(2,-0.66,0);
     controlPoints[2]=vector(2,-0.33,0); controlPoints[3]=vector(2,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(2,0,1); controlPoints[1]=vector(2,0,0.66);
     controlPoints[2]=vector(2,0,0.33); controlPoints[3]=vector(2,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(2,1,0); controlPoints[1]=vector(2,0.66,0);
     controlPoints[2]=vector(2,0.33,0); controlPoints[3]=vector(2,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
 
 // Third row
     controlPoints[0]=vector(4,-0.5,-0.5); controlPoints[1]=vector(3.75,-0.25,-0.375);
     controlPoints[2]=vector(3.5,-0.125,-0.25); controlPoints[3]=vector(3.25,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(4,-0.5,0.5); controlPoints[1]=vector(3.75,-0.25,0.375);
     controlPoints[2]=vector(3.5,-0.125,0.25); controlPoints[3]=vector(3.25,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(4,0.5,-0.5); controlPoints[1]=vector(3.75,0.25,-0.375);
     controlPoints[2]=vector(3.5,0.125,-0.25); controlPoints[3]=vector(3.25,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
     controlPoints[0]=vector(4,0.5,0.5); controlPoints[1]=vector(3.75,0.25,0.375);
     controlPoints[2]=vector(3.5,0.125,0.25); controlPoints[3]=vector(3.25,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));
     
 // Fourth part
     knots = scalarList(7);
@@ -80,8 +80,8 @@ void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)
     deltaX = 1;
     controlPoints[0]=vector(0,0,0); controlPoints[1]=vector(3.5,0,0);
     controlPoints[2]=vector(4,0,0); controlPoints[3]=vector(4.5,0,0);
-    items->push_back(Nurbs(knots,controlPoints,weights,testdegree,0.1,deltaX));    
-    Info<<"Created Nurbs"<<endl;
+    items->push_back(Nurbs1D(knots,controlPoints,weights,testdegree,0.1,deltaX));    
+    Info<<"Created Nurbs1D"<<endl;
 
     /*
     std::unique_ptr<volScalarField> solidFraction;

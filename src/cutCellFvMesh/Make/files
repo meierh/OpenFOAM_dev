@@ -1,6 +1,7 @@
 cutCellFvMesh.C
 cutCellFvMesh_viaNurbs.C
 Nurbs1D.C
+UnitTestNurbs1D.C
 Nurbs2D.C
 KdTree.C
 BsTree.C
