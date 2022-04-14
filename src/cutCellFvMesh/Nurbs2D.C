@@ -42,49 +42,79 @@ Nurbs1D(knots,controlPoints,weights,degree_p,degree_q,diameter,deltaX)
             << " Currently there are "<<weights[i].size()<<" weights and "<<controlPoints[i].size()<<" control Points!"
             << exit(FatalError);
         }
+    }    
+    for(int i=0;i<p_q[u]+1;i++)
+    {
+        if(knots[u][i]!=minPara[u])
+        {
+            FatalErrorInFunction
+            << "First "<<p_q[u]+1<<" knots must be equal to minPara[u]:"<<minPara[u]<<" but is "<<knots[u][i]<<endl
+            << exit(FatalError);
+        }
     }
-    //m = knots->size();
-    //n = controlPoints->size();
-    //p = degree;
-    //this->diameter = diameter;
-    //this->deltaX = deltaX;
-    if(n_m[u] < cPdim[u]+p_q[u]+1)
+    for(int i=0;i<p_q[u]+1;i++)
+    {
+        if(knots[u][knots[u].size()-1-i]!=maxPara[u])
+        {
+            FatalErrorInFunction
+            << "Last "<<p_q[u]+1<<" knots must be equal to maxPara[u]:"<<maxPara[u]<<" but is "<<knots[u][knots[u].size()-1-i]<<endl
+            << exit(FatalError);
+        }
+    }
+    for(int i=0;i<p_q[v]+1;i++)
+    {
+        if(knots[v][i]!=minPara[v])
+        {
+            FatalErrorInFunction
+            << "First "<<p_q[v]+1<<" knots must be equal to minPara[v]:"<<minPara[v]<<" but is "<<knots[v][i]<<endl
+            << exit(FatalError);
+        }
+    }
+    for(int i=0;i<p_q[v]+1;i++)
+    {
+        if(knots[v][knots[v].size()-1-i]!=maxPara[v])
+        {
+            FatalErrorInFunction
+            << "Last "<<p_q[v]+1<<" knots must be equal to maxPara[v]:"<<maxPara[v]<<" but is "<<knots[v][knots[v].size()-1-i]<<endl
+            << exit(FatalError);
+        }
+    }
+
+    if(n_m[u] != cPdim[u]+p_q[u]+1)
     {
         FatalErrorInFunction
-        << " A Nurbs Curve must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
+        << " A Nurbs Surface must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
         << " Currently there are "<<n_m[u]<<" knots and "<<cPdim[u]<<" control Points and degree "<<p_q[u]<<" in u direction"
         << exit(FatalError);
     }
-    if(n_m[v] < cPdim[v]+p_q[v]+1)
+    if(n_m[v] != cPdim[v]+p_q[v]+1)
     {
         FatalErrorInFunction
-        << " A Nurbs Curve must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
+        << " A Nurbs Surface must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
         << " Currently there are "<<n_m[v]<<" knots and "<<cPdim[v]<<" control Points and degree "<<p_q[v]<<" in v direction"
         << exit(FatalError);
     }
-    //this->knots = std::unique_ptr<scalarList>(std::move(knots));
-    //this->controlPoints = std::unique_ptr<List<vector>>(std::move(controlPoints));
-    //this->weights = std::unique_ptr<scalarList>(std::move(weights));
-    
-    //_min_U = this->knots->first();
-    //Info<<_min_U<<endl;
-    //_max_U = this->knots->last();
-    //Info<<_max_U<<endl;
+
     //Info<<"Constructed"<<endl;
     
     this->weightedControlPoints[initial] = List<List<vector>>(cPdim[u]);
     this->weightedControlPoints[previous] = List<List<vector>>(cPdim[u]);
     this->weightedControlPoints[current] = List<List<vector>>(cPdim[u]);
+    //Info<<"cPdim:"<<cPdim<<endl;
     for(int i=0;i<cPdim[u];i++)
     {
         this->weightedControlPoints[initial][i] = List<vector>(cPdim[v]);
+        this->weightedControlPoints[previous][i] = List<vector>(cPdim[v]);
+        this->weightedControlPoints[current][i] = List<vector>(cPdim[v]);
         for(int j=0;j<cPdim[v];j++)
         {
+            //Info<<"i,j:"<<i<<","<<j<<endl;
             this->weightedControlPoints[initial][i][j] =
             this->weightedControlPoints[previous][i][j] =
             this->weightedControlPoints[current][i][j] = this->weights[current][i][j] * this->controlPoints[current][i][j];
         }
     }
+    //Info<<"Done"<<endl;
 }
 
 scalar Foam::Nurbs2D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8,3.4 S.97
@@ -98,12 +128,13 @@ scalar Foam::Nurbs2D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8
 {
     const scalarListList& weights = this->weights[state];
     scalar res = 0;    
-    for(int i=0; i<n_m[u]-k; i++)
+    for(int i=0; i<cPdim[dimState::u]-k; i++)
     {
-        for(int j=0; j<n_m[v]-l; j++)
+        for(int j=0; j<cPdim[dimState::v]-l; j++)
         {
-            res += B_Spline_Basis(i,p_q[u]-k,u,dimState::u,state) *
-                   B_Spline_Basis(j,p_q[v]-l,v,dimState::v,state) * 
+            //Change04/10 +k and +l
+            res += B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state) *
+                   B_Spline_Basis(j+l,p_q[dimState::v]-l,v,dimState::v,state) * 
                    Control_Point_Derivative<scalar>({k,l},{i,j},weights,state);
         }
     }
@@ -121,14 +152,17 @@ vector Foam::Nurbs2D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
 {
     const List<List<vector>>& weightedControlPoints = this->weightedControlPoints[state];
 
-    //Info<<"n-k:"<<n-k<<endl;
+    //Info<<"A("<<k<<","<<l<<","<<u<<","<<v<<")"<<endl;
+    //Info<<"cPdim:"<<cPdim<<endl;
     vector res(0,0,0);
-    for(int i=0; i<n_m[u]-k; i++)
+    for(int i=0; i<cPdim[dimState::u]-k; i++)
     {
-        for(int j=0; j<n_m[v]-l; j++)
+        for(int j=0; j<cPdim[dimState::v]-l; j++)
         {
-            res += B_Spline_Basis(i,p_q[u]-k,u,dimState::u,state) *
-                   B_Spline_Basis(j,p_q[v]-l,v,dimState::v,state) * 
+            //Info<<"----i,j:"<<i<<","<<j<<"/"<<cPdim[dimState::v]-l<<endl;
+            //Change04/10 +k and +l
+            res += B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state) *
+                   B_Spline_Basis(j+l,p_q[dimState::v]-l,v,dimState::v,state) * 
                    Control_Point_Derivative<vector>({k,l},{i,j},weightedControlPoints,state);
         }
     }
@@ -161,8 +195,11 @@ vector Foam::Nurbs2D::Surface_Derivative
         << exit(FatalError);
     }
     
+    //Info<<"Start:"<<endl;
     vector A_res = A(k,l,u,v,state);
+    //Info<<"A:"<<A_res<<endl;
     scalar w = Weights_B_Spline_Derivative(0,0,u,v,state);
+    //Info<<"A:"<<A_res<<" w:"<<w<<endl;
 
     vector B_i_0(0,0,0);
     for(int i=1;i<k+1;i++)

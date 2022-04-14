@@ -55,27 +55,31 @@ deltaX(deltaX)
         << " Currently there are "<<weights.size()<<" weights and "<<controlPoints.size()<<" control Points!"
         << exit(FatalError);
     }
-    //m = knots->size();
-    //n = controlPoints->size();
-    //p = degree;
-    //this->diameter = diameter;
-    //this->deltaX = deltaX;
-    if(n_m[u] < cPdim[u]+p_q[u]+1)
+    for(int i=0;i<p_q[u]+1;i++)
+    {
+        if(knots[i]!=minPara[u])
+        {
+            FatalErrorInFunction
+            << "First "<<p_q[u]+1<<" knots must be equal to minPara[u]:"<<minPara[u]<<endl
+            << exit(FatalError);
+        }
+    }
+    for(int i=0;i<p_q[u]+1;i++)
+    {
+        if(knots[knots.size()-1-i]!=maxPara[u])
+        {
+            FatalErrorInFunction
+            << "Last "<<p_q[u]+1<<" knots must be equal to maxPara[u]:"<<maxPara[u]<<endl
+            << exit(FatalError);
+        }
+    }    
+    if(n_m[u] != cPdim[u]+p_q[u]+1)
     {
         FatalErrorInFunction
         << " A Nurbs Curve must have a number of knots equal to the number of control Points plus the degree plus one"<<endl
         << " Currently there are "<<n_m[u]<<" knots and "<<cPdim[u]<<" control Points and degree "<<p_q[u]<<" in u direction"
         << exit(FatalError);
     }
-    //this->knots = std::unique_ptr<scalarList>(std::move(knots));
-    //this->controlPoints = std::unique_ptr<List<vector>>(std::move(controlPoints));
-    //this->weights = std::unique_ptr<scalarList>(std::move(weights));
-    
-    //_min_U = this->knots->first();
-    //Info<<_min_U<<endl;
-    //_max_U = this->knots->last();
-    //Info<<_max_U<<endl;
-    //Info<<"Constructed"<<endl;
     
     this->weightedControlPoints[initial][u] = List<vector>(cPdim[u]);
     this->weightedControlPoints[previous][u] = List<vector>(cPdim[u]);
@@ -87,6 +91,8 @@ deltaX(deltaX)
         this->weightedControlPoints[current][u][i] = this->weights[current][u][i] * this->controlPoints[current][u][i];
     }
     //Info<<"Construct Nurbs done"<<endl;
+    //Info<<"minPara:"<<minPara<<endl;
+    //Info<<"maxPara:"<<maxPara<<endl;
 }
 
 Foam::Nurbs1D::Nurbs1D
@@ -104,14 +110,14 @@ controlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 weights(List<List<scalarList>>(3,List<scalarList>(1))),
 weightedControlPoints(List<List<List<vector>>>(3,List<List<vector>>(1))),
 n_m(knots.size()==2 ? labelList({knots[0].size(),knots[1].size()}) : labelList({})), // former m
-cPdim(controlPoints.size()==2 ? labelList({controlPoints.size(),controlPoints[0].size()}) : labelList({})),
+cPdim(controlPoints.size()>0 ? labelList({controlPoints.size(),controlPoints[0].size()}) : labelList({})),
 p_q({degree_p,degree_q}),
 minPara(knots.size()==2 ? scalarList({knots[u].first(),knots[v].first()}) : scalarList({})),
 maxPara(knots.size()==2 ? scalarList({knots[u].last(),knots[v].last()}) : scalarList({})),
 diameter(diameter),
 deltaX(deltaX)
 {
-    if(knots.size()!=2 || controlPoints.size()!=2)
+    if(knots.size()!=2 || controlPoints.size()==0)
         FatalErrorInFunction<<"Illformed 2D Nurbs"<< exit(FatalError);
 }
 
@@ -188,18 +194,9 @@ T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
         FatalErrorInFunction<<"Parameter k_l must be of size 1 or 2!"<<exit(FatalError);
         
     const scalarListList& knots = this->knots[state];
-    
-    //Info<<"treatedDim:"<<treatedDim<<endl;
-    
+        
     for(int uv=0;uv<k_l.size();uv++)
     {
-        if(n_m[uv] < controlPoints.size()+p_q[uv]+1)
-        {
-            FatalErrorInFunction
-            << " A Nurbs Curve must have a number of knots greater or equal than the number of control Points plus the degree plus one"<<endl
-            << " Currently there are "<<n_m[uv]<<" knots and "<<controlPoints.size()<<" control Points and degree "<<p_q[uv]
-            << exit(FatalError);
-        }
         if(n_m[uv] <= i_j[uv]+k_l[uv])
         {
             FatalErrorInFunction
@@ -212,32 +209,31 @@ T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
     label derivTotal=0;
     for(int x=0;x<k_l.size();x++)
         derivTotal+=k_l[x];
-    
-    //Info<<"derivTotal:"<<derivTotal<<endl;
-    
+        
     if(derivTotal==0)
     {
         if(i_j.size()==1)
         {
             //Info<<"controlPoints:"<<controlPoints<<endl;
-            if(controlPoints.size()!=1 || i_j[0]>=controlPoints[0].size())
+            if(controlPoints.size()!=1 || i_j[dimState::u]>=controlPoints[dimState::u].size())
             {
                 FatalErrorInFunction
-                << " Something is wrong here. controlPoints.size()="<<controlPoints.size()<<"  i:"<<i_j[0]<<" while controlPoints.size():"<<controlPoints[0].size()<<endl
+                << " Something is wrong here. controlPoints.size()="<<controlPoints.size()<<"  i:"<<i_j[dimState::u]<<" while controlPoints.size():"<<controlPoints[dimState::u].size()<<endl
                 << exit(FatalError);
             }
-            return controlPoints[0][i_j[0]];
+            return controlPoints[0][i_j[dimState::u]];
         }
         else
         {
-            if(i_j[0]>=controlPoints.size() || i_j[1]>=controlPoints[0].size())
+            //Info<<"controlPoints:"<<controlPoints<<endl;
+            if(i_j[dimState::u]>=controlPoints.size() || i_j[dimState::v]>=controlPoints[dimState::u].size())
             {
                 FatalErrorInFunction
-                << " Something is wrong here. i:"<<i_j[0]<<" while controlPoints.size():"<<controlPoints[0].size()<<" or "
-                <<"j:"<<i_j[1]<<" while controlPoints.size():"<<controlPoints.size() <<endl
+                << " Something is wrong here.\n i:"<<i_j[dimState::u]<<">=controlPoints.size():"<<controlPoints.size()<<" or "
+                <<"j:"<<i_j[dimState::v]<<" while controlPoints[dimState::u].size():"<<controlPoints[dimState::u].size()<<endl
                 << exit(FatalError);
             }
-            return controlPoints[i_j[0]][i_j[1]];
+            return controlPoints[i_j[dimState::u]][i_j[dimState::v]];
         }
     }
     else
@@ -257,12 +253,13 @@ T Foam::Nurbs1D::Control_Point_Derivative //The Nurbs Book Equation 3.8 S.97
         k_l_next[treatedDim]--;
         
         List<int> i_j_next(i_j);
-        i_j_next[treatedDim]--;
+        i_j_next[treatedDim]++;
         
-        
+        //Info<<"   Step down:"<<"    1: k_l-"<<k_l_next<<" i_j-"<<i_j_next<<"     2: k_l-"<<k_l_next<<" i_j-"<<i_j<<endl;
         T P_ip1_km1 = Control_Point_Derivative(k_l_next,i_j_next,controlPoints,state);
         T P_i_km1 = Control_Point_Derivative(k_l_next,i_j,controlPoints,state);
         
+        //Info<<"return:"<<koeff*(P_ip1_km1 - P_i_km1)<<endl;
         return koeff*(P_ip1_km1 - P_i_km1);
     }
 }
@@ -274,12 +271,14 @@ scalar Foam::Nurbs1D::Weights_B_Spline_Derivative //The Nurbs Book Equations 3.8
     nurbsStatus state
 ) const
 {
+    //Info<<"Weights_B_Spline_Derivative:"<<"  k:"<<k<<" u:"<<u<<endl;
     const scalarListList& weights = this->weights[state];
     scalar res = 0;    
     for(int i=0; i<cPdim[dimState::u]-k; i++)
     {
-        res += B_Spline_Basis(i,p_q[dimState::u]-k,u,dimState::u,state) * Control_Point_Derivative<scalar>({k},{i},weights,state);
-    }    
+        res += B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state) * Control_Point_Derivative<scalar>({k},{i},weights,state);
+    }
+    //Info<<"res: "<<res<<endl;
     return res;
 }
 
@@ -300,8 +299,8 @@ vector Foam::Nurbs1D::A //The Nurbs Book Equation 4.8 S.125 and Equation 3.8,3.4
     {
         //Info<<"B_Spline_Basis("<<i+k<<","<<p-k<<","<<u<<")"<<endl;
         //Info<<"B_Spline_Basis("<<i<<","<<p_q[dimState::u]-k<<","<<u<<")"<<endl;
-        Info<<"B_Spline_Basis("<<i+k<<","<<p_q[dimState::u]-k<<","<<u<<","<<dimState::u<<","<<state<<"):"<<B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state)<<endl;
-        Info<<"Control_Point_Derivative<vector>("<<k<<","<<i<<","<<weightedControlPoints<<","<<state<<"):"<<Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state)<<endl;
+        //Info<<"B_Spline_Basis("<<i+k<<","<<p_q[dimState::u]-k<<","<<u<<","<<dimState::u<<","<<state<<"):"<<B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state)<<endl;
+        //Info<<"Control_Point_Derivative<vector>("<<k<<","<<i<<","<<weightedControlPoints<<","<<state<<"):"<<Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state)<<endl;
         res += B_Spline_Basis(i+k,p_q[dimState::u]-k,u,dimState::u,state) * Control_Point_Derivative<vector>({k},{i},weightedControlPoints,state);
         //Info<<"Done"<<endl;
     }
@@ -335,23 +334,25 @@ vector Foam::Nurbs1D::Curve_Derivative
     if(state==prev && !nurbsMoved)
         FatalErrorInFunction<< "Prev nurbs status can only be used if Nurbs has been moved"<< exit(FatalError);
     
-    if(u>=maxPara[u] || u<minPara[u])
+    if(u>=maxPara[dimState::u] || u<minPara[dimState::u])
     {
+        Info<<"knots:"<<knots<<endl;
+        Info<<"minPara:"<<minPara<<endl;
+        Info<<"maxPara:"<<maxPara<<endl;
         FatalErrorInFunction
-        << " Parameter u has to be within ["<<minPara[u]<<","<<maxPara[u]<<") but is "<<u<<"!"<<endl
+        << " Parameter u has to be within ["<<minPara[dimState::u]<<","<<maxPara[dimState::u]<<") but is "<<u<<"!"<<endl
         << exit(FatalError);
     }
-    if(k > p_q[u])
+    if(k > p_q[dimState::u])
     {
         FatalErrorInFunction
-        << " Called the "<<k<<"-th Derivative of a "<<p_q[u]<<"-th order Nurbs. This will not work!"<<endl
+        << " Called the "<<k<<"-th Derivative of a "<<p_q[dimState::u]<<"-th order Nurbs. This will not work!"<<endl
         << exit(FatalError);
     }
-    Info<<"-----------------------"<<endl;
     vector A_res = A(k,u,state);
-    Info<<"\tA:"<<A_res;
+    //Info<<"\tA:"<<A_res;
     scalar w = Weights_B_Spline_Derivative(0,u,state);
-    Info<<"  w:"<<w<<endl;
+    //Info<<"  w:"<<w<<endl;
     vector B(0,0,0);
     for(int i=1;i<k+1;i++)
     {
@@ -359,13 +360,7 @@ vector Foam::Nurbs1D::Curve_Derivative
         scalar w_i = Weights_B_Spline_Derivative(i,u,state);
         vector C_kmi = Curve_Derivative(k-i,u,state);
         B += koeff * w_i * C_kmi;
-        Info<<"\tkoeff:"<<koeff<<"  w_i:"<<w_i<<"  C_kmi:"<<C_kmi<<endl;
     }
-    
-    //Info<<"A_"<<k<<"_:"<<A_res<<endl;
-    //Info<<"w_"<<k<<"_:"<<w<<endl;
-    //Info<<"B_"<<k<<"_:"<<B<<endl;
-    //Info<<"-----------------------"<<endl;
     
     if(w == 0)
         w = 1;

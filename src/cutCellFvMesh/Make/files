@@ -3,6 +3,7 @@ cutCellFvMesh_viaNurbs.C
 Nurbs1D.C
 UnitTestNurbs1D.C
 Nurbs2D.C
+UnitTestNurbs2D.C
 KdTree.C
 BsTree.C
 QuadTree.C

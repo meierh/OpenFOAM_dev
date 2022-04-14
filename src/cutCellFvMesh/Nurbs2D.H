@@ -58,6 +58,7 @@ class Nurbs2D : public Nurbs1D
 
         
         friend void UnitTest_BsTree();
+        friend class TESTNURBS2D;
 };
 
 void UnitTest_Nurbs();

@@ -34,6 +34,7 @@ Description
 #include "cutCellFvMesh.H"
 #include "Nurbs1D.H"
 #include "UnitTestNurbs1D.H"
+#include "UnitTestNurbs2D.H"
 #include "KdTree.H"
 #include "BsTree.H"
 
@@ -42,7 +43,9 @@ Description
 void UnitTests(int argc, char *argv[],Time& runTime)
 {
     Info<<"---------------------------Unit Test---------------------------"<<endl;
-    TESTNURBS1D TestClass;
+    //TESTNURBS1D TestClass1;
+    TESTNURBS2D TestClass2;
+
     //UnitTest_KdTree();
     //UnitTest_BsTree();
     //UnitTest_cutCellFvMesh(argc,argv,runTime);
