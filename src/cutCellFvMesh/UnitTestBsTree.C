@@ -12,7 +12,7 @@ DynamicList<scalar> Foam::TESTBSTREE::collectLeafCenter(DynamicList<scalar>& lea
         leafCenters.append(node->divideBound);
 }
 
-DynamicList<scalar> Foam::TESTBSTREE::checkNearestPoints(const BsTree& tree, scalarList nearestPoints, vector point)
+bool Foam::TESTBSTREE::checkNearestPoints(const BsTree& tree, scalarList nearestPoints, vector point)
 {
     DynamicList<scalar>& leafCenters;
     collectLeafCenter(leafCenters, tree.node)
@@ -38,8 +38,35 @@ DynamicList<scalar> Foam::TESTBSTREE::checkNearestPoints(const BsTree& tree, sca
         Info<<"No nearest point"<<endl;
         return true;
     }
-    // Cont here
     
+    label nbrNearestPD = nearestPointsDist.size()
+    scalar lastElementNPD = nearestPointsDist.back();
+    scalar nthElementleafCenterDist = leafCentersDist[nbrNearestPD];
+    if(lastElementNPD<=nthElementleafCenterDist)
+        return true;
+    else
+        return false;   
+}
+
+bool Foam::TESTBSTREE::checkNearestNeighbor(const BsTree& tree, scalar checkNearestNeighbor, vector point)
+{
+    DynamicList<scalar>& leafCenters;
+    collectLeafCenter(leafCenters, tree.node)
+    std::vector<scalar> leafCentersDist;
+    for(int i=0;i<leafCenters.size();i++)
+    {
+        vector pntToNurbs = point - tree.Curve.Curve_Derivative(0,leafCenters[i]);
+        leafCentersDist.push_back(std::sqrt(pntToNurbs&&pntToNurbs));
+    }
+    std::sort(leafCentersDist.begin(),leafCentersDist.end());
+    
+    vector pntTocheckNearestNeighbor = point - tree.Curve.Curve_Derivative(0,checkNearestNeighbor);
+    pntTocheckNearestNeighborDist = std::sqrt(pntToNurbs&&pntToNurbs);
+    
+    if(pntTocheckNearestNeighborDist<=leafCentersDist.front())
+        return true;
+    else
+        return false; 
 }
 
 void Foam::TESTBSTREE::nearestLeaf()
@@ -54,23 +81,14 @@ void Foam::TESTBSTREE::nearestLeaf()
     );    
     BsTree Tree(QuarterCircle);
     
-    vector testPointOutside(-2,-2,0);
+    vector testPointOutside(-2,-2,0);    
+    scalarList resOut = Tree.nearestPoints(testPointOutside);
+    assert(checkNearestPoints(Tree,resOut,testPointOutside));
     
     vector testPointInside(0.2,0.9,0);
-    
-    scalarList resOut = Tree.nearestPoints(testPointOutside);
-    //Info<<resOut.size()<<endl;
-    
-    
     scalarList resIn = Tree.nearestPoints(testPointInside);
-    /*
-    Info<<resIn.size()<<endl;
-    for(int i=0;i<resIn.size();i++)
-        Info<<resIn[i]<<" "<<Tree.Curve->vectorCurveToPoint_Derivative(0,resIn[i],testPointInside)<<
-        " d:"<<Tree.Curve->distCurveToPoint_Deriv0(resIn[i],testPointInside)<<
-        " d_1:"<<Tree.Curve->distCurveToPoint_Deriv1(resIn[i],testPointInside)<<
-        " d_2:"<<Tree.Curve->distCurveToPoint_Deriv2(resIn[i],testPointInside)<<endl;
-    */
+    assert(checkNearestPoints(Tree,resIn,testPointInside));
+
     scalar nearest = Tree.Curve.newtonIterateNearestNeighbour(resIn.last(),testPointInside);
     Info<<"UnitTest BsTree nearest Point on Nurbs found 1/5"<<endl;
     
