@@ -58,6 +58,8 @@ class BsTree
         ) const;
         
         friend void UnitTest_BsTree();
+        friend class TESTBSTREE;
+
 };
 
 void UnitTest_BsTree();
