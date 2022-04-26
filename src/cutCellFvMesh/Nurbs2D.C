@@ -270,27 +270,41 @@ Foam::BoundingBox Foam::Nurbs2D::computeBoundingBox
         << " End value of Bounding Box has to be in ["<<minPara[v]<<","<<maxPara[v]<<") but is "<<end_v<<endl
         << exit(FatalError);
     }
+
+    vector A = Surface_Derivative(0,0,start_u,start_v);
+    vector B = Surface_Derivative(0,0,end_u,start_v);
+    vector C = Surface_Derivative(0,0,start_u,end_v);
+    vector D = Surface_Derivative(0,0,end_u,end_v);
     
-    FatalErrorInFunction<< " Implementation not complete"<< exit(FatalError);
-    
-    vector startP = Surface_Derivative(0,0,start_u,start_v);
-    //Info<<"StartP: "<<startP<<endl;
-    vector endP = Surface_Derivative(0,0,end_u,end_v);
-    //Info<<"EndP: "<<endP<<endl;
+    vector l1 = B-A;
+    vector l2 = C-A;
+
     BoundingBox Box;
     for(int d=0;d<3;d++)
     {
-        if(Box.Min[d] > startP[d])
-            Box.Min[d] = startP[d];
-        if(Box.Max[d] < startP[d])
-            Box.Max[d] = startP[d];
-        if(Box.Min[d] > endP[d])
-            Box.Min[d] = endP[d];
-        if(Box.Max[d] < endP[d])
-            Box.Max[d] = endP[d];
+        if(Box.Min[d] > A[d])
+            Box.Min[d] = A[d];
+        if(Box.Max[d] < A[d])
+            Box.Max[d] = A[d];
+        
+        if(Box.Min[d] > B[d])
+            Box.Min[d] = B[d];
+        if(Box.Max[d] < B[d])
+            Box.Max[d] = B[d];
+        
+        if(Box.Min[d] > C[d])
+            Box.Min[d] = C[d];
+        if(Box.Max[d] < C[d])
+            Box.Max[d] = C[d];
+        
+        if(Box.Min[d] > D[d])
+            Box.Min[d] = D[d];
+        if(Box.Max[d] < D[d])
+            Box.Max[d] = D[d];
     }
     //Info<<"Initial Bounding Box"<<endl;
-    scalar koeff = (1.0/8.0)*(end_u-start_u)*(end_u-start_u)*supremum_Derivative2(start_u,start_v,end_u,end_v);
+    vector M = supremum_Derivative2(start_u,start_v,end_u,end_v);
+    scalar koeff = std::sqrt(3)/8.0 * ((l1&&l1) * M[0] + 2*(l1&&l2)*M[1] + (l2&&l2) * M[2]);
     for(int d=0;d<3;d++)
     {
         Box.Min[d] -= (koeff+diameter+deltaX);
@@ -299,7 +313,7 @@ Foam::BoundingBox Foam::Nurbs2D::computeBoundingBox
     return Box;    
 }
 
-scalar Foam::Nurbs2D::supremum_Derivative2
+vector Foam::Nurbs2D::supremum_Derivative2
 (
     scalar start_u,
     scalar start_v,
@@ -307,7 +321,7 @@ scalar Foam::Nurbs2D::supremum_Derivative2
     scalar end_v
 ) const
 {
-    vector maxD2(   std::numeric_limits<scalar>::lowest(),
+    vector maxM(   std::numeric_limits<scalar>::lowest(),
                     std::numeric_limits<scalar>::lowest(),
                     std::numeric_limits<scalar>::lowest()
                 );
@@ -315,7 +329,7 @@ scalar Foam::Nurbs2D::supremum_Derivative2
     vector res;
     scalar distU = end_u-start_u;
     scalar distV = end_v-start_v;
-    label NUM_POINTS = 100;
+    label NUM_POINTS = 10;
     scalar Ux,Vx;
     for(int i=0;i<NUM_POINTS;i++)
     {
@@ -327,20 +341,20 @@ scalar Foam::Nurbs2D::supremum_Derivative2
             vector dv2 = Surface_Derivative(0,2,Ux,Vx);
             vector dudv = Surface_Derivative(1,1,Ux,Vx);
 
-            vector maxVec(0,0,0);
+            vector maxVec(0,0,0);            
             for(int d=0;d<3;d++)
             {
-                maxVec[d] = std::max({std::abs(du2[d]),std::abs(dv2[d]),std::abs(dudv[d])});
-                maxD2[d] = std::max(maxVec[d],maxD2[d]);
-            }    
+                maxVec[0] = std::max(maxVec[0],du2[d]);
+                maxVec[1] = std::max(maxVec[1],dudv[d]);
+                maxVec[2] = std::max(maxVec[2],dv2[d]);
+            }
+            for(int d=0;d<3;d++)
+            {
+                maxM[d] = std::max(maxVec[d],maxM[d]);
+            }
         }  
     }
-    scalar sup = 0;
-    for(int d=0;d<3;d++)
-    {
-        sup += maxD2[d];
-    }
-    return sup;
+    return maxM;
 }
 
 /*
@@ -429,11 +443,12 @@ FixedList<scalar,2> Foam::Nurbs2D::newtonIterateNearestNeighbour
     int iterations = 0;
     int maxIterations = 100;
     //Info<<"Point: "<<point<<endl;
-    //Info<<"It:0 f("<<u_0<<")="<<f<<endl;
+    Info<<"It:"<<iterations<<" f1("<<u_0<<")="<<f1<<"\t"<<" f2("<<v_0<<")="<<f2<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
     scalar min_V = this->min_V();
     scalar max_V = this->max_V();
+    Info<<"min_U:"<<min_U<<" max_U:"<<max_U<<" min_V:"<<min_V<<" max_V:"<<max_V<<endl;
     int hitMaxOrMinCounter = 0;
     while((abs(f1)+abs(f2)) > epsilon)
     {
@@ -467,41 +482,23 @@ FixedList<scalar,2> Foam::Nurbs2D::newtonIterateNearestNeighbour
         u_0 = u_0 + detJ_1/detJ;
         v_0 = v_0 + detJ_2/detJ;
         
-        //Info<<"It:"<<iterations<<" f("<<u_0<<")="<<f<<endl;
-        if(u_0 > max_U)
+        Info<<"It:"<<iterations<<" f1("<<u_0<<")="<<f1<<"\t"<<" f2("<<v_0<<")="<<f2<<endl;
+        Info<<"hitMaxOrMinCounter:"<<hitMaxOrMinCounter<<endl;
+        if(u_0>max_U || u_0<min_U || v_0>max_V || v_0<min_V)
         {
-            u_0 = max_U;
-            //Info<<"Break: f("<<u_0<<")"<<endl;
+            hitMaxOrMinCounter++;
+            
+            if(u_0 > max_U) u_0 = max_U;
+            if(u_0 < min_U) u_0 = min_U;
+            if(v_0 > max_V) v_0 = max_V;
+            if(v_0 < min_V) v_0 = min_V;
+            
             if(hitMaxOrMinCounter >= 2)
                 break;
-            hitMaxOrMinCounter++;
         }
-        if(u_0 < min_U)
-        {
-            u_0 = min_U;
-            //Info<<"Break: f("<<u_0<<")"<<endl;
-            if(hitMaxOrMinCounter >= 2)
-                break;
-            hitMaxOrMinCounter++;
-        }
-        if(v_0 > max_V)
-        {
-            v_0 = max_V;
-            //Info<<"Break: f("<<u_0<<")"<<endl;
-            if(hitMaxOrMinCounter >= 2)
-                break;
-            hitMaxOrMinCounter++;
-        }
-        if(v_0 < min_V)
-        {
-            v_0 = min_V;
-            //Info<<"Break: f("<<u_0<<")"<<endl;
-            if(hitMaxOrMinCounter >= 2)
-                break;
-            hitMaxOrMinCounter++;
-        }
+        Info<<"u_0:"<<u_0<<"  v_0:"<<v_0<<endl;
     }
-    //Info<<"Res U: "<<u_0<<endl;
+    Info<<"Res u_0:"<<u_0<<"  v_0:"<<v_0<<endl;
     return FixedList<scalar,2>{u_0,v_0};
 }
 

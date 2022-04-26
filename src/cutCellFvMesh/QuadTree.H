@@ -40,7 +40,8 @@ class QuadTree : public BsTree
         //~QuadTree();
         
         DynamicList<FixedList<scalar,2>> nearestPoints(vector point) const;
-        //scalar closestParaOnNurbsToPoint(vector point) const=delete;
+
+        //scalar closestParaOnNurbsToPoint(vector point) const = delete;
         FixedList<scalar,2> closestParaOnNurbsToPoint(vector point) const;
                 
     private:
@@ -57,6 +58,7 @@ class QuadTree : public BsTree
         ) const;
         
         //friend void UnitTest_BsTree();
+        friend class TESTQUADTREE;
 };
 
 //void UnitTest_BsTree();

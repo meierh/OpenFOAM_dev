@@ -5,15 +5,15 @@ Foam::QuadTree::QuadTree
     Nurbs2D Surface,
     label nbrSplitsBetweenCPs
 ):
-BsTree(std::max(nbrSplitsBetweenCPs*this->Surface.nbrKnotsU()*this->Surface.degreeU(),nbrSplitsBetweenCPs*this->Surface.nbrKnotsV()*this->Surface.degreeV())),
+BsTree(std::max(nbrSplitsBetweenCPs*Surface.nbrKnotsU()*Surface.degreeU(),nbrSplitsBetweenCPs*Surface.nbrKnotsV()*Surface.degreeV())),
 Surface(Surface)
 {
+    Info<<"Construction Tree start"<<endl;
     _nil =  new Node();
     root = newNode(_nil,this->Surface.min_U(),this->Surface.max_U(),this->Surface.min_V(),this->Surface.max_V());
-    //Info<<"Create first box from "<<this->Curve->min_U()<<" to "<<this->Curve->max_U()<<endl;
-    //Info<<"Create first box from "<<root->min<<" to "<<root->max<<"//"<<(root->max == 1)<<endl;
+    Info<<"Inter"<<endl;
     constructTree(root);
-    //Info<<"Construction Tree done"<<endl;
+    Info<<"Construction Tree done"<<endl;
 }
 
 /*
@@ -73,23 +73,23 @@ void Foam::QuadTree::constructTree
     int height
 )
 {
-    //Info<<"Construct Tree at "<<height<<endl;
+    Info<<"Construct Tree at "<<height<<"/"<<maxHeight<<endl;
     thisNode->MinMaxBox = Surface.computeBoundingBox(thisNode->minU,thisNode->minV,thisNode->maxU,thisNode->maxV);
 
-    //Info<<"Computed Box"<<endl;
+    Info<<"Computed Box"<<endl;
     scalar maxWidth = 0;
     for(int d=0;d<3;d++)
     {
         maxWidth = std::max(thisNode->MinMaxBox.Max[d]-thisNode->MinMaxBox.Min[d],maxWidth);
     }
-    //Info<<"Computed maxWidth "<<maxWidth<<endl;
+    Info<<"Computed maxWidth "<<maxWidth<<endl;
     maxWidth = maxWidth-2*Surface.getBoundingBoxOverhang();
     if(maxWidth > Surface.getBoundingBoxOverhang() && height<maxHeight)
     {
         thisNode->leftU_leftV =  newNode(thisNode,thisNode->minU,thisNode->divideBoundU,thisNode->minV,thisNode->divideBoundV);
         thisNode->rightU_leftV = newNode(thisNode,thisNode->divideBoundU,thisNode->maxU,thisNode->minV,thisNode->divideBoundV);
         thisNode->leftU_rightV = newNode(thisNode,thisNode->minU,thisNode->divideBoundU,thisNode->divideBoundV,thisNode->maxV);
-        thisNode->rightU_rightV =newNode(thisNode,thisNode->divideBoundU,thisNode->maxU,thisNode->divideBoundV,thisNode->maxV);
+        thisNode->rightU_rightV = newNode(thisNode,thisNode->divideBoundU,thisNode->maxU,thisNode->divideBoundV,thisNode->maxV);
         
         constructTree(thisNode->leftU_leftV,height+1);
         constructTree(thisNode->rightU_leftV,height+1);
@@ -133,7 +133,6 @@ void Foam::QuadTree::traverseBsTree
     }
     else
         FatalErrorInFunction<<"Unbalanced Quadtree"<<exit(FatalError);
-        
 }
 
 FixedList<scalar,2> Foam::QuadTree::closestParaOnNurbsToPoint

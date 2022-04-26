@@ -32,9 +32,9 @@ class Nurbs2D : public Nurbs1D
         scalar min_V() const {return minPara[v];}    
         scalar max_V() const {return std::nexttoward(maxPara[v],minPara[v]);}
         
-        int nbrKnotsV() const {return knots[v].size();}
+        int nbrKnotsV() const {Info<<"nbrKnotsV"<<endl; Info<<"knots[v].size():"<<knots[v].size()<<endl; Info<<"end"<<endl; return knots[v].size();}
         
-        int degreeV() const {return p_q[v];}
+        int degreeV() const {Info<<"degreeV"<<endl; Info<<"p_q[v]:"<<p_q[v]<<endl; Info<<"end"<<endl; return p_q[v];}
         
         scalar newtonIterateNearestNeighbour(scalar u_0,vector point) const = delete;
         FixedList<scalar,2> newtonIterateNearestNeighbour(scalar u_0, scalar v_0, vector point) const;
@@ -49,7 +49,7 @@ class Nurbs2D : public Nurbs1D
         scalar Weights_B_Spline_Derivative(int k, int l, scalar u, scalar v, nurbsStatus state=curr) const;
         vector A(int k,int l, scalar u, scalar v, nurbsStatus state=curr) const;
         scalar supremum_Derivative2(scalar start_u, scalar end_u) const = delete;
-        scalar supremum_Derivative2(scalar start_u, scalar start_v, scalar end_u, scalar end_v) const;
+        vector supremum_Derivative2(scalar start_u, scalar start_v, scalar end_u, scalar end_v) const;
         vector vectorCurveToPoint_Derivative(int k,scalar para,vector point) const = delete;
         scalar distCurveToPoint_Deriv0(scalar para,vector point) const = delete;
         scalar distCurveToPoint_Deriv1(scalar para,vector point) const = delete;

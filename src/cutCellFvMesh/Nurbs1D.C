@@ -35,6 +35,7 @@ maxPara(scalarList(1,knots.last())),
 diameter(diameter),
 deltaX(deltaX)
 {
+    Info<<"Constr 1D Nurbs"<<endl;
     this->controlPoints[initial][u] = controlPoints;
     this->controlPoints[previous][u] = controlPoints;
     this->controlPoints[current][u] = controlPoints;
@@ -117,8 +118,10 @@ maxPara(knots.size()==2 ? scalarList({knots[u].last(),knots[v].last()}) : scalar
 diameter(diameter),
 deltaX(deltaX)
 {
+    Info<<"Constr 2D Nurbs"<<endl;
     if(knots.size()!=2 || controlPoints.size()==0)
         FatalErrorInFunction<<"Illformed 2D Nurbs"<< exit(FatalError);
+    Info<<"---------------- Next BsTree"<<endl;
 }
 
 scalar Foam::Nurbs1D::B_Spline_Basis // The Nurbs Book Equation 2.5 S.50

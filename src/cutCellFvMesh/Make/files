@@ -6,7 +6,9 @@ Nurbs2D.C
 UnitTestNurbs2D.C
 KdTree.C
 BsTree.C
+UnitTestBsTree.C
 QuadTree.C
+UnitTestQuadTree.C
 NurbsReader.C
 
 LIB = $(FOAM_USER_LIBBIN)/libcutCellFvMesh
