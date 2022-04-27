@@ -32,9 +32,9 @@ class Nurbs2D : public Nurbs1D
         scalar min_V() const {return minPara[v];}    
         scalar max_V() const {return std::nexttoward(maxPara[v],minPara[v]);}
         
-        int nbrKnotsV() const {Info<<"nbrKnotsV"<<endl; Info<<"knots[v].size():"<<knots[v].size()<<endl; Info<<"end"<<endl; return knots[v].size();}
+        int nbrKnotsV() const {return knots[v].size();}
         
-        int degreeV() const {Info<<"degreeV"<<endl; Info<<"p_q[v]:"<<p_q[v]<<endl; Info<<"end"<<endl; return p_q[v];}
+        int degreeV() const {return p_q[v];}
         
         scalar newtonIterateNearestNeighbour(scalar u_0,vector point) const = delete;
         FixedList<scalar,2> newtonIterateNearestNeighbour(scalar u_0, scalar v_0, vector point) const;

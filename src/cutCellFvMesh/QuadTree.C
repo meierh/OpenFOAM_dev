@@ -8,21 +8,20 @@ Foam::QuadTree::QuadTree
 BsTree(std::max(nbrSplitsBetweenCPs*Surface.nbrKnotsU()*Surface.degreeU(),nbrSplitsBetweenCPs*Surface.nbrKnotsV()*Surface.degreeV())),
 Surface(Surface)
 {
-    Info<<"Construction Tree start"<<endl;
+    //Info<<"Construction Tree start"<<endl;
     _nil =  new Node();
     root = newNode(_nil,this->Surface.min_U(),this->Surface.max_U(),this->Surface.min_V(),this->Surface.max_V());
-    Info<<"Inter"<<endl;
+    //Info<<"Inter"<<endl;
     constructTree(root);
-    Info<<"Construction Tree done"<<endl;
+    //Info<<"Construction Tree done"<<endl;
 }
 
-/*
 Foam::QuadTree::~QuadTree()
 {
     recursiveNodeDeleter(root);
     delete _nil;
+    //Info<<"Deleted QuadTree"<<endl;
 }
-*/
 
 void Foam::QuadTree::recursiveNodeDeleter
 (
@@ -38,7 +37,7 @@ void Foam::QuadTree::recursiveNodeDeleter
         recursiveNodeDeleter(thisNode->leftU_rightV);
     if(thisNode->rightU_rightV != _nil)
         recursiveNodeDeleter(thisNode->rightU_rightV);
-    delete thisNode;     
+    delete thisNode;
 }
 
 Foam::QuadTree::Node *Foam::QuadTree::newNode
@@ -73,16 +72,16 @@ void Foam::QuadTree::constructTree
     int height
 )
 {
-    Info<<"Construct Tree at "<<height<<"/"<<maxHeight<<endl;
+    //Info<<"Construct Tree at "<<height<<"/"<<maxHeight<<endl;
     thisNode->MinMaxBox = Surface.computeBoundingBox(thisNode->minU,thisNode->minV,thisNode->maxU,thisNode->maxV);
 
-    Info<<"Computed Box"<<endl;
+    //Info<<"Computed Box"<<endl;
     scalar maxWidth = 0;
     for(int d=0;d<3;d++)
     {
         maxWidth = std::max(thisNode->MinMaxBox.Max[d]-thisNode->MinMaxBox.Min[d],maxWidth);
     }
-    Info<<"Computed maxWidth "<<maxWidth<<endl;
+    //Info<<"Computed maxWidth "<<maxWidth<<endl;
     maxWidth = maxWidth-2*Surface.getBoundingBoxOverhang();
     if(maxWidth > Surface.getBoundingBoxOverhang() && height<maxHeight)
     {

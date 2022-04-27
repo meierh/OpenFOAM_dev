@@ -30,7 +30,11 @@ class BsTree
         
         BsTree(label maxHeight):
             Curve(Nurbs1D(scalarList(2),List<vector>(1),scalarList(1),0)),
-            maxHeight(maxHeight){Info<<"Built BsTree"<<endl;};
+            maxHeight(maxHeight)
+            {
+                _nil =  new Node();
+                root = newNode(_nil,-1,-1);
+            };
         
     public:
         BsTree

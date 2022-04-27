@@ -443,12 +443,12 @@ FixedList<scalar,2> Foam::Nurbs2D::newtonIterateNearestNeighbour
     int iterations = 0;
     int maxIterations = 100;
     //Info<<"Point: "<<point<<endl;
-    Info<<"It:"<<iterations<<" f1("<<u_0<<")="<<f1<<"\t"<<" f2("<<v_0<<")="<<f2<<endl;
+    //Info<<"It:"<<iterations<<" f1("<<u_0<<")="<<f1<<"\t"<<" f2("<<v_0<<")="<<f2<<endl;
     scalar min_U = this->min_U();
     scalar max_U = this->max_U();
     scalar min_V = this->min_V();
     scalar max_V = this->max_V();
-    Info<<"min_U:"<<min_U<<" max_U:"<<max_U<<" min_V:"<<min_V<<" max_V:"<<max_V<<endl;
+    //Info<<"min_U:"<<min_U<<" max_U:"<<max_U<<" min_V:"<<min_V<<" max_V:"<<max_V<<endl;
     int hitMaxOrMinCounter = 0;
     while((abs(f1)+abs(f2)) > epsilon)
     {
@@ -482,8 +482,8 @@ FixedList<scalar,2> Foam::Nurbs2D::newtonIterateNearestNeighbour
         u_0 = u_0 + detJ_1/detJ;
         v_0 = v_0 + detJ_2/detJ;
         
-        Info<<"It:"<<iterations<<" f1("<<u_0<<")="<<f1<<"\t"<<" f2("<<v_0<<")="<<f2<<endl;
-        Info<<"hitMaxOrMinCounter:"<<hitMaxOrMinCounter<<endl;
+        //Info<<"It:"<<iterations<<" f1("<<u_0<<")="<<f1<<"\t"<<" f2("<<v_0<<")="<<f2<<endl;
+        //Info<<"hitMaxOrMinCounter:"<<hitMaxOrMinCounter<<endl;
         if(u_0>max_U || u_0<min_U || v_0>max_V || v_0<min_V)
         {
             hitMaxOrMinCounter++;
@@ -496,9 +496,9 @@ FixedList<scalar,2> Foam::Nurbs2D::newtonIterateNearestNeighbour
             if(hitMaxOrMinCounter >= 2)
                 break;
         }
-        Info<<"u_0:"<<u_0<<"  v_0:"<<v_0<<endl;
+        //Info<<"u_0:"<<u_0<<"  v_0:"<<v_0<<endl;
     }
-    Info<<"Res u_0:"<<u_0<<"  v_0:"<<v_0<<endl;
+    //Info<<"Res u_0:"<<u_0<<"  v_0:"<<v_0<<endl;
     return FixedList<scalar,2>{u_0,v_0};
 }
 

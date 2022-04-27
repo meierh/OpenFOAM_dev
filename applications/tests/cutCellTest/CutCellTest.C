@@ -45,13 +45,8 @@ Description
 void UnitTests(int argc, char *argv[],Time& runTime)
 {
     Info<<"---------------------------Unit Test---------------------------"<<endl;
-    //TESTNURBS1D TestClass1;
     TESTNURBS2D TestClass1;
-
     TESTQUADTREE TestClass2;
-    //UnitTest_KdTree();
-    //UnitTest_BsTree();
-    //UnitTest_cutCellFvMesh(argc,argv,runTime);
     Info<<"-------------------------Unit Test End-------------------------"<<endl;
 
 }

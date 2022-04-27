@@ -37,7 +37,7 @@ class QuadTree : public BsTree
             Nurbs2D Surface,
             label nbrSplitsBetweenCPs = 1
         );
-        //~QuadTree();
+        ~QuadTree();
         
         DynamicList<FixedList<scalar,2>> nearestPoints(vector point) const;
 

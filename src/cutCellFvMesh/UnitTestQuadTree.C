@@ -148,28 +148,35 @@ void Foam::TESTQUADTREE::nearestLeaf()
         },
         p,q
     );
-    Info<<"Built Nurbs2D"<<endl;
+    //Info<<"Built Nurbs2D"<<endl;
     QuadTree Tree(testNurbs1);
-    Info<<"Built Quadtree"<<endl;
+    //Info<<"Built Quadtree"<<endl;
     
     vector testPointOutside(-2,-2,0);    
     DynamicList<FixedList<scalar,2>> resOut = Tree.nearestPoints(testPointOutside);
     assert(checkNearestPoints(Tree,resOut,testPointOutside));
-    Info<<"1"<<endl;
+    //Info<<"1"<<endl;
     
     vector testPointInside(0.2,0.9,0);
     DynamicList<FixedList<scalar,2>> resIn = Tree.nearestPoints(testPointInside);
     assert(checkNearestPoints(Tree,resIn,testPointInside));
-    Info<<"2"<<endl;
+    //Info<<"2"<<endl;
 
-    Info<<"resIn:"<<resIn<<endl;
-    Info<<"resIn.last():"<<resIn.last()<<endl;
+    //Info<<"resIn:"<<resIn<<endl;
+    //Info<<"resIn.last():"<<resIn.last()<<endl;
     
-    FixedList<scalar,2> nearest = Tree.Surface.newtonIterateNearestNeighbour(resIn.last()[0],resIn.last()[1],testPointInside);
-    assert(checkNearestNeighbor(Tree,nearest,testPointInside));
-    Info<<"3"<<endl;
-
-    nearest = Tree.closestParaOnNurbsToPoint(testPointInside);
-    assert(checkNearestNeighbor(Tree,nearest,testPointInside));
-    Info<<"4"<<endl;
+    FixedList<scalar,2> nearestTotal = {0,0};
+    scalar  nearestDistTotal = std::numeric_limits<scalar>::max();
+    for(FixedList<scalar,2>& nearesPoint : resIn)
+    {
+        FixedList<scalar,2> nearest = Tree.Surface.newtonIterateNearestNeighbour(nearesPoint[0],nearesPoint[1],testPointInside);
+        scalar nearestDist = Tree.Surface.distanceToNurbsSurface(nearest[0],nearest[1],testPointInside);
+        if(nearestDistTotal>=nearestDist)
+        {
+            nearestDistTotal = nearestDist;
+            nearestTotal = nearest;
+        }
+    }
+    assert(checkNearestNeighbor(Tree,nearestTotal,testPointInside));
+    //Info<<"3"<<endl;
 }

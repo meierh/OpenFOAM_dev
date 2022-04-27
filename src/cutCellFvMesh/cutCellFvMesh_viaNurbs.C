@@ -453,59 +453,18 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
     pointDist = scalarList(points.size());
     meshPointNurbsReference.setSize(points.size());
     
-    std::chrono::high_resolution_clock::time_point t1;
-    std::chrono::high_resolution_clock::time_point t2;
-    std::chrono::high_resolution_clock::time_point t3;
-    std::chrono::high_resolution_clock::time_point t4;
-    std::chrono::high_resolution_clock::time_point t5;
-    std::chrono::high_resolution_clock::time_point t6;
-    std::chrono::high_resolution_clock::time_point t7;
-    std::chrono::high_resolution_clock::time_point t8;
-    std::chrono::duration<double> time_span1(0);
-    std::chrono::duration<double> time_span2(0);
-    std::chrono::duration<double> time_span3(0);
-    std::chrono::duration<double> time_span4(0);
-    
-    //Info<<endl;
-    std::unordered_set<label> twoCellInd;
-    twoCellInd.insert(202310);
-    twoCellInd.insert(202631);
-    twoCellInd.insert(215792);
-    twoCellInd.insert(215471);
-    twoCellInd.insert(202630);
-    twoCellInd.insert(215791);
-    twoCellInd.insert(215470);
-    twoCellInd.insert(202309);
-    
-    twoCellInd.insert(202311);
-    twoCellInd.insert(202632);
-    twoCellInd.insert(215793);
-    twoCellInd.insert(215472);
+    std::chrono::high_resolution_clock::time_point t1,t2,t3,t4,t5,t6,t7,t8;
+    std::chrono::duration<double> time_span1(0),time_span2(0),time_span3(0),time_span4(0);
 
     for(int i=0;i<points.size();i++)
-    {
-        //Info<<i<<"/"<<points.size()<<endl;
-        //Info<<"Working on Point: "<<i<<" "<<points[i]<<endl;
-        //label testInd = 202631;
-        
+    {       
         t1 = std::chrono::high_resolution_clock::now();
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
-        /*
-        if(i==testInd)
-        {
-            Info<<"Near Nurbs: "<<firstOrderNearNurbs->size()<<endl;
-            //FatalErrorInFunction<< " Temp stop."<< exit(FatalError);
-        }
-        */
         if(firstOrderNearNurbs->size() == 0)
         {
             pointDist[i] = std::numeric_limits<scalar>::max();
-            //Info<<"\tSkipped because far away: "<<points[i]<<endl;
             continue;
         }
-        //Info<<"\tIs inside: "<<points[i]<<endl;
-
-        //Info<<"\tGot list size:"<<firstOrderNearNurbs->size()<<endl;
         t2 = std::chrono::high_resolution_clock::now();
         time_span1 += t2-t1;
         
@@ -519,15 +478,8 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             t5 = std::chrono::high_resolution_clock::now();
             label thisNurbs = (*firstOrderNearNurbs)[k];
             scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(points[i]);
-            //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
             if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
             {
-                /*
-                if(i==testInd)
-                {
-                    Info<<k<<" Nurbs dist smaller: "<<thisNodePara<<"/"<<this->Curves[thisNurbs]->min_U()<<endl;
-                }
-                */
                 pointDist[i] = std::numeric_limits<scalar>::max();
                 continue;
             }
@@ -536,13 +488,6 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
             time_span3 += t6-t5; 
             
             t7 = std::chrono::high_resolution_clock::now();
-            /*
-            if(i==testInd)
-            {
-                Info<<k<<" Nurbs dist smaller: "<<thisNodePara<<"/"<<this->Curves[thisNurbs]->min_U()<<"   NurbsPoint"<<
-                this->Curves[thisNurbs]->Curve_Derivative(0,thisNodePara)<<"   point:"<<points[i]<<endl;
-            }
-            */
             paraToNurbsSurface.append(thisNodePara);
             distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,points[i]));
             indToNurbsSurface.append(thisNurbs);
@@ -566,46 +511,18 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
         }
         t4 = std::chrono::high_resolution_clock::now();
         time_span2 += t4-t3;
-        /*
-        if(i==testInd)
-        {
-            Info<<"paraToNurbsSurface: "<<paraToNurbsSurface<<endl;
-            Info<<"distToNurbsSurface: "<<distToNurbsSurface<<endl;
-            Info<<"allOutSideNurbsBox: "<<allOutSideNurbsBox<<endl;
-            Info<<"minDistToNurbsSurface: "<<minDistToNurbsSurface<<endl;
-            //FatalErrorInFunction<< " Temp stop."<< exit(FatalError);
-        }
-        */
         
         pointDist[i] = minDistToNurbsSurface;
         nurbsReference temp;
         temp.nurbsInd = minDistindToNurbsSurface;
         temp.nurbsPara = minDistparaToNurbsSurface;
         meshPointNurbsReference[i] = temp;
-        
-        //Info<<"Finished working on Point: "<<points[i]<<" "<<pointDist[i]<<endl;
-        /*
-        if(points[i] == vector(1.6,-0.1,-0.1))
-        {
-            FatalErrorInFunction
-            << "Temp stop"<<endl
-            << exit(FatalError);
-        }
-        */
     }
     Info<<endl;
     Info<<"Kd-Tree took \t\t\t\t" << time_span1.count() << " seconds."<<endl;
     Info<<"BsTree took \t\t\t\t" << time_span3.count() << " seconds."<<endl;
     Info<<"Newton took \t\t\t\t" << time_span4.count() << " seconds."<<endl;
     Info<<"BsTree + Newton took \t\t\t" << time_span2.count() << " seconds."<<endl;
-
-    /*
-    Info<<"Final point writing"<<endl;
-    for(int i=0;i<points.size();i++)
-    {
-        Info<<i<<" "<<points[i]<<" "<<pointDist[i]<<endl;
-    }
-    */
 }
 
 Foam::cutCellFvMesh::cutCellFvMesh

@@ -71,13 +71,13 @@ class Nurbs1D
         
         BoundingBox computeBoundingBox() const;
         
-        scalar min_U() const {Info<<"min_U"<<endl; return minPara[u];}
+        scalar min_U() const {return minPara[u];}
         
         scalar max_U() const {return std::nexttoward(maxPara[u],minPara[u]);}
         
-        int nbrKnotsU() const {Info<<"nbrKnotsU"<<endl; Info<<"knots[u].size():"<<knots[u].size()<<endl; Info<<"end"<<endl; return knots[u].size();}
+        int nbrKnotsU() const {return knots[u].size();}
         
-        int degreeU() const {Info<<"degreeU"<<endl; Info<<"p_q[u]:"<<p_q[u]<<endl; Info<<"end"<<endl; return p_q[u];}
+        int degreeU() const {return p_q[u];}
         
         scalar newtonIterateNearestNeighbour(scalar u_0,vector point) const;
         scalar newtonIterateNearestNeighbour_alt(scalar u_0,vector point) const;
