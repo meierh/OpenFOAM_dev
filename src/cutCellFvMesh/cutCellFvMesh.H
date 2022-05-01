@@ -73,6 +73,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // distance to Surface for all Points
         scalarList pointDist;
         
+        // point vector to dist to reduce complexity
+        std::unordered_map<vector,std::pair<label,scalar>> pointDistMap;
+        
         //old Cell Volume 
         scalarList oldCellVolume;
         
@@ -103,7 +106,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             pointField newMeshPoints_;
         
             //Reference nurbs curves for zero points
-            DynamicList<nurbsReference> meshPointNurbsReference;
+            DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference;
             
             //label of edge for every added Point and -1 for intersection point
             //labelList pointToEgde_;
@@ -388,7 +391,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // Adds to points_.
         void newMeshPoints();
         
-        scalar distToNurbs(point pnt,bool& foundFlag,nurbsReference& reference);
+        scalar distToNurbs(point pnt,bool& foundFlag,DynamicList<nurbsReference>& reference);
         scalar distToNurbs(point pnt,bool& foundFlag);
 
         label sideToNurbs(point pnt,bool& foundFlag);
@@ -487,7 +490,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void createNewMeshData_cutNeg_plus();
         
         // project distance from Nurbs Surface on Points
-        void projectNurbsSurface();
+        void projectNurbsSurface(bool reset=false);
         
         // project level set function on Points
         void projectLevelSet();

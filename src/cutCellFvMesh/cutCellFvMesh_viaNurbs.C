@@ -447,17 +447,30 @@ motionPtr_(motionSolver::New(*this,dynamicMeshDict()))
     Info<<"Ending"<<endl;
 }
  
-void Foam::cutCellFvMesh::projectNurbsSurface()
+void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
 {
     const pointField& points = this->points();
     pointDist = scalarList(points.size());
+    meshPointNurbsReferenceOld = meshPointNurbsReference;
     meshPointNurbsReference.setSize(points.size());
+    if(reset) pointDistMap.clear();
     
     std::chrono::high_resolution_clock::time_point t1,t2,t3,t4,t5,t6,t7,t8;
     std::chrono::duration<double> time_span1(0),time_span2(0),time_span3(0),time_span4(0);
 
     for(int i=0;i<points.size();i++)
-    {       
+    {
+        auto distRes = pointDistMap.find(points[i]);
+        if(distRes!=pointDistMap.end())
+        {
+            std::pair<label,scalar> ind_dist = distRes.second;
+            label ind = ind_dist.first;
+            scalar dist = ind_dist.second;
+            meshPointNurbsReference[i] = meshPointNurbsReferenceOld[ind];
+            pointDist[i] = dist;
+            continue;
+        }
+        
         t1 = std::chrono::high_resolution_clock::now();
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
         if(firstOrderNearNurbs->size() == 0)
@@ -509,14 +522,47 @@ void Foam::cutCellFvMesh::projectNurbsSurface()
                 minDistindToNurbsSurface = indToNurbsSurface[k];
             }
         }
+        
+        scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
+        for(const label oneNurbsInd: indToNurbsSurface)
+        {
+            Nurbs1D& oneNurbs = (*(this->Curves))[oneNurbsInd];
+            scalar radius = oneNurbs.radius();
+            maxRadiusNurbs = (radius>maxRadiusNurbs)?radius:maxRadiusNurbs;
+        }
+        scalar nurbsCornerToNurbsRadiusRatio = 0.1;
+        scalar nurbsCornerRadius = nurbsCornerToNurbsRadiusRatio*maxRadiusNurbs;
+        
+        DynamicList<scalar> distToNurbsSurfaceInRadius;
+        DynamicList<scalar> paraToNurbsSurfaceInRadius;
+        DynamicList<label> indToNurbsSurfaceInRadius;
+        for(int j=0;j<distToNurbsSurface.size();j++)
+        {
+            if(distToNurbsSurface[j] < minDistToNurbsSurface+2*nurbsCornerRadius)
+            {
+                distToNurbsSurfaceInRadius.append(distToNurbsSurface[j]);
+                paraToNurbsSurfaceInRadius.append(paraToNurbsSurface[j]);
+                indToNurbsSurfaceInRadius.append(indToNurbsSurface[j]);
+            }
+        }
         t4 = std::chrono::high_resolution_clock::now();
         time_span2 += t4-t3;
         
-        pointDist[i] = minDistToNurbsSurface;
-        nurbsReference temp;
-        temp.nurbsInd = minDistindToNurbsSurface;
-        temp.nurbsPara = minDistparaToNurbsSurface;
-        meshPointNurbsReference[i] = temp;
+        meshPointNurbsReference[i].clear();
+        for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
+        {
+            nurbsReference temp;
+            temp.nurbsInd = indToNurbsSurfaceInRadius[j];
+            temp.nurbsPara = paraToNurbsSurfaceInRadius[j];
+            meshPointNurbsReference[i].append(temp);
+        }
+        
+        scalar avgDistToNurbsSurface = 0;
+        for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
+        {
+            avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
+        }
+        pointDist[i] = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
     }
     Info<<endl;
     Info<<"Kd-Tree took \t\t\t\t" << time_span1.count() << " seconds."<<endl;
@@ -1672,18 +1718,15 @@ void Foam::cutCellFvMesh::moveTheMesh()
         newPoints[i] = meshPoints[i];
         if(pointsToSide_[i]==0)
         {
-            nurbsReference reference = meshPointNurbsReference[i];
-            if(reference.nurbsInd==-1 || reference.nurbsPara==-1)
-                FatalErrorInFunction<<"Zero point has no reference nurbs. Can not happen!"<< exit(FatalError);            
-            vector pointMotion = (*(this->Curves))[reference.nurbsInd].movementVector(reference.nurbsPara);
-            if(Foam::mag(pointMotion)>1)
+            DynamicList<nurbsReference>& reference = meshPointNurbsReference[i];
+            if(reference.size()==0)
+                FatalErrorInFunction<<"Zero point has no reference nurbs. Can not happen!"<< exit(FatalError);
+            vector pointMotion = vector(0,0,0);
+            for(int j=0;j<reference.size();j++)
             {
-                Info<<"meshPoints["<<i<<"]:"<<meshPoints[i]<<endl;
-                Info<<"reference.nurbsInd:"<<reference.nurbsInd<<endl;
-                Info<<"reference.nurbsPara:"<<reference.nurbsPara<<endl;
-                Info<<"pointMotion:"<<endl;
-                FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);            
+                pointMotion += (*(this->Curves))[reference[j].nurbsInd].movementVector(reference[j].nurbsPara);
             }
+            pointMotion /= reference.size();
             newPoints[i] +=  pointMotion;
             cutCellPointToMotion.insert(std::pair<label,vector>(i,pointMotion));
             

@@ -630,7 +630,7 @@ void Foam::cutCellFvMesh::newMeshPoints
         if(pos == +1 && neg == -1)
         {
             bool found;
-            nurbsReference reference;
+            DynamicList<nurbsReference> reference;
             vector lhsToRhs = basisPoints[endLabel]-basisPoints[startLabel];
             
             scalar lhsPhi = phiStart;
@@ -698,17 +698,6 @@ void Foam::cutCellFvMesh::newMeshPoints
                     FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
                 }
             }
-            
-            /*
-            Info<<"---------------------"<<count<<endl;
-            Info<<"lhsPhi:"<<lhsPhi<<"\t\t\t"<<"rhsPhi:"<<rhsPhi<<endl;
-            Info<<"lhsScale:"<<lhsScale<<"\t\t\t"<<"rhsScale:"<<rhsScale<<endl;
-            Info<<"lhsPoint:"<<lhsPoint<<"\t\t\t"<<"rhsPoint:"<<rhsPoint<<endl;
-
-            Info<<"\tcenterPhi:"<<centerPhi<<endl;
-            Info<<"\tcenterScale:"<<centerScale<<endl;
-            Info<<"\tcenterPoint:"<<centerPoint<<endl;
-            */
 
             newMeshPointsInFunc.append(centerPoint);
             
@@ -916,7 +905,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
     bool& foundFlag
 )
 {
-    nurbsReference throwAway;
+    DynamicList<nurbsReference> throwAway;
     return distToNurbs(pnt,foundFlag,throwAway);
 }
 
@@ -924,7 +913,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
 (
     point pnt,
     bool& foundFlag,
-    nurbsReference& reference
+    DynamicList<nurbsReference>& reference
 )
 {
     scalar dist;
@@ -971,12 +960,42 @@ scalar Foam::cutCellFvMesh::distToNurbs
             minDistindToNurbsSurface = indToNurbsSurface[k];
         }
     }
-    foundFlag = true;
-    nurbsReference temp;
-    temp.nurbsInd = minDistindToNurbsSurface;
-    temp.nurbsPara = minDistparaToNurbsSurface;
-    reference=temp;
-    dist = minDistToNurbsSurface;
+    
+    scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
+    for(const label oneNurbsInd: indToNurbsSurface)
+    {
+        Nurbs1D& oneNurbs = (*(this->Curves))[oneNurbsInd];
+        scalar radius = oneNurbs.radius();
+        maxRadiusNurbs = (radius>maxRadiusNurbs)?radius:maxRadiusNurbs;
+    }
+    scalar nurbsCornerToNurbsRadiusRatio = 0.1;
+    scalar nurbsCornerRadius = nurbsCornerToNurbsRadiusRatio*maxRadiusNurbs;
+    
+    DynamicList<scalar> distToNurbsSurfaceInRadius;
+    DynamicList<scalar> paraToNurbsSurfaceInRadius;
+    DynamicList<label> indToNurbsSurfaceInRadius;
+    for(int j=0;j<distToNurbsSurface.size();j++)
+    {
+        if(distToNurbsSurface[j] < minDistToNurbsSurface+2*nurbsCornerRadius)
+        {
+            distToNurbsSurfaceInRadius.append(distToNurbsSurface[j]);
+            paraToNurbsSurfaceInRadius.append(paraToNurbsSurface[j]);
+            indToNurbsSurfaceInRadius.append(indToNurbsSurface[j]);
+        }
+    }    
+    for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
+    {
+        nurbsReference temp;
+        temp.nurbsInd = indToNurbsSurfaceInRadius[j];
+        temp.nurbsPara = paraToNurbsSurfaceInRadius[j];
+        reference.append(temp);
+    }    
+    scalar avgDistToNurbsSurface = 0;
+    for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
+    {
+        avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
+    }
+    dist = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
     return dist;
 }
 
