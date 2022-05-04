@@ -460,7 +460,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
 
     for(int i=0;i<points.size();i++)
     {
-        auto distRes = pointDistMap.find(points[i]);
+        auto oldInd = newToOldPointIndMap.find(i);
         if(distRes!=pointDistMap.end())
         {
             std::pair<label,scalar> ind_dist = distRes.second;
