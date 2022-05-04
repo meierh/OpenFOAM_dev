@@ -461,14 +461,17 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
     for(int i=0;i<points.size();i++)
     {
         auto oldInd = newToOldPointIndMap.find(i);
-        if(distRes!=pointDistMap.end())
+        if(oldInd!=newToOldPointIndMap.end())
         {
-            std::pair<label,scalar> ind_dist = distRes.second;
-            label ind = ind_dist.first;
-            scalar dist = ind_dist.second;
-            meshPointNurbsReference[i] = meshPointNurbsReferenceOld[ind];
-            pointDist[i] = dist;
-            continue;
+            auto distRes = pointDistMap[oldInd.second];
+            if(distRes!=pointDistMap.end())
+            {
+                scalar dist = distRes.second;
+                //Cont here
+                meshPointNurbsReference[i] = meshPointNurbsReferenceOld[ind];
+                pointDist[i] = dist;
+                continue;
+            }
         }
         
         t1 = std::chrono::high_resolution_clock::now();
@@ -695,6 +698,7 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
     while(true)
     {
         Info<<"-------------------------------------------------"<<endl;
+        newToOldPointIndMap.clear();
         // Project distance to points
         std::chrono::high_resolution_clock::time_point t1;
         std::chrono::high_resolution_clock::time_point t2;
@@ -867,6 +871,10 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         Info<<"cells:"<<cells.size()<<endl;
         autoPtr<mapPolyMesh> reRefineMap = this->refine(reRefinementCells);
         this->motionPtr_->updateMesh(reRefineMap);
+        const labelList& pntMapOldToNew = reRefineMap->reversePointMap();
+        for(int i=0;i<pntMapOldToNew.size();i++)
+            newToOldPointIndMap[pntMapOldToNew[i]] = i;
+        
         const cellList& cells2 = this->cells();
         const faceList& faces2 = this->faces();
         Info<<"cells:"<<cells2.size()<<endl;        
@@ -915,6 +923,22 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         {
             Info<<"Pre mesh cell nbr:"<<this->cells().size()<<endl;
             autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
+            const labelList& pntMapOldToNew = reRefineMap->reversePointMap();
+            for(int i=0;i<pntMapOldToNew.size();i++)
+            {
+                label oldPnt = i;
+                label newPnt = pntMapOldToNew[i];
+                auto connex = newToOldPointIndMap.find(oldPnt);
+                if(connex==newToOldPointIndMap.end())
+                    newToOldPointIndMap[newPnt] = oldPnt;
+                else
+                {
+                    mapNew = connex.first;
+                    mapOld = connex.second;
+                    newToOldPointIndMap.erase(mapNew);
+                    newToOldPointIndMap[pntMapOldToNew[i]] = mapOld;
+                }
+            }
             Info<<"mapPolyMesh cell nbr:"<<refineMap->mesh().cells().size()<<endl;
             //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
             this->motionPtr_->updateMesh(refineMap);
