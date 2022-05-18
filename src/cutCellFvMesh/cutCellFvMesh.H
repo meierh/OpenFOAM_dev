@@ -74,7 +74,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         scalarList pointDist;
         
         // point vector to dist to reduce complexity
-        std::unordered_map<label,label> newToOldPointIndMap
+        std::unordered_map<label,label> newToOldPointIndMap;
         std::unordered_map<label,scalar> pointDistMap;
         
         

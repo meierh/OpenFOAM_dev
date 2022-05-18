@@ -386,16 +386,13 @@ Foam::BoundingBox Foam::Nurbs1D::computeBoundingBox() const
     
     for(int i=0;i<cPdim[0];i++)
     {
-        for(int j=0;j<cPdim[1];j++)
+        for(int d=0;d<3;d++)
         {
-            for(int d=0;d<3;d++)
-            {
-                if(controlPoints[i][j][d] > MinMaxBox.Max[d])
-                    MinMaxBox.Max[d] = controlPoints[i][j][d];
-                    
-                if(controlPoints[i][j][d] < MinMaxBox.Min[d])
-                    MinMaxBox.Min[d] = controlPoints[i][j][d];
-            }
+            if(controlPoints[0][i][d] > MinMaxBox.Max[d])
+                MinMaxBox.Max[d] = controlPoints[0][i][d];
+                
+            if(controlPoints[0][i][d] < MinMaxBox.Min[d])
+                MinMaxBox.Min[d] = controlPoints[0][i][d];
         }
     }    
     for(int d=0;d<3;d++)

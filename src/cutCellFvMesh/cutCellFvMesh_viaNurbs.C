@@ -451,7 +451,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
 {
     const pointField& points = this->points();
     pointDist = scalarList(points.size());
-    meshPointNurbsReferenceOld = meshPointNurbsReference;
+    DynamicList<DynamicList<nurbsReference>> meshPointNurbsReferenceOld = meshPointNurbsReference;
     meshPointNurbsReference.setSize(points.size());
     if(reset) pointDistMap.clear();
     
@@ -460,6 +460,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
 
     for(int i=0;i<points.size();i++)
     {
+        /*
         auto oldInd = newToOldPointIndMap.find(i);
         if(oldInd!=newToOldPointIndMap.end())
         {
@@ -467,12 +468,13 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             if(distRes!=pointDistMap.end())
             {
                 scalar dist = distRes.second;
-                //Cont here
+                label ind = distRes.first;
                 meshPointNurbsReference[i] = meshPointNurbsReferenceOld[ind];
                 pointDist[i] = dist;
                 continue;
             }
         }
+        */
         
         t1 = std::chrono::high_resolution_clock::now();
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
@@ -526,6 +528,14 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             }
         }
         
+        
+        pointDist[i] = minDistToNurbsSurface;
+        nurbsReference temp;
+        temp.nurbsInd = minDistindToNurbsSurface;
+        temp.nurbsPara = minDistparaToNurbsSurface;
+        meshPointNurbsReference[i].append(temp);
+        
+        /*
         scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
         for(const label oneNurbsInd: indToNurbsSurface)
         {
@@ -566,6 +576,9 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
         }
         pointDist[i] = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
+        */
+        
+        
     }
     Info<<endl;
     Info<<"Kd-Tree took \t\t\t\t" << time_span1.count() << " seconds."<<endl;
@@ -933,8 +946,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
                     newToOldPointIndMap[newPnt] = oldPnt;
                 else
                 {
-                    mapNew = connex.first;
-                    mapOld = connex.second;
+                    label mapNew = connex->first;
+                    label mapOld = connex->second;
                     newToOldPointIndMap.erase(mapNew);
                     newToOldPointIndMap[pntMapOldToNew[i]] = mapOld;
                 }

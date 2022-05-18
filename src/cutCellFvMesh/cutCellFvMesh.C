@@ -646,7 +646,20 @@ void Foam::cutCellFvMesh::newMeshPoints
             vector centerPoint = basisPoints[startLabel]+0.5*lhsToRhs;
             centerPhi = distToNurbs(centerPoint,found,reference);
             if(!found)
+            {
+                Info<<endl;
+                Info<<"basisPoints[endLabel]:"<<basisPoints[endLabel]<<endl;
+                Info<<"basisPoints[startLabel]:"<<basisPoints[startLabel]<<endl;
+                Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
+                Info<<"meshPointNurbsReference["<<startLabel<<"].size():"<<meshPointNurbsReference[startLabel].size()<<endl;
+                Info<<"meshPointNurbsReference["<<endLabel<<"].size():"<<meshPointNurbsReference[endLabel].size()<<endl;
+                Info<<"meshPointNurbsReference["<<startLabel<<"][0]:"<<meshPointNurbsReference[startLabel][0].nurbsInd<<"  "<<meshPointNurbsReference[startLabel][0].nurbsPara<<endl;
+                Info<<"meshPointNurbsReference["<<endLabel<<"][0]"<<meshPointNurbsReference[endLabel][0].nurbsInd<<"  "<<meshPointNurbsReference[endLabel][0].nurbsPara<<endl;
+                Info<<"startLabel:"<<startLabel<<"   pointDist[startLabel]:"<<pointDist[startLabel]<<endl;
+                Info<<"endLabel:"<<endLabel<<"   pointDist[endLabel]:"<<pointDist[endLabel]<<endl;
+                Info<<"centerPhi:"<<centerPhi<<endl;
                 FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+            }
             
             enum SideIndicator {lhs_cnt, cnt_rhs};
             SideIndicator side;
@@ -916,6 +929,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
     DynamicList<nurbsReference>& reference
 )
 {
+    Info<<"pnt:"<<pnt<<endl;
     scalar dist;
     std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
     if(firstOrderNearNurbs->size()==0)
@@ -932,7 +946,8 @@ scalar Foam::cutCellFvMesh::distToNurbs
     {
         label thisNurbs = (*firstOrderNearNurbs)[k];
         scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
-        //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+        Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+        Info<<"(*(this->Curves))[thisNurbs].min_U():"<<(*(this->Curves))[thisNurbs].min_U()<<endl;
         if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
         {
             dist = std::numeric_limits<scalar>::max();
@@ -942,6 +957,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
         paraToNurbsSurface.append(thisNodePara);
         distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,pnt));
         indToNurbsSurface.append(thisNurbs);
+        Info<<"paraToNurbsSurface:"<<paraToNurbsSurface<<" distToNurbsSurface:"<<distToNurbsSurface<<" indToNurbsSurface:"<<indToNurbsSurface<<endl;
     }
     if(allOutSideNurbsBox)
     {
@@ -960,7 +976,12 @@ scalar Foam::cutCellFvMesh::distToNurbs
             minDistindToNurbsSurface = indToNurbsSurface[k];
         }
     }
+    foundFlag = true;
+    Info<<"minDistToNurbsSurface:"<<minDistToNurbsSurface<<" minDistparaToNurbsSurface:"<<minDistparaToNurbsSurface<<" minDistindToNurbsSurface:"<<minDistindToNurbsSurface<<endl;    
+    dist = minDistToNurbsSurface;
+    Info<<"foundFlag:"<<foundFlag<<endl;
     
+    /*
     scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
     for(const label oneNurbsInd: indToNurbsSurface)
     {
@@ -996,6 +1017,8 @@ scalar Foam::cutCellFvMesh::distToNurbs
         avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
     }
     dist = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
+    */
+    
     return dist;
 }
 
