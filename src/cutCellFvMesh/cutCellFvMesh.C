@@ -9024,6 +9024,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }        
         for(int j=0;j<oldFacesToCutFaces_[i].size();j++)
         {
+            Info<<"----------------------------------------------------"<<endl;
             face face1      = cutFaces_[oldFacesToCutFaces_[i][j]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][j]];
             
