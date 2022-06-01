@@ -9622,14 +9622,32 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 maxPlusCellInd = std::max(maxPlusCellInd,cellToNewPlusCellsIndexes[i][j]);                
             }
         }
-        labelList newCellIndToOldCellInd(maxPlusCellInd,-1);
+        labelList newCellPlusIndToOldCellInd(maxPlusCellInd,-1);
         for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
         {
             for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
             {
-                newCellIndToOldCellInd[cellToNewPlusCellsIndexes[i][j]] = i;
+                newCellPlusIndToOldCellInd[cellToNewPlusCellsIndexes[i][j]] = i;
             }
         }
+        
+        label maxMinusCellInd = 0;
+        for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
+        {
+            for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
+            {
+                maxMinusCellInd = std::max(maxMinusCellInd,cellToNewMinusCellsIndexes[i][j]);                
+            }
+        }
+        labelList newCellMinusIndToOldCellInd(maxMinusCellInd,-1);
+        for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
+        {
+            for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
+            {
+                newCellMinusIndToOldCellInd[cellToNewMinusCellsIndexes[i][j]] = i;
+            }
+        }
+        
         faceList facesTest(0);
         labelList ownerTest(0);
         labelList neighbourTest(0);
@@ -9658,6 +9676,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
         Info<<"maxCellInd:"<<maxCellInd<<endl;
         Info<<"maxPlusCellInd:"<<maxPlusCellInd<<endl;
+        Info<<"maxMinusCellInd:"<<maxMinusCellInd<<endl;
         for(int i=0;i<=maxCellInd;i++)
         {
             DynamicList<label> cellsFaces;
@@ -9672,7 +9691,8 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             if(cellsFaces.size()<3 && !deletedCell[i])
             {
                 Info<<"i:"<<i<<" cellsFaces:"<<cellsFaces<<endl;
-                Info<<"newCellIndToOldCellInd["<<i<<"]:"<<newCellIndToOldCellInd[i]<<endl;
+                Info<<"newCellPlusIndToOldCellInd["<<i<<"]:"<<newCellPlusIndToOldCellInd[i]<<endl;
+                Info<<"newCellMinusIndToOldCellInd["<<i<<"]:"<<newCellMinusIndToOldCellInd[i]<<endl;
                 auto bucket = cellIndToFace.equal_range(i);
                 for(auto it = bucket.first; it != bucket.second; it++)
                 {
