@@ -9023,7 +9023,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             }
             */
             
-            if(i==197231)
+            if(i==41)
             {
                 Info<<endl<<endl;
                 Info<<"---"<<endl;
@@ -9044,7 +9044,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                         Info<<" "<<newMeshPoints_[newMeshFaces_[cellToFaces_[i][j]][k]];
                     Info<<endl;
                 }
-                //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+                FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
             }
             
         }
@@ -9114,6 +9114,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 else
                     FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
             }
+        }
+        if(i==41)
+        {
+            
         }
     }
     // Compute the List of new faces resulting from the splitting of old faces
