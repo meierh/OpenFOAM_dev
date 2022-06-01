@@ -9505,7 +9505,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 << " This must not happen."
                 << exit(FatalError);
             }
-        }
+        }           
     }
     //Info<<"Insert split faces boundary"<<endl;
     for(int i=neighbour.size();i<meshFaces.size();i++)
@@ -9613,6 +9613,79 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }    
     }
     
+    {
+        label maxPlusCellInd = 0;
+        for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
+        {
+            for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
+            {
+                maxPlusCellInd = std::max(maxPlusCellInd,cellToNewPlusCellsIndexes[i][j]);                
+            }
+        }
+        labelList newCellIndToOldCellInd(maxPlusCellInd,-1);
+        for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
+        {
+            for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
+            {
+                newCellIndToOldCellInd[cellToNewPlusCellsIndexes[i][j]] = i;
+            }
+        }
+        faceList facesTest(0);
+        labelList ownerTest(0);
+        labelList neighbourTest(0);
+        facesTest.append(splitAndUnsplitFacesInterior);
+        facesTest.append(splitAndUnsplitFacesBoundary);
+        facesTest.append(addedCutFaces);
+        facesTest.append(splitAndUnsplitFacesInteriorToBoundary);
+        
+        ownerTest.append(splitAndUnsplitFacesInteriorOwner);
+        ownerTest.append(splitAndUnsplitFacesBoundaryOwner);
+        ownerTest.append(addedCutFacesOwner);
+        ownerTest.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
+            
+        neighbourTest.append(splitAndUnsplitFacesInteriorNeighbor);
+        neighbourTest.append(splitAndUnsplitFacesBoundaryNeighbor);
+        neighbourTest.append(addedCutFacesNeighbor);
+        neighbourTest.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
+        
+        std::unordered_multimap<label,label> cellIndToFace;
+        label maxCellInd = 0;
+        for(int i=0;i<facesTest.size();i++)
+        {
+            cellIndToFace.insert(std::make_pair(ownerTest[i],i));
+            cellIndToFace.insert(std::make_pair(neighbourTest[i],i));
+            maxCellInd = std::max(maxCellInd,std::max(ownerTest[i],neighbourTest[i]));
+        }
+        Info<<"maxCellInd:"<<maxCellInd<<endl;
+        Info<<"maxPlusCellInd:"<<maxPlusCellInd<<endl;
+        for(int i=0;i<=maxCellInd;i++)
+        {
+            DynamicList<label> cellsFaces;
+            auto bucket = cellIndToFace.equal_range(i);
+            for(auto it = bucket.first; it != bucket.second; it++)
+            {
+                label faceInd = it->second;
+                if(faceInd<0 || faceInd>=facesTest.size())
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                cellsFaces.append(faceInd);
+            }
+            if(cellsFaces.size()<3 && !deletedCell[i])
+            {
+                Info<<"i:"<<i<<" cellsFaces:"<<cellsFaces<<endl;
+                Info<<"newCellIndToOldCellInd["<<i<<"]:"<<newCellIndToOldCellInd[i]<<endl;
+                auto bucket = cellIndToFace.equal_range(i);
+                for(auto it = bucket.first; it != bucket.second; it++)
+                {
+                    Info<<it->first<<"  "<<it->second<<endl;
+                }
+                Info<<"deletedCell[i]:"<<deletedCell[i]<<endl;
+                Info<<"deletedCell.size():"<<deletedCell.size()<<endl;
+                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+            }
+        }
+        FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
+    }
+    
     //reduce for empty cells
     DynamicList<label> cellReductionNumb;
     cellReductionNumb.setSize(meshCells.size());
@@ -9668,15 +9741,17 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         {
             Info<<"cellToNewPlusCellsIndexes["<<i<<"]:"<<cellToNewPlusCellsIndexes[i]<<endl;
             Info<<"cellToNewMinusCellsIndexes["<<i<<"]:"<<cellToNewMinusCellsIndexes[i]<<endl;
-            FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+            //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
         }
     }
     label maxNumOfNewCells = 0;
     label maxNumOfNewCellsNonCorr = 0; // added
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
-        if((mapOldCellsToNewCells[i].size()==0 && cellReductionNumb[i]!=-1)||(mapOldCellsToNewCells[i].size()!=0 && cellReductionNumb[i]==-1))
+        if((mapOldCellsToNewCells[i].size()==0 && cellReductionNumb[i]!=-1)) //||(mapOldCellsToNewCells[i].size()!=0 && cellReductionNumb[i]==-1))
         {
+            Info<<"cellToNewPlusCellsIndexes["<<i<<"]:"<<cellToNewPlusCellsIndexes[i]<<endl;
+            Info<<"cellToNewMinusCellsIndexes["<<i<<"]:"<<cellToNewMinusCellsIndexes[i]<<endl;
             Info<<"mapOldCellsToNewCells["<<i<<"]:"<<mapOldCellsToNewCells[i]<<endl;
             Info<<"cellReductionNumb["<<i<<"]:"<<cellReductionNumb[i]<<endl;
             FatalErrorInFunction<<"Face neighbors or ownes deleted cell. This can not happen."<<exit(FatalError);
@@ -9711,6 +9786,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]] = i;                
         }
     }
+    
+    Info<<"mapNewCellsToOldCells["<<464992<<"]:"<<mapNewCellsToOldCells[464992]<<endl;
+    Info<<"mapOldCellsToNewCells["<<464992<<"]:"<<mapOldCellsToNewCells[464992]<<endl;
+    Info<<"cellReductionNumb["<<464992<<"]:"<<cellReductionNumb[464992]<<endl;
+    //FatalErrorInFunction<<"Temp stop."<<exit(FatalError);
     
     //correct face owner and neigbour 
     for(int i=0;i<addedCutFaces.size();i++)
@@ -9900,6 +9980,86 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     }
     //FatalErrorInFunction<<"Temporary stop"<< exit(FatalError);
     */
+    
+    {
+    /*
+    for(int i=0;i<splitAndUnsplitFacesInteriorOwner.size();i++)
+        if(splitAndUnsplitFacesInteriorOwner[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    for(int i=0;i<splitAndUnsplitFacesBoundaryOwner.size();i++)
+        if(splitAndUnsplitFacesBoundaryOwner[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    for(int i=0;i<addedCutFacesOwner.size();i++)
+        if(addedCutFacesOwner[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    for(int i=0;i<splitAndUnsplitFacesInteriorToBoundaryOwner.size();i++)
+        if(splitAndUnsplitFacesInteriorToBoundaryOwner[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+        
+    for(int i=0;i<splitAndUnsplitFacesInteriorNeighbor.size();i++)
+        if(splitAndUnsplitFacesInteriorNeighbor[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    for(int i=0;i<splitAndUnsplitFacesBoundaryNeighbor.size();i++)
+        if(splitAndUnsplitFacesBoundaryNeighbor[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    for(int i=0;i<addedCutFacesNeighbor.size();i++)
+        if(addedCutFacesNeighbor[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    for(int i=0;i<splitAndUnsplitFacesInteriorToBoundaryNeighbor.size();i++)
+        if(splitAndUnsplitFacesInteriorToBoundaryNeighbor[i]==34)
+            FatalErrorInFunction<<"i:"<<i<<exit(FatalError);
+    */
+        
+    faceList facesTest(0);
+    labelList ownerTest(0);
+    labelList neighbourTest(0);
+    facesTest.append(splitAndUnsplitFacesInterior);
+    facesTest.append(splitAndUnsplitFacesBoundary);
+    facesTest.append(addedCutFaces);
+    facesTest.append(splitAndUnsplitFacesInteriorToBoundary);
+    
+    ownerTest.append(splitAndUnsplitFacesInteriorOwner);
+    ownerTest.append(splitAndUnsplitFacesBoundaryOwner);
+    ownerTest.append(addedCutFacesOwner);
+    ownerTest.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
+        
+    neighbourTest.append(splitAndUnsplitFacesInteriorNeighbor);
+    neighbourTest.append(splitAndUnsplitFacesBoundaryNeighbor);
+    neighbourTest.append(addedCutFacesNeighbor);
+    neighbourTest.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
+    
+    std::unordered_multimap<label,label> cellIndToFace;
+    label maxCellInd = 0;
+    for(int i=0;i<facesTest.size();i++)
+    {
+        cellIndToFace.insert(std::make_pair(ownerTest[i],i));
+        cellIndToFace.insert(std::make_pair(neighbourTest[i],i));
+        maxCellInd = std::max(maxCellInd,std::max(ownerTest[i],neighbourTest[i]));
+    }
+    for(int i=0;i<=maxCellInd;i++)
+    {
+        DynamicList<label> cellsFaces;
+        auto bucket = cellIndToFace.equal_range(i);
+        for(auto it = bucket.first; it != bucket.second; it++)
+        {
+            label faceInd = it->second;
+            if(faceInd<0 || faceInd>=facesTest.size())
+                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+            cellsFaces.append(faceInd);
+        }
+        if(cellsFaces.size()<3)
+        {
+            Info<<"i:"<<i<<" cellsFaces:"<<cellsFaces<<endl;
+            auto bucket = cellIndToFace.equal_range(i);
+            for(auto it = bucket.first; it != bucket.second; it++)
+            {
+                Info<<it->first<<"  "<<it->second<<endl;
+            }
+            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+        }
+    }
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
+    }
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
@@ -10055,7 +10215,12 @@ void Foam::cutCellFvMesh::selfTestMesh()
     for(int i=0;i<meshCells.size();i++)
     {
         if(meshCells[i].size() < 4)
+        {
+            Info<<"meshCells["<<i<<"]:"<<meshCells[i]<<endl;
+            Info<<"meshCells["<<i<<"].labels:"<<meshCells[i].labels(meshFaces)<<endl;
+            Info<<"meshCells["<<i<<"].points:"<<meshCells[i].points(meshFaces,meshPoints)<<endl;
             FatalErrorInFunction<<"Cell with less than four faces!"<< exit(FatalError);
+        }
         for(int k=0;k<meshCells[i].size();k++)
         {
             if(meshCells[i][k]<0 || meshCells[i][k]>=meshFaces.size())
