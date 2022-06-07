@@ -9021,7 +9021,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             {
                 FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
             }
-            */
+            
             
             if(i==41)
             {
@@ -9046,6 +9046,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 }
                 FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
             }
+            */
             
         }
 
@@ -9054,6 +9055,70 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             deletedCell[i] = true;
         }
     }
+    
+    label maxCellInd = 0;
+    for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
+        for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
+            maxCellInd = std::max(cellToNewMinusCellsIndexes[i][j],maxCellInd);
+    for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
+        for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
+            maxCellInd = std::max(cellToNewPlusCellsIndexes[i][j],maxCellInd);
+    maxCellInd++;
+    Info<<"maxCellInd:"<<maxCellInd<<endl;
+        
+    List<bool> correctdeletedCell(maxCellInd,false);
+    for(int i=0;i<deletedCell.size();i++)
+        correctdeletedCell[i] = deletedCell[i];
+    for(int i=0;i<oldCellToMinusCutCell.size();i++)
+    {
+        for(int j=0;j<oldCellToMinusCutCell[i].size();j++)
+        {
+            label minusCellInd = oldCellToMinusCutCell[i][j];
+            if(minusCellInd<deletedCell.size())
+            {
+                if(!correctdeletedCell[minusCellInd])
+                    FatalErrorInFunction<<"Minus Cell is not marked as deleted! Can not happen!"<<exit(FatalError);
+            }
+            else
+                correctdeletedCell[minusCellInd] = true;
+        }
+    }
+    deletedCell = correctdeletedCell;    
+    
+    List<label> newCellToSide(maxCellInd+1,0);
+    for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
+        for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
+            if(newCellToSide[cellToNewMinusCellsIndexes[i][j]]==0)
+                newCellToSide[cellToNewMinusCellsIndexes[i][j]] = -1;
+            else
+                FatalErrorInFunction<<"Double assigned cell "<<i<<" "<<cellToNewMinusCellsIndexes[i][j]<<" from minus as "<<newCellToSide[cellToNewMinusCellsIndexes[i][j]]<<exit(FatalError);
+    for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
+        for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
+            if(newCellToSide[cellToNewPlusCellsIndexes[i][j]]==0)
+                newCellToSide[cellToNewPlusCellsIndexes[i][j]] = +1;
+            else
+                FatalErrorInFunction<<"Double assigned cell "<<i<<" "<<cellToNewPlusCellsIndexes[i][j]<<" from plus as "<<newCellToSide[cellToNewPlusCellsIndexes[i][j]]<<exit(FatalError);
+
+    bool inZeroCell = false;
+    for(int i=0;i<newCellToSide.size();i++)
+    {
+        if(newCellToSide[i]==0 && cellToFaces_[i].size()>0 && !inZeroCell)
+        {
+            inZeroCell = true;
+            Info<<"Start newCellToSide["<<i<<"]:"<<newCellToSide[i]<<"  cellToFaces_["<<i<<"].size():"<<cellToFaces_[i].size()<<"  cellsToSide_["<<i<<"]:"<<cellsToSide_[i]<<endl;
+        }
+        else if(newCellToSide[i]!=0 && cellToFaces_[i].size()>0 && inZeroCell)
+        {
+            inZeroCell = false;
+            Info<<"End newCellToSide["<<i-1<<"]:"<<newCellToSide[i-1]<<"  cellToFaces_["<<i-1<<"].size():"<<cellToFaces_[i-1].size()<<"  cellsToSide_["<<i-1<<"]:"<<cellsToSide_[i-1]<<endl;
+        }
+    }
+    Info<<endl<<"newCellToSide.size():"<<newCellToSide.size()<<endl;
+    Info<<"--newCellToSide["<<464992<<"]:"<<newCellToSide[464992]<<endl;
+    Info<<"addedCellIndex:"<<addedCellIndex<<endl;
+    Info<<"meshCells.size():"<<meshCells.size()<<endl;
+    //FatalErrorInFunction<<"Temp stop."<<exit(FatalError);
+    
     
     // Compute List of new faces splitting old cells
     for(int i=0;i<cellToFaces_.size();i++)
@@ -9114,10 +9179,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 else
                     FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
             }
-        }
-        if(i==41)
-        {
-            
         }
     }
     // Compute the List of new faces resulting from the splitting of old faces
@@ -9615,43 +9676,12 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 << exit(FatalError);
             }
         }    
-    }
+    }    
+    
+    
     
     {
-        label maxPlusCellInd = 0;
-        for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
-        {
-            for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
-            {
-                maxPlusCellInd = std::max(maxPlusCellInd,cellToNewPlusCellsIndexes[i][j]);                
-            }
-        }
-        labelList newCellPlusIndToOldCellInd(maxPlusCellInd,-1);
-        for(int i=0;i<cellToNewPlusCellsIndexes.size();i++)
-        {
-            for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
-            {
-                newCellPlusIndToOldCellInd[cellToNewPlusCellsIndexes[i][j]] = i;
-            }
-        }
-        
-        label maxMinusCellInd = 0;
-        for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
-        {
-            for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
-            {
-                maxMinusCellInd = std::max(maxMinusCellInd,cellToNewMinusCellsIndexes[i][j]);                
-            }
-        }
-        labelList newCellMinusIndToOldCellInd(maxMinusCellInd,-1);
-        for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
-        {
-            for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
-            {
-                newCellMinusIndToOldCellInd[cellToNewMinusCellsIndexes[i][j]] = i;
-            }
-        }
-        
+        Info<<"Test 9664"<<endl;
         faceList facesTest(0);
         labelList ownerTest(0);
         labelList neighbourTest(0);
@@ -9669,7 +9699,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         neighbourTest.append(splitAndUnsplitFacesBoundaryNeighbor);
         neighbourTest.append(addedCutFacesNeighbor);
         neighbourTest.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
-        
+        Info<<"Test 9682"<<endl;
         std::unordered_multimap<label,label> cellIndToFace;
         label maxCellInd = 0;
         for(int i=0;i<facesTest.size();i++)
@@ -9678,35 +9708,35 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             cellIndToFace.insert(std::make_pair(neighbourTest[i],i));
             maxCellInd = std::max(maxCellInd,std::max(ownerTest[i],neighbourTest[i]));
         }
-        Info<<"maxCellInd:"<<maxCellInd<<endl;
-        Info<<"maxPlusCellInd:"<<maxPlusCellInd<<endl;
-        Info<<"maxMinusCellInd:"<<maxMinusCellInd<<endl;
-        for(int i=0;i<=maxCellInd;i++)
+        maxCellInd++;
+        Info<<"Test 9692"<<endl;
+        List<DynamicList<label>> cellIndToFaces(maxCellInd);
+        for(int i=0;i<facesTest.size();i++)
         {
-            DynamicList<label> cellsFaces;
-            auto bucket = cellIndToFace.equal_range(i);
-            for(auto it = bucket.first; it != bucket.second; it++)
+            if(ownerTest[i]!=-1)
+                cellIndToFaces[ownerTest[i]].append(i);
+            if(neighbourTest[i]!=-1)
+                cellIndToFaces[neighbourTest[i]].append(i);
+        }
+        Info<<"Test 9698"<<endl;
+        bool inZeroFaceCell = false;
+        for(int i=0;i<cellIndToFaces.size();i++)
+        {
+            if(cellIndToFaces[i].size()==0 && !inZeroFaceCell)
             {
-                label faceInd = it->second;
-                if(faceInd<0 || faceInd>=facesTest.size())
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-                cellsFaces.append(faceInd);
-            }
-            if(cellsFaces.size()<3 && !deletedCell[i])
-            {
-                Info<<"i:"<<i<<" cellsFaces:"<<cellsFaces<<endl;
-                Info<<"newCellPlusIndToOldCellInd["<<i<<"]:"<<newCellPlusIndToOldCellInd[i]<<endl;
-                Info<<"newCellMinusIndToOldCellInd["<<i<<"]:"<<newCellMinusIndToOldCellInd[i]<<endl;
-                auto bucket = cellIndToFace.equal_range(i);
-                for(auto it = bucket.first; it != bucket.second; it++)
+                if(i>=deletedCell.size() || !deletedCell[i])
                 {
-                    Info<<it->first<<"  "<<it->second<<endl;
+                    inZeroFaceCell = true;
+                    Info<<"Start cellIndToFaces["<<i<<"]:"<<cellIndToFaces[i]<<endl;
                 }
-                Info<<"deletedCell[i]:"<<deletedCell[i]<<endl;
-                Info<<"deletedCell.size():"<<deletedCell.size()<<endl;
-                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+            }
+            else if(cellIndToFaces[i].size()!=0 && inZeroFaceCell)
+            {
+                inZeroFaceCell = false;
+                Info<<"End cellIndToFaces["<<i-1<<"]:"<<cellIndToFaces[i-1]<<endl;
             }
         }
+        Info<<"deletedCell.size():"<<deletedCell.size()<<endl;
         FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
     }
     
@@ -9716,7 +9746,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     mapOldCellsToNewCells.setSize(meshCells.size());
     label count = 0;
     label countDel = 0;
-    for(int i=0;i<cellReductionNumb.size();i++)
+    for(int i=0;i<deletedCell.size();i++)
     {
         if(deletedCell[i])
         {
@@ -9768,6 +9798,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
         }
     }
+    
+    
+    
     label maxNumOfNewCells = 0;
     label maxNumOfNewCellsNonCorr = 0; // added
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
