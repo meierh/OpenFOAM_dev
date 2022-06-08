@@ -10093,7 +10093,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 Info<<"End cellIndToFaces["<<i-1<<"]:"<<cellIndToFaces[i-1]<<endl;
             }
         }
-        FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
+        //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
     }
 }
 
@@ -12608,8 +12608,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
             deletedCellsCount++;
     }
     Info<<"1"<<endl;
-    if(newCellVolume.size()+deletedCellsCount != oldCellVolume.size())
+    if(newCellVolume.size()+deletedCellsCount != deletedCell.size())
     {
+        Info<<"deletedCell.size():"<<deletedCell.size()<<endl;
+        Info<<"newCellVolume.size():"<<newCellVolume.size()<<endl;
+        Info<<"deletedCellsCount:"<<deletedCellsCount<<endl;
+        Info<<"oldCellVolume.size():"<<oldCellVolume.size()<<endl;
         FatalErrorInFunction
         << "Must not happen!"
         << exit(FatalError); 
@@ -12624,7 +12628,11 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     Info<<"3"<<endl;
     
     if(newCellVolume.size() != mapNewCellsToOldCells.size())
+    {
+        Info<<"newCellVolume.size():"<<newCellVolume.size()<<endl;
+        Info<<"mapNewCellsToOldCells.size():"<<mapNewCellsToOldCells.size()<<endl;
         FatalErrorInFunction<< "Must not happen!"<< exit(FatalError);
+    }
     
     for(int i=0;i<newCellVolume.size();i++)
     {
