@@ -9114,7 +9114,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
     }
     Info<<endl<<"newCellToSide.size():"<<newCellToSide.size()<<endl;
-    Info<<"--newCellToSide["<<464992<<"]:"<<newCellToSide[464992]<<endl;
     Info<<"addedCellIndex:"<<addedCellIndex<<endl;
     Info<<"meshCells.size():"<<meshCells.size()<<endl;
     //FatalErrorInFunction<<"Temp stop."<<exit(FatalError);
@@ -9678,8 +9677,6 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }    
     }    
     
-    
-    
     {
         Info<<"Test 9664"<<endl;
         faceList facesTest(0);
@@ -9797,7 +9794,20 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         count++;
     }
     
-    
+    label maxNewCell = 0;
+    for(int i=0;i<mapOldCellsToNewCells.size();i++)
+    {
+        for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
+            maxNewCell = (maxNewCell<mapOldCellsToNewCells[i][j])?mapOldCellsToNewCells[i][j]:maxNewCell;
+    }
+    label maxNewPosCell=0;
+    for(int i=0;i<newCellToSide.size();i++)
+    {
+        if(newCellToSide[i]==+1)
+            maxNewPosCell=i;
+    }
+    Info<<"maxNewCell:"<<maxNewCell<<endl;
+    Info<<"maxNewPosCell:"<<maxNewPosCell<<endl;    
     
     label maxNumOfNewCells = 0;
     label maxNumOfNewCellsNonCorr = 0; // added
@@ -9822,8 +9832,10 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 maxNumOfNewCells = mapOldCellsToNewCells[i][j];
         }
     }
-    maxNumOfNewCells++;
-    maxNumOfNewCellsNonCorr++; // added
+    Info<<"maxNumOfNewCellsNonCorr:"<<maxNumOfNewCellsNonCorr<<endl;
+    Info<<"maxNumOfNewCells:"<<maxNumOfNewCells<<endl;
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+
     for(int i=cellReductionNumb.size();i<maxNumOfNewCellsNonCorr;i++)
     {
         cellReductionNumb.append(countDel);
@@ -9845,11 +9857,19 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
             mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]] = i;                
         }
     }
-    
-    Info<<"mapNewCellsToOldCells["<<464992<<"]:"<<mapNewCellsToOldCells[464992]<<endl;
-    Info<<"mapOldCellsToNewCells["<<464992<<"]:"<<mapOldCellsToNewCells[464992]<<endl;
-    Info<<"cellReductionNumb["<<464992<<"]:"<<cellReductionNumb[464992]<<endl;
-    //FatalErrorInFunction<<"Temp stop."<<exit(FatalError);
+    label nbrDeletedCells = 0;
+    for(int i=0;i<deletedCell.size();i++)
+        if(deletedCell[i])
+            nbrDeletedCells++;
+
+    Info<<"maxCellInd:"<<maxCellInd<<endl;
+    Info<<"nbrDeletedCells:"<<nbrDeletedCells<<endl;
+    Info<<"maxNumOfNewCells:"<<maxNumOfNewCells<<endl;
+    Info<<"maxNumOfNewCellsNonCorr:"<<maxNumOfNewCellsNonCorr<<endl;
+    Info<<"mapNewCellsToOldCells.size():"<<mapNewCellsToOldCells.size()<<endl;
+    Info<<"mapOldCellsToNewCells.size():"<<mapOldCellsToNewCells.size()<<endl;
+    Info<<"cellReductionNumb.size():"<<cellReductionNumb.size()<<endl;
+    FatalErrorInFunction<<"Temp stop."<<exit(FatalError);
     
     //correct face owner and neigbour 
     for(int i=0;i<addedCutFaces.size();i++)
