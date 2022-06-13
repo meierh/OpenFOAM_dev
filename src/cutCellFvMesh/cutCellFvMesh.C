@@ -621,6 +621,7 @@ void Foam::cutCellFvMesh::newMeshPoints
         neg = 0;
         scalar phiStart = pointDist[startLabel];
         scalar phiEnd = pointDist[endLabel];
+        Info<<"------------"<<"phiStart:"<<phiStart<<"  phiEnd:"<<phiEnd<<"-------------"<<i<<endl;
         
         if(phiStart>0 || phiEnd>0)
             pos = +1;
@@ -701,11 +702,13 @@ void Foam::cutCellFvMesh::newMeshPoints
                 centerPhi = distToNurbs(centerPoint,found,reference);
                 if(!found)
                     FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-                
+                Info<<"centerPhi:"<<centerPhi<<endl;
+
                 count++;
                 if(count>=100)
                 {
                     Info<<endl;
+                    Info<<"centerPhi:"<<centerPhi<<endl;
                     Info<<"phiStart:"<<phiStart<<endl;
                     Info<<"phiEnd:"<<phiEnd<<endl;
                     FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
@@ -929,7 +932,8 @@ scalar Foam::cutCellFvMesh::distToNurbs
     DynamicList<nurbsReference>& reference
 )
 {
-    Info<<"pnt:"<<pnt<<endl;
+    //Info<<"pnt:"<<pnt<<endl;
+    foundFlag = true;
     scalar dist;
     std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(pnt);
     if(firstOrderNearNurbs->size()==0)
@@ -946,8 +950,8 @@ scalar Foam::cutCellFvMesh::distToNurbs
     {
         label thisNurbs = (*firstOrderNearNurbs)[k];
         scalar thisNodePara = NurbsTrees[thisNurbs]->closestParaOnNurbsToPoint(pnt);
-        Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
-        Info<<"(*(this->Curves))[thisNurbs].min_U():"<<(*(this->Curves))[thisNurbs].min_U()<<endl;
+        //Info<<"\tIndex of nurbs:"<<thisNurbs<<" with para: "<<thisNodePara<<endl;
+        //Info<<"(*(this->Curves))[thisNurbs].min_U():"<<(*(this->Curves))[thisNurbs].min_U()<<endl;
         if(thisNodePara < (*(this->Curves))[thisNurbs].min_U())
         {
             dist = std::numeric_limits<scalar>::max();
@@ -957,13 +961,15 @@ scalar Foam::cutCellFvMesh::distToNurbs
         paraToNurbsSurface.append(thisNodePara);
         distToNurbsSurface.append((*(this->Curves))[thisNurbs].distanceToNurbsSurface(thisNodePara,pnt));
         indToNurbsSurface.append(thisNurbs);
-        Info<<"paraToNurbsSurface:"<<paraToNurbsSurface<<" distToNurbsSurface:"<<distToNurbsSurface<<" indToNurbsSurface:"<<indToNurbsSurface<<endl;
+        //Info<<"paraToNurbsSurface:"<<paraToNurbsSurface<<" distToNurbsSurface:"<<distToNurbsSurface<<" indToNurbsSurface:"<<indToNurbsSurface<<endl;
     }
     if(allOutSideNurbsBox)
     {
         foundFlag = false;
         return -1;
     }
+    
+    
     scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
     scalar minDistparaToNurbsSurface;
     label minDistindToNurbsSurface;
@@ -976,12 +982,11 @@ scalar Foam::cutCellFvMesh::distToNurbs
             minDistindToNurbsSurface = indToNurbsSurface[k];
         }
     }
-    foundFlag = true;
-    Info<<"minDistToNurbsSurface:"<<minDistToNurbsSurface<<" minDistparaToNurbsSurface:"<<minDistparaToNurbsSurface<<" minDistindToNurbsSurface:"<<minDistindToNurbsSurface<<endl;    
+    //Info<<"minDistToNurbsSurface:"<<minDistToNurbsSurface<<" minDistparaToNurbsSurface:"<<minDistparaToNurbsSurface<<" minDistindToNurbsSurface:"<<minDistindToNurbsSurface<<endl;    
     dist = minDistToNurbsSurface;
-    Info<<"foundFlag:"<<foundFlag<<endl;
+    //Info<<"foundFlag:"<<foundFlag<<endl;
     
-    /*
+    
     scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
     for(const label oneNurbsInd: indToNurbsSurface)
     {
@@ -1016,8 +1021,9 @@ scalar Foam::cutCellFvMesh::distToNurbs
     {
         avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
     }
+    Info<<"distToNurbsSurfaceInRadius:"<<distToNurbsSurfaceInRadius<<"  paraToNurbsSurfaceInRadius:"<<paraToNurbsSurfaceInRadius<<"  indToNurbsSurfaceInRadius:"<<indToNurbsSurfaceInRadius<<endl;
     dist = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
-    */
+    
     
     return dist;
 }

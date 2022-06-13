@@ -514,6 +514,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
         }
         if(allOutSideNurbsBox)
             continue;
+
         
         scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
         scalar minDistparaToNurbsSurface;
@@ -526,16 +527,13 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
                 minDistparaToNurbsSurface = paraToNurbsSurface[k];
                 minDistindToNurbsSurface = indToNurbsSurface[k];
             }
-        }
-        
-        
+        }        
         pointDist[i] = minDistToNurbsSurface;
         nurbsReference temp;
         temp.nurbsInd = minDistindToNurbsSurface;
         temp.nurbsPara = minDistparaToNurbsSurface;
         meshPointNurbsReference[i].append(temp);
         
-        /*
         scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
         for(const label oneNurbsInd: indToNurbsSurface)
         {
@@ -576,8 +574,6 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
         }
         pointDist[i] = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
-        */
-        
         
     }
     Info<<endl;
