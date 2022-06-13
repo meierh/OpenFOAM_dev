@@ -9809,7 +9809,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     Info<<"maxNewCell:"<<maxNewCell<<endl;
     Info<<"maxNewPosCell:"<<maxNewPosCell<<endl;    
     
-    label maxNumOfNewCells = 0;
+    label maxNumOfNewCellsCorr = 0;
     label maxNumOfNewCellsNonCorr = 0; // added
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
@@ -9827,16 +9827,17 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
                 FatalErrorInFunction<<"Old cells can only be mapped to new cells of higher index."<<exit(FatalError);            
             if(maxNumOfNewCellsNonCorr<mapOldCellsToNewCells[i][j]) // added
                 maxNumOfNewCellsNonCorr = mapOldCellsToNewCells[i][j]; // added
-            mapOldCellsToNewCells[i][j] -= cellReductionNumb[i];
-            if(maxNumOfNewCells<mapOldCellsToNewCells[i][j])
-                maxNumOfNewCells = mapOldCellsToNewCells[i][j];
+            if(cellReductionNumb[mapOldCellsToNewCells[i][j]]==-1)
+                FatalErrorInFunction<<"Positive new cell is deleted. Can not happen"<<exit(FatalError);            
+            mapOldCellsToNewCells[i][j] -= cellReductionNumb[mapOldCellsToNewCells[i][j]];
+            if(maxNumOfNewCellsCorr<mapOldCellsToNewCells[i][j])
+                maxNumOfNewCellsCorr = mapOldCellsToNewCells[i][j];
         }
     }
     Info<<"maxNumOfNewCellsNonCorr:"<<maxNumOfNewCellsNonCorr<<endl;
-    Info<<"maxNumOfNewCells:"<<maxNumOfNewCells<<endl;
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    Info<<"maxNumOfNewCellsCorr:"<<maxNumOfNewCellsCorr<<endl;
 
-    for(int i=cellReductionNumb.size();i<maxNumOfNewCellsNonCorr;i++)
+    for(int i=cellReductionNumb.size();i<maxNumOfNewCellsNonCorr+1;i++)
     {
         cellReductionNumb.append(countDel);
     }
@@ -9844,7 +9845,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     Info<<"maxNumOfNewCellsNonCorr:"<<maxNumOfNewCellsNonCorr<<endl;
 
     
-    mapNewCellsToOldCells = labelList(maxNumOfNewCells,-1);
+    mapNewCellsToOldCells = labelList(maxNumOfNewCellsCorr+1,-1);
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
         for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
@@ -9864,12 +9865,11 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
 
     Info<<"maxCellInd:"<<maxCellInd<<endl;
     Info<<"nbrDeletedCells:"<<nbrDeletedCells<<endl;
-    Info<<"maxNumOfNewCells:"<<maxNumOfNewCells<<endl;
+    Info<<"maxNumOfNewCellsCorr:"<<maxNumOfNewCellsCorr<<endl;
     Info<<"maxNumOfNewCellsNonCorr:"<<maxNumOfNewCellsNonCorr<<endl;
     Info<<"mapNewCellsToOldCells.size():"<<mapNewCellsToOldCells.size()<<endl;
     Info<<"mapOldCellsToNewCells.size():"<<mapOldCellsToNewCells.size()<<endl;
     Info<<"cellReductionNumb.size():"<<cellReductionNumb.size()<<endl;
-    FatalErrorInFunction<<"Temp stop."<<exit(FatalError);
     
     //correct face owner and neigbour 
     for(int i=0;i<addedCutFaces.size();i++)
@@ -10115,6 +10115,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
         //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
     }
+    //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
