@@ -527,29 +527,14 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
                 minDistparaToNurbsSurface = paraToNurbsSurface[k];
                 minDistindToNurbsSurface = indToNurbsSurface[k];
             }
-        }        
-        pointDist[i] = minDistToNurbsSurface;
-        nurbsReference temp;
-        temp.nurbsInd = minDistindToNurbsSurface;
-        temp.nurbsPara = minDistparaToNurbsSurface;
-        meshPointNurbsReference[i].append(temp);
-        
-        scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
-        for(const label oneNurbsInd: indToNurbsSurface)
-        {
-            Nurbs1D& oneNurbs = (*(this->Curves))[oneNurbsInd];
-            scalar radius = oneNurbs.radius();
-            maxRadiusNurbs = (radius>maxRadiusNurbs)?radius:maxRadiusNurbs;
         }
-        scalar nurbsCornerToNurbsRadiusRatio = 0.1;
-        scalar nurbsCornerRadius = nurbsCornerToNurbsRadiusRatio*maxRadiusNurbs;
-        
+
         DynamicList<scalar> distToNurbsSurfaceInRadius;
         DynamicList<scalar> paraToNurbsSurfaceInRadius;
         DynamicList<label> indToNurbsSurfaceInRadius;
         for(int j=0;j<distToNurbsSurface.size();j++)
         {
-            if(distToNurbsSurface[j] < minDistToNurbsSurface+2*nurbsCornerRadius)
+            if(distToNurbsSurface[j] < minDistToNurbsSurface+intersectionRadius)
             {
                 distToNurbsSurfaceInRadius.append(distToNurbsSurface[j]);
                 paraToNurbsSurfaceInRadius.append(paraToNurbsSurface[j]);

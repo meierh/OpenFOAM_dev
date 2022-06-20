@@ -621,7 +621,7 @@ void Foam::cutCellFvMesh::newMeshPoints
         neg = 0;
         scalar phiStart = pointDist[startLabel];
         scalar phiEnd = pointDist[endLabel];
-        Info<<"------------"<<"phiStart:"<<phiStart<<"  phiEnd:"<<phiEnd<<"-------------"<<i<<endl;
+        Info<<"------------"<<"phiStart:"<<phiStart<<"  phiEnd:"<<phiEnd<<"-------------"<<i<<"  "<<basisPoints[startLabel]<<" "<<basisPoints[endLabel]<<endl;
         
         if(phiStart>0 || phiEnd>0)
             pos = +1;
@@ -702,7 +702,7 @@ void Foam::cutCellFvMesh::newMeshPoints
                 centerPhi = distToNurbs(centerPoint,found,reference);
                 if(!found)
                     FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-                Info<<"centerPhi:"<<centerPhi<<endl;
+                //Info<<"centerPhi:"<<centerPhi<<endl;
 
                 count++;
                 if(count>=100)
@@ -942,6 +942,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
         foundFlag = false;
         return -1;
     }
+    Info<<"fOnN:"<<*firstOrderNearNurbs<<" ";
     DynamicList<scalar> distToNurbsSurface;
     DynamicList<scalar> paraToNurbsSurface;
     DynamicList<label> indToNurbsSurface;
@@ -968,7 +969,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
         foundFlag = false;
         return -1;
     }
-    
+    Info<<"iTNS:"<<indToNurbsSurface<<" ";
     
     scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
     scalar minDistparaToNurbsSurface;
@@ -994,12 +995,14 @@ scalar Foam::cutCellFvMesh::distToNurbs
         scalar radius = oneNurbs.radius();
         maxRadiusNurbs = (radius>maxRadiusNurbs)?radius:maxRadiusNurbs;
     }
+    Info<<"maxRad:"<<maxRadiusNurbs<<" ";
     scalar nurbsCornerToNurbsRadiusRatio = 0.1;
     scalar nurbsCornerRadius = nurbsCornerToNurbsRadiusRatio*maxRadiusNurbs;
     
     DynamicList<scalar> distToNurbsSurfaceInRadius;
     DynamicList<scalar> paraToNurbsSurfaceInRadius;
     DynamicList<label> indToNurbsSurfaceInRadius;
+    Info<<"distToNuSur:"<<distToNurbsSurface<<" ";
     for(int j=0;j<distToNurbsSurface.size();j++)
     {
         if(distToNurbsSurface[j] < minDistToNurbsSurface+2*nurbsCornerRadius)
@@ -1021,9 +1024,8 @@ scalar Foam::cutCellFvMesh::distToNurbs
     {
         avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
     }
-    Info<<"distToNurbsSurfaceInRadius:"<<distToNurbsSurfaceInRadius<<"  paraToNurbsSurfaceInRadius:"<<paraToNurbsSurfaceInRadius<<"  indToNurbsSurfaceInRadius:"<<indToNurbsSurfaceInRadius<<endl;
     dist = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
-    
+    Info<<"pnt:"<<pnt<<"  dist:"<<dist<<"  distToNuSurfInRad:"<<distToNurbsSurfaceInRadius<<"  indToNuSurInRad:"<<indToNurbsSurfaceInRadius<<endl;
     
     return dist;
 }
