@@ -59,7 +59,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         scalar cellDimToStructureDimLimit;
         
         // nurbs intersection radius
-        scalar intersectionRadius;
+        scalar intersectionRadius = 0;
         
         //Motion Solver pointer
         autoPtr<motionSolver> motionPtr_;

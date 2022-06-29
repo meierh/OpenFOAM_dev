@@ -1,5 +1,10 @@
 #include "cutCellFvMesh.H"
 
+Foam::scalar norm2(Foam::vector pnt)
+{
+    return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
+}
+
 Foam::cutCellFvMesh::cutCellFvMesh
 (
     const IOobject& io,
@@ -666,6 +671,11 @@ void Foam::cutCellFvMesh::newMeshPoints
             SideIndicator side;
             
             label count = 0;
+            scalar comingFromLhs = 0;
+            scalar comingFromRhs = 0;
+            scalar iterationGeneral = 0;
+            scalar gamma = 0.95;
+            scalar oldMinPhi = centerPhi;
             while(std::abs(centerPhi)>10e-10)
             {
                 if(std::signbit(centerPhi)!=std::signbit(lhsPhi))
@@ -674,7 +684,7 @@ void Foam::cutCellFvMesh::newMeshPoints
                     rhsPoint = basisPoints[startLabel]+rhsScale*lhsToRhs;
                     rhsPhi = distToNurbs(rhsPoint,found);
                     if(!found)
-                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);       
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
                 }
                 else if(std::signbit(centerPhi)!=std::signbit(rhsPhi))
                 {
@@ -682,35 +692,132 @@ void Foam::cutCellFvMesh::newMeshPoints
                     lhsPoint = basisPoints[startLabel]+lhsScale*lhsToRhs;
                     lhsPhi = distToNurbs(lhsPoint,found);
                     if(!found)
-                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);  
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
                 }
                 else
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);              
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                 
-                //Linear Interpolation
-                scalar m=(rhsPhi-lhsPhi)/(rhsScale-lhsScale);
-                scalar b=rhsPhi-m*rhsScale;
-                centerScale = -b/m; 
-                
-                //if linear interpolation fails use center point
-                if(centerScale<lhsScale || centerScale>rhsScale)
-                {
-                    centerScale = 0.5*(lhsScale+rhsScale);
-                }
-                
+                centerScale = 0.5*(lhsScale+rhsScale);
                 centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
-                centerPhi = distToNurbs(centerPoint,found,reference);
+                centerPhi = distToNurbs(centerPoint,found);
                 if(!found)
                     FatalErrorInFunction<<"Not found!"<< exit(FatalError);
-                //Info<<"centerPhi:"<<centerPhi<<endl;
+                
+                //Quadratic Interpolation
+                scalar det_M =  lhsScale*lhsScale*centerScale + lhsScale*rhsScale*rhsScale + centerScale*centerScale*rhsScale
+                                - rhsScale*rhsScale*centerScale - rhsScale*lhsScale*lhsScale - centerScale*centerScale*lhsScale;
+                scalar det_Ma = lhsPhi*centerScale + lhsScale*rhsPhi + centerPhi*rhsScale
+                                - rhsPhi*centerScale - rhsScale*lhsPhi - centerPhi*lhsScale;
+                scalar det_Mb = lhsScale*lhsScale*centerPhi + lhsPhi*rhsScale*rhsScale + centerScale*centerScale*rhsPhi
+                                - rhsScale*rhsScale*centerPhi - rhsPhi*lhsScale*lhsScale - centerScale*centerScale*lhsPhi;
+                scalar det_Mc = lhsScale*lhsScale*centerScale*rhsPhi + lhsScale*centerPhi*rhsScale*rhsScale + lhsPhi*centerScale*centerScale*rhsScale
+                                - rhsScale*rhsScale*centerScale*lhsPhi - rhsScale*centerPhi*lhsScale*lhsScale - rhsPhi*centerScale*centerScale*lhsScale;
+                if(det_M!=0)
+                {
+                    //FatalErrorInFunction<<"Not invertable. Can not happen!"<< exit(FatalError);                
+                    scalar a = det_Ma/det_M;
+                    scalar b = det_Mb/det_M;
+                    scalar c = det_Mc/det_M;
+                
+                    scalar lhsY = a*lhsScale*lhsScale+b*lhsScale+c;
+                    scalar centerY = a*centerScale*centerScale+b*centerScale+c;
+                    scalar rhsY = a*rhsScale*rhsScale+b*rhsScale+c;
+                    
+                    if(a==0)
+                    {
+                        if(b==0)
+                            centerScale = 0.5*(lhsScale+rhsScale);
+                        centerScale = -c/b;
+                    }
+                    else
+                    {
+                        scalar p = b/a;
+                        scalar q = c/a;                    
+                        scalar rh = (p/2)*(p/2)-q;
+                        if(rh>=0)
+                        {
+                            rh = std::sqrt(rh);
+                            scalar lh = -p/2;
+                            scalar x1 = lh + rh;
+                            scalar x2 = lh - rh;
+                        
+                            if(lhsScale<=x1 && x1<=rhsScale)
+                            {
+                                Info<<"x1: ";
+                                centerScale = x1;
+                            }
+                            else if(lhsScale<=x2 && x2<=rhsScale)
+                            {
+                                Info<<"x2: ";
+                                centerScale = x2;
+                            }
+                            else
+                            {
+                                Info<<"Centering: ";
+                                centerScale = 0.5*(lhsScale+rhsScale);
+                            }
+                        }
+                        else
+                        {
+                            Info<<"Centering: ";
+                            centerScale = 0.5*(lhsScale+rhsScale);
+                        }
+                    }
+                    
+                    Info<<"rhsScale:"<<rhsScale<<" centerScale:"<<centerScale<<" lhsScale:"<<lhsScale;
+                    centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                    centerPhi = distToNurbs(centerPoint,found,reference);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                    Info<<" centerPhi:"<<centerPhi;
+                    
+                    if(std::abs(centerPhi)>0.5*std::abs(oldMinPhi))
+                    {
+                        centerScale = 0.5*(lhsScale+rhsScale);
+                        centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                        centerPhi = distToNurbs(centerPoint,found,reference);
+                        if(!found)
+                            FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                        Info<<" center";
+                    }
+                    Info<<endl;
+                }
+                else
+                {
+                    centerScale = 0.5*(lhsScale+rhsScale);
+                    centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                    centerPhi = distToNurbs(centerPoint,found,reference);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                }
+                oldMinPhi = centerPhi;
 
                 count++;
                 if(count>=100)
                 {
+                    /*
+                    if(std::abs(centerPhi)<1e-5) //Lower limit after many iterations
+                        break;
+                    */
+                        
                     Info<<endl;
                     Info<<"centerPhi:"<<centerPhi<<endl;
                     Info<<"phiStart:"<<phiStart<<endl;
                     Info<<"phiEnd:"<<phiEnd<<endl;
+                    bool found;
+                    scalar sample = 1000;
+                    for(int k=0;k<=sample;k++)
+                    {
+                        DynamicList<nurbsReference> reference;
+                        vector centerPoint = basisPoints[startLabel]+(k/sample)*lhsToRhs;
+                        centerPhi = distToNurbs(centerPoint,found,reference);
+                        Info<<"k:"<<k<<" scale:"<<(k/sample)<<" pnt:"<<centerPoint<<" phi:"<<centerPhi<<"  reference: ";
+                        for(const nurbsReference& ref : reference)
+                            Info<<"("<<ref.nurbsInd<<"  "<<ref.nurbsPara<<") ";
+                        Info<<endl;
+                        if(!found)
+                            FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                    }
                     FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
                 }
             }
@@ -942,7 +1049,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
         foundFlag = false;
         return -1;
     }
-    Info<<"fOnN:"<<*firstOrderNearNurbs<<" ";
+    //Info<<"fOnN:"<<*firstOrderNearNurbs<<" ";
     DynamicList<scalar> distToNurbsSurface;
     DynamicList<scalar> paraToNurbsSurface;
     DynamicList<label> indToNurbsSurface;
@@ -964,16 +1071,16 @@ scalar Foam::cutCellFvMesh::distToNurbs
         indToNurbsSurface.append(thisNurbs);
         //Info<<"paraToNurbsSurface:"<<paraToNurbsSurface<<" distToNurbsSurface:"<<distToNurbsSurface<<" indToNurbsSurface:"<<indToNurbsSurface<<endl;
     }
+    Info<<indToNurbsSurface<<" dist:"<<distToNurbsSurface<<"  ";
     if(allOutSideNurbsBox)
     {
         foundFlag = false;
         return -1;
     }
-    Info<<"iTNS:"<<indToNurbsSurface<<" ";
     
     scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
-    scalar minDistparaToNurbsSurface;
-    label minDistindToNurbsSurface;
+    scalar minDistparaToNurbsSurface = -1;
+    label minDistindToNurbsSurface = -1;
     for(int k=0;k<distToNurbsSurface.size();k++)
     {
         if(distToNurbsSurface[k] < minDistToNurbsSurface)
@@ -983,49 +1090,90 @@ scalar Foam::cutCellFvMesh::distToNurbs
             minDistindToNurbsSurface = indToNurbsSurface[k];
         }
     }
-    //Info<<"minDistToNurbsSurface:"<<minDistToNurbsSurface<<" minDistparaToNurbsSurface:"<<minDistparaToNurbsSurface<<" minDistindToNurbsSurface:"<<minDistindToNurbsSurface<<endl;    
-    dist = minDistToNurbsSurface;
-    //Info<<"foundFlag:"<<foundFlag<<endl;
-    
-    
-    scalar maxRadiusNurbs = std::numeric_limits<scalar>::min();
-    for(const label oneNurbsInd: indToNurbsSurface)
+
+    bool nonSecondNurbs = true;
+    scalar secondMinDistToNurbsSurface = std::numeric_limits<scalar>::max();
+    scalar secondMinDistparaToNurbsSurface = -1;
+    label secondMinDistindToNurbsSurface = -1;
+    for(int k=0;k<distToNurbsSurface.size();k++)
     {
-        Nurbs1D& oneNurbs = (*(this->Curves))[oneNurbsInd];
-        scalar radius = oneNurbs.radius();
-        maxRadiusNurbs = (radius>maxRadiusNurbs)?radius:maxRadiusNurbs;
-    }
-    Info<<"maxRad:"<<maxRadiusNurbs<<" ";
-    scalar nurbsCornerToNurbsRadiusRatio = 0.1;
-    scalar nurbsCornerRadius = nurbsCornerToNurbsRadiusRatio*maxRadiusNurbs;
-    
-    DynamicList<scalar> distToNurbsSurfaceInRadius;
-    DynamicList<scalar> paraToNurbsSurfaceInRadius;
-    DynamicList<label> indToNurbsSurfaceInRadius;
-    Info<<"distToNuSur:"<<distToNurbsSurface<<" ";
-    for(int j=0;j<distToNurbsSurface.size();j++)
-    {
-        if(distToNurbsSurface[j] < minDistToNurbsSurface+2*nurbsCornerRadius)
+        if(indToNurbsSurface[k]!=minDistindToNurbsSurface && distToNurbsSurface[k]<secondMinDistToNurbsSurface)
         {
-            distToNurbsSurfaceInRadius.append(distToNurbsSurface[j]);
-            paraToNurbsSurfaceInRadius.append(paraToNurbsSurface[j]);
-            indToNurbsSurfaceInRadius.append(indToNurbsSurface[j]);
+            nonSecondNurbs = false;
+            secondMinDistToNurbsSurface = distToNurbsSurface[k];
+            secondMinDistparaToNurbsSurface = paraToNurbsSurface[k];
+            secondMinDistindToNurbsSurface = indToNurbsSurface[k];
         }
-    }    
-    for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
-    {
-        nurbsReference temp;
-        temp.nurbsInd = indToNurbsSurfaceInRadius[j];
-        temp.nurbsPara = paraToNurbsSurfaceInRadius[j];
-        reference.append(temp);
-    }    
-    scalar avgDistToNurbsSurface = 0;
-    for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
-    {
-        avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
     }
-    dist = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
-    Info<<"pnt:"<<pnt<<"  dist:"<<dist<<"  distToNuSurfInRad:"<<distToNurbsSurfaceInRadius<<"  indToNuSurInRad:"<<indToNurbsSurfaceInRadius<<endl;
+    
+    Info<<" minDi:"<<minDistindToNurbsSurface<<" minD:"<<minDistToNurbsSurface<<" secDi:"<<secondMinDistindToNurbsSurface<<" secD:"<<secondMinDistToNurbsSurface<<"  ";
+
+    if(nonSecondNurbs)
+    {
+        dist = minDistToNurbsSurface;
+        
+        reference.clear();
+        nurbsReference temp;
+        temp.nurbsInd = minDistindToNurbsSurface;
+        temp.nurbsPara = minDistparaToNurbsSurface;
+        reference.append(temp);
+    }
+    else
+    {
+        if(secondMinDistToNurbsSurface < minDistToNurbsSurface)
+            FatalErrorInFunction<<"Second smallest dist smaller than smallest one. Can not happen!"<< exit(FatalError);
+        
+        vector vecToMinDistNurbs = (*Curves)[minDistindToNurbsSurface].Curve_Derivative(0,minDistparaToNurbsSurface);
+        vecToMinDistNurbs = vecToMinDistNurbs - pnt;
+        vector vecToSecondMinDistNurbs = (*Curves)[secondMinDistindToNurbsSurface].Curve_Derivative(0,secondMinDistparaToNurbsSurface);
+        vecToSecondMinDistNurbs = vecToSecondMinDistNurbs - pnt;
+        
+        scalar angle;
+        bool vecToNurbsZeroOnce = false;
+        if(norm2(vecToMinDistNurbs) * norm2(vecToSecondMinDistNurbs) != 0)
+            angle  = (vecToMinDistNurbs && vecToSecondMinDistNurbs) / (norm2(vecToMinDistNurbs) * norm2(vecToSecondMinDistNurbs));
+        else
+        {
+            angle = -1;
+            vecToNurbsZeroOnce = true;
+        }
+        scalar radiusFactor = ((angle+1.)/2.);
+        scalar smoothingRadius = radiusFactor * intersectionRadius;
+        //Info<<"vecToMinDistNurbs:"<<vecToMinDistNurbs<<" vecToSecondMinDistNurbs:"<<vecToSecondMinDistNurbs;
+        Info<<"  agl:"<<angle<<" smoRad:"<<smoothingRadius<<"  ";
+        
+        if(vecToNurbsZeroOnce && std::abs(minDistToNurbsSurface)<smoothingRadius && std::abs(secondMinDistToNurbsSurface)<smoothingRadius)
+        {
+            // rounding gets reducing further away from zero surface
+            scalar roundingFactor = 1-(std::abs(minDistindToNurbsSurface)/smoothingRadius);
+            
+            // rounding gets scaled in respect of similarity of distance measure
+            scalar distFirstToSecondMin  = std::abs(minDistToNurbsSurface - secondMinDistToNurbsSurface);
+            scalar distFirstToSecondMinFactor = distFirstToSecondMin / (2*smoothingRadius);
+
+            reference.clear();
+            nurbsReference temp1;
+            temp1.nurbsInd = minDistindToNurbsSurface;
+            temp1.nurbsPara = minDistparaToNurbsSurface;
+            reference.append(temp1);
+            nurbsReference temp2;
+            temp2.nurbsInd = secondMinDistindToNurbsSurface;
+            temp2.nurbsPara = secondMinDistparaToNurbsSurface;
+            reference.append(temp2);
+            
+            dist = minDistToNurbsSurface + smoothingRadius*(1-distFirstToSecondMinFactor)*roundingFactor;
+        }
+        else
+        {
+            reference.clear();
+            nurbsReference temp1;
+            temp1.nurbsInd = minDistindToNurbsSurface;
+            temp1.nurbsPara = minDistparaToNurbsSurface;
+            reference.append(temp1);
+            
+            dist = minDistToNurbsSurface;
+        }
+    }
     
     return dist;
 }
@@ -1209,11 +1357,6 @@ Foam::label Foam::cutCellFvMesh::sideToNurbs(point pnt,bool& foundFlag)
     else
         side = 0;
     return side;
-}
-
-Foam::scalar norm2(Foam::vector pnt)
-{
-    return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
 }
 
 bool facesShareEdge

@@ -29,8 +29,10 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#include "fvCFD.H"
-#include "pisoControl.H"
+#include <memory>
+//#include "fvCFD.H"
+//#include "pisoControl.H"
+//#include "dynamicRefineFvMesh.H"
 #include "cutCellFvMesh.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -38,18 +40,19 @@ Description
 int main(int argc, char *argv[])
 {
     #include "setRootCaseLists.H"
-    #include "createTime.H"
-    #include "createCutMesh.H"
+    //#include "createTime.H"
+    //#include "createCutMesh.H"
 
-    pisoControl piso(mesh);
+    //pisoControl piso(mesh);
 
-    #include "createFields.H"
-    #include "initContinuityErrs.H"
+    //#include "createFields.H"
+    //#include "initContinuityErrs.H"
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
 
+    /*
     while (runTime.loop())
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
@@ -126,7 +129,8 @@ int main(int argc, char *argv[])
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
             << nl << endl;
     }
-
+    */
+    
     Info<< "End\n" << endl;
 
     return 0;

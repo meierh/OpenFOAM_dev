@@ -52,20 +52,20 @@ Foam::word Foam::NurbsReader::getXMLPath()
 
 std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
 {
-    std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves = make_shared<std::vector<Nurbs1D>>();
+    std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves = std::make_shared<std::vector<Nurbs1D>>();
     
-    XMLDocument nurbsDoc;
-	XMLError xmlErrorID = nurbsDoc.LoadFile(fullXMLPath.c_str());
+    tinyxml2::XMLDocument nurbsDoc;
+	tinyxml2::XMLError xmlErrorID = nurbsDoc.LoadFile(fullXMLPath.c_str());
     if(xmlErrorID!=0)
         FatalIOError<<"Reading Nurbs file failed!"<<exit(FatalIOError);
     
-    XMLElement* xmlRoot = nurbsDoc.RootElement();
+    tinyxml2::XMLElement* xmlRoot = nurbsDoc.RootElement();
     if(xmlRoot==NULL || word(xmlRoot->Name()).compare("xml")!=0)
             FatalIOError<<"Reading Nurbs file failure! Root name must be xml."<<exit(FatalIOError);
     
-    for(XMLNode* geometryNode=xmlRoot->FirstChild();geometryNode!=NULL;geometryNode=geometryNode->NextSibling())
+    for(tinyxml2::XMLNode* geometryNode=xmlRoot->FirstChild();geometryNode!=NULL;geometryNode=geometryNode->NextSibling())
     {
-        XMLElement* geometry = geometryNode->ToElement();
+        tinyxml2::XMLElement* geometry = geometryNode->ToElement();
         //Second level
         const char* geometryType = geometry->Attribute("type");
         if(word(geometry->Value()).compare("Geometry")!=0 ||
@@ -75,9 +75,9 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
             FatalIOError<<"Reading Nurbs file failure! Item name must be Geometry."<<exit(FatalIOError);
         
         //Third level
-        XMLElement* basis=geometry->FirstChild()->ToElement();
+        tinyxml2::XMLElement* basis=geometry->FirstChild()->ToElement();
         const char* basisType = basis->Attribute("type");
-        XMLElement* coefs=basis->NextSibling()->ToElement();
+        tinyxml2::XMLElement* coefs=basis->NextSibling()->ToElement();
         int coefsDim = coefs->IntAttribute("geoDim",-1);
         if(basis==NULL || word(basis->Value()).compare("Basis")!=0)
             FatalIOError<<"Reading Nurbs file failure! Geometry's first child name must be Basis."<<exit(FatalIOError);
@@ -91,9 +91,9 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
             FatalIOError<<"Reading Nurbs file failure! Geometry must not have three children."<<exit(FatalIOError);
         
         //Fourth level
-        XMLElement* basisbasis=basis->FirstChild()->ToElement();
+        tinyxml2::XMLElement* basisbasis=basis->FirstChild()->ToElement();
         const char* basisbasisType = basisbasis->Attribute("type");
-        XMLElement* weights=basisbasis->NextSibling()->ToElement();
+        tinyxml2::XMLElement* weights=basisbasis->NextSibling()->ToElement();
         const char* coefField = coefs->GetText();
         if(basisbasis==NULL || word(basisbasis->Value()).compare("Basis")!=0)
             FatalIOError<<"Reading Nurbs file failure! Basis first child name must be Basis."<<exit(FatalIOError);
@@ -107,7 +107,7 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
             FatalIOError<<"Reading Nurbs file failure! coefs value must not be null."<<exit(FatalIOError);
         
         //Fifth level
-        XMLElement* KnotVector=basisbasis->FirstChild()->ToElement();
+        tinyxml2::XMLElement* KnotVector=basisbasis->FirstChild()->ToElement();
         int KnotVectorDegree = KnotVector->IntAttribute("degree");
         const char* weightField=weights->GetText();
         if(KnotVector==NULL || word(KnotVector->Value()).compare("KnotVector")!=0)

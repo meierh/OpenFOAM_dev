@@ -1,7 +1,7 @@
 #include "cutCellFvMesh.H"
 #include <cmath>
 
-Foam::List<Foam::List<Foam::vector>> simpleCurveMovementFunc(Time& runTime)
+Foam::List<Foam::List<Foam::List<Foam::vector>>> simpleCurveMovementFunc(Time& runTime)
 {
     scalar timeOutputValue = runTime.timeOutputValue();
     Foam::List<Foam::List<Foam::vector>> movingControlPoints(1,List<Foam::vector>(4));
@@ -20,7 +20,10 @@ Foam::List<Foam::List<Foam::vector>> simpleCurveMovementFunc(Time& runTime)
     resultingCPs[0] = movingControlPoints[0] +  movementVector * std::sin(std::atan(1)*timeOutputValue);
 
     Info<<"resultingCPs:"<<resultingCPs<<endl;
-    return resultingCPs;
+    
+    Foam::List<Foam::List<Foam::List<Foam::vector>>> res(1);
+    res[0] = resultingCPs;
+    return res;
 }
 
 void Foam::UnitTest_cutCellFvMesh(int argc, char *argv[],Time& runTime)

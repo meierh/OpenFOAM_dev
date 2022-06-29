@@ -1,10 +1,18 @@
 EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
     -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/dynamicFvMesh/lnInclude \
+    -I$(LIB_SRC)/dynamicMesh/lnInclude \
+    -I$(LIB_SRC)/fvMotionSolver/lnInclude \
+    -I$(WM_THIRD_PARTY_DIR)/tinyxml2 \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/cutCellFvMesh/lnInclude
 
 EXE_LIBS = \
     -lfiniteVolume \
     -lmeshTools \
+    -ldynamicFvMesh \
+    -ldynamicMesh \
+    -lfvMotionSolvers \
+    $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
     -L$(FOAM_USER_LIBBIN) \
     -lcutCellFvMesh

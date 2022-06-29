@@ -29,9 +29,6 @@
     
 #include <dirent.h>
 
-using namespace tinyxml2;
-using namespace std;
-
 namespace Foam
 {
 class NurbsReader

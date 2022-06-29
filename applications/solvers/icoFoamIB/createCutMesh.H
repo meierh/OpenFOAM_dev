@@ -3,7 +3,8 @@ Foam::Info
     << runTime.timeName() << Foam::nl << Foam::endl;
 
 Foam::Info<<"CUTCELLFVMESH"<<Foam::endl;    
-    
+
+/*
 int testdegree = 2;
 scalarList knots(7);
 scalarList weights(4);
@@ -25,7 +26,7 @@ controlPoints[2]=vector(2,0,-0.33); controlPoints[3]=vector(1.6,0,-1);
 items.append(std::shared_ptr<Nurbs>(new Nurbs(knots,controlPoints,weights,testdegree,0.15,4)));
 
 Info<<"Created Nurbs"<<endl;
-
+*/
 
 Foam::cutCellFvMesh mesh
 (
@@ -36,20 +37,9 @@ Foam::cutCellFvMesh mesh
         runTime,
         Foam::IOobject::MUST_READ
     ),
-    items    
+    cutCellFvMesh::cutStatus::delNegMesh,
+    0.51
 );
 
-/*
-Foam::fvMesh mesh
-(
-    Foam::IOobject
-    (
-        Foam::fvMesh::defaultRegion,
-        runTime.timeName(),
-        runTime,
-        Foam::IOobject::MUST_READ
-    )
-);
-*/
 Foam::Info<<"CUTCELLFVMESH Test done"<<Foam::endl;
 

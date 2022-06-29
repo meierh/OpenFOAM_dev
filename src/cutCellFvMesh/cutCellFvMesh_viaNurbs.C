@@ -24,6 +24,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
     }
     Info<<"Prepared all Data"<<endl;
     
+    intersectionRadius = 0.02;
     projectNurbsSurface();
     Info<<"Projected Nurbs Surface"<<endl;
     
@@ -200,36 +201,11 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size())),
 ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict()))
 {
-    //MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
-    //NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
-    /*
-    const objectRegistry& reg = this->thisDb();
-    fileName path = reg.time().timePath();
-    Info<<"path():"<<this->fvMesh::polyMesh::objectRegistry::path()<<endl;
-    Info<<"rootPath():"<<this->fvMesh::polyMesh::objectRegistry::rootPath()<<endl;
-    Info<<"caseName():"<<this->fvMesh::polyMesh::objectRegistry::caseName()<<endl;
-    Info<<"instance():"<<this->fvMesh::polyMesh::objectRegistry::instance()<<endl;
-    Info<<"local():"<<this->fvMesh::polyMesh::objectRegistry::local()<<endl;
-    
-    const objectRegistry& regis = this->fvMesh::polyMesh::objectRegistry::db();
-    Info<<"reg Name:"<<regis.names()<<endl;
-
-
-    if(path[path.size()-1]=='0' && path[path.size()-2]=='/')
-    {
-        Info<<"Is old"<<endl;
-        Info<<path<<endl;
-    }
-    else
-    {
-        Info<<"Is new"<<endl;
-        Info<<path<<endl;
-    }
-    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    */
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
     std::chrono::duration<double> time_span;
+    
+    intersectionRadius = 0;
     
     Info<<"Created Main Tree"<<endl;
     for(unsigned long i=0;i<(*(this->Curves)).size();i++)
@@ -514,11 +490,10 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
         }
         if(allOutSideNurbsBox)
             continue;
-
         
         scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
-        scalar minDistparaToNurbsSurface;
-        label minDistindToNurbsSurface;
+        scalar minDistparaToNurbsSurface = -1;
+        label minDistindToNurbsSurface = -1;
         for(int k=0;k<distToNurbsSurface.size();k++)
         {
             if(distToNurbsSurface[k] < minDistToNurbsSurface)
@@ -529,37 +504,91 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             }
         }
 
-        DynamicList<scalar> distToNurbsSurfaceInRadius;
-        DynamicList<scalar> paraToNurbsSurfaceInRadius;
-        DynamicList<label> indToNurbsSurfaceInRadius;
-        for(int j=0;j<distToNurbsSurface.size();j++)
+        bool nonSecondNurbs = true;
+        scalar secondMinDistToNurbsSurface = std::numeric_limits<scalar>::max();
+        scalar secondMinDistparaToNurbsSurface = -1;
+        label secondMinDistindToNurbsSurface = -1;
+        for(int k=0;k<distToNurbsSurface.size();k++)
         {
-            if(distToNurbsSurface[j] < minDistToNurbsSurface+intersectionRadius)
+            if(indToNurbsSurface[k]!=minDistindToNurbsSurface && distToNurbsSurface[k]<secondMinDistToNurbsSurface)
             {
-                distToNurbsSurfaceInRadius.append(distToNurbsSurface[j]);
-                paraToNurbsSurfaceInRadius.append(paraToNurbsSurface[j]);
-                indToNurbsSurfaceInRadius.append(indToNurbsSurface[j]);
+                nonSecondNurbs = false;
+                secondMinDistToNurbsSurface = distToNurbsSurface[k];
+                secondMinDistparaToNurbsSurface = paraToNurbsSurface[k];
+                secondMinDistindToNurbsSurface = indToNurbsSurface[k];
+            }
+        }
+        
+        Info<<" minDi:"<<minDistindToNurbsSurface<<" minD:"<<minDistToNurbsSurface<<" secDi:"<<secondMinDistindToNurbsSurface<<" secD:"<<secondMinDistToNurbsSurface<<"  ";
+
+        if(nonSecondNurbs)
+        {
+            pointDist[i] = minDistToNurbsSurface;
+            
+            meshPointNurbsReference[i].clear();
+            nurbsReference temp;
+            temp.nurbsInd = minDistindToNurbsSurface;
+            temp.nurbsPara = minDistparaToNurbsSurface;
+            meshPointNurbsReference[i].append(temp);
+        }
+        else
+        {
+            if(secondMinDistToNurbsSurface < minDistToNurbsSurface)
+                FatalErrorInFunction<<"Second smallest dist smaller than smallest one. Can not happen!"<< exit(FatalError);
+            
+            vector vecToMinDistNurbs = (*Curves)[minDistindToNurbsSurface].Curve_Derivative(0,minDistparaToNurbsSurface);
+            vecToMinDistNurbs = vecToMinDistNurbs - points[i];
+            vector vecToSecondMinDistNurbs = (*Curves)[secondMinDistindToNurbsSurface].Curve_Derivative(0,secondMinDistparaToNurbsSurface);
+            vecToSecondMinDistNurbs = vecToSecondMinDistNurbs - points[i];
+            
+            scalar angle;
+            bool vecToNurbsZeroOnce = false;
+            if(normEuler(vecToMinDistNurbs) * normEuler(vecToSecondMinDistNurbs) != 0)
+                angle  = (vecToMinDistNurbs && vecToSecondMinDistNurbs) / (normEuler(vecToMinDistNurbs) * normEuler(vecToSecondMinDistNurbs));
+            else
+            {
+                angle = -1;
+                vecToNurbsZeroOnce = true;
+            }
+            scalar radiusFactor = ((angle+1.)/2.);
+            scalar smoothingRadius = radiusFactor * intersectionRadius;
+            //Info<<"vecToMinDistNurbs:"<<vecToMinDistNurbs<<" vecToSecondMinDistNurbs:"<<vecToSecondMinDistNurbs;
+            Info<<"  agl:"<<angle<<" smoRad:"<<smoothingRadius<<"  ";
+            
+            if(vecToNurbsZeroOnce && std::abs(minDistToNurbsSurface)<smoothingRadius && std::abs(secondMinDistToNurbsSurface)<smoothingRadius)
+            {
+                // rounding gets reducing further away from zero surface
+                scalar roundingFactor = 1-(std::abs(minDistindToNurbsSurface)/smoothingRadius);
+                
+                // rounding gets scaled in respect of similarity of distance measure
+                scalar distFirstToSecondMin  = std::abs(minDistToNurbsSurface - secondMinDistToNurbsSurface);
+                scalar distFirstToSecondMinFactor = distFirstToSecondMin / (2*smoothingRadius);
+
+                meshPointNurbsReference[i].clear();
+                nurbsReference temp1;
+                temp1.nurbsInd = minDistindToNurbsSurface;
+                temp1.nurbsPara = minDistparaToNurbsSurface;
+                meshPointNurbsReference[i].append(temp1);
+                nurbsReference temp2;
+                temp2.nurbsInd = secondMinDistindToNurbsSurface;
+                temp2.nurbsPara = secondMinDistparaToNurbsSurface;
+                meshPointNurbsReference[i].append(temp2);
+                
+                pointDist[i] = minDistToNurbsSurface + smoothingRadius*(1-distFirstToSecondMinFactor)*roundingFactor;
+            }
+            else
+            {
+                meshPointNurbsReference[i].clear();
+                nurbsReference temp1;
+                temp1.nurbsInd = minDistindToNurbsSurface;
+                temp1.nurbsPara = minDistparaToNurbsSurface;
+                meshPointNurbsReference[i].append(temp1);
+                
+                pointDist[i] = minDistToNurbsSurface;
             }
         }
         t4 = std::chrono::high_resolution_clock::now();
         time_span2 += t4-t3;
-        
-        meshPointNurbsReference[i].clear();
-        for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
-        {
-            nurbsReference temp;
-            temp.nurbsInd = indToNurbsSurfaceInRadius[j];
-            temp.nurbsPara = paraToNurbsSurfaceInRadius[j];
-            meshPointNurbsReference[i].append(temp);
-        }
-        
-        scalar avgDistToNurbsSurface = 0;
-        for(int j=0;j<distToNurbsSurfaceInRadius.size();j++)
-        {
-            avgDistToNurbsSurface += distToNurbsSurfaceInRadius[j];
-        }
-        pointDist[i] = avgDistToNurbsSurface/distToNurbsSurfaceInRadius.size();
-        
     }
     Info<<endl;
     Info<<"Kd-Tree took \t\t\t\t" << time_span1.count() << " seconds."<<endl;
@@ -578,28 +607,8 @@ dynamicRefineFvMesh(io),
 ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
-{
-    /*
-    Info<<"faces.size():"<<this->faces()<<endl;
-    Info<<"faceOwner.size():"<<this->faceOwner()<<endl;
-    Info<<"faceNeighbour.size():"<<this->faceNeighbour()<<endl;    
-    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    */
-    
-    /*
-    Info<<"cellDimToStructureDimLimit:"<<cellDimToStructureDimLimit<<endl;
-    const objectRegistry& reg = this->thisDb();
-    wordList namesIO = reg.names();
-    const objectRegistry& parentReg = reg.parent();
-    wordList parNamesIO = parentReg.names();
-    const objectRegistry& parentparentReg = parentReg.parent();
-    wordList parparNamesIO = parentparentReg.names();
-    Info<<"namesIO:"<<namesIO<<endl;
-    Info<<"parNamesIO:"<<parNamesIO<<endl;
-    Info<<"parparNamesIO:"<<parparNamesIO<<endl;
-    */
-    
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+{    
+    intersectionRadius = 0.02;
     
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
@@ -641,47 +650,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary();
-    
-    /*
-    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
-    for(int i=0;i<boundMesh.size();i++)
-    {
-        Info<<"-----------------------------------"<<endl;
-        Info<<"boundMesh["<<i<<"].name:"<<boundMesh[i].name()<<endl;
-        Info<<"boundMesh["<<i<<"].start:"<<boundMesh[i].start()<<endl;
-        Info<<"boundMesh["<<i<<"].size:"<<boundMesh[i].size()<<endl;
-        Info<<"boundMesh["<<i<<"].nPoints:"<<boundMesh[i].nPoints()<<endl;
-    }
-    */
-    
-    /*
-    fileName meshFilesPath = thisDb().time().path();
-    fileName inst = this->meshDir();
-    Info<<"meshFilesPath:"<<meshFilesPath<<endl;
-    Info<<"inst:"<<inst<<endl;
-    this->removeFiles("constant");
-    
-    writeObject
-    (
-        time().writeFormat(),
-        IOstream::currentVersion,
-        time().writeCompression(),
-        true;
-    );
-
-    Foam::fileOperations::masterUncollatedFileOperation::mv("0/polyMesh","constant/polyMesh",false); 
-    this->write();
-
-    
-    //Initialize after cutting the mesh!!! Otherwise the fields gets messed up during cutting the mesh
-    //Do not write the mesh before adding the motion solver
-    motionPtr_.clear();
-    motionPtr_ = motionSolver::New(*this,dynamicMeshDict());
-    */
-    //this->write();
-    //Info<<"owner:"<<this->faceOwner()<<endl;
-
-    
+       
     //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
 }
 
