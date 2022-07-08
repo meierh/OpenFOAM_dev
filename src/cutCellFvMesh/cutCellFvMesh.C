@@ -1422,8 +1422,10 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
     DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
 )
 {
+    const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
     const cellList& basisCells = this->cells();
+    const edgeList& basisEdges = this->edges();
     Info<<"---------------------------In Func-------------------"<<endl;
     Info<<"centerPointInd:"<<centerPointInd<<endl;
     Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
@@ -2135,8 +2137,46 @@ void Foam::cutCellFvMesh::computeClosedFaceFront
     }
     for(int i=0;i<uniqueCycles.size();i++)
     {
+        
         if(uniqueCycles[i].size()<3 || uniqueCycles[i].size()>8)
+        {
+            for(int j=0;j<cellsInd.size();j++)
+            {
+                cell oneCell = basisCells[cellsInd[j]];
+                Info<<"cellInd:"<<cellsInd[j]<<" "<<oneCell.labels(basisFaces)<<endl<<oneCell.points(basisFaces,basisPoints)<<endl;
+            }
+            Info<<"cellsInd:"<<cellsInd<<endl;
+            Info<<"facesInCellsIn:"<<facesInCellsIn<<endl;
+            std::unordered_set<label> pntsLabel;
+            for(int j=0;j<facesInCellsIn.size();j++)
+            {
+                for(int k=0;k<facesInCellsIn[j].size();k++)
+                {
+                    for(int l=0;l<facesInCellsIn[j][k].size();l++)
+                    {
+                        pntsLabel.insert(facesInCellsIn[j][k][l]);
+                    }
+                }
+            }
+            for(const label& pnt: pntsLabel)
+            {
+                if(pointToEgde_[pnt]!=-1)
+                    Info<<pnt<<":"<<basisEdges[pointToEgde_[pnt]]<<endl;
+            }
+            for(int j=0;j<uniqueCycles.size();j++)
+            {
+                Info<<j<<" ";
+                for(int k=0;k<uniqueCycles[j].size();k++)
+                {
+                    Info<<"("<<uniqueCycles[j][k].first<<" "<<uniqueCycles[j][k].second<<") ";
+                }
+                Info<<endl;
+            }
+            Info<<"i:"<<i<<endl;
+            Info<<"facesOfCells:"<<facesOfCells<<endl;
             FatalErrorInFunction<<"There must be between 3 and 8 faces in a front!"<< exit(FatalError);
+        }
+        
     }
     Info<<"facesOfCells:"<<facesOfCells<<endl;
     for(int i=0;i<uniqueCycles.size();i++)
@@ -3913,15 +3953,13 @@ void Foam::cutCellFvMesh::newMeshEdges
                         if(connectVertex < basisPoints.size())
                         {
                             if(oldZeroPointFound)
-                                FatalErrorInFunction<<"Cut face seems to have old vertices. Can not happen!"<< exit(FatalError);
+                                FatalErrorInFunction<<"Cut face seems to have two old vertices. Can not happen!"<< exit(FatalError);
                             centralZeroPoint = connectVertex;
                             otherZeroPoints[0]=(newEdges[j].otherVertex(connectVertex));
                             otherZeroPoints[1]=(newEdges[nextInd].otherVertex(connectVertex));
                             oldZeroPointFound = true;
                         }
                     }
-                    if(oldZeroPointFound)
-                        FatalErrorInFunction<<"Cut face seems to have old vertices. Can not happen!"<< exit(FatalError);
                 }
                 else
                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);

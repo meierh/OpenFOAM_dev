@@ -608,7 +608,7 @@ ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {    
-    intersectionRadius = 0.02;
+    intersectionRadius = 0;
     
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
