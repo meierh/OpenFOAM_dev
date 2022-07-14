@@ -78,7 +78,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
         // point vector to dist to reduce complexity
         std::unordered_map<label,label> newToOldPointIndMap;
-        std::unordered_map<label,scalar> pointDistMap;
+        scalarList pointDistMap;
         
         
         //old Cell Volume 
@@ -112,6 +112,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
             //Reference nurbs curves for zero points
             DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference;
+            DynamicList<point> meshPoint;
             
             //label of edge for every added Point and -1 for intersection point
             //labelList pointToEgde_;
@@ -263,39 +264,6 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList oldCellToMinusCutCell;
             //uncut cell to plus side cut cell face collection
             labelList oldCellToPlusCutCell;
-        //End
-        
-        //mapPolyMesh Data
-            //polyMesh&       mesh;
-            label           nOldPoints;
-            label           nOldFaces;
-            label           nOldCells;
-            labelList       pointMap;
-            labelList       reversePointMap;
-            List<objectMap> pointsFromPoints;
-            labelList       faceMap;
-            List<objectMap> facesFromPoints;
-            List<objectMap> facesFromEdges;
-            List<objectMap> facesFromFaces;
-            labelList       cellMap;
-            List<objectMap> cellsFromPoints;
-            List<objectMap> cellsFromEdges;
-            List<objectMap> cellsFromFaces;
-            List<objectMap> cellsFromCells;
-            labelList       reverseFaceMap;
-            labelList       reverseCellMap;
-            labelHashSet    flipFaceFlux;
-            labelListList   patchPointMap;
-            labelListList   pointZoneMap;
-            labelListList   faceZonePointMap;
-            labelListList   faceZoneFaceMap;
-            labelListList   cellZoneMap;
-            pointField      preMotionPoints;
-            labelList       oldPatchStarts;
-            labelList       oldPatchNMeshPoints;
-            autoPtr<scalarField> oldCellVolumesPtr;
-            
-            std::unique_ptr<mapPolyMesh> refineMapPtr;
         //End
             
         //List<std::shared_ptr<Nurbs>> Curves;

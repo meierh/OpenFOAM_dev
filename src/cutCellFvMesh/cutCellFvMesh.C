@@ -13,6 +13,7 @@ Foam::cutCellFvMesh::cutCellFvMesh
 ):
 dynamicRefineFvMesh(io)
 {
+    FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError); 
     //
     {
         const polyBoundaryMesh& boundMesh = this->boundaryMesh();
@@ -485,7 +486,9 @@ void Foam::cutCellFvMesh::newMeshPoints
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
 
-    nOldPoints = nbrOfPrevPoints = basisPoints.size();
+    //nOldPoints = nbrOfPrevPoints = basisPoints.size();
+    nbrOfPrevPoints = basisPoints.size();
+
     
     newMeshPointsInFunc.setCapacity(basisPoints.size()*2);
     //newMeshPoints_.setSize(basisPoints.size()*2);
@@ -5358,13 +5361,17 @@ void Foam::cutCellFvMesh::newMeshFaces
 (
 )
 {
+    FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError);
+
     //Info<<"Starting adding Faces"<<endl;
     const cellList& meshCells = this->cells();
     //const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
     
-    nOldFaces = nbrOfPrevFaces = basisFaces.size();
+    //nOldFaces = nbrOfPrevFaces = basisFaces.size();
+    nbrOfPrevFaces = basisFaces.size();
+
     
     newMeshFaces_.setCapacity(basisFaces.size()*2);
     newMeshFaces_.append(basisFaces);
@@ -6117,7 +6124,8 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
     const labelListList& faceToEdge = this->faceEdges();
     const labelListList& pointToFace = this->pointFaces();
     
-    nOldFaces = nbrOfPrevFaces = basisFaces.size();
+    nbrOfPrevFaces = basisFaces.size();
+    //nOldFaces = nbrOfPrevFaces = basisFaces.size();
     
     newMeshFaces_.setCapacity(basisFaces.size()*2);
     newMeshFaces_.append(basisFaces);
@@ -6639,6 +6647,8 @@ void Foam::cutCellFvMesh::cutOldFaces
 (
 )
 {
+    FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError);
+    
     //const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
     //const edgeList& meshEdges = this->edges();
@@ -8100,6 +8110,8 @@ void Foam::cutCellFvMesh::createNewMeshData
 (
 )
 {
+    FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError);
+    
     const cellList& meshCells = this->cells();
     const faceList& meshFaces = this->faces();
     //const edgeList& meshEdges = this->edges();
@@ -8108,7 +8120,7 @@ void Foam::cutCellFvMesh::createNewMeshData
     const labelList neighbour = this->faceNeighbour();    
     const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     
-    nOldCells = meshCells.size();
+    //nOldCells = meshCells.size();
     
     // Store old boundary patches
     patchStarts = labelList(boundMesh.size());
@@ -8727,7 +8739,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     const labelListList& cellToEdges = this->cellEdges();
     const labelListList& cellToPoints = this->cellPoints();
     
-    nOldCells = meshCells.size();
+    //nOldCells = meshCells.size();
 
     // Store old boundary patches
     Info<<endl;
@@ -10152,103 +10164,7 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         patchSizes[i] = patchStarts[i+1]-patchStarts[i];
     }
     patchSizes[patchSizes.size()-1] = addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size();
-    
-    /*
-    Info<<"splitAndUnsplitFacesInterior.size():"<<splitAndUnsplitFacesInterior.size()<<endl;
-    Info<<"splitAndUnsplitFacesBoundary.size():"<<splitAndUnsplitFacesBoundary.size()<<endl;
-    Info<<"addedCutFaces.size():"<<addedCutFaces.size()<<endl;
-    Info<<"splitAndUnsplitFacesInteriorToBoundary.size():"<<splitAndUnsplitFacesInteriorToBoundary.size()<<endl<<endl;
-    
-
-    for(int i=0;i<boundMesh.size();i++)
-    {
-        word namePatch = boundMesh[i].name();
-        Info<<namePatch<<"   BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
-    }
-    */
-    
-    //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
-    
-    /*
-    for(int i=0;i<addedCutFaceOwner.size();i++)
-    {
-        if(addedCutFaceOwner[i]<0)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"addedCutFaces["<<i<<"]:"<<addedCutFaces[i]<<endl;
-            Info<<"addedCutFaceOwner[i]:"<<addedCutFaceOwner[i]<<endl;
-            Info<<"addedCutFaceNeighbor[i]:"<<addedCutFaceNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"addedCutFaces Owner fail stop"<< exit(FatalError); 
-        }
-        if(addedCutFaceOwner[i]<-1)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"addedCutFaces["<<i<<"]:"<<addedCutFaces[i]<<endl;
-            Info<<"addedCutFaceOwner[i]:"<<addedCutFaceOwner[i]<<endl;
-            Info<<"addedCutFaceNeighbor[i]:"<<addedCutFaceNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"addedCutFaces Neighbour fail stop"<< exit(FatalError); 
-        }
-    }
-    for(int i=0;i<splitAndUnsplitFaceInteriorOwner.size();i++)
-    {
-        if(splitAndUnsplitFaceInteriorOwner[i]<0)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"splitAndUnsplitFacesInterior["<<i<<"]:"<<splitAndUnsplitFacesInterior[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorOwner[i]:"<<splitAndUnsplitFaceInteriorOwner[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorNeighbor[i]:"<<splitAndUnsplitFaceInteriorNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"splitAndUnsplitFacesInterior Owner fail stop"<< exit(FatalError); 
-        }
-        if(splitAndUnsplitFaceInteriorOwner[i]<-1)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"splitAndUnsplitFacesInterior["<<i<<"]:"<<splitAndUnsplitFacesInterior[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorOwner[i]:"<<splitAndUnsplitFaceInteriorOwner[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorNeighbor[i]:"<<splitAndUnsplitFaceInteriorNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"splitAndUnsplitFacesInterior Neighbour fail stop"<< exit(FatalError); 
-        }       
-    }
-    for(int i=0;i<splitAndUnsplitFaceInteriorToBoundaryOwner.size();i++)
-    {
-        if(splitAndUnsplitFaceInteriorToBoundaryOwner[i]<0)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"splitAndUnsplitFacesInteriorToBoundary["<<i<<"]:"<<splitAndUnsplitFacesInteriorToBoundary[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorToBoundaryOwner[i]:"<<splitAndUnsplitFaceInteriorToBoundaryOwner[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorToBoundaryNeighbor[i]:"<<splitAndUnsplitFaceInteriorToBoundaryNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"splitAndUnsplitFacesInteriorToBoundary Owner fail stop"<< exit(FatalError); 
-        }
-        if(splitAndUnsplitFaceInteriorToBoundaryOwner[i]<-1)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"splitAndUnsplitFacesInteriorToBoundary["<<i<<"]:"<<splitAndUnsplitFacesInteriorToBoundary[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorToBoundaryOwner[i]:"<<splitAndUnsplitFaceInteriorToBoundaryOwner[i]<<endl;
-            Info<<"splitAndUnsplitFaceInteriorToBoundaryNeighbor[i]:"<<splitAndUnsplitFaceInteriorToBoundaryNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"splitAndUnsplitFacesInteriorToBoundary Neighbour fail stop"<< exit(FatalError); 
-        }       
-    }
-    for(int i=0;i<splitAndUnsplitFaceBoundaryOwner.size();i++)
-    {
-        if(splitAndUnsplitFaceBoundaryOwner[i]<0)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"splitAndUnsplitFacesBoundary["<<i<<"]:"<<splitAndUnsplitFacesBoundary[i]<<endl;
-            Info<<"splitAndUnsplitFaceBoundaryOwner[i]:"<<splitAndUnsplitFaceBoundaryOwner[i]<<endl;
-            Info<<"splitAndUnsplitFaceBoundaryNeighbor[i]:"<<splitAndUnsplitFaceBoundaryNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"splitAndUnsplitFacesBoundary Owner fail stop"<< exit(FatalError); 
-        }
-        if(splitAndUnsplitFaceBoundaryOwner[i]<-1)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"splitAndUnsplitFacesBoundary["<<i<<"]:"<<splitAndUnsplitFacesBoundary[i]<<endl;
-            Info<<"splitAndUnsplitFaceBoundaryOwner[i]:"<<splitAndUnsplitFaceBoundaryOwner[i]<<endl;
-            Info<<"splitAndUnsplitFaceBoundaryNeighbor[i]:"<<splitAndUnsplitFaceBoundaryNeighbor[i]<<endl;            
-            FatalErrorInFunction<<"splitAndUnsplitFacesBoundary Neighbour fail stop"<< exit(FatalError); 
-        }       
-    }
-    //FatalErrorInFunction<<"Temporary stop"<< exit(FatalError);
-    */
-    
+        
     {
         Info<<"Test 10042"<<endl;
         faceList facesTest(0);
@@ -10304,6 +10220,9 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
         }
         //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError); 
     }
+    
+    
+    Info<<"deletedCell.size():"<<deletedCell.size()<<endl;
     //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 

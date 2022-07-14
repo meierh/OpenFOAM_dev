@@ -18,6 +18,8 @@ Curves(Curves),
 MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
 NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
 {
+    FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError);
+    
     for(unsigned long i=0;i<(*(this->Curves)).size();i++)
     {
         NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree((*(this->Curves))[i])));
@@ -201,6 +203,9 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size())),
 ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict()))
 {
+    FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError); 
+
+    
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
     std::chrono::duration<double> time_span;
@@ -427,36 +432,48 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
 {
     const pointField& points = this->points();
     pointDist = scalarList(points.size());
+    
     DynamicList<DynamicList<nurbsReference>> meshPointNurbsReferenceOld = meshPointNurbsReference;
+    scalarList pointDistMapOld = pointDistMap;
+
+    meshPointNurbsReference.clear();
     meshPointNurbsReference.setSize(points.size());
-    if(reset) pointDistMap.clear();
+    pointDistMap.clear();
+    pointDistMap.setSize(points.size());
+    
+    if(reset)
+    {
+        newToOldPointIndMap.clear();
+    }
     
     std::chrono::high_resolution_clock::time_point t1,t2,t3,t4,t5,t6,t7,t8;
     std::chrono::duration<double> time_span1(0),time_span2(0),time_span3(0),time_span4(0);
-
+    
+    label newCalculatedPnts = 0;
     for(int i=0;i<points.size();i++)
     {
-        /*
         auto oldInd = newToOldPointIndMap.find(i);
         if(oldInd!=newToOldPointIndMap.end())
-        {
-            auto distRes = pointDistMap[oldInd.second];
-            if(distRes!=pointDistMap.end())
-            {
-                scalar dist = distRes.second;
-                label ind = distRes.first;
-                meshPointNurbsReference[i] = meshPointNurbsReferenceOld[ind];
-                pointDist[i] = dist;
-                continue;
-            }
+        {            
+            scalar distRes = pointDistMapOld[oldInd->second];
+            meshPointNurbsReference[i] = meshPointNurbsReferenceOld[oldInd->second];
+            pointDist[i] = distRes;
+            pointDistMap[i] = pointDist[i];
+
+            continue;
         }
-        */
+        
+        //Info<<"After"<<endl;
+        
+        newCalculatedPnts++;
         
         t1 = std::chrono::high_resolution_clock::now();
         std::unique_ptr<labelList> firstOrderNearNurbs = MainTree->nearNurbsCurves(points[i]);
         if(firstOrderNearNurbs->size() == 0)
         {
             pointDist[i] = std::numeric_limits<scalar>::max();
+            meshPointNurbsReference[i].clear();
+            pointDistMap[i] = pointDist[i];
             continue;
         }
         t2 = std::chrono::high_resolution_clock::now();
@@ -489,7 +506,12 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             time_span4 += t8-t7; 
         }
         if(allOutSideNurbsBox)
+        {
+            pointDist[i] = std::numeric_limits<scalar>::max();
+            meshPointNurbsReference[i].clear();
+            pointDistMap[i] = pointDist[i];
             continue;
+        }
         
         scalar minDistToNurbsSurface = std::numeric_limits<scalar>::max();
         scalar minDistparaToNurbsSurface = -1;
@@ -518,8 +540,6 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
                 secondMinDistindToNurbsSurface = indToNurbsSurface[k];
             }
         }
-        
-        Info<<" minDi:"<<minDistindToNurbsSurface<<" minD:"<<minDistToNurbsSurface<<" secDi:"<<secondMinDistindToNurbsSurface<<" secD:"<<secondMinDistToNurbsSurface<<"  ";
 
         if(nonSecondNurbs)
         {
@@ -530,6 +550,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             temp.nurbsInd = minDistindToNurbsSurface;
             temp.nurbsPara = minDistparaToNurbsSurface;
             meshPointNurbsReference[i].append(temp);
+            pointDistMap[i] = pointDist[i];
         }
         else
         {
@@ -553,7 +574,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
             scalar radiusFactor = ((angle+1.)/2.);
             scalar smoothingRadius = radiusFactor * intersectionRadius;
             //Info<<"vecToMinDistNurbs:"<<vecToMinDistNurbs<<" vecToSecondMinDistNurbs:"<<vecToSecondMinDistNurbs;
-            Info<<"  agl:"<<angle<<" smoRad:"<<smoothingRadius<<"  ";
+            //Info<<"  agl:"<<angle<<" smoRad:"<<smoothingRadius<<"  ";
             
             if(vecToNurbsZeroOnce && std::abs(minDistToNurbsSurface)<smoothingRadius && std::abs(secondMinDistToNurbsSurface)<smoothingRadius)
             {
@@ -575,6 +596,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
                 meshPointNurbsReference[i].append(temp2);
                 
                 pointDist[i] = minDistToNurbsSurface + smoothingRadius*(1-distFirstToSecondMinFactor)*roundingFactor;
+                pointDistMap[i] = pointDist[i];
             }
             else
             {
@@ -585,8 +607,10 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
                 meshPointNurbsReference[i].append(temp1);
                 
                 pointDist[i] = minDistToNurbsSurface;
+                pointDistMap[i] = pointDist[i];
             }
         }
+        
         t4 = std::chrono::high_resolution_clock::now();
         time_span2 += t4-t3;
     }
@@ -595,6 +619,7 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
     Info<<"BsTree took \t\t\t\t" << time_span3.count() << " seconds."<<endl;
     Info<<"Newton took \t\t\t\t" << time_span4.count() << " seconds."<<endl;
     Info<<"BsTree + Newton took \t\t\t" << time_span2.count() << " seconds."<<endl;
+    Info<<"newCalculatedPnts:"<<newCalculatedPnts<<" / "<<points.size()<<endl;
 }
 
 Foam::cutCellFvMesh::cutCellFvMesh
@@ -607,7 +632,7 @@ dynamicRefineFvMesh(io),
 ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
-{    
+{
     intersectionRadius = 0;
     
     bool refineIsHex = false;
@@ -644,10 +669,9 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     Info<<"Before refinement"<<endl;
     testForNonHexMesh(*this);    
     // Refine nurbs cut surface
-    //refineTheImmersedBoundary();
+    refineTheImmersedBoundary();
     Info<<"After refinement"<<endl;
     testForNonHexMesh(*this);
-    
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary();
        
@@ -661,7 +685,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
     while(true)
     {
         Info<<"-------------------------------------------------"<<endl;
-        newToOldPointIndMap.clear();
         // Project distance to points
         std::chrono::high_resolution_clock::time_point t1;
         std::chrono::high_resolution_clock::time_point t2;
@@ -672,6 +695,8 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         t2 = std::chrono::high_resolution_clock::now();
         time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
         Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+        
+        newToOldPointIndMap.clear();
         
         // Collect refinement canidate cells
         Info<<"Collect all cutCells"<<endl;
@@ -744,9 +769,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         for(const label& cell:refineCellsMap)
             refineCells.append(cell);
         
-        Info<<"refineCells.size():"<<refineCells.size()<<endl;
-        //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
-        
         // Collect reRefinement cells
         Info<<"Collect all reRefinment cells"<<endl;
         DynamicList<label> reRefinementCells;
@@ -768,8 +790,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
                     duplicateTest.insert(insTest);
             }
             
-            Info<<"cellLoopStartInd:"<<cellLoopStartInd<<endl;
-            Info<<"cellLoopEndInd:"<<cellLoopEndInd<<endl;
             bool cellsAppended = false;
             for(int i=cellLoopStartInd;i<cellLoopEndInd;i++)
             {
@@ -831,17 +851,34 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             }
         }
         
-        Info<<"cells:"<<cells.size()<<endl;
         autoPtr<mapPolyMesh> reRefineMap = this->refine(reRefinementCells);
         this->motionPtr_->updateMesh(reRefineMap);
-        const labelList& pntMapOldToNew = reRefineMap->reversePointMap();
-        for(int i=0;i<pntMapOldToNew.size();i++)
-            newToOldPointIndMap[pntMapOldToNew[i]] = i;
+        const labelList& pntMapNewToOld = reRefineMap->pointMap();
+        for(int i=0;i<pntMapNewToOld.size();i++)
+        {
+            if(pntMapNewToOld[i]!=-1)
+            {
+                newToOldPointIndMap[i] = pntMapNewToOld[i];
+            }
+        }       
+        for(auto iter = newToOldPointIndMap.begin();iter!=newToOldPointIndMap.end();iter++)
+        {
+            if(iter->second>=meshPointNurbsReference.size())
+            {
+                Info<<"oldPointNbr:"<<reRefineMap->nOldPoints()<<endl;
+                Info<<"newPointNbr:"<<reRefineMap->pointMap().size()<<endl;
+                Info<<"pntMapNewToOld.size():"<<pntMapNewToOld.size()<<endl;
+                Info<<"iter-second:"<<iter->second<<endl;
+                Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
+                FatalErrorInFunction<<"Can not happen"<< exit(FatalError);
+            }
+        }
+        //Info<<"pntMapNewToOld.size():"<<pntMapNewToOld.size()<<endl;
+        //Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
         
         const cellList& cells2 = this->cells();
         const faceList& faces2 = this->faces();
-        Info<<"cells:"<<cells2.size()<<endl;        
-        
+        const pointField& points2 = this->points();
         for(int i=0;i<refineCells.size();i++)
         {
             if(refineCells[i]<0 || refineCells[i]>=cells2.size())
@@ -855,72 +892,73 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         Info<<"Test for cell size ratio"<<endl;
         // Test for cell size ratio
         scalar maxEdgeLen = std::numeric_limits<scalar>::min();
+        scalar minEdgeLen = std::numeric_limits<scalar>::max();
+        scalar avgEdgeLen = 0;
         for(int i=0;i<refineCells.size();i++)
         {
             //Info<<"Cell:"<<refineCells[i]<<endl;
             edgeList cellEdges = cells2[refineCells[i]].edges(faces2);
             for(const edge& oneEdge: cellEdges)
             {
-                scalar oneEdgeLen = oneEdge.mag(points);
+                scalar oneEdgeLen = oneEdge.mag(points2);
                 maxEdgeLen = (maxEdgeLen<oneEdgeLen)?oneEdgeLen:maxEdgeLen;
-            }        
+                minEdgeLen = (minEdgeLen>oneEdgeLen)?oneEdgeLen:minEdgeLen;
+                avgEdgeLen += oneEdgeLen;
+            }
         }
-        Info<<"End"<<endl;
+        avgEdgeLen /= refineCells.size();
+        Info<<"maxEdgeLen:"<<maxEdgeLen<<endl;
+        Info<<"minEdgeLen:"<<minEdgeLen<<endl;
+        Info<<"avgEdgeLen:"<<avgEdgeLen<<endl;
         scalar minRadius = minNurbsRadius();
+        Info<<"minRadius:"<<minRadius<<endl;
         scalar cellDimToStructureDim = maxEdgeLen/minRadius;
         
         if(cellDimToStructureDim>=oldCellDimToStructureDim)
             FatalErrorInFunction<<"No progress in near nurbs refinement"<< exit(FatalError);
 
-        Info<<"cellRefinementLevel[3874]:"<<cellRefinementLevel[3874]<<endl;
-        Info<<"cellRefinementLevel[15225]:"<<cellRefinementLevel[15225]<<endl;
-        Info<<"Refine"<<endl;
         Info<<cellDimToStructureDim<<"/"<<cellDimToStructureDimLimit<<endl;
-        
-        /*
-        if(refinementIteration==2)
-            FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
-        */
         
         if(cellDimToStructureDim > cellDimToStructureDimLimit)
         {
             Info<<"Pre mesh cell nbr:"<<this->cells().size()<<endl;
             autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
-            const labelList& pntMapOldToNew = reRefineMap->reversePointMap();
-            for(int i=0;i<pntMapOldToNew.size();i++)
+            const labelList& pntMapNewToOld = reRefineMap->pointMap();
+            for(int i=0;i<pntMapNewToOld.size();i++)
             {
-                label oldPnt = i;
-                label newPnt = pntMapOldToNew[i];
-                auto connex = newToOldPointIndMap.find(oldPnt);
-                if(connex==newToOldPointIndMap.end())
-                    newToOldPointIndMap[newPnt] = oldPnt;
-                else
+                if(pntMapNewToOld[i]!=-1)
                 {
-                    label mapNew = connex->first;
-                    label mapOld = connex->second;
-                    newToOldPointIndMap.erase(mapNew);
-                    newToOldPointIndMap[pntMapOldToNew[i]] = mapOld;
+                    label newPnt = i;
+                    label oldPnt = pntMapNewToOld[i];
+                    label oldOldPnt;
+                    auto connex = newToOldPointIndMap.find(oldPnt);
+                    if(connex != newToOldPointIndMap.end())
+                    {
+                        oldOldPnt = connex->second;
+                        label mapNew = connex->first;
+                        newToOldPointIndMap.erase(mapNew);
+                        newToOldPointIndMap[newPnt] = oldOldPnt;
+                    }
                 }
             }
-            Info<<"mapPolyMesh cell nbr:"<<refineMap->mesh().cells().size()<<endl;
-            //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
+            for(auto iter = newToOldPointIndMap.begin();iter!=newToOldPointIndMap.end();iter++)
+            {
+                if(iter->second>=meshPointNurbsReference.size())
+                {
+                    Info<<"oldPointNbr:"<<reRefineMap->nOldPoints()<<endl;
+                    Info<<"newPointNbr:"<<reRefineMap->pointMap().size()<<endl;
+                    Info<<"pntMapNewToOld.size():"<<pntMapNewToOld.size()<<endl;
+                    Info<<"iter-second:"<<iter->second<<endl;
+                    Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
+                    FatalErrorInFunction<<"Can not happen"<< exit(FatalError);
+                }
+            }
+            //Info<<"pntMapNewToOld.size():"<<pntMapNewToOld.size()<<endl;
+            //Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
+            //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+
             this->motionPtr_->updateMesh(refineMap);
             refinementIteration++;
-            Info<<"----------------------------------------"<<endl;
-            const labelListList& patchPointMap_=refineMap->patchPointMap();
-            Info<<"refineMap patchPointMap:"<<patchPointMap_.size()<<endl;
-            for(int i=0;i<patchPointMap_.size();i++)
-            {
-                Info<<"patchPointMap"<<i<<":"<<patchPointMap_[i].size()<<endl;
-            }
-            Info<<patchPointMap_[2]<<endl;
-            Info<<patchPointMap_[2][0]<<endl;
-            Info<<patchPointMap_[2][1155]<<endl;
-            std::unordered_set<label> allInd;
-            for(const label& ind : patchPointMap_[2])
-                allInd.insert(ind);
-            Info<<"allInd.size():"<<allInd.size()<<endl;
-            Info<<"allInd:-1:"<<allInd.count(-1)<<endl;
             Info<<"----------------------------------------"<<endl;
         }
         else
@@ -979,7 +1017,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     labelList owner(0);
     labelList neighbour(0);
     List<std::unordered_map<label,label>> oldPointIndToPatchInd;
-    polyTopoChange meshCutTopoChange(*this);
     if(ibAlgorithm == internalCut)
     {
         createNewMeshData();
@@ -1044,249 +1081,33 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                 FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
             }
         }
-
-        //Prepare face data for mapPolyMesh
-        cellMap = labelList(mapNewCellsToOldCells.size(),-1);
-        reverseCellMap = labelList(mapOldCellsToNewCells.size(),-1);
-        for(int i=0;i<cellMap.size();i++)
-        {
-            cellMap[i] = mapNewCellsToOldCells[i];
-        }
-        for(int i=0;i<mapOldCellsToNewCells.size();i++)
-        {
-            if(mapOldCellsToNewCells.size()==1)
-                reverseCellMap[i] = mapOldCellsToNewCells[i][0];
-            else if(mapOldCellsToNewCells.size()>1)
-            /* reverseCellMap only supports old to new one to one mapping
-             * solution: map the smallest, the "original cell ind"
-             */
-            {
-                label smallestCell = std::numeric_limits<label>::max();
-                for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
-                    if(smallestCell>mapOldCellsToNewCells[i][j])
-                        smallestCell = mapOldCellsToNewCells[i][j];
-                reverseCellMap[i] = smallestCell;
-            }
-        }
-        cellsFromPoints = List<objectMap>();
-        cellsFromEdges = List<objectMap>();
-        cellsFromFaces = List<objectMap>();
-        cellsFromCells = List<objectMap>();
-        //End
         
-        
-        // Prepare face data for mapPolyMesh
-        faceMap = labelList(faces.size());
-        reverseFaceMap = labelList(nOldFaces,-1);
-        label index=0;
-        for(int i=0;i<splitAndUnsplitFacesInterior.size();i++,index++)
-            faceMap[index] =  sAUFI_NewToOldMap[i];
-        for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++,index++)
-            faceMap[index] =  sAUFB_NewToOldMap[i];
-        for(int i=0;i<addedCutFaces.size();i++,index++)
-            faceMap[index] =  -1;
-        for(int i=0;i<splitAndUnsplitFacesInteriorToBoundary.size();i++,index++)
-            faceMap[index] =  sAUFITB_NewToOldMap[i];
-        
-        for(auto item=sAUFI_OldToNewMap.begin();item!=sAUFI_OldToNewMap.end();item++)
-            reverseFaceMap[item->first] = item->second;
-        for(auto item=sAUFITB_OldToNewMap.begin();item!=sAUFITB_OldToNewMap.end();item++)
-            reverseFaceMap[item->first] = item->second;
-        for(auto item=sAUFB_OldToNewMap.begin();item!=sAUFB_OldToNewMap.end();item++)
-            reverseFaceMap[item->first] = item->second;
-
-        facesFromFaces = List<objectMap>();
-        facesFromEdges = List<objectMap>();
-        facesFromPoints = List<objectMap>();
-        //End
-        
-        
-        // Prepare point data for mapPolyMesh
-        std::unordered_set<label> usedPoints;
-        for(int i=0;i<faces.size();i++)
-            for(int j=0;j<faces[i].size();j++)
-                usedPoints.insert(faces[i][j]);
-
-        DynamicList<point> meshPoints;
-        DynamicList<label> pointsToSide;
-        DynamicList<nurbsReference> meshPointNurbsReference;
-
-        std::unordered_map<label,label> pointOldPosToNewPos;
-        std::unordered_map<label,label> pointNewPosToOldPos;
-        std::unordered_map<label,label> pointIndMap;
-        for(int i=0;i<nOldPoints;i++)
-        {
-            if(usedPoints.count(i)!=0)
-            {
-                pointOldPosToNewPos.insert(std::pair<label,label>(i,meshPoints.size()));
-                pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),i));
-                pointIndMap.insert(std::pair<label,label>(i,meshPoints.size()));
-                meshPoints.append(newMeshPoints_[i]);
-                pointsToSide.append(pointsToSide_[i]);
-                meshPointNurbsReference.append(this->meshPointNurbsReference[i]);
-            }
-            else
-            {
-                meshCutTopoChange.removePoint(i,-1);
-            }
-        }
-        for(int i=nOldPoints;i<newMeshPoints_.size();i++)
-        {
-            if(usedPoints.count(i)!=0)
-            {
-                pointIndMap.insert(std::pair<label,label>(i,meshPoints.size()));
-                label masterPnt;
-                label addedPointEdgeInd = pointToEgde_[i];
-                edge addedPointEdge = this->edges()[addedPointEdgeInd];
-                if(pointsToSide_[addedPointEdge.start()]==1 && pointsToSide_[addedPointEdge.end()]==-1)
-                    masterPnt = addedPointEdge.start();
-                else if(pointsToSide_[addedPointEdge.end()]==1 && pointsToSide_[addedPointEdge.start()]==-1)
-                    masterPnt = addedPointEdge.end();
-                else
-                    FatalErrorInFunction<<"Can not happen"<<endl<< exit(FatalError);
-                pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),masterPnt));
-
-                //pointNewPosToOldPos.insert(std::pair<label,label>(meshPoints.size(),-1));
-                meshPoints.append(newMeshPoints_[i]);
-                pointsToSide.append(pointsToSide_[i]);
-                meshPointNurbsReference.append(this->meshPointNurbsReference[i]);
-                
-                meshCutTopoChange.addPoint(newMeshPoints_[i],-1,-1,true);
-            }
-        }
-        pointsToSide_ = pointsToSide;
+        //pointsToSide_ = pointsToSide;
         Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<endl;
-        Info<<"meshPoints.size():"<<meshPoints.size()<<endl;
         
-        pointField resetPointList(meshPoints.size());
-        for(int i=0;i<meshPoints.size();i++)
+        List<bool> pntDeleted(newMeshPoints_.size(),true);
+        for(const face& oneFace: faces)
+            for(const label& oneVertice: oneFace)
+                pntDeleted[oneVertice] = false;
+                
+        labelList pntOldIndToNewInd(newMeshPoints_.size(),-1);
+        label index=0;
+        for(int i=0;i<pntDeleted.size();i++)
         {
-            resetPointList[i] = meshPoints[i];
-        }
-        pointMap = labelList(meshPoints.size());
-        for(int i=0;i<meshPoints.size();i++)
-            pointMap[i] = pointNewPosToOldPos[i];
-        
-        reversePointMap = labelList(nOldPoints);
-        for(int i=0;i<nOldPoints;i++)
-        {
-            if(usedPoints.count(i)==0)
+            if(!pntDeleted[i])
             {
-                reversePointMap[i] = -1;
-            }
-            else
-            {
-                reversePointMap[i] = pointOldPosToNewPos[i];
+                pntOldIndToNewInd[i] = index;
+                index++;
             }
         }
-        pointsFromPoints = List<objectMap>();
-        
-        // Organize faces for meshCutTopoChange
-        // Start
-        for(int i=0;i<reverseFaceMap.size();i++)
-        {
-            if(reverseFaceMap[i]==-1)
-                meshCutTopoChange.removeFace(i,-1);
-        }
+        points.setSize(index+1);
         index=0;
-        for(int i=0;i<splitAndUnsplitFacesInterior.size();i++,index++)
+        for(int i=0;i<pntDeleted.size();i++)
         {
-            meshCutTopoChange.modifyFace(
-                splitAndUnsplitFacesInterior[i],
-                sAUFI_NewToOldMap[i],
-                splitAndUnsplitFacesInteriorOwner[i],
-                splitAndUnsplitFacesInteriorNeighbor[i],
-                false,
-                -1,
-                -1,
-                false
-                );
-        }
-        for(int i=0;i<splitAndUnsplitFacesBoundary.size();i++,index++)
-        {
-            meshCutTopoChange.modifyFace(
-                splitAndUnsplitFacesBoundary[i],
-                sAUFB_NewToOldMap[i],
-                splitAndUnsplitFacesBoundaryOwner[i],
-                splitAndUnsplitFacesBoundaryNeighbor[i],
-                false,
-                this->boundaryMesh().whichPatch(sAUFB_NewToOldMap[i]),
-                -1,
-                false
-                );
-        }
-        for(int i=0;i<addedCutFaces.size();i++,index++)
-        {
-            meshCutTopoChange.addFace(
-                addedCutFaces[i],
-                addedCutFacesOwner[i],
-                addedCutFacesNeighbor[i],
-                -1,
-                -1,
-                -1,
-                false,
-                this->boundaryMesh().types().size()-1,
-                -1,
-                false
-                );
-        }
-        for(int i=0;i<splitAndUnsplitFacesInteriorToBoundary.size();i++,index++)
-        {
-            meshCutTopoChange.addFace(
-                splitAndUnsplitFacesInteriorToBoundary[i],
-                splitAndUnsplitFacesInteriorToBoundaryOwner[i],
-                splitAndUnsplitFacesInteriorToBoundaryNeighbor[i],
-                -1,
-                -1,
-                -1,
-                false,
-                this->boundaryMesh().types().size()-1,
-                -1,
-                false
-                );
-        }
-        //End
-        
-        // Organize cells for meshCutTopoChange
-        // Start
-        cellMap = labelList(mapNewCellsToOldCells.size(),-1);
-        reverseCellMap = labelList(mapOldCellsToNewCells.size(),-1);
-        for(int i=0;i<deletedCell.size();i++)
-        {
-            if(deletedCell[i])
-                meshCutTopoChange.removeCell(i,-1);
-        }
-        DynamicList<label> addingCellMaster;
-        for(int i=0;i<mapNewCellsToOldCells.size();i++)
-        {
-            label oldCell = mapNewCellsToOldCells[i];
-            if(oldSplittedCellToNewPlusCell[oldCell].size()>0)
+            if(!pntDeleted[i])
             {
-                meshCutTopoChange.addCell(-1,-1,-1,oldCell,-1);
-            }
-        }
-        // End
-
-        List<bool> flipFace = correctListFaceNormalDir(
-            pointField(meshCutTopoChange.points()),meshCutTopoChange.faces(),
-            meshCutTopoChange.faceOwner(),meshCutTopoChange.faceNeighbour());
-        
-        for(int i=0;i<flipFace.size();i++)
-        {
-            if(flipFace[i])
-            {
-                face faceToFlip = meshCutTopoChange.faces()[i];
-                faceToFlip.flip();
-                meshCutTopoChange.modifyFace(
-                    faceToFlip,
-                    i,
-                    meshCutTopoChange.faceOwner()[i],
-                    meshCutTopoChange.faceNeighbour()[i],
-                    false,
-                    meshCutTopoChange.region()[i],
-                    -1,
-                    false
-                );
+                points[index] = newMeshPoints_[i];
+                index++;
             }
         }
         
@@ -1295,42 +1116,24 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             for(label& oneVertice: oneFace)
             {
                 point oldPoint = newMeshPoints_[oneVertice];
-                point newPoint = meshPoints[pointIndMap[oneVertice]];
+                point newPoint = points[pntOldIndToNewInd[oneVertice]];
                 if(oldPoint != newPoint)
                     FatalErrorInFunction<< "Can not happen"<<endl<< exit(FatalError);
-                oneVertice = pointIndMap[oneVertice];
+                oneVertice = pntOldIndToNewInd[oneVertice];
             }
         }
-        this->meshPointNurbsReference = meshPointNurbsReference;
-        points = meshPoints;
-        
-        flipFaceFlux = labelHashSet(0);
-                
+        Info<<"Set Ref"<<endl;
+        //this->meshPointNurbsReference = meshPointNurbsReference;
+                        
         const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
         oldPointIndToPatchInd.setSize(boundaryMesh.size());
-        oldPatchStarts = labelList(boundaryMesh.size());
-        oldPatchNMeshPoints = labelList(boundaryMesh.size());
         for(int i=0;i<boundaryMesh.size();i++)
         {
-            oldPatchStarts[i] = boundaryMesh[i].start();
             const polyPatch& onePatch = boundaryMesh[i];
             const labelList& patchPoints = onePatch.boundaryPoints();
-            oldPatchNMeshPoints[i] = patchPoints.size();
             for(int j=0;j<patchPoints.size();j++)
                 oldPointIndToPatchInd[i].insert(std::pair<label,label>(patchPoints[j],j));
         }
-        patchPointMap = labelListList(boundaryMesh.size());
-        
-        pointZoneMap = labelListList(0);
-        faceZonePointMap = labelListList(0);
-        faceZoneFaceMap = labelListList(0);
-        cellZoneMap = labelListList(0);
-        
-        preMotionPoints = Foam::clone(this->points());
-        
-        const DimensionedField<scalar,volMesh>& cellVolumes = this->V();
-        const scalarField& volField = cellVolumes.field();
-        oldCellVolumesPtr = autoPtr<scalarField>(new scalarField(Foam::clone(volField)));
                 
         t2 = std::chrono::high_resolution_clock::now();
         time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -1346,10 +1149,10 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
 
+    
     const pointField& oldPoints = this->points();
     const faceList& oldFaceList = this->faces();
-    const cellList& oldCells = this->cells();
-    
+    const cellList& oldCells = this->cells();    
     oldCellVolume = scalarList(oldCells.size());
     for(int i=0;i<oldCellVolume.size();i++)
     {
@@ -1363,69 +1166,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
-    /*
-    {
-        Foam::motionSolver* rawPtr = motionPtr_.ptr();  
-        Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
-        displacementMotionSolver* dMS;
-        try{
-            dMS = dynamic_cast<displacementMotionSolver*>(rawPtr);
-        }catch(...){
-            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
-        }    
-        pointVectorField& pVF = dMS->pointDisplacement();
-        
-        UList<vector> mapFO = UList<vector>();
-
-        
-        Info<<"dMS null:"<<(dMS==0)<<endl;
-                
-        auto& intFieldPointDispl = pVF.primitiveFieldRef();
-        auto& boundFieldPointDispl = pVF.boundaryFieldRef();
-        Info<<"boundaryTypes:"<<boundFieldPointDispl.types()<<endl;
-        Info<<"dispField size:"<<pVF.size()<<endl;
-        Info<<"cellNbr:"<<this->cells().size()<<endl;
-        Info<<"pointNbr:"<<this->points().size()<<endl;
-        Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
-        for(int i=0;i<boundFieldPointDispl.size();i++)
-        {
-            Info<<"i:"<<i;
-            pointPatchField<vector>* onePatch = &boundFieldPointDispl[i];
-            const Field<vector>& onePatchField = onePatch->primitiveField();
-            Info<<"   field size:"<<onePatchField.size();
-            const pointPatch& onePointPatch = (boundFieldPointDispl[i]).patch();
-            Info<<"   patch size:"<<onePointPatch.size()<<endl;
-        }        
-        motionPtr_.set(rawPtr);
-        
-        Info<<"Create Field 1"<<endl;
-        pointVectorField pDispl = pointVectorField
-        (
-            IOobject
-            (
-                "pointDisplacement",
-                this->time().timeName(),
-                *this,
-                IOobject::MUST_READ,
-                IOobject::AUTO_WRITE
-            ),
-            pointMesh::New(*this)
-        );
-        Info<<"Created Field 1"<<endl;
-        Info<<"pDispl:"<<pDispl.primitiveField()<<endl;
-        Info<<"pDispl.size():"<<pDispl.size()<<endl;
-        //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    }
-    */
-    
-    Info<<"Reset:"<<endl;
-
-
-    
-    Info<<"this->points.size():"<<this->points().size()<<endl;
-    Info<<"this->nPoints():"<<this->nPoints()<<endl;
-    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
-    
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -1433,49 +1173,28 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
                     patchSizes,
                     patchStarts,
                     false);
+    Info<<"Reset"<<endl;
     
     std::unordered_set<label> activePnts;
     for(int i=0;i<this->faces().size();i++)
         for(int j=0;j<this->faces()[i].size();j++)
             activePnts.insert(this->faces()[i][j]);
-
     label cnt=0;
     for(int i=0;i<points.size();i++)
         if(activePnts.count(i)!=0)
             cnt++;
-    
+    cnt++;
     if(cnt!=this->points().size())
+    {
+        Info<<"cnt:"<<cnt<<endl;
+        Info<<"this->points().size():"<<this->points().size()<<endl;
         FatalErrorInFunction<< "Invalid point number"<<endl<< exit(FatalError);
+    }
     
-    Info<<"active Points:"<<cnt<<endl;    
-    Info<<"this->points.size():"<<this->points().size()<<endl;
-    Info<<"this->nPoints():"<<this->nPoints()<<endl;
-    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
-    
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    
-    //this->topoChanging(true);
-    Info<<"face 1412: "<<meshCutTopoChange.faces()[1412]<<endl;
-    Info<<"owner 1412: "<<meshCutTopoChange.faceOwner()[1412]<<endl;
-    Info<<"neighbour 1412: "<<meshCutTopoChange.faceNeighbour()[1412]<<endl;
-    Info<<"498 removed: "<<meshCutTopoChange.cellRemoved(498)<<endl;
-    Info<<"644 removed: "<<meshCutTopoChange.cellRemoved(644)<<endl;
-    Info<<"original face 1412:"<<this->faces()[1412]<<endl;
-    Info<<"reverseFaceMap 1412:"<<reverseFaceMap[1412]<<endl;
-    Info<<"faceToSide 1412:"<<facesToSide_[1412]<<endl;
-    Info<<"cellToSide 498:"<<cellsToSide_[498]<<endl;
-    Info<<"cellToSide 644:"<<cellsToSide_[644]<<endl;
-    
-    //Info<<"owner before:"<<this->faceOwner()<<endl;
     this->topoChanging(true);
-    //this->polyMesh::clearAddressing(true);
-    //this->polyMesh::clearOut();
-    //autoPtr<mapPolyMesh> refineMapPtr = meshCutTopoChange.changeMesh(*this,true);
-    //this->polyMesh::clearAddressing(true);
-    Info<<"Reset done"<<endl;
-    Info<<"owner after:"<<this->faceOwner()<<endl;
 
-
+    //Reset field size for motionSolver
+    //Begin
     Foam::motionSolver* rawPtr = motionPtr_.ptr();  
     displacementLaplacianFvMotionSolver* dMS;
     try{
@@ -1484,12 +1203,10 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
     }catch(...){
         FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
-    }
-    
+    }    
     pointVectorField& pVF = dMS->pointDisplacement();
     if(this->points().size()!=pVF.size())
         pVF.setSize(this->points().size());
-
     pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
     //Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
     for(int i=0;i<boundFieldPointDispl.size();i++)
@@ -1507,11 +1224,9 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         }
         fVPPF->setSize(patchPoints.size());       
     }
-
     volVectorField& vVF = dMS->cellDisplacement();
     if(this->cells().size()!=vVF.size())
         vVF.setSize(this->cells().size());
-
     volVectorField::Boundary& vVF_Bound = vVF.boundaryFieldRef();
     for(int i=0;i<vVF_Bound.size();i++)
     {
@@ -1520,136 +1235,31 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
         if(boundPatch.size()!=boundField.size())
             boundField.setSize(boundPatch.size());
     }
-    
     pointField& pointsNull = dMS->points0();
     pointsNull.setSize(this->points().size());
     for(int i=0;i<this->points().size();i++)
-        pointsNull[i] = this->points()[i];    
-    
-    motionPtr_.set(rawPtr);    
-   
-    /*
-    Foam::motionSolver* rawPtr = motionPtr_.ptr();  
-    Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
-    displacementLaplacianFvMotionSolver* dMS;
-    try{
-        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
-    }catch(...){
-        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
-    }        
-    pointVectorField& pVF = dMS->pointDisplacement();
-    Info<<" nbrPoints:"<<this->points().size()<<endl;
-    pVF.Field<vector>::operator=(Field<vector>(this->points().size(),Foam::zero()));
-    pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
-    for(int i=0;i<boundFieldPointDispl.size();i++)
-    {
-        Info<<"i:"<<i<<endl;
-        pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[i];
-        const pointPatch& boundaryPointPatch = boundaryPatchField->patch();
-        const labelList& patchPoints = boundaryPointPatch.meshPoints();
-        fixedValuePointPatchField<vector>* fVPPF;
-        try{
-            fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
-            if(fVPPF==NULL)
-                FatalErrorInFunction<< "Cast to fixedValuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
-        }catch(...){
-            FatalErrorInFunction<< "Cast to fixedValuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
-        }
-        fVPPF->valuePointPatchField<vector>::operator=(Field<vector>(patchPoints.size(),Foam::zero()));
-    }
+        pointsNull[i] = this->points()[i];
     motionPtr_.set(rawPtr);
-    */
-    /*
-    const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
-    for(int i=0;i<boundaryMesh.size();i++)
-    {
-        oldPatchStarts[i] = boundaryMesh[i].start();
-        const polyPatch& onePatch = boundaryMesh[i];
-        const labelList& patchPoints = onePatch.boundaryPoints();
-        patchPointMap[i].setSize(patchPoints.size());
-        for(int j=0;j<patchPoints.size();j++)
-        {
-            patchPointMap[i][j] = oldPointIndToPatchInd[i][patchPoints[j]];
-        }
-    }
-    
-    Info<<"Refine map"<<endl;
-    refineMapPtr = std::unique_ptr<mapPolyMesh>
-    (
-        new mapPolyMesh
-        (
-            *this,
-            nOldPoints,nOldFaces,nOldCells,
-            pointMap,pointsFromPoints,
-            faceMap,facesFromPoints,facesFromEdges,facesFromFaces,
-            cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,cellsFromCells,
-            reversePointMap,reverseFaceMap,reverseCellMap,
-            flipFaceFlux,
-            patchPointMap,
-            pointZoneMap,faceZonePointMap,faceZoneFaceMap,cellZoneMap,
-            preMotionPoints,
-            oldPatchStarts,oldPatchNMeshPoints,
-            oldCellVolumesPtr 
-        )
-    );
-    Info<<"Refine map done"<<endl;
-    */
-    
-    Info<<"Update"<<endl;
-    //this->update();
-
-    /*
-    for(int i=0;i<patchStarts.size();i++)
-    {
-        Info<<"Patch "<<i<<endl;
-        std::unordered_set<label> pointLabels;
-        label index = patchStarts[i];
-        Info<<"start:"<<patchStarts[i]<<endl;
-        Info<<"size:"<<patchSizes[i]<<endl;
-        for(int j=0;j<patchSizes[i];j++)
-        {
-            face oneFace = faces[index];
-            for(int k=0;k<oneFace.size();k++)
-            {
-                pointLabels.insert(oneFace[k]);
-            }
-            index++;
-        }
-        Info<<"nbrPoints:"<<pointLabels.size()<<endl;
-        Info<<"------------------"<<endl;
-    }
-    auto& faceZones = this->faceZones();
-    const fvBoundaryMesh& fvBound = this->boundary();
-    for(int i=0;i<fvBound.size();i++)
-    {
-        Info<<"fvPatch:"<<i<<endl;
-        Info<<"name:"<<fvBound[i].name()<<endl;
-        Info<<"start:"<<fvBound[i].start()<<endl;
-        Info<<"size:"<<fvBound[i].size()<<endl;
-        //GeometricField& field;
-        
-        Info<<"------------------"<<endl;
-    }
-    */
-    
-    //this->update();
+    //End
+   
     Info<<"First self test"<<endl;
     selfTestMesh();
     
+    //Agglomeration for too small cells
+    //Begin
+    Info<<"Agglomerate small cut-cells";
     const cellList& newCells = this->cells();
     newCellVolume = scalarList(newCells.size());
     for(int i=0;i<newCellVolume.size();i++)
     {
-        //Info<<"i:"<<i<<endl;
         newCellVolume[i] = newCells[i].mag(points,this->faces());
     }
-    
-    Info<<"Agglomerate small cut-cells";
     t1 = std::chrono::high_resolution_clock::now();
     agglomerateSmallCells_cutNeg_plus(newCellVolume,oldCellVolume,partialThreeshold);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
+    //End
 
     //printMesh();
     Info<<"Please write"<<endl;
