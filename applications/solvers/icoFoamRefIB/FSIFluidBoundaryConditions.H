@@ -9,9 +9,11 @@ namespace functionObjects
 {
 class FSIFluidBoundaryConditions : public fvMeshFunctionObject
 {
-    const word& name,
-    const Time& runTime,
-    const dictionary& dict
+    public:
+        FSIFluidBoundaryConditions(const word& name,const Time& runTime,const dictionary& dict);
+        FSIFluidBoundaryConditions(const FSIFluidBoundaryConditions&) = delete;
+        
+    private:
 };
 }
 }

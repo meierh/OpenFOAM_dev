@@ -3,7 +3,7 @@ cutCellBoundaryHeatFlux.add("type","wallHeatFlux");
 cutCellBoundaryHeatFlux.add("libs","(fieldFunctionObjects)");
 cutCellBoundaryHeatFlux.add("patches","(cutCell)");
 
-functionObjects::fvMeshFunctionObject iB_heatFluxFromFluid
+functionObjects::FSIFluidBoundaryConditions iB_heatFluxFromFluid
 (
     "heatFlux",
     runTime,

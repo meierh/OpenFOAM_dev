@@ -33,7 +33,7 @@ Description
 //#include "fvCFD.H"
 #include "pisoControl.H"
 #include "cutCellFvMesh.H"
-#include "wallHeatFlux.H"
+#include "FSIFluidBoundaryConditions.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 int main(int argc, char *argv[])
