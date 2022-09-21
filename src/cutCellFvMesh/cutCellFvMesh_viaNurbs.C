@@ -1682,3 +1682,8 @@ scalar Foam::cutCellFvMesh::minNurbsRadius()
     }
     return minRadius;
 }
+
+const DynamicList<DynamicList<nurbsReference>>& getMeshPointNurbsReference() const
+{
+    return meshPointNurbsReference;
+}

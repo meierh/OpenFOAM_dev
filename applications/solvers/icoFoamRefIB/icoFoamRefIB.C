@@ -28,9 +28,7 @@ Description
     Transient solver for incompressible, laminar flow of Newtonian fluids.
 
 \*---------------------------------------------------------------------------*/
-//#include <math.h>
-//#include <memory>
-//#include "fvCFD.H"
+
 #include "pisoControl.H"
 #include "cutCellFvMesh.H"
 #include "FSIFluidBoundaryConditions.H"
@@ -47,7 +45,8 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "createIBConditions.H"
     #include "initContinuityErrs.H"
-
+    runTime.write();
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
