@@ -1,0 +1,40 @@
+EXE_INC = \
+    -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/dynamicFvMesh/lnInclude \
+    -I$(LIB_SRC)/dynamicMesh/lnInclude \
+    -I$(LIB_SRC)/fvMotionSolver/lnInclude \
+    -I$(WM_THIRD_PARTY_DIR)/tinyxml2 \
+    -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/cutCellFvMesh/lnInclude \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodContact \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodCosserat \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodGeometry \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodMesh \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodOpt \
+    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodTools \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsCore \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsMatrix \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsNurbs \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsSolver \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/extensions \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/external \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
+    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
+    -I${WM_THIRD_PARTY_DIR}/SuiteSparse/include
+
+LIB_LIBS = \
+    -lfiniteVolume \
+    -lmeshTools \
+    -ldynamicFvMesh \
+    -ldynamicMesh \
+    -lfvMotionSolvers \
+    $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
+    -L$(FOAM_USER_LIBBIN) \
+    -lcutCellFvMesh \
+    $(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/build/cmake_build/libActiveRodMesh.a \
+    -L$(WM_THIRD_PARTY_DIR)/gismo-stable_20160712/build/lib \
+    -lgismo \
+    -L${WM_THIRD_PARTY_DIR}/SuiteSparse/lib \
+    -lumfpack
