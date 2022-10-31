@@ -46,6 +46,7 @@ Description
 #include "rodCSrectangle.h"
 #include "timing.h"
 
+#include "NurbsStructure.H"
 #include "dynamicRefineFvMesh.H"
 #include "cutCellFvMesh.H"
 
@@ -68,11 +69,16 @@ int main(int argc, char *argv[])
     // disable post-processing etc.
     runTime.functionObjects().off();
 
-    
     Foam::Info
     << "Create mesh for time = "
     << runTime.timeName() << Foam::nl << Foam::endl;
-
+    
+    NurbsStructure solidStructure(runTime);
+    
+    
+	//std::vector<gsNurbs<double>> imp_crv3d_r0;
+	//import_xmlCrv(imp_crv3d_r0, ", 3, 1, 0);
+	//const int	nR = imp_crv3d_r0.size();
     
     Foam::Info<<"Test Nurbs Curve"<<Foam::endl;
     

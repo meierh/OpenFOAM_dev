@@ -564,6 +564,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold
         );
         
+        const DynamicList<DynamicList<nurbsReference>>& getMeshPointNurbsReference() const;
+
         void checkForHexCellsInCutArea();
                 
         scalar minNurbsRadius();

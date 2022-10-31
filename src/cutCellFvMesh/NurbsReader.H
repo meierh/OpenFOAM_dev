@@ -36,12 +36,11 @@ class NurbsReader
     public:
         explicit NurbsReader(fileName runDirectory, fileName caseName);
         NurbsReader(const NurbsReader&) = delete;
-        std::shared_ptr<std::vector<Nurbs1D>> getNurbsCurves();  
+        std::shared_ptr<std::vector<Nurbs1D>> getNurbsCurves();
         
     private:
-        word getXMLPath();
         std::shared_ptr<std::vector<Nurbs1D>> readOutNurbsFromXML();
-        
+        word getXMLPath();
         word fullXMLPath;
         std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves;
         fileName runDirectory;
