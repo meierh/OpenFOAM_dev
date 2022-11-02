@@ -281,4 +281,54 @@ void Foam::NurbsStructure::createNurbsStructure()
         printf("Initialize contact ... \n");
         myMesh.contact_init(cntOpt);
     }
+// **** End **** //
+
+// **** Setup simulation parameters **** //
+// * Parameters
+	int solveOK;
+	uint64 tg1, tg2;
+	myMesh.setNewtonParams(1e-5, 17, 7., 3);
+	myMesh.setLinearSolver(1);
+	myMesh.setOMPnThreads(omp_nthreads);
+
+	SolveOptions solveOpt;
+	solveOpt.tempCtrl = 0;
+	solveOpt.vtkOut = 0; // plot_vtk;
+	solveOpt.folder = folder;
+	solveOpt.vtk_n = plot_n;
+	solveOpt.mmOut = 0;
+	solveOpt.useLoadFun = 0;
+
+	std::string evalFile = folder + "\\eval";
+	myMesh.setSolveEvalOut(std::vector<int>(0), std::vector<T>(0), evalFile);
+
+	// * Load steps
+	std::vector<T> load_steps;
+	int nls = loadSteps;
+	std::string loadStr;
+	T t1 = 1.;
+	T dt = t1 / (1. * nls);
+
+	for (int i = 1; i <= nls; i++)
+		load_steps.push_back(dt * i);
+    
+	// * Pre-part output files
+	const int pp_n = pp_rid.size();
+	gsVector<T, 3> pp_sum_f;
+	gsVector<T, 3> pp_cf, pp_cu;
+	std::ofstream outfile1, outfile2, outfile3;
+	outfile1.open(folder + "\\output_u.dat");
+	outfile2.open(folder + "\\output_f.dat");
+	outfile3.open(folder + "\\output_eval.dat");
+	for (int i = 0; i < pp_n; i++)
+	{
+		//outfile1 << pp_eid[i] << "\t" << pp_eid[i] << "\t" << pp_eid[i] << "\t";
+		outfile1 << "x" << pp_rid[i] << "\ty" << pp_rid[i] << "\tz" << pp_rid[i] << "\t";
+		outfile2 << "x" << pp_rid[i] << "\ty" << pp_rid[i] << "\tz" << pp_rid[i] << "\t";
+	}
+	outfile1 << "\n";
+	outfile2 << "\n";
+	outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
+// **** End **** //
+
 }
