@@ -21,7 +21,6 @@ EXE_INC = \
     -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/extensions \
     -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/external \
     -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
     -I${WM_THIRD_PARTY_DIR}/SuiteSparse/include
 
 LIB_LIBS = \
@@ -33,7 +32,10 @@ LIB_LIBS = \
     $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
     -L$(FOAM_USER_LIBBIN) \
     -lcutCellFvMesh \
-    $(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/build/cmake_build/libActiveRodMesh.a \
+    -L$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/build/cmake_build \
+    -lActiveRodMesh \
+    -L$(WM_THIRD_PARTY_DIR)/nlopt/build \
+    -lnlopt \
     -L$(WM_THIRD_PARTY_DIR)/gismo-stable_20160712/build/lib \
     -lgismo \
     -L${WM_THIRD_PARTY_DIR}/SuiteSparse/lib \

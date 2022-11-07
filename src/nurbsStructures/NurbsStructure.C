@@ -4,18 +4,20 @@ Foam::NurbsStructure::NurbsStructure
 (
     Time& runTime
 ):
-runTime(runTime)
-{
-    runDirectory = runTime.rootPath();
-    caseName = runTime.caseName();
-    xmlPath = getXMLPath();
-    
+runTime(runTime),
+runDirectory(runTime.rootPath()),
+caseName(runTime.caseName()),
+xmlPath(getXMLPath()),
+nR(loadRodsFromXML())
+{    
     cntOpt.ptsType = 2;
     cntOpt.ptsN = 2;
     cntOpt.csFac = 2.0;
     cntOpt.preg = 0.02 * geoR0; 
     cntOpt.kc = 0.2 * geoE0*geoR0*geoR0; 
     cntOpt.initOut = 0;
+    
+    createNurbsStructure();    
 }
 
 Foam::word Foam::NurbsStructure::getXMLPath()
@@ -55,18 +57,23 @@ Foam::word Foam::NurbsStructure::getXMLPath()
     return fullPath;
 }
 
+int Foam::NurbsStructure::loadRodsFromXML()
+{
+    std::string rodsXMLFilePath = xmlPath;
+    ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
+    return rodsList.size();
+}
+
 void Foam::NurbsStructure::createNurbsStructure()
 {
 // **** Loading curves from file **** //
 	std::string name = "BCC_3x3x3_L20";
-    std::string rodsXMLFilePath = xmlPath;
-    std::vector<gsNurbs<double>> rodsList;
-    ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
-    const int	nR = rodsList.size();
     std::string folder = runDirectory+"/"+caseName;
     
-	if (_mkdir(("..\\output\\" + name).c_str()) != 0 && errno != EEXIST) throw("Problem making folder!");
-	if (_mkdir(folder.c_str()) != 0) throw("Problem making folder!");
+    /*
+    if (_mkdir(("..\\output\\" + name).c_str()) != 0 && errno != EEXIST) throw("Problem making folder!");
+    if (_mkdir(folder.c_str()) != 0) throw("Problem making folder!");
+    */
 // **** End **** //
     
 // **** Create initial geometry **** //
@@ -140,9 +147,9 @@ void Foam::NurbsStructure::createNurbsStructure()
     gsConstantFunction<double>* loadG;
     loadG = new gsConstantFunction<double>(gVec, 1);
     gsConstantFunction<double>* twist = new gsConstantFunction<double>(0., 1);
-    std::vector< ActiveRodMesh::rodCrossSection* >	 Geo(nR);
-    std::vector< ActiveRodMesh::rodCosserat* >		 Rods(nR);
-    std::vector< gsNurbsBasis<double>* >	 BasisRef(nR);
+    Geo = std::vector< ActiveRodMesh::rodCrossSection* >(nR);
+    Rods = std::vector< ActiveRodMesh::rodCosserat* >(nR);
+    BasisRef = std::vector< gsNurbsBasis<double>* >(nR);
     
     // * Make rods
     printf("Make rods ... \n");
@@ -250,8 +257,8 @@ void Foam::NurbsStructure::createNurbsStructure()
 
     ActiveRodMesh::RodMeshOptions meshOpt;
     meshOpt.name = name;
-    ActiveRodMesh::rodMesh myMesh(Rods, meshOpt);
-    myMesh.setTemp(Temp0, Temp0);
+    myMesh = std::unique_ptr<ActiveRodMesh::rodMesh>(new ActiveRodMesh::rodMesh(Rods, meshOpt));
+    myMesh->setTemp(Temp0, Temp0);
 
     // * Output mesh
     ParaViewOptions vtkOpt;
@@ -268,9 +275,11 @@ void Foam::NurbsStructure::createNurbsStructure()
         vtkOptGeo.folder = folder + "\\geo";
         vtkOptGeo.unDeformed = 1;
         vtkOptGeo.solidGeo = (plot_vtk > 1);
+        /*
         if (_mkdir(vtkOptGeo.folder.c_str()) != 0)
             std::cout << "Problem making folder!\n";
-        myMesh.writeParaView(vtkOptGeo);
+        */
+        myMesh->writeParaView(vtkOptGeo);
         //myMesh.writeXml(vtkOptGeo.name, vtkOptGeo.folder);
     }
     //std::cout << "Total length: " << myMesh.m_initLength << "\n";
@@ -279,56 +288,69 @@ void Foam::NurbsStructure::createNurbsStructure()
     if (isContact)
     {
         printf("Initialize contact ... \n");
-        myMesh.contact_init(cntOpt);
+        myMesh->contact_init(cntOpt);
     }
 // **** End **** //
 
 // **** Setup simulation parameters **** //
 // * Parameters
-	int solveOK;
-	uint64 tg1, tg2;
-	myMesh.setNewtonParams(1e-5, 17, 7., 3);
-	myMesh.setLinearSolver(1);
-	myMesh.setOMPnThreads(omp_nthreads);
-
-	SolveOptions solveOpt;
-	solveOpt.tempCtrl = 0;
-	solveOpt.vtkOut = 0; // plot_vtk;
-	solveOpt.folder = folder;
-	solveOpt.vtk_n = plot_n;
-	solveOpt.mmOut = 0;
-	solveOpt.useLoadFun = 0;
-
-	std::string evalFile = folder + "\\eval";
-	myMesh.setSolveEvalOut(std::vector<int>(0), std::vector<T>(0), evalFile);
-
-	// * Load steps
-	std::vector<T> load_steps;
-	int nls = loadSteps;
-	std::string loadStr;
-	T t1 = 1.;
-	T dt = t1 / (1. * nls);
-
-	for (int i = 1; i <= nls; i++)
-		load_steps.push_back(dt * i);
     
-	// * Pre-part output files
-	const int pp_n = pp_rid.size();
-	gsVector<T, 3> pp_sum_f;
-	gsVector<T, 3> pp_cf, pp_cu;
-	std::ofstream outfile1, outfile2, outfile3;
-	outfile1.open(folder + "\\output_u.dat");
-	outfile2.open(folder + "\\output_f.dat");
-	outfile3.open(folder + "\\output_eval.dat");
-	for (int i = 0; i < pp_n; i++)
-	{
-		//outfile1 << pp_eid[i] << "\t" << pp_eid[i] << "\t" << pp_eid[i] << "\t";
-		outfile1 << "x" << pp_rid[i] << "\ty" << pp_rid[i] << "\tz" << pp_rid[i] << "\t";
-		outfile2 << "x" << pp_rid[i] << "\ty" << pp_rid[i] << "\tz" << pp_rid[i] << "\t";
-	}
-	outfile1 << "\n";
-	outfile2 << "\n";
-	outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
+    int solveOK;
+    uint64 tg1, tg2;
+    myMesh->setNewtonParams(1e-5, 17, 7., 3);
+    myMesh->setLinearSolver(1);
+    myMesh->setOMPnThreads(omp_nthreads);
+
+    ActiveRodMesh::SolveOptions solveOpt;
+    solveOpt.tempCtrl = 0;
+    solveOpt.vtkOut = 0; // plot_vtk;
+    solveOpt.folder = folder;
+    solveOpt.vtk_n = plot_n;
+    solveOpt.mmOut = 0;
+    solveOpt.useLoadFun = 0;
+
+    std::string evalFile = folder + "\\eval";
+    myMesh->setSolveEvalOut(std::vector<int>(0), std::vector<double>(0), evalFile);
+
+    // * Load steps
+    std::vector<double> load_steps;
+    int nls = loadSteps;
+    std::string loadStr;
+    double t1 = 1.;
+    double dt = t1 / (1. * nls);
+
+    for (int i=1; i<=nls; i++)
+        load_steps.push_back(dt * i);
+
+    // * Pre-part output files
+    const int pp_n = pp_rid.size();
+    gsVector<double, 3> pp_sum_f;
+    gsVector<double, 3> pp_cf, pp_cu;
+    std::ofstream outfile1, outfile2, outfile3;
+    outfile1.open(folder + "\\output_u.dat");
+    outfile2.open(folder + "\\output_f.dat");
+    outfile3.open(folder + "\\output_eval.dat");
+    for (int i=0; i<pp_n; i++)
+    {
+        //outfile1 << pp_eid[i] << "\t" << pp_eid[i] << "\t" << pp_eid[i] << "\t";
+        outfile1 << "x" << pp_rid[i] << "\ty" << pp_rid[i] << "\tz" << pp_rid[i] << "\t";
+        outfile2 << "x" << pp_rid[i] << "\ty" << pp_rid[i] << "\tz" << pp_rid[i] << "\t";
+    }
+    outfile1 << "\n";
+    outfile2 << "\n";
+    outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
+    
 // **** End **** //
 
+}
+
+Foam::NurbsStructure::~NurbsStructure()
+{
+    for (int i = 0; i < nR; i++)
+	{
+		delete Geo[i];
+		delete Rods[i];
+	}
+	Geo.clear();
+	Rods.clear();
 }

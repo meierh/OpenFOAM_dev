@@ -6,19 +6,20 @@
 //#include <direct.h>
 #include <random>
 #include <chrono>
+#include <memory>
 
 #include "activeRodMesh.h"
-#include "rodOpt.h"
-#include "rodTools.h"
-#include "rodLatticePBC.h"
+//#include "rodOpt.h"
+//#include "rodTools.h"
+//#include "rodLatticePBC.h"
 #include "rodImport.h"
 #include "rodCScircle.h"
-#include "rodCSrectangle.h"
+//#include "rodCSrectangle.h"
 #include "timing.h"
 #include "rodMesh.h"
-#include "bvh.h"
+//#include "bvh.h"
 
-#include <dirent.h>
+//#include <dirent.h>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -31,6 +32,7 @@ class NurbsStructure
 {
     public:
         explicit NurbsStructure(Time& runTime);
+        ~NurbsStructure();
         
     private:
         Time& runTime;
@@ -39,9 +41,14 @@ class NurbsStructure
         fileName xmlPath;
         word name;
         word getXMLPath();
-        void createNurbsStructure();        
-        ActiveRodMesh::rodMesh myMesh;
-        
+        int loadRodsFromXML();
+        void createNurbsStructure();
+        std::unique_ptr<ActiveRodMesh::rodMesh> myMesh;
+        std::vector< ActiveRodMesh::rodCrossSection* > Geo;
+        std::vector< ActiveRodMesh::rodCosserat* > Rods;
+        std::vector< gsNurbsBasis<double>* > BasisRef;
+        std::vector<gsNurbs<double>> rodsList;
+        const int nR; // Number of Rods
         
         //******************* Parameters *******************//
             const double	latScale = 1.;			// Scaling factor for XML geometry
