@@ -1687,3 +1687,10 @@ const DynamicList<DynamicList<Foam::cutCellFvMesh::nurbsReference>>& Foam::cutCe
 {
     return meshPointNurbsReference;
 }
+
+const std::shared_ptr<std::vector<Nurbs1D>> Foam::cutCellFvMesh::getCurves()
+const
+{
+    return Curves;
+};
+

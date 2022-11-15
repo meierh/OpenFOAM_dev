@@ -340,7 +340,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const bool write = true
         ) const;
         
+        const DynamicList<DynamicList<nurbsReference>>& getMeshPointNurbsReference() const;
         
+        const std::shared_ptr<std::vector<Nurbs1D>> getCurves() const;
+
 
     //Private Memberfunctions
     private:
@@ -564,8 +567,6 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold
         );
         
-        const DynamicList<DynamicList<nurbsReference>>& getMeshPointNurbsReference() const;
-
         void checkForHexCellsInCutArea();
                 
         scalar minNurbsRadius();

@@ -30,6 +30,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "pisoControl.H"
+#include "NurbsStructure.H"
 #include "cutCellFvMesh.H"
 #include "FSIFluidBoundaryConditions.H"
 
@@ -46,6 +47,9 @@ int main(int argc, char *argv[])
     #include "createIBConditions.H"
     #include "initContinuityErrs.H"
     runTime.write();
+    
+    NurbsStructure solidStructure(runTime);
+
     FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

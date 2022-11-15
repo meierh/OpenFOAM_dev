@@ -6,7 +6,7 @@ Foam::FSIFluidBoundaryConditions::FSIFluidBoundaryConditions
     const volScalarField& T,
     const volScalarField& p,
     const volVectorField& U,
-    const fvMesh& mesh,
+    const cutCellFvMesh& mesh,
     const dimensionedScalar nu,
     const word& IBpatchName
 ):
@@ -16,7 +16,9 @@ p(p),
 U(U),
 mesh(mesh),
 IBpatchName(IBpatchName),
-nu(nu)
+nu(nu),
+meshPointNurbsReference(mesh.getMeshPointNurbsReference()),
+Curves(mesh.getCurves())
 {
     auto cutCellBound = this->mesh.Sf().boundaryField();
     const fvBoundaryMesh& bound = mesh.boundary();
@@ -26,6 +28,37 @@ nu(nu)
     
     computeIBHeatFlux();
     computeIBForce();
+    
+    
+    
+    
+}
+
+void Foam::FSIFluidBoundaryConditions::assignBoundaryFacesToNurbsCurves()
+{
+    const fvBoundaryMesh& boundary = mesh.boundary();
+    const fvPatch& nurbsBoundary = boundary[IBPatchID];
+    const faceList& faces = mesh.faces();
+    label i=0;
+    label faceInd=nurbsBoundary.start()
+    for(label i=0;i<nurbsBoundary.size();i++,faceInd++)
+    {
+        face thisFace = faces[faceInd];
+        for(label j=0;j<thisFace.size();j++)
+        {
+            boundaryPntToFace.insert(std::pair<label,label>(thisFace[j],faceInd));
+        }
+    }
+    
+    nurbsParameterToPnt = List<std::multimap<scalar,label>>(Curves.size());
+    
+    for(auto iterPnt=boundaryPntToFace.begin(); iterPnt!=boundaryPntToFace.end(); ++iterPnt)
+    {
+        label pntLabel = iterPnt->first;
+        DynamicList<cutCellFvMesh::nurbsReference>&  refs = meshPointNurbsReference[pntLabel];
+        nurbsReference& ref = refs[0];
+        nurbsParameterToPnt[ref.nurbsInd].insert(std::pair<scalar,label>(ref.nurbsPara,pntLabel));
+    }
 }
 
 void Foam::FSIFluidBoundaryConditions::computeIBHeatFlux()
@@ -34,6 +67,12 @@ void Foam::FSIFluidBoundaryConditions::computeIBHeatFlux()
     GeometricField<double,fvsPatchField,surfaceMesh>& gTF = gradT.ref();
     const GeometricField<double,fvsPatchField,surfaceMesh>::Boundary& gradTBoundary = gTF.boundaryField();
     const fvsPatchField<double> ibgradT = gradTBoundary[IBPatchID];
+    
+    
+    
+    gismo::gsNurbs<double> heatFlux;
+    
+    
     
     Info<<"gradT size:"<<gradTBoundary.size()<<endl; 
     Info<<"ibgradT size:"<<ibgradT.size()<<endl;
