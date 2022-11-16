@@ -23,6 +23,8 @@ Curves(mesh.getCurves())
     auto cutCellBound = this->mesh.Sf().boundaryField();
     const fvBoundaryMesh& bound = mesh.boundary();
     IBPatchID = bound.findPatchID(IBpatchName);
+    assignBoundaryFacesToNurbsCurves();
+    
     Info<<"BoundaryField size:"<<cutCellBound[IBPatchID].size()<<endl;
     Info<<"IB Patch id:"<<IBPatchID<<endl;
     
@@ -51,14 +53,13 @@ void Foam::FSIFluidBoundaryConditions::assignBoundaryFacesToNurbsCurves()
     }
     
     nurbsParameterToPnt = List<std::multimap<scalar,label>>(Curves->size());
-    
     for(auto iterPnt=boundaryPntToFace.begin(); iterPnt!=boundaryPntToFace.end(); ++iterPnt)
     {
         label pntLabel = iterPnt->first;
         const DynamicList<cutCellFvMesh::nurbsReference>&  refs = meshPointNurbsReference[pntLabel];
         const cutCellFvMesh::nurbsReference& ref = refs[0];
         nurbsParameterToPnt[ref.nurbsInd].insert(std::pair<scalar,label>(ref.nurbsPara,pntLabel));
-    }
+    }   
 }
 
 void Foam::FSIFluidBoundaryConditions::computeIBHeatFlux()
