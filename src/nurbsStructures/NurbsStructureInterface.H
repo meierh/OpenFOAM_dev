@@ -112,8 +112,13 @@ class NurbsStructureInterface
         const dimensionedScalar nu;
         const DynamicList<DynamicList<cutCellFvMesh::nurbsReference>>& meshPointNurbsReference;
         const std::shared_ptr<std::vector<Nurbs1D>> Curves;
-        std::unordered_map<label,label> boundaryPntToFace;
+        std::unordered_multimap<label,label> boundaryPntToFaces;
         List<std::multimap<scalar,label>> nurbsParameterToPnt;
+        
+    
+        std::vector<std::vector<scalar>> nurbsToLimits;
+        std::vector<std::vector<std::vector<label>>> nurbsToLimitsFaces;
+        std::vector<std::vector<std::vector<label>>> nurbsToLimitsFacesWeights;
         
         void computeIBHeatFlux();
         void computeIBTemperature();

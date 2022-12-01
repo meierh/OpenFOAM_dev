@@ -47,18 +47,18 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
     const faceList& faces = mesh.faces();
     label i=0;
     label faceInd=nurbsBoundary.start();
+    std::unordered_set<label> 
     for(label i=0;i<nurbsBoundary.size();i++,faceInd++)
     {
         face thisFace = faces[faceInd];
         for(label j=0;j<thisFace.size();j++)
         {
-            boundaryPntToFace.insert(std::pair<label,label>(thisFace[j],faceInd));
+            boundaryPntToFaces.insert(std::pair<label,label>(thisFace[j],faceInd));
         }
     }
     
     nurbsParameterToPnt = List<std::multimap<scalar,label>>(Curves->size());
-    
-    for(auto iterPnt=boundaryPntToFace.begin(); iterPnt!=boundaryPntToFace.end(); ++iterPnt)
+    for(auto iterPnt=boundaryPntToFaces.begin(); iterPnt!=boundaryPntToFaces.end(); ++iterPnt)
     {
         label pntLabel = iterPnt->first;
         const DynamicList<cutCellFvMesh::nurbsReference>&  refs = meshPointNurbsReference[pntLabel];
@@ -66,11 +66,14 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
         nurbsParameterToPnt[ref.nurbsInd].insert(std::pair<scalar,label>(ref.nurbsPara,pntLabel));
     }
     
+    nurbsToLimits.resize(Curves->size());
+    nurbsToLimitsFaces.resize(Curves->size());
+    nurbsToLimitsFacesWeights.resize(Curves->size());
     for(int nurbsInd=0; nurbsInd<Curves->size(); nurbsInd++)
     {
         std::vector<scalar> nurbsParaDistCurve;
-        for(auto iterPara = nurbsParameterToPnt.begin();
-            iterPara != nurbsParameterToPnt.end();
+        for(auto iterPara = nurbsParameterToPnt[nurbsInd].begin();
+            iterPara != nurbsParameterToPnt[nurbsInd].end();
             ++iterPara)
         {
             scalar nurbsParaOne = iterPara->first;
@@ -80,7 +83,7 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
             {
                 label facePnt = thisFace[i];
                 const DynamicList<cutCellFvMesh::nurbsReference>&  refs = meshPointNurbsReference[facePnt];
-                for(cutCellFvMesh::nurbsReference& ref : refs)
+                for(const cutCellFvMesh::nurbsReference& ref : refs)
                 {
                     if(ref.nurbsInd == nurbsInd)
                     {
@@ -91,12 +94,71 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
             const auto [min, max] = std::minmax_element(nurbsParaDistFace.begin(),nurbsParaDistFace.end());
             if(nurbsParaDistFace.size()!=0)
             {
-                nurbsParaDistCurve.push_back(max);
+                nurbsParaDistCurve.push_back(*max);
             }            
         }
         std::sort(nurbsParaDistCurve.begin(),nurbsParaDistCurve.end());
-        label medInd = nurbsParaDistCurve.size()/2
-        scalar medianNurbsParaDist = nurb
+        label medInd = nurbsParaDistCurve.size()/2;
+        scalar medianNurbsParaDist;
+        if(nurbsParaDistCurve.size() % 2 == 0)
+        {
+            medianNurbsParaDist = 0.5*(nurbsParaDistCurve[medInd] + nurbsParaDistCurve[medInd]);
+        }
+        else
+        {
+            medianNurbsParaDist = nurbsParaDistCurve[medInd];
+        }
+        const scalar minU = (*Curves)[nurbsInd].min_U();
+        const scalar maxU = (*Curves)[nurbsInd].max_U();        
+        std::vector<scalar> limits = {minU,minU+2*medianNurbsParaDist};
+        std::vector<std::unordered_map<label,scalar>> facesInLimitsWithWeight;
+        
+        while(limits.back() < maxU-5*medianNurbsParaDist)
+        {
+            limits.push_back(limits.back()+3*medianNurbsParaDist);
+        }
+        scalar remainDist = maxU - limits.back();
+        if(remainDist<3*medianNurbsParaDist)
+        {
+            limits.push_back(limits.back()+0.5*remainDist);
+        }
+        limits.push_back(maxU);
+        
+        label i=0;
+        facesInLimitsWithWeight.resize(limits.size()-1);
+        auto iterPara = nurbsParameterToPnt[nurbsInd].lower(limits);
+        for(int i=0;i<limits.size()-1;i++)
+        {
+            scalar lower = limits[i];
+            scalar upper = limits[i+1];
+            
+            do
+            {
+                scalar nurbsPara = iterPara->first;
+                label pntInd = iterPara->second;
+                for(auto iter=boundaryPntToFaces.find(pntInd); iter->first==pntInd; ++iter)
+                {
+                    label faceInd = iter->second;
+                    scalar nbrFaceVertices = faces[faceInd].size();
+                    facesInLimitsWithWeight[i][faceInd] += scalar(1)/nbrFaceVertices;
+                }
+                iterPara++;
+            }
+            while(*iterPara<=upper);
+        }
+        nurbsToLimits[nurbsInd] = limits;
+        nurbsToLimitsFaces[nurbsInd].resize(limits.size()-1);
+        nurbsToLimitsFacesWeights[nurbsInd].resize(limits.size()-1);
+        for(int i=0;i<limits.size()-1;i++)
+        {
+            for(auto iter=facesInLimitsWithWeight[i].begin();
+                iter!=facesInLimitsWithWeight[i].end();
+                iter++)
+            {
+                nurbsToLimitsFaces[nurbsInd][i].push_back(iter->first);
+                nurbsToLimitsFacesWeights[nurbsInd][i].push_back(iter->second);
+            }
+        }
     }
 }
 
