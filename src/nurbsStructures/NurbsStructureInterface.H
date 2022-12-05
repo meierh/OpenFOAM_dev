@@ -115,7 +115,6 @@ class NurbsStructureInterface
         std::unordered_multimap<label,label> boundaryPntToFaces;
         List<std::multimap<scalar,label>> nurbsParameterToPnt;
         
-    
         std::vector<std::vector<scalar>> nurbsToLimits;
         std::vector<std::vector<std::vector<label>>> nurbsToLimitsFaces;
         std::vector<std::vector<std::vector<label>>> nurbsToLimitsFacesWeights;
@@ -124,7 +123,8 @@ class NurbsStructureInterface
         void computeIBTemperature();
         void computeIBForce();
         void assignBoundaryFacesToNurbsCurves();
-
+        template<class T>
+        std::unique_ptr<std::Vector<T>> computeDistributedLoad();
 };
 }
 #endif

@@ -40,6 +40,8 @@ Curves(mesh.getCurves())
     IBPatchID = bound.findPatchID(IBpatchName);
 }
 
+
+
 void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
 {
     const fvBoundaryMesh& boundary = mesh.boundary();
@@ -47,7 +49,6 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
     const faceList& faces = mesh.faces();
     label i=0;
     label faceInd=nurbsBoundary.start();
-    std::unordered_set<label> 
     for(label i=0;i<nurbsBoundary.size();i++,faceInd++)
     {
         face thisFace = faces[faceInd];
@@ -126,7 +127,7 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
         
         label i=0;
         facesInLimitsWithWeight.resize(limits.size()-1);
-        auto iterPara = nurbsParameterToPnt[nurbsInd].lower(limits);
+        auto iterPara = nurbsParameterToPnt[nurbsInd].lower_bound(limits[0]);
         for(int i=0;i<limits.size()-1;i++)
         {
             scalar lower = limits[i];
@@ -144,7 +145,7 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
                 }
                 iterPara++;
             }
-            while(*iterPara<=upper);
+            while(iterPara->first<=upper);
         }
         nurbsToLimits[nurbsInd] = limits;
         nurbsToLimitsFaces[nurbsInd].resize(limits.size()-1);
@@ -160,6 +161,14 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
             }
         }
     }
+}
+
+std::unique_ptr<std::Vector<T>> Foam::NurbsStructureInterface::computeDistributedLoad
+(
+    const 
+)
+{
+    
 }
 
 void Foam::NurbsStructureInterface::computeIBHeatFlux()
