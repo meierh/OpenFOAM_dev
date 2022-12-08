@@ -55,16 +55,21 @@ class NurbsStructureInterface
         word getXMLPath();
         int loadRodsFromXML();
         void createNurbsStructure();
+        void createNurbs();
+        void createNurbsBoundary();
+        void setSolverOptions();
         std::unique_ptr<ActiveRodMesh::rodMesh> myMesh;
         std::vector< ActiveRodMesh::rodCrossSection* > Geo;
         std::vector< ActiveRodMesh::rodCosserat* > Rods;
         std::vector< gsNurbsBasis<double>* > BasisRef;
         std::vector<gsNurbs<double>> rodsList;
         const int nR; // Number of Rods
+        std::string folder;
         
         //******************* Parameters *******************//
             const double	latScale = 1.;			// Scaling factor for XML geometry
             const int	latDir = 2;				// Lattice direction (e.g. for gravity load)
+            gsVector<double,3> latSize;
         
             // * Parameters for IGA discretization
             const bool	use_mixed = 1;			// Use mixed method?
@@ -98,6 +103,7 @@ class NurbsStructureInterface
             // * Parameters for contact
             const bool	isContact = 0;            
             ActiveRodMesh::ContactOptions cntOpt;
+            std::vector<int> pp_rid;
 
         //******************* Parameters *******************//
             
@@ -117,14 +123,15 @@ class NurbsStructureInterface
         
         std::vector<std::vector<scalar>> nurbsToLimits;
         std::vector<std::vector<std::vector<label>>> nurbsToLimitsFaces;
-        std::vector<std::vector<std::vector<label>>> nurbsToLimitsFacesWeights;
+        std::vector<std::vector<std::vector<scalar>>> nurbsToLimitsFacesWeights;
         
         void computeIBHeatFlux();
         void computeIBTemperature();
         void computeIBForce();
         void assignBoundaryFacesToNurbsCurves();
-        template<class T>
-        std::unique_ptr<std::Vector<T>> computeDistributedLoad();
+        template<typename Tensor_Type>
+        std::unique_ptr<std::vector<std::vector<Tensor_Type>>> computeDistributedLoad(const Field<Tensor_Type> immersedBoundaryField);
+        void assignForceOnCurve();
 };
 }
 #endif

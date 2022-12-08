@@ -33,14 +33,14 @@ Curves(mesh.getCurves())
     cntOpt.kc = 0.2 * geoE0*geoR0*geoR0; 
     cntOpt.initOut = 0;
     
+    folder = runDirectory+"/"+caseName;
+
     createNurbsStructure();
     
     auto cutCellBound = this->mesh.Sf().boundaryField();
     const fvBoundaryMesh& bound = mesh.boundary();
     IBPatchID = bound.findPatchID(IBpatchName);
 }
-
-
 
 void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
 {
@@ -163,12 +163,59 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
     }
 }
 
-std::unique_ptr<std::Vector<T>> Foam::NurbsStructureInterface::computeDistributedLoad
+template<typename Tensor_Type>
+std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInterface::computeDistributedLoad
 (
-    const 
+    const Field<Tensor_Type> immersedBoundaryField
 )
 {
+    const fvBoundaryMesh& boundary = mesh.boundary();
+    const fvPatch& nurbsBoundary = boundary[IBPatchID];
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    const label nurbsBoundaryStart = nurbsBoundary.start();
     
+    auto result = std::unique_ptr<std::vector<std::vector<Tensor_Type>>>
+    (
+        new std::vector<std::vector<Tensor_Type>>(Curves->size())
+    );
+    for(int nurbsInd=0; nurbsInd<Curves->size(); nurbsInd++)
+    {
+        (*result)[nurbsInd].resize(nurbsToLimits[nurbsInd].size()-1);
+        for(int i=0;i<(*result)[nurbsInd].size();i++)
+        {
+            std::vector<label>& facesInLimits = nurbsToLimitsFaces[nurbsInd][i];
+            std::vector<scalar>& weightsInLimits = nurbsToLimitsFacesWeights[nurbsInd][i];
+            
+            Tensor_Type thisSpanValue = Tensor_Type();
+            for(int j=0;j<facesInLimits.size();j++)
+            {
+                face thisFace = faces[facesInLimits[j]];
+                Tensor_Type thisFaceField = immersedBoundaryField[facesInLimits[j]-nurbsBoundaryStart];
+                thisSpanValue+= weightsInLimits[j]*thisFaceField*thisFace.mag(points);                
+            }
+            Tensor_Type valuePerSpan = thisSpanValue/(nurbsToLimits[nurbsInd][i+1]-nurbsToLimits[nurbsInd][i]);
+            (*result)[nurbsInd][i] = valuePerSpan;
+        }
+    }
+    return std::move(result);
+}
+
+void Foam::NurbsStructureInterface::assignForceOnCurve()
+{
+    tmp<GeometricField<Tensor<double>,fvPatchField,volMesh>> gU = fvc::grad(U);
+    GeometricField<Tensor<double>,fvPatchField,volMesh>& gradU = gU.ref();
+    GeometricField<SymmTensor<double>,fvPatchField,volMesh> totalStress = symm(-p*tensor::one + nu*(gradU + gradU.T()));
+    
+    const vectorField& Sfp = mesh.Sf().boundaryField()[IBPatchID];
+    const scalarField& magSfp = mesh.magSf().boundaryField()[IBPatchID];
+    const symmTensorField& totalStressIB = totalStress.boundaryField()[IBPatchID];
+    
+    Field<vector> ibWallForces = (-Sfp/magSfp) & totalStressIB;
+    
+    //std::unique_ptr<std::vector<std::vector<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
+    auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
+
 }
 
 void Foam::NurbsStructureInterface::computeIBHeatFlux()
@@ -244,22 +291,8 @@ int Foam::NurbsStructureInterface::loadRodsFromXML()
 {
     std::string rodsXMLFilePath = xmlPath;
     ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
-    return rodsList.size();
-}
+    
 
-void Foam::NurbsStructureInterface::createNurbsStructure()
-{
-// **** Loading curves from file **** //
-	std::string name = "BCC_3x3x3_L20";
-    std::string folder = runDirectory+"/"+caseName;
-    
-    /*
-    if (_mkdir(("..\\output\\" + name).c_str()) != 0 && errno != EEXIST) throw("Problem making folder!");
-    if (_mkdir(folder.c_str()) != 0) throw("Problem making folder!");
-    */
-// **** End **** //
-    
-// **** Create initial geometry **** //
     double	x0 = 1e6, x1 = -1e6, y0 = 1e6, y1 = -1e6, z0 = 1e6, z1 = -1e6;
     for(int i=0; i<nR; i++)
     {
@@ -283,7 +316,6 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
         z1 = std::fmax(z1, rodsList[i].coefs().topRows(0).coeff(0, 2));
         z1 = std::fmax(z1, rodsList[i].coefs().bottomRows(1).coeff(0, 2));
     }
-    gsVector<double,3> latSize;
     latSize << x1 - x0, y1 - y0, z1 - z0;
     
     gsVector<double,3> dX;
@@ -297,10 +329,13 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
     latSize *= latScale;
     printf("Rods:  %i\n", nR);
     printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
-// **** End **** //
     
-// **** Create rods and mesh **** //
-    // * Base NURBS curve - straight line as B-Spline
+    return rodsList.size();
+}
+
+void Foam::NurbsStructureInterface::createNurbsStructure()
+{
+        // * Base NURBS curve - straight line as B-Spline
     const int	el = 1;
     const int	p = 1;
     const int	n = p + el;
@@ -363,9 +398,11 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
         // Gravity 
         if (applyGravity)
             Rods[i]->set_force_lG(loadG);
-    }
+    }    
+}
 
-    // * Boundary conditions
+void Foam::NurbsStructureInterface::createNurbsBoundary()
+{
     printf("Boundary conditions ... \n");
 
     std::vector<bool> uBC0(3, false);
@@ -388,7 +425,7 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
     gsVector<double, 3> uBCxV;
     uBCxV.setZero();
 
-    std::vector<int>	pp_rid(0);
+    pp_rid = std::vector<int>(0);
     std::vector<bool>	pp_eid(0);
     std::vector<double>		pp_wts(0);
 
@@ -434,8 +471,10 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
             }
         }
     }
+}
 
-    // * Rod mesh
+void Foam::NurbsStructureInterface::setSolverOptions()
+{
     printf("Rod mesh ... \n");
 
     ActiveRodMesh::RodMeshOptions meshOpt;
@@ -494,7 +533,7 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
 
     std::string evalFile = folder + "\\eval";
     myMesh->setSolveEvalOut(std::vector<int>(0), std::vector<double>(0), evalFile);
-
+    
     // * Load steps
     std::vector<double> load_steps;
     int nls = loadSteps;
@@ -522,6 +561,34 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
     outfile1 << "\n";
     outfile2 << "\n";
     outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
+}
+
+void Foam::NurbsStructureInterface::createNurbs()
+{
+// **** Loading curves from file **** //
+	std::string name = "BCC_3x3x3_L20";
+    //std::string folder = runDirectory+"/"+caseName;
+    
+    /*
+    if (_mkdir(("..\\output\\" + name).c_str()) != 0 && errno != EEXIST) throw("Problem making folder!");
+    if (_mkdir(folder.c_str()) != 0) throw("Problem making folder!");
+    */
+// **** End **** //
+    
+// **** Create initial geometry **** //
+
+// **** End **** //
+    
+// **** Create rods and mesh **** //
+
+    // * Boundary conditions
+
+
+    // * Rod mesh
+
+
+    // * Load steps
+
     
 // **** End **** //
 
