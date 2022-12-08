@@ -215,7 +215,16 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     
     //std::unique_ptr<std::vector<std::vector<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
     auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
+    
+    for(const std::vector<vector>& oneCurveDistrLoad  : *distrLoad)
+    {
+        int nbrP = oneCurveDistrLoad.size();
+        gismo::gsMatrix<double,3,nbrP> Pcoeff;
+        gismo::gsKnotVector<double> knotVector;
+        
+        gismo::gsNurbs<double> forceDistr;
 
+    }
 }
 
 void Foam::NurbsStructureInterface::computeIBHeatFlux()
