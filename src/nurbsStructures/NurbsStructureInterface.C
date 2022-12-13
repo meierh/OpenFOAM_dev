@@ -216,14 +216,26 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     //std::unique_ptr<std::vector<std::vector<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
     auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
     
-    for(const std::vector<vector>& oneCurveDistrLoad  : *distrLoad)
+    for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
     {
-        int nbrP = oneCurveDistrLoad.size();
-        gismo::gsMatrix<double,3,nbrP> Pcoeff;
-        gismo::gsKnotVector<double> knotVector;
-        
-        gismo::gsNurbs<double> forceDistr;
+        const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];
+        int nbrP = oneCurveDistrLoad.size()*2; //Two Control Points for every Load step
+        gismo::gsMatrix<double> Pcoeff(3,nbrP);
+        gismo::gsMatrix<double> w(1,nbrP);
+        std::vector<double> knotContainer(nbrP*2+2);
+        knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0];
+        for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
+        {
+            double delta = nurbsToLimits[nurbsInd][k+1]-nurbsToLimits[nurbsInd][k-1];
+            double epsilon = delta/200;
+            knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
+            knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
+        }
+        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].last();
 
+        gismo::gsKnotVector<double> knotVector;
+        knotVector.insert(knotContainer);        
+        gismo::gsNurbs<double> forceDistr(knotVector,w,Pcoeff);
     }
 }
 
