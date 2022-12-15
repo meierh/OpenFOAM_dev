@@ -7,7 +7,7 @@ EXE_INC = \
     -I$(LIB_SRC)/functionObjects/field/lnInclude \
     -I$(WM_THIRD_PARTY_DIR)/tinyxml2 \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/cutCellFvMesh/lnInclude \
-    -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/nurbsStructures/lnInclude \
+    -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/nurbsStructuresInterface/lnInclude \
     -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src \
     -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodContact \
     -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodCosserat \
@@ -36,7 +36,7 @@ EXE_LIBS = \
     -L$(FOAM_USER_LIBBIN) \
     -lcutCellFvMesh \
     -L$(FOAM_USER_LIBBIN) \
-    -lNurbsStructure \
+    -lNurbsStructureInterface \
     -L$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/build/cmake_build \
     -lActiveRodMesh \
     -L$(WM_THIRD_PARTY_DIR)/nlopt/build \

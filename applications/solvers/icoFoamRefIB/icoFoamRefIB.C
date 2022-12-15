@@ -30,9 +30,8 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "pisoControl.H"
-#include "NurbsStructure.H"
+#include "NurbsStructureInterface.H"
 #include "cutCellFvMesh.H"
-#include "FSIFluidBoundaryConditions.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 int main(int argc, char *argv[])
@@ -44,11 +43,11 @@ int main(int argc, char *argv[])
     pisoControl piso(mesh);
 
     #include "createFields.H"
-    #include "createIBConditions.H"
+    //#include "createIBConditions.H"
     #include "initContinuityErrs.H"
     runTime.write();
     
-    NurbsStructure solidStructure(runTime);
+    //NurbsStructureInterface solidStructure(runTime,alpha,T,p,U,mesh,nu);
 
     FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

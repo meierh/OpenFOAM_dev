@@ -231,7 +231,7 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
             knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
             knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
         }
-        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].last();
+        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back();
 
         gismo::gsKnotVector<double> knotVector;
         knotVector.insert(knotContainer);        
