@@ -1,3 +1,0 @@
-NurbsStructureInterface.C
-
-LIB = $(FOAM_USER_LIBBIN)/libNurbsStructureInterface
