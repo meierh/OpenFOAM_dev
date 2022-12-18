@@ -674,8 +674,22 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     testForNonHexMesh(*this);
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary();
-       
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+    
+    
+    Info<<"pointDist[4608]:"<<pointDist[4608]<<Foam::endl;    
+    const fvBoundaryMesh& bound = this->boundary();
+    const label IBPatchID = bound.findPatchID("cutCell");
+    Info<<"IBPatchID:"<<IBPatchID<<Foam::endl;
+    const fvBoundaryMesh& boundary = this->boundary();
+    const fvPatch& nurbsBoundary = boundary[IBPatchID];
+    const faceList& faces = this->faces();
+    label i=0;
+    label faceInd=nurbsBoundary.start();
+    Info<<"Collect faces"<<Foam::endl;
+    Info<<"this->points().size():"<<this->points().size()<<Foam::endl;
+    Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<Foam::endl;
+    Info<<"pointDist.size():"<<pointDist.size()<<Foam::endl;
+
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
@@ -1123,7 +1137,20 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
             }
         }
         Info<<"Set Ref"<<endl;
-        //this->meshPointNurbsReference = meshPointNurbsReference;
+        DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference_new;
+        meshPointNurbsReference_new.setSize(points.size());
+        scalarList pointDist_new;
+        pointDist_new.setSize(points.size());
+        for(int i=0;i<meshPointNurbsReference.size();i++)
+        {
+            if(!pntDeleted[i])
+            {                
+                meshPointNurbsReference_new[pntOldIndToNewInd[i]] = meshPointNurbsReference[i];
+                pointDist_new[pntOldIndToNewInd[i]] = pointDist[i];
+            }
+        }
+        meshPointNurbsReference = meshPointNurbsReference_new;
+        pointDist = pointDist_new;
                         
         const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
         oldPointIndToPatchInd.setSize(boundaryMesh.size());
@@ -1263,7 +1290,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
 
     //printMesh();
     Info<<"Please write"<<endl;
-    //this->write();
+    this->write();
     Info<<"Written"<<endl;
     //printMesh();
     selfTestMesh();

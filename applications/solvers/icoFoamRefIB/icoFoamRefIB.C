@@ -32,7 +32,6 @@ Description
 #include "pisoControl.H"
 #include "NurbsStructureInterface.H"
 #include "cutCellFvMesh.H"
-#include "FSIFluidBoundaryConditions.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 int main(int argc, char *argv[])
@@ -44,11 +43,12 @@ int main(int argc, char *argv[])
     pisoControl piso(mesh);
 
     #include "createFields.H"
-    #include "createIBConditions.H"
+    //#include "createIBConditions.H"
     #include "initContinuityErrs.H"
     runTime.write();
     
     NurbsStructureInterface solidStructure(runTime,alpha,T,p,U,mesh,nu);
+    solidStructure.moveNurbs();
 
     FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
