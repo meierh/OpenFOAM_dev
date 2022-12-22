@@ -51,6 +51,7 @@ Curves(mesh.getCurves())
     Curves->size();
     
     assignBoundaryFacesToNurbsCurves();
+    assignForceOnCurve();
 }
 
 void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
@@ -120,7 +121,7 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
         Info<<"Create limits list"<<Foam::endl;
         facesInLimitsWithWeight.resize(limits.size()-1);
         auto iterPara = nurbsParameterToPnt[nurbsInd].lower_bound(limits[0]);
-        auto iterPara2 = nurbsParameterToPnt[nurbsInd].upper_bound(limits.back());
+        auto iterPara2 = std::max_element(nurbsParameterToPnt[nurbsInd].begin(),nurbsParameterToPnt[nurbsInd].end());
         Info<<"limits:"<<limits.back()<<Foam::endl;
         Info<<"lower:"<<iterPara->first<<"  "<<iterPara->second<<Foam::endl;
         Info<<"upper:"<<iterPara2->first<<"  "<<iterPara2->second<<Foam::endl;
@@ -167,7 +168,6 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
         }
     }
     Info<<"End"<<Foam::endl;
-    FatalErrorInFunction<< "Temp Stop"<<endl<< exit(FatalError);
 }
 
 template<typename Tensor_Type>
@@ -181,7 +181,7 @@ std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInter
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
     const label nurbsBoundaryStart = nurbsBoundary.start();
-    
+        
     auto result = std::unique_ptr<std::vector<std::vector<Tensor_Type>>>
     (
         new std::vector<std::vector<Tensor_Type>>(Curves->size())
@@ -194,13 +194,17 @@ std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInter
             std::vector<label>& facesInLimits = nurbsToLimitsFaces[nurbsInd][i];
             std::vector<scalar>& weightsInLimits = nurbsToLimitsFacesWeights[nurbsInd][i];
             
-            Tensor_Type thisSpanValue = Tensor_Type();
+            Foam::zero null;
+            Tensor_Type thisSpanValue = Tensor_Type(null);
+            Info<<thisSpanValue<<"  ";
             for(int j=0;j<facesInLimits.size();j++)
             {
                 face thisFace = faces[facesInLimits[j]];
                 Tensor_Type thisFaceField = immersedBoundaryField[facesInLimits[j]-nurbsBoundaryStart];
-                thisSpanValue+= weightsInLimits[j]*thisFaceField*thisFace.mag(points);                
+                thisSpanValue += weightsInLimits[j]*thisFaceField*thisFace.mag(points);                
             }
+            Info<<nurbsBoundaryStart<<"  "<<facesInLimits.size()<<" "<<weightsInLimits.size()<<thisSpanValue<<Foam::endl;
+
             Tensor_Type valuePerSpan = thisSpanValue/(nurbsToLimits[nurbsInd][i+1]-nurbsToLimits[nurbsInd][i]);
             (*result)[nurbsInd][i] = valuePerSpan;
         }
@@ -219,6 +223,14 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     const symmTensorField& totalStressIB = totalStress.boundaryField()[IBPatchID];
     
     Field<vector> ibWallForces = (-Sfp/magSfp) & totalStressIB;
+    for(int i=0;i<ibWallForces.size();i++)
+    {
+        for(int j=0;j<3;j++)
+        {
+            ibWallForces[i][j] = 1; //i*3+j;
+        }
+    }
+    Info<<"ibWallForces:"<<ibWallForces<<Foam::endl;
     
     //std::unique_ptr<std::vector<std::vector<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
     auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
@@ -226,10 +238,12 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
     {
         const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];
-        int nbrP = oneCurveDistrLoad.size()*2; //Two Control Points for every Load step
-        gismo::gsMatrix<double> Pcoeff(3,nbrP);
-        gismo::gsMatrix<double> w(1,nbrP);
-        std::vector<double> knotContainer(nbrP*2+2);
+        for(int i=0;i<oneCurveDistrLoad.size();i++)
+            Info<<"("<<oneCurveDistrLoad[i]<<") ";
+        Info<<Foam::endl;
+        
+        
+        std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
         knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0];
         for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
         {
@@ -238,11 +252,42 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
             knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
             knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
         }
-        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back();
-
+        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back();    
         gismo::gsKnotVector<double> knotVector;
-        knotVector.insert(knotContainer);        
+        knotVector.insert(knotContainer);
+        
+        gismo::gsMatrix<double> w(1,nurbsToLimits[nurbsInd].size()*2-2);
+        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
+            w(0,i) = 1;
+        
+        Info<<"w.rows:"<<w.rows()<<Foam::endl;
+        Info<<"w.cols:"<<w.cols()<<Foam::endl;
+        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
+            Info<<w(0,i)<<" ";
+        Info<<Foam::endl;
+        
+        gismo::gsMatrix<double> Pcoeff(3,nurbsToLimits[nurbsInd].size()*2-2);
+        int k=0;
+        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i+=2,k++)
+        {
+            for(label d=0;d<3;d++)
+            {
+                Pcoeff(d,i) = oneCurveDistrLoad[k][d];
+                Pcoeff(d,i+1) = oneCurveDistrLoad[k][d];
+            }
+        }
+        
+        Info<<"Pcoeff.rows:"<<Pcoeff.rows()<<Foam::endl;
+        Info<<"Pcoeff.cols:"<<Pcoeff.cols()<<Foam::endl;
+        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
+            Info<<"("<<Pcoeff(0,i)<<","<<Pcoeff(1,i)<<","<<Pcoeff(2,i)<<") ";
+        Info<<Foam::endl;
+
+        
+        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
         gismo::gsNurbs<double> forceDistr(knotVector,w,Pcoeff);
+        
+        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
         
         //Rods[nurbsInd]->set_force_lR(forceDistr);
     }

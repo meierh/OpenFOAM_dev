@@ -268,7 +268,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             
         //List<std::shared_ptr<Nurbs>> Curves;
         std::shared_ptr<std::vector<Nurbs1D>> Curves;
+        std::shared_ptr<std::vector<Nurbs1D>> Deformations;
 
+        
         std::unique_ptr<KdTree> MainTree;
         List<std::unique_ptr<BsTree>> NurbsTrees;
         
@@ -324,6 +326,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 
         //- Update the mesh for both mesh motion and topology change
         virtual bool update();
+        
+        // Set Defomration Curve
+        void setInitialDeformationCurve();
         
         //Compute immersed boundary mesh points movement vector
         void moveTheMesh();

@@ -1719,5 +1719,14 @@ const std::shared_ptr<std::vector<Nurbs1D>> Foam::cutCellFvMesh::getCurves()
 const
 {
     return Curves;
-};
+}
+
+void Foam::cutCellFvMesh::setInitialDeformationCurve
+(
+    std::shared_ptr<std::vector<Nurbs1D>> Deformations
+)
+{
+    this->Deformations = Deformations;
+}
+
 
