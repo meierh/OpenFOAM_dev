@@ -354,7 +354,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         const DynamicList<DynamicList<nurbsReference>>& getMeshPointNurbsReference() const;
         
         const std::shared_ptr<std::vector<Nurbs1D>> getCurves() const;
-        
+
     //Private Memberfunctions
     private:
         //Create pointsToSide Data
@@ -580,6 +580,20 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void checkForHexCellsInCutArea();
                 
         scalar minNurbsRadius();
+        
+        class MarchingCubes{
+            public:
+                explicit MarchingCubes(cutCellFvMesh& mesh);
+            
+            private:
+                cutCellFvMesh& mesh;
+                List<std::uint8_t> cubeConfiguration;
+                labelList posVertice;
+            
+                void classifyVertex();
+                void setBit(std::uint8_t& bitField, std::uint8_t bitIndex);
+                std::uint8_t getBit(std::uint8_t bitField, std::uint8_t bitIndex);
+        };
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }

@@ -633,8 +633,10 @@ ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {
+    MarchingCubes temp(*this);
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);  
+
     intersectionRadius = 0;
-    
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
     if(dynDict.found("useHexTopology",true,true))
