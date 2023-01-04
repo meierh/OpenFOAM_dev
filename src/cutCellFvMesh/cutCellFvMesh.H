@@ -586,6 +586,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 explicit MarchingCubes(cutCellFvMesh& mesh);
             
             private:
+                const unsigned short int MC33_table[2310];
                 cutCellFvMesh& mesh;
                 List<std::uint8_t> cubeConfiguration;
                 labelList posVertice;

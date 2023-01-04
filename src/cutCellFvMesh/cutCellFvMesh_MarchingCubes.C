@@ -26,7 +26,9 @@ Foam::cutCellFvMesh::MarchingCubes::MarchingCubes
 (
     cutCellFvMesh& mesh
 ):
-mesh(mesh)
+mesh(mesh),
+MC33_table
+#include "MC33_LookUpTable.h"
 {
     /*
     classifyVertex();

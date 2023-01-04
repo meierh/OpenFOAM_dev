@@ -635,7 +635,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {
     MarchingCubes temp(*this);
     FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);  
-
+    
     intersectionRadius = 0;
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
