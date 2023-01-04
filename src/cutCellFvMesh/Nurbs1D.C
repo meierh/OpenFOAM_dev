@@ -675,30 +675,37 @@ scalar Foam::Nurbs1D::distanceToNurbsSurface
 
 void Foam::Nurbs1D::moveNurbs
 (
-    List<List<vector>> controlPoints
+    List<List<vector>>& controlPoints
 )
 {
-    if(controlPoints.size() != this->controlPoints.size())
-        FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
-    for(int i=0;i<controlPoints.size();i++)
-        if(controlPoints[i].size() != this->controlPoints[i].size())
-            FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
-    
-    knots[previous] = knots[current];
-    this->controlPoints[previous] = this->controlPoints[current];
-    weights[previous] = weights[current];
-    weightedControlPoints[previous] = weightedControlPoints[current];
-    
-    this->controlPoints[current] = controlPoints;
-    
-    for(int i=0;i<weightedControlPoints[current].size();i++)
+    if(Deformations)
     {
-        for(int j=0;j<weightedControlPoints[current][i].size();j++)
+        Deformations->moveNurbs(controlPoints);
+    }
+    else
+    {
+        if(controlPoints.size() != this->controlPoints.size())
+            FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
+        for(int i=0;i<controlPoints.size();i++)
+            if(controlPoints[i].size() != this->controlPoints[i].size())
+                FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
+    
+        knots[previous] = knots[current];
+        this->controlPoints[previous] = this->controlPoints[current];
+        weights[previous] = weights[current];
+        weightedControlPoints[previous] = weightedControlPoints[current];
+        
+        this->controlPoints[current] = controlPoints;
+        
+        for(int i=0;i<weightedControlPoints[current].size();i++)
         {
-            weightedControlPoints[current][i][j] = weights[current][i][j] * this->controlPoints[current][i][j];
+            for(int j=0;j<weightedControlPoints[current][i].size();j++)
+            {
+                weightedControlPoints[current][i][j] = weights[current][i][j] * this->controlPoints[current][i][j];
+            }
         }
-    }   
-    nurbsMoved = true;
+        nurbsMoved = true;
+    }
 }
 
 vector Foam::Nurbs1D::movementVector
@@ -706,12 +713,23 @@ vector Foam::Nurbs1D::movementVector
     scalar u
 )
 {
-    vector C_curr = Curve_Derivative(0,u,curr);
-    vector C_prev = Curve_Derivative(0,u,prev);
-    //Info<<"C_curr:"<<C_curr<<endl;
-    //Info<<"C_prev:"<<C_prev<<endl;
-    //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);            
-    return C_curr-C_prev;
+    vector static_C_curr = Curve_Derivative(0,u,curr);
+    vector static_C_prev = Curve_Derivative(0,u,prev);
+    vector defor_D_curr = Deformations->Curve_Derivative(0,u,curr);
+    vector defor_D_prev = Deformations->Curve_Derivative(0,u,prev);
+    vector static_C_diff = static_C_curr-static_C_prev;
+    vector defor_D_diff = defor_D_curr-defor_D_prev;
+    return static_C_diff+defor_D_diff;
 }
 
-
+void Foam::Nurbs1D::createDeformationCurve
+(            
+    scalarList& nurbs_to_knots,
+    List<vector>& nurbs_to_controlPoints,
+    scalarList& nurbs_to_weights,
+    label nurbs_to_degree
+)
+{
+    Deformations = std::make_shared<Nurbs1D>(nurbs_to_knots,nurbs_to_controlPoints,nurbs_to_weights,
+                                             nurbs_to_degree,this->diameter,this->deltaX);
+}

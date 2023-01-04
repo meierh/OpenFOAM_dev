@@ -3,7 +3,7 @@
 
 #include "fvCFD.H"
 #include <memory>
-//#include "Nurbs.H"
+#include <vector>
 
 namespace Foam
 {   
@@ -41,6 +41,7 @@ class Nurbs1D
         const scalar diameter;
         const scalar deltaX;
         
+        std::shared_ptr<Nurbs1D> Deformations;
         bool nurbsMoved = false;
         
         enum timeState {initial=0,previous=1,current=2};
@@ -84,7 +85,15 @@ class Nurbs1D
         
         scalar distanceToNurbsSurface(scalar para, vector point) const;
         
-        void moveNurbs(List<List<vector>> controlPoints);
+        void createDeformationCurve
+        (            
+            scalarList& nurbs_to_knots,
+            List<vector>& nurbs_to_controlPoints,
+            scalarList& nurbs_to_weights,
+            label nurbs_to_degree
+        );
+        
+        void moveNurbs(List<List<vector>>& controlPoints);
         vector movementVector(scalar u);
         
         scalar radius() const {return diameter/2;};

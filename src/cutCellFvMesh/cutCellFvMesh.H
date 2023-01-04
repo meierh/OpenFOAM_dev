@@ -328,13 +328,19 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         virtual bool update();
         
         // Set Defomration Curve
-        void setInitialDeformationCurve();
+        void setInitialDeformationCurve
+        (
+            std::vector<scalarList>& nurbs_to_knots,
+            std::vector<List<vector>>& nurbs_to_controlPoints,
+            std::vector<scalarList>& nurbs_to_weights,
+            std::vector<label>& nurbs_to_degree
+        );
         
         //Compute immersed boundary mesh points movement vector
         void moveTheMesh();
         
         // move the Nurbs
-        void moveNurbsCurves(List<List<List<vector>>> movedControlPoints);
+        void moveNurbsCurves(std::vector<List<List<vector>>>& movedDeformationControlPoints);
 
         //- Write the underlying polyMesh and other data
         virtual bool writeObject
@@ -348,8 +354,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         const DynamicList<DynamicList<nurbsReference>>& getMeshPointNurbsReference() const;
         
         const std::shared_ptr<std::vector<Nurbs1D>> getCurves() const;
-
-
+        
     //Private Memberfunctions
     private:
         //Create pointsToSide Data

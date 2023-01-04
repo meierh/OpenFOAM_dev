@@ -7,7 +7,7 @@ Foam::NurbsStructureInterface::NurbsStructureInterface
     const volScalarField& T,
     const volScalarField& p,
     const volVectorField& U,
-    const cutCellFvMesh& mesh,
+    cutCellFvMesh& mesh,
     const dimensionedScalar nu,
     const word& IBpatchName
 ):
@@ -48,7 +48,7 @@ Curves(mesh.getCurves())
     else
         Info<<"Does not exist"<<Foam::endl;
     
-    Curves->size();
+    createDeformationCurve();
     
     assignBoundaryFacesToNurbsCurves();
     assignForceOnCurve();
@@ -603,7 +603,6 @@ void Foam::NurbsStructureInterface::setSolverOptions()
     myMesh->setLinearSolver(1);
     myMesh->setOMPnThreads(omp_nthreads);
 
-    ActiveRodMesh::SolveOptions solveOpt;
     solveOpt.tempCtrl = 0;
     solveOpt.vtkOut = 0; // plot_vtk;
     solveOpt.folder = folder;
@@ -688,22 +687,66 @@ Foam::NurbsStructureInterface::~NurbsStructureInterface()
 void Foam::NurbsStructureInterface::solveOneStep()
 {
     assignForceOnCurve();
-    myMesh->solve(1.0); // ?
+    myMesh->solve(1.0,solveOpt);
+    moveNurbs();
 }
 
 void Foam::NurbsStructureInterface::moveNurbs()
 {
-    List<List<List<vector>>> newCPs(Curves->size());
-    Info<< "nbrCurves:"<<Curves->size()<< endl;
-    for(int i=0;i<newCPs.size();i++)
+    label nbrNurbs = myMesh->m_Rods.size();
+    std::vector<List<List<vector>>> nurbs_to_new_controlPoints(nbrNurbs);
+    
+    for(int i=0;i<nbrNurbs;i++)
     {
-        const gsMatrix<double>& CP = Rods[i]->m_Curve_coefs;
-        const gsMatrix<double>& def_CP = Rods[i]->m_Def_coefs;
-        Info<< "Curves CPs nbr:"<<Rods[i]->m_Curve_n<< endl;
-        Info<< "CP.rows:"<<CP.rows() << endl;
-        Info<< "CP.cols:"<<CP.cols() << endl;
-        newCPs[i] = List<List<vector>>(1);
-        newCPs[i][0] = List<vector>(Rods[i]->m_Curve_n);
-        
+        gsMatrix<double> new_CPs = myMesh->m_Rods[i]->m_Def_coefs;
+        label nbrControlPoints = new_CPs.cols();
+        nurbs_to_new_controlPoints.push_back(List<List<vector>>(1,List<vector>(nbrControlPoints)));
+        for(int n=0;n<nbrControlPoints;n++)
+        {
+            for(int d=0;d<3;d++)
+            {
+                nurbs_to_new_controlPoints.back()[0][n][d] = new_CPs(d,n);
+            }
+        }
     }
+    mesh.moveNurbsCurves(nurbs_to_new_controlPoints);
+}
+
+void Foam::NurbsStructureInterface::createDeformationCurve()
+{
+    label nbrNurbs = myMesh->m_Rods.size();
+    std::vector<scalarList> nurbs_to_knots(nbrNurbs);
+    std::vector<List<vector>> nurbs_to_controlPoints(nbrNurbs);
+    std::vector<scalarList> nurbs_to_weights(nbrNurbs);
+    std::vector<label> nurbs_to_degree(nbrNurbs);
+
+    for(int i=0;i<nbrNurbs;i++)
+    {
+        gsMatrix<double> P = myMesh->m_Rods[i]->m_Def_coefs;
+        gsNurbs<double> curve = myMesh->m_Rods[i]->m_Def;
+        gismo::gsKnotVector<double> knots = curve.knots();
+        label nbrKnots = knots.size();
+        label degree = knots.degree();
+        label nbrControlPoints = P.cols();
+        if(P.rows()!=3)
+            FatalErrorInFunction<<"Wrong Deformation curve dimension"<< exit(FatalError); 
+
+        nurbs_to_controlPoints.push_back(List<vector>(nbrControlPoints));
+        nurbs_to_weights.push_back(scalarList(nbrControlPoints));
+        for(int n=0;n<nbrControlPoints;n++)
+        {
+            for(int d=0;d<3;d++)
+            {
+                nurbs_to_controlPoints.back()[n][d] = P(d,n);
+            }
+            nurbs_to_weights.back()[n] = 1;
+        }
+        nurbs_to_degree.push_back(degree);
+        nurbs_to_knots.push_back(scalarList(nbrKnots));
+        for(int n=0;n<nbrKnots;n++)
+        {
+            nurbs_to_knots.back()[n] = knots[n];
+        }
+    }
+    mesh.setInitialDeformationCurve(nurbs_to_knots,nurbs_to_controlPoints,nurbs_to_weights,nurbs_to_degree);
 }

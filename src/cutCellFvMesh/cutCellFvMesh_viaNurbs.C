@@ -1586,14 +1586,14 @@ void Foam::cutCellFvMesh::moveTheMesh()
 
 void Foam::cutCellFvMesh::moveNurbsCurves
 (
-    List<List<List<vector>>> movedControlPoints
+    std::vector<List<List<vector>>>& movedDeformationControlPoints
 )
 {
-    if((*(this->Curves)).size()!=static_cast<unsigned long>(movedControlPoints.size()))
+    if((*(this->Curves)).size()!=static_cast<unsigned long>(movedDeformationControlPoints.size()))
         FatalErrorInFunction<<"Given number of controlPoint update blocks must equal the number of Nurbs"<< exit(FatalError);
-    for(int i=0;i<movedControlPoints.size();i++)
+    for(int i=0;i<movedDeformationControlPoints.size();i++)
     {
-        (*(this->Curves))[i].moveNurbs(movedControlPoints[i]);
+        (*(this->Curves))[i].moveNurbs(movedDeformationControlPoints[i]);
     }
 }
 
@@ -1723,10 +1723,22 @@ const
 
 void Foam::cutCellFvMesh::setInitialDeformationCurve
 (
-    std::shared_ptr<std::vector<Nurbs1D>> Deformations
+    std::vector<scalarList>& nurbs_to_knots,
+    std::vector<List<vector>>& nurbs_to_controlPoints,
+    std::vector<scalarList>& nurbs_to_weights,
+    std::vector<label>& nurbs_to_degree
 )
 {
-    this->Deformations = Deformations;
+    label nbrOfDefNurbsCurves = nurbs_to_knots.size();
+    if(nbrOfDefNurbsCurves!=nurbs_to_controlPoints.size() || nbrOfDefNurbsCurves!=nurbs_to_weights.size() ||            
+       nbrOfDefNurbsCurves!=nurbs_to_degree.size()        || nbrOfDefNurbsCurves!=Curves->size())
+        FatalErrorInFunction<<"Wrong Deformation curve number"<< exit(FatalError); 
+
+    for(int i=0;i<nbrOfDefNurbsCurves;i++)
+    {
+        (*Curves)[i].createDeformationCurve(nurbs_to_knots[i],nurbs_to_controlPoints[i],
+                                            nurbs_to_weights[i],nurbs_to_degree[i]);
+    }
 }
 
 

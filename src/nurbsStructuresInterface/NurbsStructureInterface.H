@@ -38,7 +38,7 @@ class NurbsStructureInterface
             const volScalarField& T,
             const volScalarField& p,
             const volVectorField& U,
-            const cutCellFvMesh& mesh,
+            cutCellFvMesh& mesh,
             const dimensionedScalar nu,
             const word& IBpatchName = "cutCell"
         );
@@ -60,6 +60,7 @@ class NurbsStructureInterface
         void createNurbs();
         void createNurbsBoundary();
         void setSolverOptions();
+        void createDeformationCurve();
         std::unique_ptr<ActiveRodMesh::rodMesh> myMesh;
         std::vector< ActiveRodMesh::rodCrossSection* > Geo;
         std::vector< ActiveRodMesh::rodCosserat* > Rods;
@@ -106,6 +107,10 @@ class NurbsStructureInterface
             const bool	isContact = 0;            
             ActiveRodMesh::ContactOptions cntOpt;
             std::vector<int> pp_rid;
+            
+            //Solver options
+            ActiveRodMesh::SolveOptions solveOpt;
+
 
         //******************* Parameters *******************//
             
@@ -114,7 +119,7 @@ class NurbsStructureInterface
         const volScalarField& T;
         const volScalarField& p;
         const volVectorField& U;
-        const cutCellFvMesh& mesh;
+        cutCellFvMesh& mesh;
         label IBPatchID;
         const word& IBpatchName;
         const dimensionedScalar nu;
