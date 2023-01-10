@@ -26,11 +26,16 @@ Foam::cutCellFvMesh::MarchingCubes::MarchingCubes
 (
     cutCellFvMesh& mesh
 ):
+<<<<<<< HEAD
 mesh(mesh),
 MC33_table
 #include "MC33_LookUpTable.h"
 {
     /*
+=======
+mesh(mesh)
+{
+>>>>>>> 3465587c8a0178239a2d76b96c20f72ac4153fb2
     classifyVertex();
     
     const cellList& cells = mesh.cells();
@@ -54,8 +59,11 @@ MC33_table
                 setBit(cubeConfiguration[i],j);
         }
     }
+<<<<<<< HEAD
     */
     Info<<"Created cubeConfig"<<Foam::endl;
+=======
+>>>>>>> 3465587c8a0178239a2d76b96c20f72ac4153fb2
 }
 
 void Foam::cutCellFvMesh::MarchingCubes::classifyVertex()
