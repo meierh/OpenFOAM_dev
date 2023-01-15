@@ -31,6 +31,9 @@
 #include "mapPolyMesh.H"
 #include "polyTopoChange.H"
 
+typedef double GRD_data_type;
+typedef double MC33_real;
+
 namespace Foam
 {
 //class motionSolver;
@@ -581,19 +584,68 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 
         scalar minNurbsRadius();
         
-        class MarchingCubes{
+        class MC33{
             public:
-                explicit MarchingCubes(cutCellFvMesh& mesh);
-            
+                explicit MC33(cutCellFvMesh& mesh);
+                ~MC33();
+                // Set the color of the next isosurface
+                void set_default_surface_color(unsigned char *color);
+                // set the grid parameters:
+                int set_grid3d(/*grid3d *G*/);
+                //int set_grid3d(/*grid3d &G*/);
+                // Calculate the isosurface with isovalue iso and store the data in the surface Sf:
+                int calculate_isosurface(/*surface &Sf,*/ MC33_real iso);
+                /* Return the size in bytes of an isosurface with out calculate it (nV and nT are
+                the number of vertices and triangles):*/
+                std::size_t size_of_isosurface(MC33_real iso, unsigned int &nV, unsigned int &nT);
+                // Return the size in bytes of an isosurface with out calculate it:
+                std::size_t size_of_isosurface(MC33_real iso);
+                
+                
             private:
-                const unsigned short int MC33_table[2310];
+                const unsigned short int table[2310];
                 cutCellFvMesh& mesh;
-                List<std::uint8_t> cubeConfiguration;
-                labelList posVertice;
+                
+                const GRD_data_type ***F;
+                //static int DefaultColor;
+            //surface *S;
+                //Auxiliary grid variables
+                unsigned int nx, ny, nz;
+                //const GRD_data_type ***F;
+                MC33_real MC_O[3], MC_D[3], ca, cb;
+            #ifndef GRD_orthogonal
+                double _A[3][3], A_[3][3];
+            #endif
+                //Assign memory for the vertex r[3], normal (r + 3)[3]. The return value is
+                //the new vertex label.
+                std::function<unsigned int(MC33_real*)> store_point;
+
+                //Other auxiliary variables
+                int memoryfault;
+                unsigned int di; // for subgrids, index step for inner loop
+                // temporary structures that store the indexes of triangle vertices:
+                unsigned int **Dx, **Dy, **Ux, **Uy, **Lz;
+                MC33_real *v;
+                //Procedures
+                int face_tests(int *, int) const;
+                int face_test1(int) const;
+                int interior_test(int, int) const;
+                unsigned int surfint(unsigned int, unsigned int, unsigned int, MC33_real *);
+                void find_case(unsigned int, unsigned int, unsigned int, unsigned int);
+                void case_count(unsigned int, unsigned int, unsigned int, unsigned int);
+                int init_temp_isosurface();
+                void free_temp_D_U();
+                void clear_temp_isosurface();
             
                 void classifyVertex();
-                void setBit(std::uint8_t& bitField, std::uint8_t bitIndex);
-                std::uint8_t getBit(std::uint8_t bitField, std::uint8_t bitIndex);
+                void setBit(unsigned short int & bitField, std::uint8_t bitIndex);
+                bool  getBit(const unsigned short int  bitField, std::uint8_t bitIndex);
+                std::string getBitPattern(const unsigned short int x);
+                const unsigned short int* getTriangleCase(unsigned int verticePattern);
+                std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> collectTriangles
+                (
+                    const unsigned short int* triangleCase
+                );
         };
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);

@@ -633,7 +633,7 @@ ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {
-    MarchingCubes temp(*this);
+    MC33 temp(*this);
     FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);  
     
     intersectionRadius = 0;
