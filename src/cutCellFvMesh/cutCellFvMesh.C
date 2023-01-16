@@ -468,6 +468,46 @@ void Foam::cutCellFvMesh::projectLevelSet()
     }
 }
 
+void Foam::cutCellFvMesh::executeMarchingCubes()
+{
+    const cellList& meshCells = this->cells();
+    const pointField& basisPoints = this->points();
+    const faceList& basisFaces = this->faces();
+    const labelList& cellOwner = this->faceOwner();
+    const labelList& cellNeighbor = this->faceNeighbour();
+    const edgeList& basisEdges = this->edges();
+    const labelListList& edgeToFaces = this->edgeFaces();
+    const labelListList& faceToEdge = this->faceEdges();
+    const labelListList& pointToFace = this->pointFaces();
+
+    MC33 marchingCubesAlgorithm(*this);
+    mc33CutCellData.resize(meshCells.size());
+    for(int i=0;i<meshCells.size();i++)
+    {
+        mc33CutCellData[i] = marchingCubesAlgorithm.computeCutCell(i);
+    }
+    
+    const labelListList& edgeCells = this->edgeCells();
+    for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
+    {
+        //DynamicList<MC33*> neighboringMC33Cubes;
+        for(int i=0;i<edgeCells[edgInd].size();i++)
+        {
+            label cellInd = edgeCells[edgInd][i];
+            MC33::MC33Cube& thisCellMc33Cube = mc33CutCellData[cellInd];
+            if(thisCellMc33Cube.cell!=-1)
+            {
+                for(int j=0;j<thisCellMc33Cube.edges.size();j++)
+                {
+                    edge& cubeEdge = thisCellMc33Cube.edges[j];
+                    
+                }
+            }
+        }
+    }
+}
+
+
 void Foam::cutCellFvMesh::newMeshPoints
 (
 )
@@ -6182,22 +6222,7 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
         cellNonConnectedMultiPointMap,
         cellNonConnectedMultiEdgeMap
     );
-    /*
-    Info<<"-----------------------------------"<<endl;
-    Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<endl;
-    Info<<"cellNonConnectedMultiFaces[35]:"<<cellNonConnectedMultiFaces[35]<<endl;
-    Info<<"cellNonConnectedMultiFaces[36]:"<<cellNonConnectedMultiFaces[36]<<endl;
-    */
-    
-    /*
-    Info<<"faceToEdges_:"<<faceToEdges_[585222]<<endl;
-    for(int i=0;i<faceToEdges_[585222].size();i++)
-    {
-        Info<<"edge:"<<newMeshEdges_[faceToEdges_[585222][i]]<<endl;
-    }
-    Info<<"cellNonConnectedMultiFaces[198219]:"<<cellNonConnectedMultiFaces[198219]<<endl;
-    */
-    
+
     List<DynamicList<face>> facesInCellPerCell;
     
     DynamicList<DynamicList<DynamicList<bool>>> faceInFace;
@@ -6298,30 +6323,6 @@ void Foam::cutCellFvMesh::newMeshFaces_plus
             }
         }
     }
-
-    /*
-    Info<<"cellNonConnectedMultiFaces[210379]:"<<cellNonConnectedMultiFaces[210379]<<endl;
-    const labelList& cellPointInds = meshCells[210379].labels(basisFaces);
-    for(int i=0;i<cellPointInds.size();i++)
-    {
-        Info<<cellPointInds[i]<<"   "<<basisPoints[cellPointInds[i]]<<endl;
-    }
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    
-    Info<<"faceInFace[35]:"<<faceInFace[35]<<endl;
-    Info<<"faceInCell[35]:"<<faceInCell[35]<<endl;
-    Info<<"faceMixed[35]:"<<faceMixed[35]<<endl;
-    Info<<"faceInFace[36]:"<<faceInFace[36]<<endl;
-    Info<<"faceInCell[36]:"<<faceInCell[36]<<endl;
-    Info<<"faceMixed[36]:"<<faceMixed[36]<<endl;
-    //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
-
-    
-    Info<<"faceInFace[198219]:"<<faceInFace[198219]<<endl;
-    Info<<"faceInCell[198219]:"<<faceInCell[198219]<<endl;
-    Info<<"faceMixed[198219]:"<<faceMixed[198219]<<endl;
-    */
-
     
     /*
      * The following creates the added faces as well as the cellToFaces_ list 
@@ -8104,6 +8105,105 @@ void Foam::cutCellFvMesh::printCutFaces
         Info<<"Cell "<<k<<" "<<" Side: "<<cellsToSide_[k];
         Info<<endl;
     } 
+}
+
+void Foam::cutCellFvMesh::newMeshFaces_MC33
+(
+)
+{
+    //Info<<"Starting adding Faces"<<endl;
+    const cellList& meshCells = this->cells();
+    const pointField& basisPoints = this->points();
+    const faceList& basisFaces = this->faces();
+    const labelList& cellOwner = this->faceOwner();
+    const labelList& cellNeighbor = this->faceNeighbour();
+    const edgeList& basisEdges = this->edges();
+    const labelListList& edgeToFaces = this->edgeFaces();
+    const labelListList& faceToEdge = this->faceEdges();
+    const labelListList& pointToFace = this->pointFaces();
+    
+    nbrOfPrevFaces = basisFaces.size();
+    
+    MC33 marchingCubesAlgorithm(*this);
+    
+    List<MC33::MC33Cube> mc33CutCellData(meshCells.size());
+    for(int i=0;i<meshCells.size();i++)
+    {
+        mc33CutCellData[i] = marchingCubesAlgorithm.computeCutCell(i);
+    }
+    
+    for(int edgInd=0;edgInd<basisEdges.size();edgInd++)
+    {
+        
+    }
+
+    
+    
+    newMeshFaces_.setCapacity(basisFaces.size()*2);
+    newMeshFaces_.append(basisFaces);
+    facesToSide(newMeshFaces_);
+    facesToSide_.setCapacity(basisFaces.size()*2);
+    
+
+    
+    /*
+     * A existing face is a cut face if all its points are cut points.
+     * Only if thats true the respective face is connected to its connected
+     * cells via the faceToCells_ list. A non empty faceToCells_ for a face 
+     * is the sign that the face is a cut face
+     */
+    faceToCells_.setSize(basisFaces.size());
+    const labelList& owner = this->faceOwner();
+    const labelList& neighbour = this->faceNeighbour();
+    for(int i=0;i<basisFaces.size();i++)
+    {
+        /*
+        labelList facePoints = basisFaces[i];
+
+        bool isCutFace = true;
+        for(int k=0;k<facePoints.size();k++)
+        {
+            if(pointsToSide_[facePoints[k]] != 0)
+                isCutFace = false;
+        }
+        //Info<<"\t"<<"is CutFace:"<<isCutFace<<endl;
+        if(isCutFace)
+        {
+            faceToCells_[i].setCapacity(2);
+            faceToCells_[i].append(owner[i]);
+            //Info<<"I want a neighbour"<<endl;
+            if(i < neighbour.size())
+                faceToCells_[i].append(neighbour[i]);
+                //Info<<"I have a neighbour"<<endl;
+        }
+        */
+    }
+
+    
+    /*
+     * The following creates the added faces as well as the cellToFaces_ list 
+     * and finishes the faceToCells_ list of the previous part with the new faces.
+     * 
+     */
+    cellToFaces_.setSize(meshCells.size());
+    for(int i=0;i<meshCells.size();i++)
+    {
+        /*
+        newMeshFaces_.append(cellNonConnectedMultiFaces[i][j][k]);
+
+        facesToSide_.append(0);
+
+        DynamicList<label> newFaceCell;;
+        newFaceCell.append(i);
+        faceToCells_.append(newFaceCell);
+
+        cellToFaces_[i].append(newMeshFaces_.size()-1);
+        */
+    }
+    
+    newMeshFaces_.setCapacity(newMeshFaces_.size());
+    faceToCells_.setCapacity(faceToCells_.size());
+    cellToFaces_.setCapacity(cellToFaces_.size());
 }
 
 void Foam::cutCellFvMesh::createNewMeshData

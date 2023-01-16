@@ -55,6 +55,44 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             label nurbsInd=-1;
             scalar nurbsPara=-1;
         };
+        
+        class MC33{
+            public:
+                explicit MC33(cutCellFvMesh& mesh);
+                
+                typedef struct{
+                    label cell=-1;
+                    List<label> vertices = List<label>(8);
+                    List<edge> edges = List<edge>(12);
+                    List<label> edgeGlobalInd = labelList(12,-1);
+                    List<label> faces = List<label>(6);
+                    std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
+                } MC33Cube;
+                
+                MC33Cube computeCutCell(int cellInd);
+                
+            private:
+                const unsigned short int table[2310];
+                cutCellFvMesh& mesh;
+                
+                MC33_real v[8];
+                //Procedures
+                int face_tests(int *, int) const;
+                int face_test1(int) const;
+                int interior_test(int, int) const;
+          
+                void setBit(unsigned short int & bitField, std::uint8_t bitIndex);
+                bool  getBit(const unsigned short int  bitField, std::uint8_t bitIndex);
+                std::string getBitPattern(const unsigned short int x);
+                const unsigned short int* getTriangleCase(unsigned int verticePattern);
+                std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> collectTriangles
+                (
+                    const unsigned short int* triangleCase
+                );
+                MC33Cube generateMC33Cube(int cellInd);
+                unsigned int computeSignBitPattern(const MC33Cube& cell);
+                bool cellIsCut(int cellInd);
+        };
 
     //Private Attributes
     private:
@@ -107,6 +145,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
       //Points and data added by newMeshPoints function
       //Begin
+            //Cut data for every cell
+            List<MC33::MC33Cube> mc33CutCellData;
+
             //Nbr of previous existing points
             label nbrOfPrevPoints;
             // new PointField; previous points + added Points
@@ -279,6 +320,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
         //std::unordered_map<label,scalar> pointToNurbsDist;
         
+        
+         
     //Public Memberfunctions    
     public:
         //Constructor
@@ -376,6 +419,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void cellsToSide();
         void cellsToSide(const cellList& cells);
         
+        //Create Marching Cube data
+        void executeMarchingCubes();
+        
         // Add points for cutting the cells and create dependency data for creating cut cells
         // Adds to points_.
         void newMeshPoints();
@@ -465,7 +511,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // Adds to faces_;
         void newMeshFaces();
         void newMeshFaces_plus();
-
+        void newMeshFaces_MC33();
         
         // Splits all old faces being cut into too
         void cutOldFaces();
@@ -583,81 +629,6 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void checkForHexCellsInCutArea();
                 
         scalar minNurbsRadius();
-        
-        class MC33{
-            public:
-                explicit MC33(cutCellFvMesh& mesh);
-
-                // set the grid parameters:
-                int set_grid3d(/*grid3d *G*/);
-                //int set_grid3d(/*grid3d &G*/);
-                // Calculate the isosurface with isovalue iso and store the data in the surface Sf:
-                int calculate_isosurface(/*surface &Sf,*/ MC33_real iso);
-                /* Return the size in bytes of an isosurface with out calculate it (nV and nT are
-                the number of vertices and triangles):*/
-                std::size_t size_of_isosurface(MC33_real iso, unsigned int &nV, unsigned int &nT);
-                // Return the size in bytes of an isosurface with out calculate it:
-                std::size_t size_of_isosurface(MC33_real iso);
-                void computeCutCell(cell oneCell);
-                
-                typedef struct{
-                    label cell;
-                    List<label> vertices = List<label>(8);
-                    List<edge> edges = List<edge>(12);
-                    List<label> faces = List<label>(6);
-                }
-                MC33Cube;
-                
-            private:
-                const unsigned short int table[2310];
-                cutCellFvMesh& mesh;
-                
-                const GRD_data_type ***F;
-                //static int DefaultColor;
-            //surface *S;
-                //Auxiliary grid variables
-                unsigned int nx, ny, nz;
-                //const GRD_data_type ***F;
-                MC33_real MC_O[3], MC_D[3], ca, cb;
-            #ifndef GRD_orthogonal
-                double _A[3][3], A_[3][3];
-            #endif
-                //Assign memory for the vertex r[3], normal (r + 3)[3]. The return value is
-                //the new vertex label.
-                std::function<unsigned int(MC33_real*)> store_point;
-
-                //Other auxiliary variables
-                int memoryfault;
-                unsigned int di; // for subgrids, index step for inner loop
-                // temporary structures that store the indexes of triangle vertices:
-                unsigned int **Dx, **Dy, **Ux, **Uy, **Lz;
-                MC33_real *v;
-                //Procedures
-                int face_tests(int *, int) const;
-                int face_test1(int) const;
-                int interior_test(int, int) const;
-                unsigned int surfint(unsigned int, unsigned int, unsigned int, MC33_real *);
-                void find_case(unsigned int, unsigned int, unsigned int, unsigned int);
-                void case_count(unsigned int, unsigned int, unsigned int, unsigned int);
-                int init_temp_isosurface();
-                void free_temp_D_U();
-                void clear_temp_isosurface();
-            
-                void classifyVertex();
-                void setBit(unsigned short int & bitField, std::uint8_t bitIndex);
-                bool  getBit(const unsigned short int  bitField, std::uint8_t bitIndex);
-                std::string getBitPattern(const unsigned short int x);
-                const unsigned short int* getTriangleCase(unsigned int verticePattern);
-                std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> collectTriangles
-                (
-                    const unsigned short int* triangleCase
-                );
-                MC33Cube generateMC33Cube(int cellInd);
-                void computeCutCell(int cellInd);
-                unsigned int computeSignBitPattern(MC33Cube cell);
-
-                
-        };
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }

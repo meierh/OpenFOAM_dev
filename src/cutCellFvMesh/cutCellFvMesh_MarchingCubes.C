@@ -45,7 +45,8 @@ Foam::cutCellFvMesh::MC33::MC33
 mesh(mesh),
 table
 #include "MC33_LookUpTable.h"
-{    
+{
+	/*
     unsigned int b = 127;
     Info<<"b:"<<getBitPattern(b)<<Foam::endl;
 	const unsigned short int* pcase = getTriangleCase(b);
@@ -56,6 +57,7 @@ table
 	for(auto tuple:triangleList)
 		Info<<"("<<std::get<0>(tuple)<<","<<std::get<1>(tuple)<<","<<std::get<2>(tuple)<<")";
 	Info<<Foam::endl;
+	*/
     
 }
 
@@ -164,43 +166,45 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 
 unsigned int Foam::cutCellFvMesh::MC33::computeSignBitPattern
 (
-	MC33Cube cell
+	const MC33Cube& cell
 )
 {
 	unsigned int bitPattern = 0;
 	for(int vertI=0;vertI<cell.vertices.size();vertI++)
 	{
 		label pntInd = cell.vertices[vertI];
-		scalar iso = pointDist[pntInd];
+		scalar iso = mesh.pointDist[pntInd];
 		if(iso>=0)
 		{
 			unsigned int mask = 1;
-			mask = mask << (7-vertI)
+			mask = mask << (7-vertI);
 			bitPattern = bitPattern | mask;
 		}
+		v[vertI] = iso;
 	}
 	return bitPattern;
 }
 
-
-void Foam::cutCellFvMesh::MC33::computeCutCell(int cellInd)
+bool cellIsCut(int cellInd)
 {
-	const cellList& meshCells = mesh.cells();
-    const faceList& meshFaces = mesh.faces();
-    const edgeList& meshEdges = mesh.edges();
-    const pointField& meshPoints = mesh.points();
-    const labelList& cellOwner = mesh.faceOwner();
-    const labelList& cellNeighbor = mesh.faceNeighbour();
 	
+}
+
+Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell(int cellInd)
+{
 	MC33Cube mc33Cube = generateMC33Cube(cellInd);
 	unsigned int bitPattern = computeSignBitPattern(mc33Cube);
-	std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> triangles;
 	if(bitPattern!=0 && bitPattern!=255) 
 	{
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
-		triangles = collectTriangles(triangleCase);
+		mc33Cube.cutTriangles = collectTriangles(triangleCase);;
+		return mc33Cube;
 	}
-	
+	else
+	{
+		mc33Cube.cell=-1;
+		return mc33Cube;		
+	}
 }
 
 const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned int verticePattern)
