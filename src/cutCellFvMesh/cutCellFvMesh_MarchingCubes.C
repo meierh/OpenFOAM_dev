@@ -45,55 +45,166 @@ Foam::cutCellFvMesh::MC33::MC33
 mesh(mesh),
 table
 #include "MC33_LookUpTable.h"
-{
-    /*
-    classifyVertex();
-    
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const cellShapeList& meshShapes = mesh.cellShapes();
-    cubeConfiguration.resize(cells.size());
-    for(int i=0;i<cells.size();i++)
-    {
-        cell thisCell = cells[i];
-        cellShape thisCellShape = meshShapes[i];
-        cellModel thisCellModel = thisCellShape.model();
-    }
-    for(int i=0;i<cells.size();i++)
-    {
-        cell thisCell = cells[i];
-        labelList labels = thisCell.labels(faces);
-        cubeConfiguration[i] = 0;
-        for(int j=0;j<labels.size();j++)
-        {
-            if(posVertice[i]==1)
-                setBit(cubeConfiguration[i],j);
-        }
-    }
-    */
-    
-    unsigned int b = 3;
+{    
+    unsigned int b = 127;
     Info<<"b:"<<getBitPattern(b)<<Foam::endl;
 	const unsigned short int* pcase = getTriangleCase(b);
-    Info<<"pcase:"<<getBitPattern(*pcase)<<Foam::endl;
+    Info<<"pcase:"<<pcase<<Foam::endl;
+    Info<<"*pcase:"<<getBitPattern(*pcase)<<Foam::endl;
 	auto triangleList = collectTriangles(pcase);
 	Info<<"TriangleList: ";
 	for(auto tuple:triangleList)
 		Info<<"("<<std::get<0>(tuple)<<","<<std::get<1>(tuple)<<","<<std::get<2>(tuple)<<")";
 	Info<<Foam::endl;
     
-    //Info<<"Created cubeConfig"<<Foam::endl;
 }
 
-Foam::cutCellFvMesh::MC33::~MC33() {
-	clear_temp_isosurface();
+Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
+(
+	int cellInd
+)
+{
+	const cellList& meshCells = mesh.cells();
+	const faceList& meshFaces = mesh.faces();
+    const pointField& meshPoints = mesh.points();
+    const cellShapeList& meshShapes = mesh.cellShapes();
+
+	cell thisCell = meshCells[cellInd];
+	edgeList thisEdges = thisCell.edges(meshFaces);
+	cellShape thisCellShape = meshShapes[cellInd];
+    cellModel thisCellModel = thisCellShape.model();
+	labelList faceInds = thisCell.labels(meshFaces);
+	
+	bool isHex = true;
+	isHex = isHex && (thisCell.nFaces()==6);
+	labelList vertices = thisCell.labels(meshFaces);
+	isHex = isHex && (vertices.size()==8);
+	edgeList edges = thisCell.edges(meshFaces);
+	isHex = isHex && (edges.size()==12);
+	isHex = isHex && (thisCellModel.name()=="hex");
+	isHex = isHex && (faceInds.size()==6);
+	
+	MC33Cube oneCube;
+	oneCube.cell = cellInd;
+	oneCube.vertices[0] = meshFaces[faceInds[0]][0];
+	oneCube.vertices[1] = meshFaces[faceInds[0]][1];
+	oneCube.vertices[2] = meshFaces[faceInds[0]][2];
+	oneCube.vertices[3] = meshFaces[faceInds[0]][3];
+	oneCube.edges[0] = edge(oneCube.vertices[0],oneCube.vertices[1]);
+	oneCube.edges[1] = edge(oneCube.vertices[1],oneCube.vertices[2]);
+	oneCube.edges[2] = edge(oneCube.vertices[2],oneCube.vertices[3]);
+	oneCube.edges[3] = edge(oneCube.vertices[3],oneCube.vertices[0]);
+	oneCube.faces[4] = faceInds[0];
+	
+	std::unordered_set<label> startingFaceVert = {oneCube.vertices[0],oneCube.vertices[1],
+												  oneCube.vertices[2],oneCube.vertices[3]};
+	std::unordered_set<label> oppositeFaceVert;
+	for(label vert:vertices)
+		if(startingFaceVert.find(vert)!=startingFaceVert.end())
+			oppositeFaceVert.insert(vert);
+	
+	for(label vertI=0;vertI<4;vertI++)
+	{
+		label seenFaceVertice = oneCube.vertices[vertI];
+		label oppositeVertice = -1;
+		for(edge edg : thisEdges)
+		{
+			label edgOtherVert = edg.otherVertex(seenFaceVertice);
+			if(edgOtherVert!=-1 && startingFaceVert.find(edgOtherVert)!=startingFaceVert.end())
+			{
+				if(oppositeVertice!=-1)
+					FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+				else
+					oppositeVertice = edgOtherVert;
+			}
+		}
+		oneCube.vertices[4+vertI] = oppositeVertice;
+		oneCube.edges[8+vertI] = edge(oneCube.vertices[vertI],oneCube.vertices[4+vertI]);
+	}
+	oneCube.edges[4] = edge(oneCube.vertices[4],oneCube.vertices[5]);
+	oneCube.edges[5] = edge(oneCube.vertices[5],oneCube.vertices[6]);
+	oneCube.edges[6] = edge(oneCube.vertices[6],oneCube.vertices[7]);
+	oneCube.edges[7] = edge(oneCube.vertices[7],oneCube.vertices[4]);
+	
+	std::vector<std::unordered_set<label>> faceVertices(6);
+	faceVertices[4] = startingFaceVert;
+	faceVertices[5] = oppositeFaceVert;
+	faceVertices[0] = {oneCube.vertices[0],oneCube.vertices[1],oneCube.vertices[4],oneCube.vertices[5]};
+	faceVertices[1] = {oneCube.vertices[1],oneCube.vertices[2],oneCube.vertices[5],oneCube.vertices[6]};
+	faceVertices[2] = {oneCube.vertices[2],oneCube.vertices[3],oneCube.vertices[6],oneCube.vertices[7]};
+	faceVertices[3] = {oneCube.vertices[0],oneCube.vertices[3],oneCube.vertices[4],oneCube.vertices[7]};
+	
+	for(int cellFaceInd=1;cellFaceInd<faceInds.size();cellFaceInd++)
+	{
+		label faceInd = faceInds[cellFaceInd];
+		face thisFace = meshFaces[faceInd];
+		label thisFaceMC33Label=-1;
+		for(int j=0;j<faceVertices.size();j++)
+		{
+			bool allIn = true;
+			for(int k=0;k<thisFace.size();k++)
+			{
+				allIn = allIn && (faceVertices[j].find(thisFace[k])!=faceVertices[j].end());
+			}
+			if(allIn)
+			{
+				if(thisFaceMC33Label!=-1)
+					FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+				else
+					thisFaceMC33Label=j;
+			}
+		}
+		if(thisFaceMC33Label==4)
+			FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+		oneCube.faces[thisFaceMC33Label] = faceInd;
+	}
+	
+	return oneCube;
 }
 
-//#define FF 0xFFFFFFFF
+unsigned int Foam::cutCellFvMesh::MC33::computeSignBitPattern
+(
+	MC33Cube cell
+)
+{
+	unsigned int bitPattern = 0;
+	for(int vertI=0;vertI<cell.vertices.size();vertI++)
+	{
+		label pntInd = cell.vertices[vertI];
+		scalar iso = pointDist[pntInd];
+		if(iso>=0)
+		{
+			unsigned int mask = 1;
+			mask = mask << (7-vertI)
+			bitPattern = bitPattern | mask;
+		}
+	}
+	return bitPattern;
+}
+
+
+void Foam::cutCellFvMesh::MC33::computeCutCell(int cellInd)
+{
+	const cellList& meshCells = mesh.cells();
+    const faceList& meshFaces = mesh.faces();
+    const edgeList& meshEdges = mesh.edges();
+    const pointField& meshPoints = mesh.points();
+    const labelList& cellOwner = mesh.faceOwner();
+    const labelList& cellNeighbor = mesh.faceNeighbour();
+	
+	MC33Cube mc33Cube = generateMC33Cube(cellInd);
+	unsigned int bitPattern = computeSignBitPattern(mc33Cube);
+	std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> triangles;
+	if(bitPattern!=0 && bitPattern!=255) 
+	{
+		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
+		triangles = collectTriangles(triangleCase);
+	}
+	
+}
+
 const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned int verticePattern)
 {
-	//unsigned int p[13] = {FF,FF,FF,FF,FF,FF,FF,FF,FF,FF,FF,FF,FF};
-	//unsigned int ti[3];//for vertex indices of a triangle
 	union { // memory saving
 		int f[6];//for the face tests
 		double r[6];//for intercept and normal coordinates
@@ -101,8 +212,7 @@ const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned in
 	const unsigned short int *pcase = table;
 	
 	Info<<pcase<<"   "<<getBitPattern(*pcase)<<Foam::endl;
-	
-	
+
 	unsigned int k, c, m, n;
 	double t;
 	if (verticePattern&0x80) {
@@ -225,10 +335,6 @@ std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> Foam::cutCellFvM
 	while(*(triangleCase++)&0x1000);
 	
 	return triangles;
-}
-
-void Foam::cutCellFvMesh::MC33::set_default_surface_color(unsigned char *color) {
-	//DefaultColor = *(reinterpret_cast<int*>(color));
 }
 
 /******************************************************************

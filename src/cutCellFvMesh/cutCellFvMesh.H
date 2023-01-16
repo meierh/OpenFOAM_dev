@@ -587,9 +587,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         class MC33{
             public:
                 explicit MC33(cutCellFvMesh& mesh);
-                ~MC33();
-                // Set the color of the next isosurface
-                void set_default_surface_color(unsigned char *color);
+
                 // set the grid parameters:
                 int set_grid3d(/*grid3d *G*/);
                 //int set_grid3d(/*grid3d &G*/);
@@ -600,7 +598,15 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 std::size_t size_of_isosurface(MC33_real iso, unsigned int &nV, unsigned int &nT);
                 // Return the size in bytes of an isosurface with out calculate it:
                 std::size_t size_of_isosurface(MC33_real iso);
+                void computeCutCell(cell oneCell);
                 
+                typedef struct{
+                    label cell;
+                    List<label> vertices = List<label>(8);
+                    List<edge> edges = List<edge>(12);
+                    List<label> faces = List<label>(6);
+                }
+                MC33Cube;
                 
             private:
                 const unsigned short int table[2310];
@@ -646,6 +652,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 (
                     const unsigned short int* triangleCase
                 );
+                MC33Cube generateMC33Cube(int cellInd);
+                void computeCutCell(int cellInd);
+                unsigned int computeSignBitPattern(MC33Cube cell);
+
+                
         };
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
