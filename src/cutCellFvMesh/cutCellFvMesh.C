@@ -471,14 +471,7 @@ void Foam::cutCellFvMesh::projectLevelSet()
 void Foam::cutCellFvMesh::executeMarchingCubes()
 {
     const cellList& meshCells = this->cells();
-    const pointField& basisPoints = this->points();
-    const faceList& basisFaces = this->faces();
-    const labelList& cellOwner = this->faceOwner();
-    const labelList& cellNeighbor = this->faceNeighbour();
     const edgeList& basisEdges = this->edges();
-    const labelListList& edgeToFaces = this->edgeFaces();
-    const labelListList& faceToEdge = this->faceEdges();
-    const labelListList& pointToFace = this->pointFaces();
 
     MC33 marchingCubesAlgorithm(*this);
     mc33CutCellData.resize(meshCells.size());
@@ -490,23 +483,40 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
     const labelListList& edgeCells = this->edgeCells();
     for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
     {
-        //DynamicList<MC33*> neighboringMC33Cubes;
+        const edge& currentEdge = basisEdges[edgInd];
         for(int i=0;i<edgeCells[edgInd].size();i++)
         {
             label cellInd = edgeCells[edgInd][i];
             MC33::MC33Cube& thisCellMc33Cube = mc33CutCellData[cellInd];
             if(thisCellMc33Cube.cell!=-1)
             {
+                bool assignOne = false;
                 for(int j=0;j<thisCellMc33Cube.edges.size();j++)
                 {
                     edge& cubeEdge = thisCellMc33Cube.edges[j];
-                    
+                    if(cubeEdge.otherVertex(currentEdge.start())!=-1 &&
+                       cubeEdge.otherVertex(currentEdge.end())!=-1)
+                    {
+                        if(assignOne)
+                            FatalErrorInFunction<<"Double assigment"<< exit(FatalError);                        
+                        thisCellMc33Cube.edgeGlobalInd[j] = edgInd;
+                        assignOne=true;
+                    }
                 }
+                if(!assignOne)
+                    FatalErrorInFunction<<"Missing assignment"<< exit(FatalError);
             }
         }
     }
+    for(int i=0;i<meshCells.size();i++)
+    {
+        for(int j=0;j<mc33CutCellData[i].edgeGlobalInd.size();j++)
+        {
+            if(mc33CutCellData[i].edgeGlobalInd[j]==-1)
+                FatalErrorInFunction<<"Missing assignment"<< exit(FatalError);
+        }
+    }
 }
-
 
 void Foam::cutCellFvMesh::newMeshPoints
 (
@@ -945,6 +955,437 @@ void Foam::cutCellFvMesh::newMeshPoints
     Info<< "took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
     Info<<"-----------------------------------------------";
 
+}
+
+void Foam::cutCellFvMesh::newMeshPoints_MC33()
+{
+    const cellList& meshCells = this->cells();
+    const pointField& basisPoints = this->points();
+    const faceList& basisFaces = this->faces();
+    const labelList& cellOwner = this->faceOwner();
+    const labelList& cellNeighbor = this->faceNeighbour();
+    const edgeList& basisEdges = this->edges();
+    const labelListList& edgeToFaces = this->edgeFaces();
+    const labelListList& faceToEdge = this->faceEdges();
+    const labelListList& pointToFace = this->pointFaces();
+    
+    const labelListList& edgeCells = this->edgeCells();
+    for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
+    {
+        const edge& currentEdge = basisEdges[edgInd];
+        DynamicList<MC33::MC33Cube*> neighboringMC33Cubes;
+        DynamicList<label> neigboringMC33Cubes_sharedEdge_localInd;
+        for(int i=0;i<edgeCells[edgInd].size();i++)
+        {
+            label cellInd = edgeCells[edgInd][i];
+            neighboringMC33Cubes.append(&mc33CutCellData[cellInd]);
+            label MC33Cube_cellLocal_Edge = -1;
+            for(int j=0;j<mc33CutCellData[cellInd].edgeGlobalInd.size();j++)
+            {
+                if(mc33CutCellData[cellInd].edgeGlobalInd[j]==edgInd)
+                {
+                    if(MC33Cube_cellLocal_Edge==-1)
+                        MC33Cube_cellLocal_Edge = j;
+                    else
+                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                }
+            }
+            if(MC33Cube_cellLocal_Edge==-1)
+                FatalErrorInFunction<<"Missing edge assignment!"<< exit(FatalError);
+            neigboringMC33Cubes_sharedEdge_localInd.append(MC33Cube_cellLocal_Edge);
+        }
+    
+        bool oneAssgined = false;
+        bool oneNotAssigned = true;
+        DynamicList<label> neigboringMC33Cubes_faceToCutEdge_localInd;
+        for(int i=0;i<edgeCells[edgInd].size();i++)
+        {
+            label cellInd = edgeCells[edgInd][i];
+            label MC33Cube_cellLocal_cutfaceInd = -1;
+            for(int j=0;j<mc33CutCellData[cellInd].cutTriangles.size();j++)
+            {
+                auto& oneTriangle = mc33CutCellData[cellInd].cutTriangles[j];
+                label cutEdge1 = std::get<0>(oneTriangle);
+                label cutEdge2 = std::get<1>(oneTriangle);
+                label cutEdge3 = std::get<2>(oneTriangle);
+                label sharedEdge_localInd = neigboringMC33Cubes_sharedEdge_localInd[i];
+                if(cutEdge1==sharedEdge_localInd ||
+                   cutEdge2==sharedEdge_localInd ||
+                   cutEdge3==sharedEdge_localInd)
+                {
+                    if(MC33Cube_cellLocal_cutfaceInd==-1)
+                        MC33Cube_cellLocal_cutfaceInd = j;
+                    else
+                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                }
+            }
+            if(MC33Cube_cellLocal_cutfaceInd==-1)
+                oneNotAssigned=true;
+            if(MC33Cube_cellLocal_cutfaceInd!=-1)
+                oneAssgined=true;
+            neigboringMC33Cubes_faceToCutEdge_localInd.append(MC33Cube_cellLocal_cutfaceInd);
+        }
+        if(oneNotAssigned && oneAssgined)
+            FatalErrorInFunction<<"Inconsistent edge assignment!"<< exit(FatalError);
+    }
+    
+    nbrOfPrevPoints = basisPoints.size();    
+    newMeshPointsInFunc.setCapacity(basisPoints.size()*2);
+    newMeshPointsInFunc.append(basisPoints);
+
+    pointsToSide(basisPoints);
+    
+    pointToEgde_.setSize(basisPoints.size());
+    for(int i=0;i<basisPoints.size();i++)
+    {
+        pointToEgde_[i] = -1;
+    }    
+    edgeToPoint_.setSize(basisEdges.size());
+    
+    pointToFaces_.setSize(basisPoints.size());
+    const labelListList& pointFaces = this->pointFaces();
+    const labelListList& edgeFaces = this->edgeFaces();
+    for(int i=0;i<basisPoints.size();i++)
+    {
+        if(pointsToSide_[i] == 0)
+        {
+            pointToFaces_[i] = pointFaces[i];
+        }
+    }
+    
+    faceToPoints_.setSize(basisFaces.size());
+    for(int i=0;i<basisPoints.size();i++)
+    {
+        if(pointToFaces_[i].size() != 0)
+        {
+            for(int k=0;k<pointToFaces_[i].size();k++)
+            {
+                if(faceToPoints_[pointToFaces_[i][k]].size() == 0)
+                {
+                    faceToPoints_[pointToFaces_[i][k]] = labelList(0);
+                    faceToPoints_[pointToFaces_[i][k]].append(i);
+                }
+                else
+                {
+                    faceToPoints_[pointToFaces_[i][k]].append(i);
+                }
+            }
+        }
+    }
+    
+    pointToCells_.setCapacity(basisPoints.size()*2);
+    pointToCells_.setSize(basisPoints.size());
+    const labelListList& pointCells = this->pointCells();
+    const labelListList& edgeCells = this->edgeCells();
+    for(int i=0;i<basisPoints.size();i++)
+    {
+        if(pointsToSide_[i] == 0)
+        {
+            pointToCells_[i] = pointCells[i];
+        }
+    }
+    
+    cellToPoints_.setSize(meshCells.size());
+    for(int i=0;i<basisPoints.size();i++)
+    {
+        if(pointToCells_[i].size() != 0)
+        {
+            for(int k=0;k<pointToCells_[i].size();k++)
+            {
+                if(cellToPoints_[pointToCells_[i][k]].size() == 0)
+                {
+                    cellToPoints_[pointToCells_[i][k]] = labelList(0);
+                    cellToPoints_[pointToCells_[i][k]].append(i);
+                }
+                else
+                {
+                    cellToPoints_[pointToCells_[i][k]].append(i);
+                }
+            }
+        }
+    }
+        
+    for(int i=0;i<basisEdges.size();i++)
+    {
+        label startLabel = basisEdges[i].start();
+        label endLabel = basisEdges[i].end();
+        scalar phiStart = pointDist[startLabel];
+        scalar phiEnd = pointDist[endLabel];
+        
+        if(phiStart>0 || phiEnd>0)
+            pos = +1;
+        if(phiStart<0 || phiEnd<0)
+            neg = -1;
+        
+        if(pos == +1 && neg == -1)
+        {
+            bool found;
+            DynamicList<nurbsReference> reference;
+            vector lhsToRhs = basisPoints[endLabel]-basisPoints[startLabel];
+            
+            scalar lhsPhi = phiStart;
+            scalar lhsScale = 0;
+            vector lhsPoint = basisPoints[startLabel];
+            
+            scalar rhsPhi = phiEnd;
+            scalar rhsScale = 1;
+            vector rhsPoint = basisPoints[endLabel];
+            
+            scalar centerPhi;
+            scalar centerScale = 0.5;
+            vector centerPoint = basisPoints[startLabel]+0.5*lhsToRhs;
+            centerPhi = distToNurbs(centerPoint,found,reference);
+            if(!found)
+            {
+                Info<<endl;
+                Info<<"basisPoints[endLabel]:"<<basisPoints[endLabel]<<endl;
+                Info<<"basisPoints[startLabel]:"<<basisPoints[startLabel]<<endl;
+                Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
+                Info<<"meshPointNurbsReference["<<startLabel<<"].size():"<<meshPointNurbsReference[startLabel].size()<<endl;
+                Info<<"meshPointNurbsReference["<<endLabel<<"].size():"<<meshPointNurbsReference[endLabel].size()<<endl;
+                Info<<"meshPointNurbsReference["<<startLabel<<"][0]:"<<meshPointNurbsReference[startLabel][0].nurbsInd<<"  "<<meshPointNurbsReference[startLabel][0].nurbsPara<<endl;
+                Info<<"meshPointNurbsReference["<<endLabel<<"][0]"<<meshPointNurbsReference[endLabel][0].nurbsInd<<"  "<<meshPointNurbsReference[endLabel][0].nurbsPara<<endl;
+                Info<<"startLabel:"<<startLabel<<"   pointDist[startLabel]:"<<pointDist[startLabel]<<endl;
+                Info<<"endLabel:"<<endLabel<<"   pointDist[endLabel]:"<<pointDist[endLabel]<<endl;
+                Info<<"centerPhi:"<<centerPhi<<endl;
+                FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+            }
+            
+            enum SideIndicator {lhs_cnt, cnt_rhs};
+            SideIndicator side;
+            
+            label count = 0;
+            scalar comingFromLhs = 0;
+            scalar comingFromRhs = 0;
+            scalar iterationGeneral = 0;
+            scalar gamma = 0.95;
+            scalar oldMinPhi = centerPhi;
+            while(std::abs(centerPhi)>10e-10)
+            {
+                if(std::signbit(centerPhi)!=std::signbit(lhsPhi))
+                {
+                    rhsScale = centerScale;
+                    rhsPoint = basisPoints[startLabel]+rhsScale*lhsToRhs;
+                    rhsPhi = distToNurbs(rhsPoint,found);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                }
+                else if(std::signbit(centerPhi)!=std::signbit(rhsPhi))
+                {
+                    lhsScale = centerScale;
+                    lhsPoint = basisPoints[startLabel]+lhsScale*lhsToRhs;
+                    lhsPhi = distToNurbs(lhsPoint,found);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                }
+                else
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                
+                centerScale = 0.5*(lhsScale+rhsScale);
+                centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                centerPhi = distToNurbs(centerPoint,found);
+                if(!found)
+                    FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                
+                //Quadratic Interpolation
+                scalar det_M =  lhsScale*lhsScale*centerScale + lhsScale*rhsScale*rhsScale + centerScale*centerScale*rhsScale
+                                - rhsScale*rhsScale*centerScale - rhsScale*lhsScale*lhsScale - centerScale*centerScale*lhsScale;
+                scalar det_Ma = lhsPhi*centerScale + lhsScale*rhsPhi + centerPhi*rhsScale
+                                - rhsPhi*centerScale - rhsScale*lhsPhi - centerPhi*lhsScale;
+                scalar det_Mb = lhsScale*lhsScale*centerPhi + lhsPhi*rhsScale*rhsScale + centerScale*centerScale*rhsPhi
+                                - rhsScale*rhsScale*centerPhi - rhsPhi*lhsScale*lhsScale - centerScale*centerScale*lhsPhi;
+                scalar det_Mc = lhsScale*lhsScale*centerScale*rhsPhi + lhsScale*centerPhi*rhsScale*rhsScale + lhsPhi*centerScale*centerScale*rhsScale
+                                - rhsScale*rhsScale*centerScale*lhsPhi - rhsScale*centerPhi*lhsScale*lhsScale - rhsPhi*centerScale*centerScale*lhsScale;
+                if(det_M!=0)
+                {
+                    //FatalErrorInFunction<<"Not invertable. Can not happen!"<< exit(FatalError);                
+                    scalar a = det_Ma/det_M;
+                    scalar b = det_Mb/det_M;
+                    scalar c = det_Mc/det_M;
+                
+                    scalar lhsY = a*lhsScale*lhsScale+b*lhsScale+c;
+                    scalar centerY = a*centerScale*centerScale+b*centerScale+c;
+                    scalar rhsY = a*rhsScale*rhsScale+b*rhsScale+c;
+                    
+                    if(a==0)
+                    {
+                        if(b==0)
+                            centerScale = 0.5*(lhsScale+rhsScale);
+                        centerScale = -c/b;
+                    }
+                    else
+                    {
+                        scalar p = b/a;
+                        scalar q = c/a;                    
+                        scalar rh = (p/2)*(p/2)-q;
+                        if(rh>=0)
+                        {
+                            rh = std::sqrt(rh);
+                            scalar lh = -p/2;
+                            scalar x1 = lh + rh;
+                            scalar x2 = lh - rh;
+                        
+                            if(lhsScale<=x1 && x1<=rhsScale)
+                            {
+                                Info<<"x1: ";
+                                centerScale = x1;
+                            }
+                            else if(lhsScale<=x2 && x2<=rhsScale)
+                            {
+                                Info<<"x2: ";
+                                centerScale = x2;
+                            }
+                            else
+                            {
+                                Info<<"Centering: ";
+                                centerScale = 0.5*(lhsScale+rhsScale);
+                            }
+                        }
+                        else
+                        {
+                            Info<<"Centering: ";
+                            centerScale = 0.5*(lhsScale+rhsScale);
+                        }
+                    }
+                    
+                    Info<<"rhsScale:"<<rhsScale<<" centerScale:"<<centerScale<<" lhsScale:"<<lhsScale;
+                    centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                    centerPhi = distToNurbs(centerPoint,found,reference);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                    Info<<" centerPhi:"<<centerPhi;
+                    
+                    if(std::abs(centerPhi)>0.5*std::abs(oldMinPhi))
+                    {
+                        centerScale = 0.5*(lhsScale+rhsScale);
+                        centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                        centerPhi = distToNurbs(centerPoint,found,reference);
+                        if(!found)
+                            FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                        Info<<" center";
+                    }
+                    Info<<endl;
+                }
+                else
+                {
+                    centerScale = 0.5*(lhsScale+rhsScale);
+                    centerPoint = basisPoints[startLabel]+centerScale*lhsToRhs;
+                    centerPhi = distToNurbs(centerPoint,found,reference);
+                    if(!found)
+                        FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                }
+                oldMinPhi = centerPhi;
+
+                count++;
+                if(count>=100)
+                {
+                    /*
+                    if(std::abs(centerPhi)<1e-5) //Lower limit after many iterations
+                        break;
+                    */
+                        
+                    Info<<endl;
+                    Info<<"centerPhi:"<<centerPhi<<endl;
+                    Info<<"phiStart:"<<phiStart<<endl;
+                    Info<<"phiEnd:"<<phiEnd<<endl;
+                    bool found;
+                    scalar sample = 1000;
+                    for(int k=0;k<=sample;k++)
+                    {
+                        DynamicList<nurbsReference> reference;
+                        vector centerPoint = basisPoints[startLabel]+(k/sample)*lhsToRhs;
+                        centerPhi = distToNurbs(centerPoint,found,reference);
+                        Info<<"k:"<<k<<" scale:"<<(k/sample)<<" pnt:"<<centerPoint<<" phi:"<<centerPhi<<"  reference: ";
+                        for(const nurbsReference& ref : reference)
+                            Info<<"("<<ref.nurbsInd<<"  "<<ref.nurbsPara<<") ";
+                        Info<<endl;
+                        if(!found)
+                            FatalErrorInFunction<<"Not found!"<< exit(FatalError);
+                    }
+                    FatalErrorInFunction<<"Can not find a zero point!"<< exit(FatalError);
+                }
+            }
+
+            newMeshPointsInFunc.append(centerPoint);
+            
+            meshPointNurbsReference.append(reference);
+            
+            pointsToSide_.append(0);
+            
+            pointToEgde_.append(i);
+            
+            edgeToPoint_[i] = newMeshPointsInFunc.size()-1;
+                        
+            DynamicList<label> insertedgeFaces;
+            insertedgeFaces.setSize(edgeFaces[i].size());
+            for(int j=0;j<edgeFaces[i].size();j++)
+                insertedgeFaces[j] = edgeFaces[i][j];
+            pointToFaces_.append(insertedgeFaces);
+            
+            for(int k=0;k<edgeFaces[i].size();k++)
+            {
+                label faceLabel = edgeFaces[i][k];
+                if(faceToPoints_[faceLabel].size() == 0)
+                {
+                    faceToPoints_[faceLabel] = labelList(0);
+                    faceToPoints_[faceLabel].append(newMeshPointsInFunc.size()-1);
+                }
+                else
+                {
+                    faceToPoints_[faceLabel].append(newMeshPointsInFunc.size()-1);
+                }
+            }
+            
+            DynamicList<label> insertedgeCells;        
+            insertedgeCells.setSize(edgeCells[i].size());
+            for(int j=0;j<edgeCells[i].size();j++)
+                insertedgeCells[j] = edgeCells[i][j];
+            pointToCells_.append(insertedgeCells);
+            
+            for(int k=0;k<edgeCells[i].size();k++)
+            {
+                label cellLabel = edgeCells[i][k];
+                if(cellToPoints_[cellLabel].size() == 0)
+                {
+                    cellToPoints_[cellLabel] = labelList(0);
+                    cellToPoints_[cellLabel].append(newMeshPointsInFunc.size()-1);
+                }
+                else
+                {
+                    cellToPoints_[cellLabel].append(newMeshPointsInFunc.size()-1);
+                }
+            }
+        }
+        else
+        {
+            edgeToPoint_[i] = -1;
+        }
+    }
+    //FatalErrorInFunction<<"Temp stop"<< exit(FatalError);
+
+    
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"End information ";
+    t1 = std::chrono::high_resolution_clock::now();
+    
+    newMeshPoints_ = pointField(newMeshPointsInFunc.size());
+    for(int i=0;i<newMeshPoints_.size();i++)
+        newMeshPoints_[i] = newMeshPointsInFunc[i];
+    newMeshPointsInFunc.setCapacity(0);
+    
+    pointToEgde_.setCapacity(pointToEgde_.size());
+    pointToFaces_.setCapacity(pointToFaces_.size());
+    pointToCells_.setCapacity(pointToFaces_.size());
+    
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+    Info<<"-----------------------------------------------";
+    
 }
 
 void Foam::cutCellFvMesh::printAddedPoints

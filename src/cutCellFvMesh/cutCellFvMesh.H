@@ -425,6 +425,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // Add points for cutting the cells and create dependency data for creating cut cells
         // Adds to points_.
         void newMeshPoints();
+        void newMeshPoints_MC33();
         
         scalar distToNurbs(point pnt,bool& foundFlag,DynamicList<nurbsReference>& reference);
         scalar distToNurbs(point pnt,bool& foundFlag);
