@@ -65,6 +65,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<label> vertices = List<label>(8);
                     List<edge> edges = List<edge>(12);
                     List<label> edgeGlobalInd = labelList(12,-1);
+                    List<label> cutEdgeVerticeIndex = labelList(12,-1);
                     List<label> faces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                 } MC33Cube;
