@@ -5451,7 +5451,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
 (
 )
 {
-    //Info<<"Starting adding Edges"<<endl;
     const cellList& meshCells = this->cells();
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
@@ -5477,28 +5476,90 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
     {
         const labelList thisFaceEdges = faceToEdge[faceInd];
         DynamicList<MC33::MC33Cube*> MC33CubesOfFace;
-        std::unordered_set<label> edgesOfFace;
-        edgesOfFace.insert(thisFaceEdges.cbegin(),thisFaceEdges.cend());        
+        std::unordered_map<label,label> edgesOfFace;
+        for(int j=0;j<thisFaceEdges.size();j++)
+        {
+            edgesOfFace.insert({thisFaceEdges[j],j});
+        }
+        edgesOfFace.insert(thisFaceEdges.cbegin(),thisFaceEdges.cend());
+
+        List<List<label>> cut_localEdgIndToEdgInd(faceCells[faceInd].size());
         for(int j=0;j<faceCells[faceInd].size();j++)
         {
             label cellInd = faceCells[faceInd][j];
             MC33CubesOfFace.append(&mc33CutCellData[cellInd]);
-            for(int k=0;k<mc33CutCellData[cellInd].cutTriangles.size();k++)
+            
+            if(mc33CutCellData[cellInd].cell!=-1)
             {
-                label localFaceEdgeInd1 = std::get<0>(mc33CutCellData[cellInd].cutTriangles[k]);
-                label faceCutEdge1 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd1];
-                label localFaceEdgeInd2 = std::get<1>(mc33CutCellData[cellInd].cutTriangles[k]);
-                label faceCutEdge2 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd2];
-                label localFaceEdgeInd3 = std::get<2>(mc33CutCellData[cellInd].cutTriangles[k]);
-                label faceCutEdge3 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd3];
-                
-                if(
+                cut_localEdgIndToEdgInd[j].resize(basisFaces[faceInd].size(),-1);
+                for(int k=0;k<mc33CutCellData[cellInd].cutTriangles.size();k++)
+                {
+                    label localFaceEdgeInd1 = std::get<0>(mc33CutCellData[cellInd].cutTriangles[k]);
+                    label faceCutEdge1 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd1];
+                    label localFaceEdgeInd2 = std::get<1>(mc33CutCellData[cellInd].cutTriangles[k]);
+                    label faceCutEdge2 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd2];
+                    label localFaceEdgeInd3 = std::get<2>(mc33CutCellData[cellInd].cutTriangles[k]);
+                    label faceCutEdge3 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd3];
+                    
+                    bool foundCutFaceEdges=false;
+                    label loc_edg_Ind1 = -1;
+                    label loc_edg_Ind2 = -1;
+                    if(edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end() &&
+                       edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end())
+                    {
+                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge1).second;
+                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge2).second;
+                        foundCutFaceEdges=true;
+                    }
+                    if(edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end() &&
+                    edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end())
+                    {
+                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge2).second;
+                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge3).second;
+                        foundCutFaceEdges=true;
+                    }
+                    if(edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end() &&
+                    edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end())
+                    {
+                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge3).second;
+                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge1).second;
+                        foundCutFaceEdges=true;
+                    }
+                    if(cut_localEdgIndToEdgInd[loc_edg_Ind1]!=-1)
+                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                    cut_localEdgIndToEdgInd[loc_edg_Ind1] = loc_edg_Ind2;
+                }
             }
-            
-            edgesOfFace
-            
-            
         }
+        if(faceCells[faceInd].size()==2)
+        {
+            for(int k0=0;k0<cut_localEdgIndToEdgInd[0].size();k0++)
+            {
+                if(cut_localEdgIndToEdgInd[0][k0]!=-1)
+                {
+                    if(cut_localEdgIndToEdgInd[1][k0] == cut_localEdgIndToEdgInd[0][k0] ||
+                       cut_localEdgIndToEdgInd[1][cut_localEdgIndToEdgInd[0][k0]] == k0)
+                    {
+                        //Cont here
+                    }
+                }
+            }
+        }
+        else if(faceCells[faceInd].size()==1)
+        {
+            for(int k0=0;k0<cut_localEdgIndToEdgInd[0].size();k0++)
+            {
+                if(cut_localEdgIndToEdgInd[0][k0]!=-1)
+                {
+                    //Cont here
+                }
+            }            
+        }
+        else
+            FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
+
+        
+        
     }
     
     
