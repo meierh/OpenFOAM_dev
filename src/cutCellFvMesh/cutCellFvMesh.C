@@ -1068,7 +1068,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     
     pointToCells_.setSize(basisPoints.size());
     const labelListList& pointCells = this->pointCells();
-    const labelListList& edgeCells = this->edgeCells();
     for(int i=0;i<basisPoints.size();i++)
     {
         if(pointsToSide_[i] == 0)
@@ -1092,8 +1091,8 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     {
         if(edgeIsCutEdge[edgInd])
         {
-            label startLabel = basisEdges[i].start();
-            label endLabel = basisEdges[i].end();
+            label startLabel = basisEdges[edgInd].start();
+            label endLabel = basisEdges[edgInd].end();
             scalar phiStart = pointDist[startLabel];
             scalar phiEnd = pointDist[endLabel];
             
@@ -1115,8 +1114,8 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 scalar scale = phiStart / (phiStart-phiEnd);
                 if(scale>=1 || scale<=0)
                     FatalErrorInFunction<<"New Point must be inside edge!"<< exit(FatalError);
-                vector startPoint = pointField[startLabel];
-                vector endPoint = pointField[endLabel];
+                vector startPoint = basisPoints[startLabel];
+                vector endPoint = basisPoints[endLabel];
                 vector startEndVector = endPoint-startPoint;
                 vector newPoint = startPoint + scale * startEndVector;
                 
@@ -1131,29 +1130,29 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 meshPointNurbsReference.append(reference);            
                 pointsToSide_.append(0);            
                 pointToEgde_.append(edgInd);
-                edgeToPoint_[i] = cutPointInd;
+                edgeToPoint_[edgInd] = cutPointInd;
                 
                 DynamicList<label> insertedgeFaces;
-                insertedgeFaces.setSize(edgeFaces[i].size());
-                for(int j=0;j<edgeFaces[i].size();j++)
-                    insertedgeFaces[j] = edgeFaces[i][j];
+                insertedgeFaces.setSize(edgeFaces[edgInd].size());
+                for(int j=0;j<edgeFaces[edgInd].size();j++)
+                    insertedgeFaces[j] = edgeFaces[edgInd][j];
                 pointToFaces_.append(insertedgeFaces);
                 
-                for(int k=0;k<edgeFaces[i].size();k++)
+                for(int k=0;k<edgeFaces[edgInd].size();k++)
                 {
-                    label faceLabel = edgeFaces[i][k];
+                    label faceLabel = edgeFaces[edgInd][k];
                     faceToPoints_[faceLabel].append(cutPointInd);
                 }
 
                 DynamicList<label> insertedgeCells;        
-                insertedgeCells.setSize(edgeCells[i].size());
-                for(int j=0;j<edgeCells[i].size();j++)
-                    insertedgeCells[j] = edgeCells[i][j];
+                insertedgeCells.setSize(edgeCells[edgInd].size());
+                for(int j=0;j<edgeCells[edgInd].size();j++)
+                    insertedgeCells[j] = edgeCells[edgInd][j];
                 pointToCells_.append(insertedgeCells);
                 
-                for(int k=0;k<edgeCells[i].size();k++)
+                for(int k=0;k<edgeCells[edgInd].size();k++)
                 {
-                    label cellLabel = edgeCells[i][k];
+                    label cellLabel = edgeCells[edgInd][k];
                     cellToPoints_[cellLabel].append(cutPointInd);
                 }
             }
@@ -5455,12 +5454,11 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
     const pointField& basisPoints = this->points();
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
-    const labelList& cellOwner = this->faceOwner();
-    const labelList& cellNeighbor = this->faceNeighbour();
+    const labelList& faceOwner = this->faceOwner();
+    const labelList& faceNeighbor = this->faceNeighbour();
     const labelListList& faceToEdge = this->faceEdges();
     const labelListList& cellToEdge = this->cellEdges();
     const labelListList& pointToEdge = this->pointEdges();
-    const labelListList& faceCells = this->faceCells();
     
     nbrOfPrevEdges = basisEdges.size();
     newMeshEdges_.append(basisEdges);
@@ -5474,28 +5472,37 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
     for(int faceInd=0;faceInd<basisFaces.size();faceInd++)
     {
         const labelList thisFaceEdges = faceToEdge[faceInd];
-        DynamicList<MC33::MC33Cube*> MC33CubesOfFace;
         std::unordered_map<label,label> edgesOfFace;
         for(int j=0;j<thisFaceEdges.size();j++)
         {
             edgesOfFace.insert({thisFaceEdges[j],j});
         }
-        edgesOfFace.insert(thisFaceEdges.cbegin(),thisFaceEdges.cend());
-
-        List<List<label>> cut_localEdgIndToEdgInd(faceCells[faceInd].size());
-        List<List<label>> cut_localEdgIndTo_MC33Triangle(faceCells[faceInd].size());
-        List<List<label>> cut_localEdgIndTo_Case(faceCells[faceInd].size());
-        for(int j=0;j<faceCells[faceInd].size();j++)
+        std::vector<label> cellsOfThisFace = {faceOwner[faceInd]};
+        if(faceNeighbor[faceInd]!=0)
+            cellsOfThisFace.push_back(faceNeighbor[faceInd]);
+        
+        struct pairHash {
+            std::size_t operator()(const std::pair<label,label>& pr) const{
+                return std::hash<label>{}(pr.first)^std::hash<label>{}(pr.second);
+            }
+        };
+        struct pairEqual {
+            bool operator()(const std::pair<label,label>& a,const std::pair<label,label>& b)const{
+                return (std::equal_to<label>{}(a.first,b.first) &&
+                        std::equal_to<label>{}(a.second,b.second))||
+                       (std::equal_to<label>{}(a.first,b.second) && 
+                        std::equal_to<label>{}(a.second,b.first));
+            }
+        };
+        std::vector<std::unordered_map<std::pair<label,label>,std::pair<label,label>,pairHash,pairEqual>>addedEdgesFromSide(cellsOfThisFace.size());
+        std::vector<bool> areThereCutsInFace(cellsOfThisFace.size(),false);
+        for(int j=0;j<cellsOfThisFace.size();j++)
         {
-            label cellInd = faceCells[faceInd][j];
-            MC33CubesOfFace.append(&mc33CutCellData[cellInd]);
-            
-            if(mc33CutCellData[cellInd].cell!=-1)
+            label cellInd = cellsOfThisFace[j];
+            MC33::MC33Cube& thisCellCube = mc33CutCellData[cellInd];
+            if(thisCellCube.cell!=-1)
             {
-                cut_localEdgIndToEdgInd[j].resize(basisFaces[faceInd].size(),-1);
-                cut_localEdgIndTo_MC33Triangle[j].resize(basisFaces[faceInd].size(),-1);
-                cut_localEdgIndTo_Case[j].resize(basisFaces[faceInd].size(),-1);
-                for(int k=0;k<mc33CutCellData[cellInd].cutTriangles.size();k++)
+                for(int k=0;k<thisCellCube.cutTriangles.size();k++)
                 {
                     label localFaceEdgeInd1 = std::get<0>(mc33CutCellData[cellInd].cutTriangles[k]);
                     label faceCutEdge1 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd1];
@@ -5507,85 +5514,84 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                     bool foundCutFaceEdges=false;
                     label loc_edg_Ind1 = -1;
                     label loc_edg_Ind2 = -1;
+                    label which_Triangle_Vertice = -1;
                     if(edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end() &&
                        edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end())
                     {
-                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge1).second;
-                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge2).second;
+                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge1)->second;
+                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge2)->second;
+                        if(foundCutFaceEdges)
+                            FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                         foundCutFaceEdges=true;
-                        cut_localEdgIndTo_Case[j][loc_edg_Ind1] = 0;
+                        which_Triangle_Vertice=0;
                     }
                     if(edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end() &&
                     edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end())
                     {
-                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge2).second;
-                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge3).second;
+                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge2)->second;
+                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge3)->second;
+                        if(foundCutFaceEdges)
+                            FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                         foundCutFaceEdges=true;
-                        cut_localEdgIndTo_Case[j][loc_edg_Ind1] = 1;
+                        which_Triangle_Vertice=1;
                     }
                     if(edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end() &&
                     edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end())
                     {
-                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge3).second;
-                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge1).second;
+                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge3)->second;
+                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge1)->second;
+                        if(foundCutFaceEdges)
+                            FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                         foundCutFaceEdges=true;
-                        cut_localEdgIndTo_Case[j][loc_edg_Ind1] = 2;
+                        which_Triangle_Vertice=2;
                     }
-                    if(cut_localEdgIndToEdgInd[j][loc_edg_Ind1]!=-1)
-                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
-                    cut_localEdgIndToEdgInd[j][loc_edg_Ind1] = loc_edg_Ind2;   
-                    cut_localEdgIndTo_MC33Triangle[j][loc_edg_Ind1] = k;
-                }
-            }
-        }
-        if(faceCells[faceInd].size()==2)
-        {
-            for(int k0=0;k0<cut_localEdgIndToEdgInd[0].size();k0++)
-            {
-                if(cut_localEdgIndToEdgInd[0][k0]!=-1)
-                {
-                    if(cut_localEdgIndToEdgInd[1][k0] == cut_localEdgIndToEdgInd[0][k0] ||
-                       cut_localEdgIndToEdgInd[1][cut_localEdgIndToEdgInd[0][k0]] == k0)
+                    if(foundCutFaceEdges)
                     {
-                        // MC33 Cube 0
-                        MC33::MC33Cube* cube1MC_0 = MC33CubesOfFace[0];
-                        label localTriangleInd_0 = cut_localEdgIndTo_MC33Triangle[0][k0];
-                        auto triangle_0 = cube1MC->cutTriangles[localTriangleInd];
-                        std::vector<label> triEdges_0 = {std::get<0>(triangle_0),std::get<1>(triangle_0),std::get<2>(triangle_0)};
-                        label cutEdge_case_0 = cut_localEdgIndTo_Case[0][k0];
-                        label MC33Cube_localEdgInd1_0 = triEdges_0[cutEdge_case_0%3];
-                        label MC33Cube_localEdgInd2_0 = triEdges_0[(cutEdge_case_0+1)%3];
-
-                        // MC33 Cube 1
-                        MC33::MC33Cube* cube1MC = MC33CubesOfFace[1];
-                        label localTriangleInd = cut_localEdgIndTo_MC33Triangle[0][k0];
-                        auto triangle = cube1MC->cutTriangles[localTriangleInd];
-                        std::vector<label> triEdges = {std::get<0>(triangle),std::get<1>(triangle),std::get<2>(triangle)};
-                        label cutEdge_case = cut_localEdgIndTo_Case[0][k0];
-                        label MC33Cube_localEdgInd1 = triEdges[cutEdge_case%3];
-                        label MC33Cube_localEdgInd2 = triEdges[(cutEdge_case+1)%3];                        
-                        
-                        
-                        //Cont here
+                        std::pair<std::pair<label,label>,std::pair<label,label>> keyValue =       
+                                    {std::pair<label,label>(loc_edg_Ind1,loc_edg_Ind2),
+                                     std::pair<label,label>(k,which_Triangle_Vertice)};
+                        addedEdgesFromSide[j].insert(keyValue);
+                                                      
+                        areThereCutsInFace[j] = true;
                     }
                 }
             }
         }
-        else if(faceCells[faceInd].size()==1)
+        if(cellsOfThisFace.size()==2)
         {
-            for(int k0=0;k0<cut_localEdgIndToEdgInd[0].size();k0++)
+            for(auto cutEdgeIter0=addedEdgesFromSide[0].cbegin();
+                cutEdgeIter0!=addedEdgesFromSide[0].cend();
+                cutEdgeIter0++)
             {
-                if(cut_localEdgIndToEdgInd[0][k0]!=-1)
-                {
-                    //Cont here
-                }
-            }            
+                if(addedEdgesFromSide[1].find(cutEdgeIter0->first)==addedEdgesFromSide[1].end())
+                    FatalErrorInFunction<<"Incompatible edges!"<< exit(FatalError);
+            }
+            for(auto cutEdgeIter1=addedEdgesFromSide[1].cbegin();
+                cutEdgeIter1!=addedEdgesFromSide[1].cend();
+                cutEdgeIter1++)
+            {
+                if(addedEdgesFromSide[0].find(cutEdgeIter1->first)==addedEdgesFromSide[0].end())
+                    FatalErrorInFunction<<"Incompatible edges!"<< exit(FatalError);
+            }
+            if(areThereCutsInFace[0] ^ areThereCutsInFace[1])
+                FatalErrorInFunction<<"Incompatible assignments!"<< exit(FatalError);
+        }
+        else if(cellsOfThisFace.size()==1)
+        {
+          
         }
         else
             FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
 
-        
-        
+        if(areThereCutsInFace[0])
+        {
+            for(auto cutEdgeIter0=addedEdgesFromSide[0].cbegin();
+                cutEdgeIter0!=addedEdgesFromSide[0].cend();
+                cutEdgeIter0++)
+            {
+            
+            }
+        }
     }
     
     

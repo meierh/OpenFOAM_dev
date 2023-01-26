@@ -438,6 +438,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // Add edges for cutting the cells and create dependency data for creating cut cells
         // Adds to edges_;
         void newMeshEdges();
+        void newMeshEdges_MC33();
+
+        
         bool equalEdges
         (
             std::unordered_set<label> setA,
