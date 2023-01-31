@@ -470,13 +470,15 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
         {
             if(pointDist[cellPointLabel] >= 0)
                 onePlus = true;
-            else if(pointDist[cellPointLabel] < 0)
+            else 
                 oneNeg = true;
         }
         MC33::MC33Cube oneCube;
         if(onePlus && oneNeg)
         {
-            oneCube = marchingCubesAlgorithm.computeCutCell(i);
+            marchingCubesAlgorithm.computeCutCell(i);
+            //oneCube = marchingCubesAlgorithm.computeCutCell(i);
+            Info<<"Assign"<<Foam::endl;
             mc33CutCellData.append(oneCube);
         }
         else if(!onePlus && !oneNeg)
@@ -518,11 +520,14 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
         }
     }
     for(int i=0;i<meshCells.size();i++)
-    {
-        for(int j=0;j<mc33CutCellData[i].edgeGlobalInd.size();j++)
+    {            
+        if(mc33CutCellData[i].cell!=-1)
         {
-            if(mc33CutCellData[i].edgeGlobalInd[j]==-1)
-                FatalErrorInFunction<<"Missing assignment"<< exit(FatalError);
+            for(int j=0;j<mc33CutCellData[i].edgeGlobalInd.size();j++)
+            {
+                if(mc33CutCellData[i].edgeGlobalInd[j]==-1)
+                    FatalErrorInFunction<<"Missing assignment"<< exit(FatalError);
+            }
         }
     }
 	FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);

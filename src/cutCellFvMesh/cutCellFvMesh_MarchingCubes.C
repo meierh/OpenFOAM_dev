@@ -46,19 +46,6 @@ mesh(mesh),
 table
 #include "MC33_LookUpTable.h"
 {
-	/*
-    unsigned int b = 127;
-    Info<<"b:"<<getBitPattern(b)<<Foam::endl;
-	const unsigned short int* pcase = getTriangleCase(b);
-    Info<<"pcase:"<<pcase<<Foam::endl;
-    Info<<"*pcase:"<<getBitPattern(*pcase)<<Foam::endl;
-	auto triangleList = collectTriangles(pcase);
-	Info<<"TriangleList: ";
-	for(auto tuple:triangleList)
-		Info<<"("<<std::get<0>(tuple)<<","<<std::get<1>(tuple)<<","<<std::get<2>(tuple)<<")";
-	Info<<Foam::endl;
-	*/
-    
 }
 
 Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
@@ -66,14 +53,19 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	int cellInd
 )
 {
-	Info<<Foam::endl<<cellInd<<Foam::endl;
+	//Info<<Foam::endl<<cellInd<<Foam::endl;
 	const cellList& meshCells = mesh.cells();
 	const faceList& meshFaces = mesh.faces();
     const pointField& meshPoints = mesh.points();
     const cellShapeList& meshShapes = mesh.cellShapes();
 	
-	Info<<"meshCells points:"<<meshCells[cellInd].labels(meshFaces)<<Foam::endl;
-
+	/*
+	Info<<"meshCells points:"<<meshCells[cellInd].labels(meshFaces)<<Foam::endl<<"(";
+	for(label pnt : meshCells[cellInd].labels(meshFaces))
+		Info<<mesh.pointDist[pnt]<<" ";
+	Info<<")"<<Foam::endl;
+	*/
+	
 	cell thisCell = meshCells[cellInd];
 	edgeList thisEdges = thisCell.edges(meshFaces);
 	cellShape thisCellShape = meshShapes[cellInd];
@@ -91,7 +83,10 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	isHex = isHex && (thisCell.size()==6);
 	
 	if(!isHex)
+	{
+		Info<<thisCellModel.name()<<Foam::endl;
 		FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+	}
 
 	
 	MC33Cube oneCube;
@@ -118,7 +113,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	
 	//Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
 	
-	Info<<"Edges:"<<thisEdges<<Foam::endl;	
+	//Info<<"Edges:"<<thisEdges<<Foam::endl;	
 	for(label vertI=0;vertI<4;vertI++)
 	{
 		label seenFaceVertice = oneCube.vertices[vertI];
@@ -160,43 +155,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	faceVertices[2] = {oneCube.vertices[2],oneCube.vertices[3],oneCube.vertices[6],oneCube.vertices[7]};
 	faceVertices[3] = {oneCube.vertices[0],oneCube.vertices[3],oneCube.vertices[4],oneCube.vertices[7]};
 	
-	/*
-	for(int cellFaceInd=1;cellFaceInd<thisCell.size();cellFaceInd++)
-	{
-		label faceInd = thisCell[cellFaceInd];
-		face thisFace = meshFaces[faceInd];
-		label thisFaceMC33Label=-1;
-		for(int j=0;j<faceVertices.size();j++)
-		{
-			bool allIn = true;
-			for(int k=0;k<thisFace.size();k++)
-			{
-				allIn = allIn && (faceVertices[j].find(thisFace[k])!=faceVertices[j].end());
-			}
-			if(allIn)
-			{
-				if(thisFaceMC33Label!=-1)
-					FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
-				else
-					thisFaceMC33Label=j;
-			}
-		}
-		if(thisFaceMC33Label==4)
-			FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
-		oneCube.faces[thisFaceMC33Label] = faceInd;
-	}
-	*/
-	
-	/*
-	if(cellInd==10)
-		FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
-
-	Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
-	Info<<"Edges:"<<oneCube.edges;
 	Info<<"EdgeGlobalInd:"<<oneCube.edgeGlobalInd<<Foam::endl;
-	Info<<"CutEdgeVerticeIndex:"<<oneCube.cutEdgeVerticeIndex<<Foam::endl;
-	*/
-	//Info<<"Faces:"<<oneCube.faces<<Foam::endl;
 	
 	return oneCube;
 }
@@ -234,7 +193,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell(in
 	if(bitPattern!=0 && bitPattern!=255) 
 	{
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
-		mc33Cube.cutTriangles = collectTriangles(triangleCase);;
+		mc33Cube.cutTriangles = collectTriangles(triangleCase);
 		return mc33Cube;
 	}
 	else
@@ -251,8 +210,6 @@ const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned in
 		double r[6];//for intercept and normal coordinates
 	};
 	const unsigned short int *pcase = table;
-	
-	Info<<pcase<<"   "<<getBitPattern(*pcase)<<Foam::endl;
 
 	unsigned int k, c, m, n;
 	double t;
