@@ -62,11 +62,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 
                 typedef struct{
                     label cell=-1;
-                    List<label> vertices = List<label>(8);
-                    List<edge> edges = List<edge>(12);
+                    List<label> vertices = List<label>(8,-1);
+                    List<edge> edges = List<edge>(12,edge(-1,-1));
                     List<label> edgeGlobalInd = labelList(12,-1);
                     List<label> cutEdgeVerticeIndex = labelList(12,-1);
-                    List<label> faces = List<label>(6);
+                    //List<label> faces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                 } MC33Cube;
                 
@@ -147,7 +147,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
       //Points and data added by newMeshPoints function
       //Begin
             //Cut data for every cell
-            List<MC33::MC33Cube> mc33CutCellData;
+            DynamicList<MC33::MC33Cube> mc33CutCellData;
 
             //Nbr of previous existing points
             label nbrOfPrevPoints;
@@ -355,7 +355,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar cellDimToStructureDimLimit = 0.51
         );
         
+        explicit cutCellFvMesh
+        (
+            const IOobject& io,
+            scalar cellDimToStructureDimLimit = 0.51
+        );
+        
         void cutTheImmersedBoundary();
+        void cutTheImmersedBoundary_MC33();
         void refineTheImmersedBoundary();
 
         
@@ -521,13 +528,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         // Splits all old faces being cut into too
         void cutOldFaces();
         void cutOldFaces_plus();
+        void cutOldFaces_MC33();
 
-        
         //rebuild mesh by using cut data
         void createNewMeshData();
         
         //rebuild mesh deleting negative side
         void createNewMeshData_cutNeg_plus();
+        void createNewMeshData_MC33();
         
         // project distance from Nurbs Surface on Points
         void projectNurbsSurface(bool reset=false);

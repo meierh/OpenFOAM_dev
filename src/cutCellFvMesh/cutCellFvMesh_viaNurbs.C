@@ -632,10 +632,7 @@ dynamicRefineFvMesh(io),
 ibAlgorithm(state),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
-{
-    MC33 temp(*this);
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);  
-    
+{  
     intersectionRadius = 0;
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
@@ -675,7 +672,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     Info<<"After refinement"<<endl;
     testForNonHexMesh(*this);
     //Apply the immersed boundary cut method
-    cutTheImmersedBoundary();
+    cutTheImmersedBoundary_MC33();
     
     
     Info<<"pointDist[4608]:"<<pointDist[4608]<<Foam::endl;    
@@ -1299,6 +1296,312 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     Info<<"Ending"<<endl;
 }
 
+void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
+{
+    std::chrono::high_resolution_clock::time_point t1;
+    std::chrono::high_resolution_clock::time_point t2;
+    std::chrono::duration<double> time_span;
+    
+    Info<<"Projection of distance field ";
+    t1 = std::chrono::high_resolution_clock::now();
+    projectNurbsSurface();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Execution of Marching Cubes";
+    t1 = std::chrono::high_resolution_clock::now();
+    executeMarchingCubes();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);  
+    
+    Info<<"Adding of cut points";
+    t1 = std::chrono::high_resolution_clock::now();
+    newMeshPoints_MC33();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
+    Info<<"Adding of cut edges";
+    t1 = std::chrono::high_resolution_clock::now();
+    newMeshEdges_MC33();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+        
+    edgesToSide();
+    
+    Info<<"Adding of cut faces";
+    t1 = std::chrono::high_resolution_clock::now();
+    newMeshFaces_MC33();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t"<< time_span.count() << " seconds."<<endl;
+        
+    Info<<"Cutting old faces";
+    t1 = std::chrono::high_resolution_clock::now();
+    cutOldFaces_MC33();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+        
+    pointField points(0);
+    faceList faces(0);
+    labelList owner(0);
+    labelList neighbour(0);
+    List<std::unordered_map<label,label>> oldPointIndToPatchInd;
+    
+    Info<<"-------------------------------------------"<<endl;
+    Info<<"Create new Mesh data and cut negative cells";
+    t1 = std::chrono::high_resolution_clock::now();
+    createNewMeshData_MC33();
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t"<< time_span.count() << " seconds."<<endl;
+    Info<<"-------------------------------------------"<<endl;
+
+    Info<<"Combine resetPrimitives data"<<endl;
+    t1 = std::chrono::high_resolution_clock::now();  
+    
+    faces.append(splitAndUnsplitFacesInterior);
+    faces.append(splitAndUnsplitFacesBoundary);
+    faces.append(addedCutFaces);
+    faces.append(splitAndUnsplitFacesInteriorToBoundary);
+    
+    owner.append(splitAndUnsplitFacesInteriorOwner);
+    owner.append(splitAndUnsplitFacesBoundaryOwner);
+    owner.append(addedCutFacesOwner);
+    owner.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
+    
+    neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
+    neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
+    neighbour.append(addedCutFacesNeighbor);
+    neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
+    
+    for(int i=0;i<owner.size();i++)
+    {
+        if(owner[i]<0)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
+            Info<<"owner[i]:"<<owner[i]<<endl;
+            Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+            FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
+        }
+        if(neighbour[i]<-1)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
+            Info<<"owner[i]:"<<owner[i]<<endl;
+            Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
+            FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
+        }
+    }
+    
+    //pointsToSide_ = pointsToSide;
+    Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<endl;
+    
+    List<bool> pntDeleted(newMeshPoints_.size(),true);
+    for(const face& oneFace: faces)
+        for(const label& oneVertice: oneFace)
+            pntDeleted[oneVertice] = false;
+            
+    labelList pntOldIndToNewInd(newMeshPoints_.size(),-1);
+    label index=0;
+    for(int i=0;i<pntDeleted.size();i++)
+    {
+        if(!pntDeleted[i])
+        {
+            pntOldIndToNewInd[i] = index;
+            index++;
+        }
+    }
+    points.setSize(index+1);
+    index=0;
+    for(int i=0;i<pntDeleted.size();i++)
+    {
+        if(!pntDeleted[i])
+        {
+            points[index] = newMeshPoints_[i];
+            index++;
+        }
+    }
+    
+    for(face& oneFace: faces)
+    {
+        for(label& oneVertice: oneFace)
+        {
+            point oldPoint = newMeshPoints_[oneVertice];
+            point newPoint = points[pntOldIndToNewInd[oneVertice]];
+            if(oldPoint != newPoint)
+                FatalErrorInFunction<< "Can not happen"<<endl<< exit(FatalError);
+            oneVertice = pntOldIndToNewInd[oneVertice];
+        }
+    }
+    Info<<"Set Ref"<<endl;
+    DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference_new;
+    meshPointNurbsReference_new.setSize(points.size());
+    scalarList pointDist_new;
+    pointDist_new.setSize(points.size());
+    for(int i=0;i<meshPointNurbsReference.size();i++)
+    {
+        if(!pntDeleted[i])
+        {                
+            meshPointNurbsReference_new[pntOldIndToNewInd[i]] = meshPointNurbsReference[i];
+            pointDist_new[pntOldIndToNewInd[i]] = pointDist[i];
+        }
+    }
+    meshPointNurbsReference = meshPointNurbsReference_new;
+    pointDist = pointDist_new;
+                    
+    const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
+    oldPointIndToPatchInd.setSize(boundaryMesh.size());
+    for(int i=0;i<boundaryMesh.size();i++)
+    {
+        const polyPatch& onePatch = boundaryMesh[i];
+        const labelList& patchPoints = onePatch.boundaryPoints();
+        for(int j=0;j<patchPoints.size();j++)
+            oldPointIndToPatchInd[i].insert(std::pair<label,label>(patchPoints[j],j));
+    }
+            
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
+
+    //printMesh();
+    //FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
+
+    Info<<"Correcting face normal direction";
+    t1 = std::chrono::high_resolution_clock::now();
+    correctFaceNormalDir(points,faces,owner,neighbour);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+
+    
+    const pointField& oldPoints = this->points();
+    const faceList& oldFaceList = this->faces();
+    const cellList& oldCells = this->cells();    
+    oldCellVolume = scalarList(oldCells.size());
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
+        if(oldCellVolume[i]==0.0)
+        {
+            Info<<"oldCells["<<i<<"]:"<<oldCells[i]<<endl;
+            FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
+        }   
+    }
+    
+    testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
+    
+    resetPrimitives(Foam::clone(points),
+                    Foam::clone(faces),
+                    Foam::clone(owner),
+                    Foam::clone(neighbour),
+                    patchSizes,
+                    patchStarts,
+                    false);
+    Info<<"Reset"<<endl;
+    
+    std::unordered_set<label> activePnts;
+    for(int i=0;i<this->faces().size();i++)
+        for(int j=0;j<this->faces()[i].size();j++)
+            activePnts.insert(this->faces()[i][j]);
+    label cnt=0;
+    for(int i=0;i<points.size();i++)
+        if(activePnts.count(i)!=0)
+            cnt++;
+    cnt++;
+    if(cnt!=this->points().size())
+    {
+        Info<<"cnt:"<<cnt<<endl;
+        Info<<"this->points().size():"<<this->points().size()<<endl;
+        FatalErrorInFunction<< "Invalid point number"<<endl<< exit(FatalError);
+    }
+    
+    this->topoChanging(true);
+
+    //Reset field size for motionSolver
+    //Begin
+    Foam::motionSolver* rawPtr = motionPtr_.ptr();  
+    displacementLaplacianFvMotionSolver* dMS;
+    try{
+        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
+        if(dMS==NULL)
+            FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }catch(...){
+        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
+    }    
+    pointVectorField& pVF = dMS->pointDisplacement();
+    if(this->points().size()!=pVF.size())
+        pVF.setSize(this->points().size());
+    pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
+    //Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
+    for(int i=0;i<boundFieldPointDispl.size();i++)
+    {
+        pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[i];
+        const pointPatch& boundaryPointPatch = boundaryPatchField->patch();
+        const labelList& patchPoints = boundaryPointPatch.meshPoints();
+        fixedValuePointPatchField<vector>* fVPPF;
+        try{
+            fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
+            if(fVPPF==NULL)
+                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+        }catch(...){
+            FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+        }
+        fVPPF->setSize(patchPoints.size());       
+    }
+    volVectorField& vVF = dMS->cellDisplacement();
+    if(this->cells().size()!=vVF.size())
+        vVF.setSize(this->cells().size());
+    volVectorField::Boundary& vVF_Bound = vVF.boundaryFieldRef();
+    for(int i=0;i<vVF_Bound.size();i++)
+    {
+        fvPatchField<vector>& boundField = vVF_Bound[i];
+        const fvPatch& boundPatch = boundField.patch();
+        if(boundPatch.size()!=boundField.size())
+            boundField.setSize(boundPatch.size());
+    }
+    pointField& pointsNull = dMS->points0();
+    pointsNull.setSize(this->points().size());
+    for(int i=0;i<this->points().size();i++)
+        pointsNull[i] = this->points()[i];
+    motionPtr_.set(rawPtr);
+    //End
+   
+    Info<<"First self test"<<endl;
+    selfTestMesh();
+    
+    //Agglomeration for too small cells
+    //Begin
+    Info<<"Agglomerate small cut-cells";
+    const cellList& newCells = this->cells();
+    newCellVolume = scalarList(newCells.size());
+    for(int i=0;i<newCellVolume.size();i++)
+    {
+        newCellVolume[i] = newCells[i].mag(points,this->faces());
+    }
+    t1 = std::chrono::high_resolution_clock::now();
+    agglomerateSmallCells_cutNeg_plus(newCellVolume,oldCellVolume,partialThreeshold);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
+    //End
+
+    //printMesh();
+    Info<<"Please write"<<endl;
+    this->write();
+    Info<<"Written"<<endl;
+    //printMesh();
+    selfTestMesh();
+    Info<<"Ending"<<endl;
+}
+
 bool Foam::cutCellFvMesh::update()
 {
     dynamicFvMesh::movePoints(motionPtr_->newPoints());
@@ -1742,5 +2045,3 @@ void Foam::cutCellFvMesh::setInitialDeformationCurve
                                             nurbs_to_weights[i],nurbs_to_degree[i]);
     }
 }
-
-

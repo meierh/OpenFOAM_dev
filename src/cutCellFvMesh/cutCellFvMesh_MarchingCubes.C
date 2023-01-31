@@ -66,16 +66,20 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	int cellInd
 )
 {
+	Info<<Foam::endl<<cellInd<<Foam::endl;
 	const cellList& meshCells = mesh.cells();
 	const faceList& meshFaces = mesh.faces();
     const pointField& meshPoints = mesh.points();
     const cellShapeList& meshShapes = mesh.cellShapes();
+	
+	Info<<"meshCells points:"<<meshCells[cellInd].labels(meshFaces)<<Foam::endl;
 
 	cell thisCell = meshCells[cellInd];
 	edgeList thisEdges = thisCell.edges(meshFaces);
 	cellShape thisCellShape = meshShapes[cellInd];
     cellModel thisCellModel = thisCellShape.model();
-	labelList faceInds = thisCell.labels(meshFaces);
+	
+	//Info<<"meshFaces points:"<<meshFaces[thisCell[0]]<<Foam::endl;
 	
 	bool isHex = true;
 	isHex = isHex && (thisCell.nFaces()==6);
@@ -84,19 +88,26 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	edgeList edges = thisCell.edges(meshFaces);
 	isHex = isHex && (edges.size()==12);
 	isHex = isHex && (thisCellModel.name()=="hex");
-	isHex = isHex && (faceInds.size()==6);
+	isHex = isHex && (thisCell.size()==6);
+	
+	if(!isHex)
+		FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+
 	
 	MC33Cube oneCube;
+	
+	//Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
+	
 	oneCube.cell = cellInd;
-	oneCube.vertices[0] = meshFaces[faceInds[0]][0];
-	oneCube.vertices[1] = meshFaces[faceInds[0]][1];
-	oneCube.vertices[2] = meshFaces[faceInds[0]][2];
-	oneCube.vertices[3] = meshFaces[faceInds[0]][3];
+	oneCube.vertices[0] = meshFaces[thisCell[0]][0];
+	oneCube.vertices[1] = meshFaces[thisCell[0]][1];
+	oneCube.vertices[2] = meshFaces[thisCell[0]][2];
+	oneCube.vertices[3] = meshFaces[thisCell[0]][3];
 	oneCube.edges[0] = edge(oneCube.vertices[0],oneCube.vertices[1]);
 	oneCube.edges[1] = edge(oneCube.vertices[1],oneCube.vertices[2]);
 	oneCube.edges[2] = edge(oneCube.vertices[2],oneCube.vertices[3]);
 	oneCube.edges[3] = edge(oneCube.vertices[3],oneCube.vertices[0]);
-	oneCube.faces[4] = faceInds[0];
+	//oneCube.faces[4] = thisCell[0];
 	
 	std::unordered_set<label> startingFaceVert = {oneCube.vertices[0],oneCube.vertices[1],
 												  oneCube.vertices[2],oneCube.vertices[3]};
@@ -105,6 +116,9 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 		if(startingFaceVert.find(vert)!=startingFaceVert.end())
 			oppositeFaceVert.insert(vert);
 	
+	//Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
+	
+	Info<<"Edges:"<<thisEdges<<Foam::endl;	
 	for(label vertI=0;vertI<4;vertI++)
 	{
 		label seenFaceVertice = oneCube.vertices[vertI];
@@ -112,16 +126,26 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 		for(edge edg : thisEdges)
 		{
 			label edgOtherVert = edg.otherVertex(seenFaceVertice);
-			if(edgOtherVert!=-1 && startingFaceVert.find(edgOtherVert)!=startingFaceVert.end())
+			if(edgOtherVert!=-1 && startingFaceVert.find(edgOtherVert)==startingFaceVert.end())
 			{
 				if(oppositeVertice!=-1)
+				{
+					
+					Info<<Foam::endl;
+					Info<<"vertI:"<<vertI<<Foam::endl;
+					Info<<"oppositeVertice:"<<oppositeVertice<<Foam::endl;
+					Info<<"edgOtherVert:"<<edgOtherVert<<Foam::endl;
+					Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
+					
 					FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+				}
 				else
 					oppositeVertice = edgOtherVert;
 			}
 		}
 		oneCube.vertices[4+vertI] = oppositeVertice;
 		oneCube.edges[8+vertI] = edge(oneCube.vertices[vertI],oneCube.vertices[4+vertI]);
+		//Info<<vertI<<" Vertices:"<<oneCube.vertices<<Foam::endl;
 	}
 	oneCube.edges[4] = edge(oneCube.vertices[4],oneCube.vertices[5]);
 	oneCube.edges[5] = edge(oneCube.vertices[5],oneCube.vertices[6]);
@@ -136,9 +160,10 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	faceVertices[2] = {oneCube.vertices[2],oneCube.vertices[3],oneCube.vertices[6],oneCube.vertices[7]};
 	faceVertices[3] = {oneCube.vertices[0],oneCube.vertices[3],oneCube.vertices[4],oneCube.vertices[7]};
 	
-	for(int cellFaceInd=1;cellFaceInd<faceInds.size();cellFaceInd++)
+	/*
+	for(int cellFaceInd=1;cellFaceInd<thisCell.size();cellFaceInd++)
 	{
-		label faceInd = faceInds[cellFaceInd];
+		label faceInd = thisCell[cellFaceInd];
 		face thisFace = meshFaces[faceInd];
 		label thisFaceMC33Label=-1;
 		for(int j=0;j<faceVertices.size();j++)
@@ -160,6 +185,18 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 			FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
 		oneCube.faces[thisFaceMC33Label] = faceInd;
 	}
+	*/
+	
+	/*
+	if(cellInd==10)
+		FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+
+	Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
+	Info<<"Edges:"<<oneCube.edges;
+	Info<<"EdgeGlobalInd:"<<oneCube.edgeGlobalInd<<Foam::endl;
+	Info<<"CutEdgeVerticeIndex:"<<oneCube.cutEdgeVerticeIndex<<Foam::endl;
+	*/
+	//Info<<"Faces:"<<oneCube.faces<<Foam::endl;
 	
 	return oneCube;
 }
