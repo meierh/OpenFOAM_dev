@@ -68,9 +68,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<label> cutEdgeVerticeIndex = labelList(12,-1);
                     //List<label> faces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
+                    unsigned int bitPattern;
                 } MC33Cube;
                 
                 MC33Cube computeCutCell(int cellInd);
+                std::string getBitPattern(const unsigned short int x);
                 
             private:
                 const unsigned short int table[2310];
@@ -84,7 +86,6 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
           
                 void setBit(unsigned short int & bitField, std::uint8_t bitIndex);
                 bool  getBit(const unsigned short int  bitField, std::uint8_t bitIndex);
-                std::string getBitPattern(const unsigned short int x);
                 const unsigned short int* getTriangleCase(unsigned int verticePattern);
                 std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> collectTriangles
                 (
@@ -146,6 +147,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
       //Points and data added by newMeshPoints function
       //Begin
+            MC33 marchingCubesAlgorithm;
+        
             //Cut data for every cell
             DynamicList<MC33::MC33Cube> mc33CutCellData;
 

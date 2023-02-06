@@ -14,6 +14,7 @@ Foam::cutCellFvMesh::cutCellFvMesh
     std::unique_ptr<volScalarField>& solidFraction
 ):
 dynamicRefineFvMesh(io),
+marchingCubesAlgorithm(*this),
 Curves(Curves),
 MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
 NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
@@ -197,6 +198,7 @@ Foam::cutCellFvMesh::cutCellFvMesh
     cutStatus state
 ):
 dynamicRefineFvMesh(io),
+marchingCubesAlgorithm(*this),
 Curves(Curves),
 MainTree(std::unique_ptr<KdTree>(new KdTree(this->Curves))),
 NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size())),
@@ -630,6 +632,7 @@ Foam::cutCellFvMesh::cutCellFvMesh
 ):
 dynamicRefineFvMesh(io),
 ibAlgorithm(state),
+marchingCubesAlgorithm(*this),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 cellDimToStructureDimLimit(cellDimToStructureDimLimit)
 {  
@@ -1315,9 +1318,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-    
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);  
-    
+        
     Info<<"Adding of cut points";
     t1 = std::chrono::high_resolution_clock::now();
     newMeshPoints_MC33();

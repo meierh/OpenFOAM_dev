@@ -11,7 +11,8 @@ Foam::cutCellFvMesh::cutCellFvMesh
     std::function<scalar(const vector)> levelSet,
     cutStatus state
 ):
-dynamicRefineFvMesh(io)
+dynamicRefineFvMesh(io),
+marchingCubesAlgorithm(*this)
 {
     FatalErrorInFunction<<"Depreceated!!!"<< exit(FatalError); 
     //
@@ -458,7 +459,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
     const edgeList& basisEdges = this->edges();
     const faceList& basisFaces = this->faces();
 
-    MC33 marchingCubesAlgorithm(*this);
+    //marchingCubesAlgorithm = MC33(*this);
     mc33CutCellData.setCapacity(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
     {
@@ -476,9 +477,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
         MC33::MC33Cube oneCube;
         if(onePlus && oneNeg)
         {
-            marchingCubesAlgorithm.computeCutCell(i);
-            //oneCube = marchingCubesAlgorithm.computeCutCell(i);
-            Info<<"Assign"<<Foam::endl;
+            oneCube = marchingCubesAlgorithm.computeCutCell(i);
             mc33CutCellData.append(oneCube);
         }
         else if(!onePlus && !oneNeg)
@@ -530,8 +529,6 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
             }
         }
     }
-	FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
-
 }
 
 void Foam::cutCellFvMesh::newMeshPoints
@@ -986,65 +983,134 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     const labelListList& pointToFace = this->pointFaces();
     const labelListList& edgeCells = this->edgeCells();
     
-    List<DynamicList<label>> edgeToNeigboringMC33Cubes_faceToCutEdge_localInd(edgeCells.size());
+    List<List<label>> edgeToNeigboringMC33Cubes_faceToCutEdge_localInd(edgeCells.size());
     List<bool> edgeIsCutEdge(edgeCells.size(),false);
 
     for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
     {
+        Info<<"---------------Edge:"<<edgInd<<Foam::endl;
         const edge& currentEdge = basisEdges[edgInd];
-        DynamicList<MC33::MC33Cube*> neighboringMC33Cubes;
-        DynamicList<label> neigboringMC33Cubes_sharedEdge_localInd;
+        //DynamicList<MC33::MC33Cube*> neighboringMC33Cubes;
+        List<label> neigboringMC33Cubes_sharedEdge_localInd(edgeCells[edgInd].size(),-1);
         for(int i=0;i<edgeCells[edgInd].size();i++)
         {
             label cellInd = edgeCells[edgInd][i];
-            neighboringMC33Cubes.append(&mc33CutCellData[cellInd]);
-            label MC33Cube_cellLocal_Edge = -1;
-            for(int j=0;j<mc33CutCellData[cellInd].edgeGlobalInd.size();j++)
+            if(mc33CutCellData[cellInd].cell!=-1)
             {
-                if(mc33CutCellData[cellInd].edgeGlobalInd[j]==edgInd)
+                //neighboringMC33Cubes.append(&mc33CutCellData[cellInd]);
+                label MC33Cube_cellLocal_Edge = -1;
+                for(int j=0;j<mc33CutCellData[cellInd].edgeGlobalInd.size();j++)
                 {
-                    if(MC33Cube_cellLocal_Edge==-1)
-                        MC33Cube_cellLocal_Edge = j;
-                    else
-                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                    if(mc33CutCellData[cellInd].edgeGlobalInd[j]==edgInd)
+                    {
+                        if(MC33Cube_cellLocal_Edge==-1)
+                            MC33Cube_cellLocal_Edge = j;
+                        else
+                            FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                    }
                 }
+                if(MC33Cube_cellLocal_Edge==-1)
+                {
+                    Info<<Foam::endl<<"edgInd:"<<edgInd<<Foam::endl;
+                    Info<<"mc33CutCellData[cellInd].edgeGlobalInd:"<<mc33CutCellData[cellInd].edgeGlobalInd<<Foam::endl;
+                    FatalErrorInFunction<<"Missing edge assignment!"<< exit(FatalError);
+                }
+                neigboringMC33Cubes_sharedEdge_localInd[i] = MC33Cube_cellLocal_Edge;
             }
-            if(MC33Cube_cellLocal_Edge==-1)
-                FatalErrorInFunction<<"Missing edge assignment!"<< exit(FatalError);
-            neigboringMC33Cubes_sharedEdge_localInd.append(MC33Cube_cellLocal_Edge);
         }
 
         bool oneAssgined = false;
-        bool oneNotAssigned = true;
+        bool oneNotAssigned = false;
         for(int i=0;i<edgeCells[edgInd].size();i++)
         {
+            edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd].resize(edgeCells[edgInd].size(),-1);
             label cellInd = edgeCells[edgInd][i];
-            label MC33Cube_cellLocal_cutfaceInd = -1;
-            for(int j=0;j<mc33CutCellData[cellInd].cutTriangles.size();j++)
+            label sharedEdge_localInd = neigboringMC33Cubes_sharedEdge_localInd[i];
+            if(mc33CutCellData[cellInd].cell!=-1)
             {
-                auto& oneTriangle = mc33CutCellData[cellInd].cutTriangles[j];
-                label cutEdge1 = std::get<0>(oneTriangle);
-                label cutEdge2 = std::get<1>(oneTriangle);
-                label cutEdge3 = std::get<2>(oneTriangle);
-                label sharedEdge_localInd = neigboringMC33Cubes_sharedEdge_localInd[i];
-                if(cutEdge1==sharedEdge_localInd ||
-                   cutEdge2==sharedEdge_localInd ||
-                   cutEdge3==sharedEdge_localInd)
+                DynamicList<label> MC33Cube_cellLocal_cutfaceInd;
+                DynamicList<label> neighborhood_count;
+                for(int j=0;j<mc33CutCellData[cellInd].cutTriangles.size();j++)
                 {
-                    if(MC33Cube_cellLocal_cutfaceInd==-1)
-                        MC33Cube_cellLocal_cutfaceInd = j;
-                    else
-                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                    auto& oneTriangle = mc33CutCellData[cellInd].cutTriangles[j];
+                    label cutEdge1 = std::get<0>(oneTriangle);
+                    label cutEdge2 = std::get<1>(oneTriangle);
+                    label cutEdge3 = std::get<2>(oneTriangle);
+                    Info<<"cellInd:"<<cellInd<<"  sharedEdge_localInd: "<<sharedEdge_localInd;
+                    Info<<"  -  ["<<cutEdge1<<","<<cutEdge2<<","<<cutEdge3<<"]"<<Foam::endl;
+                    if(cutEdge1==sharedEdge_localInd ||
+                    cutEdge2==sharedEdge_localInd ||
+                    cutEdge3==sharedEdge_localInd)
+                    {
+                        MC33Cube_cellLocal_cutfaceInd.append(j);
+                        neighborhood_count.append(0);
+                    }
                 }
+                for(int k1=0;k1<MC33Cube_cellLocal_cutfaceInd.size();k1++)
+                {
+                    label cutFaceInd1 = MC33Cube_cellLocal_cutfaceInd[k1];
+                    auto& oneTriangle = mc33CutCellData[cellInd].cutTriangles[cutFaceInd1];
+                    label cutEdge1 = std::get<0>(oneTriangle);
+                    label cutEdge2 = std::get<1>(oneTriangle);
+                    label cutEdge3 = std::get<2>(oneTriangle);
+                    bool oneFaceMatch = false;
+                    for(int k2=0;k2<MC33Cube_cellLocal_cutfaceInd.size();k2++)
+                    {
+                        if(k1==k2)
+                            continue;
+                        
+                        label cutFaceInd2 = MC33Cube_cellLocal_cutfaceInd[k2];
+                        std::unordered_set<label> oneTriangleSet = {cutEdge1,cutEdge2,cutEdge3};
+                        auto& prevTriangle = mc33CutCellData[cellInd].cutTriangles[cutFaceInd2];
+                        label prevTri_cutEdge1 = std::get<0>(prevTriangle);
+                        label prevTri_cutEdge2 = std::get<1>(prevTriangle);
+                        label prevTri_cutEdge3 = std::get<2>(prevTriangle);
+                        bool facesMatch = (oneTriangleSet.count(prevTri_cutEdge1)&&
+                                            oneTriangleSet.count(prevTri_cutEdge2))||        
+                                          (oneTriangleSet.count(prevTri_cutEdge2)&&
+                                            oneTriangleSet.count(prevTri_cutEdge3))||
+                                          (oneTriangleSet.count(prevTri_cutEdge3)&&
+                                            oneTriangleSet.count(prevTri_cutEdge1));
+                        if(facesMatch)
+                        {
+                            oneFaceMatch=true;
+                            neighborhood_count[k2]++;
+                        }
+                    }
+                    if(!oneFaceMatch && MC33Cube_cellLocal_cutfaceInd.size()>0)
+                    {
+                        Info<<"neighborhood_count:"<<neighborhood_count<<Foam::endl;
+                        Info<<"MC33Cube_cellLocal_cutfaceInd:"<<MC33Cube_cellLocal_cutfaceInd<<Foam::endl;
+                        FatalErrorInFunction<<"Triangle with missing alignment!"<< exit(FatalError);
+                    }
+                }   
+                for(label count: neighborhood_count)
+                {
+                    if(count>2)
+                    {
+                        Info<<"neighborhood_count:"<<neighborhood_count<<Foam::endl;
+                        FatalErrorInFunction<<"Triangle can only border maximaly two other trianlges!"<< exit(FatalError);
+                    }
+                }
+                if(MC33Cube_cellLocal_cutfaceInd.size()==0)
+                    oneNotAssigned=true;
+                if(MC33Cube_cellLocal_cutfaceInd.size()>0)
+                    oneAssgined=true;
+                edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd][i] = sharedEdge_localInd;
+                Info<<i<<"  MC33Cube_cellLocal_cutfaceInd:"<<MC33Cube_cellLocal_cutfaceInd<<Foam::endl;                
             }
-            if(MC33Cube_cellLocal_cutfaceInd==-1)
+            else
+            {
                 oneNotAssigned=true;
-            if(MC33Cube_cellLocal_cutfaceInd!=-1)
-                oneAssgined=true;
-            edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd].append(MC33Cube_cellLocal_cutfaceInd);
+            }
         }
         if((oneNotAssigned && oneAssgined)||(!oneNotAssigned && !oneAssgined))
+        {
+            Info<<"edgInd:"<<edgInd<<Foam::endl;
+            Info<<"oneNotAssigned:"<<oneNotAssigned<<Foam::endl;
+            Info<<"oneAssgined:"<<oneAssgined<<Foam::endl;
             FatalErrorInFunction<<"Inconsistent edge assignment!"<< exit(FatalError);
+        }
         
         if(oneAssgined && !oneNotAssigned)
         {
@@ -1176,10 +1242,36 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             for(int i=0;i<edgeCells[edgInd].size();i++)
             {
                 label cellInd = edgeCells[edgInd][i];
-                label mc33CubeLocalEdgeInd = edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd][i];
-                if(mc33CutCellData[cellInd].cutEdgeVerticeIndex[mc33CubeLocalEdgeInd]!=-1)
-                    FatalErrorInFunction<<"Inconsistent vertice assignment!"<< exit(FatalError);
-                mc33CutCellData[cellInd].cutEdgeVerticeIndex[mc33CubeLocalEdgeInd] = cutPointInd;
+                if(mc33CutCellData[cellInd].cell!=-1)
+                {
+                    label mc33CubeLocalEdgeInd = edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd][i];
+                    if(mc33CutCellData[cellInd].cutEdgeVerticeIndex[mc33CubeLocalEdgeInd]!=-1)
+                        FatalErrorInFunction<<"Inconsistent vertice assignment!"<< exit(FatalError);
+                    mc33CutCellData[cellInd].cutEdgeVerticeIndex[mc33CubeLocalEdgeInd] = cutPointInd;
+                }
+            }
+        }
+    }
+    
+    for(int cellInd=0; cellInd<meshCells.size(); cellInd++)
+    {
+        if(mc33CutCellData[cellInd].cell!=-1)
+        {
+            std::unordered_set<label> cutEdges;
+            for(int j=0;j<mc33CutCellData[cellInd].cutTriangles.size();j++)
+            {
+                auto triangle = mc33CutCellData[cellInd].cutTriangles[j];
+                cutEdges.insert(std::get<0>(triangle));
+                cutEdges.insert(std::get<1>(triangle));
+                cutEdges.insert(std::get<2>(triangle));
+            }
+            for(int j=0;j<mc33CutCellData[cellInd].cutEdgeVerticeIndex.size();j++)
+            {
+                if(cutEdges.find(j)!=cutEdges.end())
+                {
+                    if(mc33CutCellData[cellInd].cutEdgeVerticeIndex[j]==-1)
+                        FatalErrorInFunction<<"Missing Vertice assignment!"<< exit(FatalError);
+                }
             }
         }
     }
@@ -1192,6 +1284,8 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     pointToEgde_.setCapacity(pointToEgde_.size());
     pointToFaces_.setCapacity(pointToFaces_.size());
     pointToCells_.setCapacity(pointToFaces_.size());
+    
+    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printAddedPoints

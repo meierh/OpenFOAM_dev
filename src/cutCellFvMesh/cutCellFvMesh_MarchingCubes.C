@@ -154,9 +154,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	faceVertices[1] = {oneCube.vertices[1],oneCube.vertices[2],oneCube.vertices[5],oneCube.vertices[6]};
 	faceVertices[2] = {oneCube.vertices[2],oneCube.vertices[3],oneCube.vertices[6],oneCube.vertices[7]};
 	faceVertices[3] = {oneCube.vertices[0],oneCube.vertices[3],oneCube.vertices[4],oneCube.vertices[7]};
-	
-	Info<<"EdgeGlobalInd:"<<oneCube.edgeGlobalInd<<Foam::endl;
-	
+
 	return oneCube;
 }
 
@@ -192,8 +190,22 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell(in
 	unsigned int bitPattern = computeSignBitPattern(mc33Cube);
 	if(bitPattern!=0 && bitPattern!=255) 
 	{
+		mc33Cube.bitPattern = bitPattern;
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
 		mc33Cube.cutTriangles = collectTriangles(triangleCase);
+		
+		/*
+		const cellList& meshCells = mesh.cells();
+		const faceList& meshFaces = mesh.faces();
+		const labelList& cellPoints = meshCells[cellInd].labels(meshFaces);
+		Info<<"cellInd:"<<cellInd<<Foam::endl<<"(";
+		for(label vertice: cellPoints)
+			Info<<" | "<<mesh.pointDist[vertice];
+		Info<<")"<<Foam::endl;
+		Info<<"bitPattern:"<<getBitPattern(bitPattern)<<Foam::endl;
+		Info<<"Triangle number:"<<mc33Cube.cutTriangles.size()<<Foam::endl;
+		*/
+		
 		return mc33Cube;
 	}
 	else
