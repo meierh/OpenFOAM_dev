@@ -988,7 +988,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
 
     for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
     {
-        Info<<"---------------Edge:"<<edgInd<<Foam::endl;
+        //Info<<"---------------Edge:"<<edgInd<<Foam::endl;
         const edge& currentEdge = basisEdges[edgInd];
         //DynamicList<MC33::MC33Cube*> neighboringMC33Cubes;
         List<label> neigboringMC33Cubes_sharedEdge_localInd(edgeCells[edgInd].size(),-1);
@@ -1036,8 +1036,10 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                     label cutEdge1 = std::get<0>(oneTriangle);
                     label cutEdge2 = std::get<1>(oneTriangle);
                     label cutEdge3 = std::get<2>(oneTriangle);
+                    /*
                     Info<<"cellInd:"<<cellInd<<"  sharedEdge_localInd: "<<sharedEdge_localInd;
                     Info<<"  -  ["<<cutEdge1<<","<<cutEdge2<<","<<cutEdge3<<"]"<<Foam::endl;
+                    */
                     if(cutEdge1==sharedEdge_localInd ||
                     cutEdge2==sharedEdge_localInd ||
                     cutEdge3==sharedEdge_localInd)
@@ -1077,7 +1079,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                             neighborhood_count[k2]++;
                         }
                     }
-                    if(!oneFaceMatch && MC33Cube_cellLocal_cutfaceInd.size()>0)
+                    if(!oneFaceMatch && MC33Cube_cellLocal_cutfaceInd.size()>1)
                     {
                         Info<<"neighborhood_count:"<<neighborhood_count<<Foam::endl;
                         Info<<"MC33Cube_cellLocal_cutfaceInd:"<<MC33Cube_cellLocal_cutfaceInd<<Foam::endl;
@@ -1097,7 +1099,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 if(MC33Cube_cellLocal_cutfaceInd.size()>0)
                     oneAssgined=true;
                 edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd][i] = sharedEdge_localInd;
-                Info<<i<<"  MC33Cube_cellLocal_cutfaceInd:"<<MC33Cube_cellLocal_cutfaceInd<<Foam::endl;                
+                //Info<<i<<"  MC33Cube_cellLocal_cutfaceInd:"<<MC33Cube_cellLocal_cutfaceInd<<Foam::endl;                
             }
             else
             {
@@ -1285,7 +1287,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     pointToFaces_.setCapacity(pointToFaces_.size());
     pointToCells_.setCapacity(pointToFaces_.size());
     
-    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printAddedPoints
@@ -1455,7 +1456,6 @@ scalar Foam::cutCellFvMesh::distToNurbs
         indToNurbsSurface.append(thisNurbs);
         //Info<<"paraToNurbsSurface:"<<paraToNurbsSurface<<" distToNurbsSurface:"<<distToNurbsSurface<<" indToNurbsSurface:"<<indToNurbsSurface<<endl;
     }
-    Info<<indToNurbsSurface<<" dist:"<<distToNurbsSurface<<"  ";
     if(allOutSideNurbsBox)
     {
         foundFlag = false;
@@ -1489,8 +1489,6 @@ scalar Foam::cutCellFvMesh::distToNurbs
             secondMinDistindToNurbsSurface = indToNurbsSurface[k];
         }
     }
-    
-    Info<<" minDi:"<<minDistindToNurbsSurface<<" minD:"<<minDistToNurbsSurface<<" secDi:"<<secondMinDistindToNurbsSurface<<" secD:"<<secondMinDistToNurbsSurface<<"  ";
 
     if(nonSecondNurbs)
     {
@@ -1523,9 +1521,7 @@ scalar Foam::cutCellFvMesh::distToNurbs
         }
         scalar radiusFactor = ((angle+1.)/2.);
         scalar smoothingRadius = radiusFactor * intersectionRadius;
-        //Info<<"vecToMinDistNurbs:"<<vecToMinDistNurbs<<" vecToSecondMinDistNurbs:"<<vecToSecondMinDistNurbs;
-        Info<<"  agl:"<<angle<<" smoRad:"<<smoothingRadius<<"  ";
-        
+
         if(vecToNurbsZeroOnce && std::abs(minDistToNurbsSurface)<smoothingRadius && std::abs(secondMinDistToNurbsSurface)<smoothingRadius)
         {
             // rounding gets reducing further away from zero surface
@@ -5589,7 +5585,7 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
             edgesOfFace.insert({thisFaceEdges[j],j});
         }
         std::vector<label> cellsOfThisFace = {faceOwner[faceInd]};
-        if(faceNeighbor[faceInd]!=0)
+        if(faceInd < faceNeighbor.size())
             cellsOfThisFace.push_back(faceNeighbor[faceInd]);
         
         struct pairHash {
@@ -5607,6 +5603,7 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
         };
         std::vector<std::unordered_map<std::pair<label,label>,std::pair<label,label>,pairHash,pairEqual>>addedEdgesFromSide(cellsOfThisFace.size());
         std::vector<bool> areThereCutsInFace(cellsOfThisFace.size(),false);
+        
         for(int j=0;j<cellsOfThisFace.size();j++)
         {
             label cellInd = cellsOfThisFace[j];
@@ -5686,10 +5683,31 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                 if(addedEdgesFromSide[0].find(cutEdgeIter1->first)==addedEdgesFromSide[0].end())
                     FatalErrorInFunction<<"Incompatible edges!"<< exit(FatalError);
             }
-            if(addedEdgesFromSide[0].size()==addedEdgesFromSide[1].size())
+            if(addedEdgesFromSide[0].size()!=addedEdgesFromSide[1].size())
+            {
+                //Info<<"cellsOfThisFace.size():"<<cellsOfThisFace.size()<<Foam::endl;
+                /*
+                Info<<"cellsOfThisFace[0]:"<<cellsOfThisFace[0]<<Foam::endl;
+                Info<<"cellsOfThisFace[1]:"<<cellsOfThisFace[1]<<Foam::endl;
+                label cellInd0 = cellsOfThisFace[0];
+                MC33::MC33Cube& thisCellCube0 = mc33CutCellData[cellInd0];
+                label cellInd1 = cellsOfThisFace[1];
+                MC33::MC33Cube& thisCellCube1 = mc33CutCellData[cellInd1];
+                Info<<Foam::endl;
+                Info<<"faceInd:"<<faceInd<<Foam::endl;
+                Info<<"thisCellCube0.cell:"<<thisCellCube0.cell<<Foam::endl;
+                Info<<"thisCellCube1.cell:"<<thisCellCube1.cell<<Foam::endl;
+                */
+                Info<<"addedEdgesFromSide[0].size():"<<addedEdgesFromSide[0].size()<<Foam::endl;
+                Info<<"areThereCutsInFace[0]:"<<areThereCutsInFace[0]<<Foam::endl;
+                Info<<"addedEdgesFromSide[1].size():"<<addedEdgesFromSide[1].size()<<Foam::endl;
+                Info<<"areThereCutsInFace[1]:"<<areThereCutsInFace[1]<<Foam::endl;
                 FatalErrorInFunction<<"Incompatible edge number!"<< exit(FatalError);
+            }
             if(areThereCutsInFace[0] ^ areThereCutsInFace[1])
+            {
                 FatalErrorInFunction<<"Incompatible assignments!"<< exit(FatalError);
+            }
         }
         else if(cellsOfThisFace.size()==1)
         {}
@@ -5772,7 +5790,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
         }
     }
     
-    
     //Info<<faceToEdges_.size()<<endl;
     //Info<<newMeshEdges_.size()<<endl;
     for(int i=0;i<newMeshEdges_.size();i++)
@@ -5833,6 +5850,7 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
     edgeToFaces_.setCapacity(edgeToFaces_.size());
     faceToEdges_.setCapacity(faceToEdges_.size());
     edgeToCells_.setCapacity(edgeToCells_.size());
+    
 }
 
 void Foam::cutCellFvMesh::findCycles
@@ -7254,6 +7272,8 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
     newMeshFaces_.setCapacity(newMeshFaces_.size());
     faceToCells_.setCapacity(faceToCells_.size());
     cellToFaces_.setCapacity(cellToFaces_.size());
+    
+    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printAddedFaces
