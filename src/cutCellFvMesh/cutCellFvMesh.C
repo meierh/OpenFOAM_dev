@@ -7272,8 +7272,6 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
     newMeshFaces_.setCapacity(newMeshFaces_.size());
     faceToCells_.setCapacity(faceToCells_.size());
     cellToFaces_.setCapacity(cellToFaces_.size());
-    
-    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printAddedFaces
@@ -8777,6 +8775,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     const faceList& meshFaces = this->faces();
     const labelList& cellOwner = this->faceOwner();
     const labelList& cellNeighbor = this->faceNeighbour();
+    const labelListList& faceToEdge = this->faceEdges();
     
     cellsToSide();
     
@@ -8787,7 +8786,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     //Info<<"faceToEdges_[585222]:"<<faceToEdges_[585222]<<endl;
     
     for(int i=0;i<meshFaces.size();i++)
-    {
+    {       
         label ownerCell = cellOwner[i];        
         DynamicList<face> ownerNewFaces;
         DynamicList<std::unordered_set<label>> ownerFacesPoints;
@@ -8906,177 +8905,66 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
             if(faceToEdges_[i][0] >= nbrOfPrevEdges)
             {
                 edge        addedEdge = newMeshEdges_[faceToEdges_[i][0]];
-                face        currFace = meshFaces[i];
+                std::vector<label> augmentedFace;
+                std::vector<label> jumpVertices;
+                for(int locEdgeNbr=0; locEdgeNbr<faceToEdge[i].size();locEdgeNbr++)
+                {
+                    label currEdgeInd = faceToEdge[i][locEdgeNbr];
+                    label nextEdgeInd = faceToEdge[i][(locEdgeNbr+1)%faceToEdge[i].size()];
+                    edge currEdge = newMeshEdges_[currEdgeInd];
+                    edge nextEdge = newMeshEdges_[nextEdgeInd];
+                    label interVert = currEdge.commonVertex(nextEdge);
+                    if(interVert==-1)
+                        FatalErrorInFunction<<"Can not happen. Edges must be in order"                       << exit(FatalError);
+                    if(edgeToPoint_[currEdgeInd]!=-1)
+                    {
+                        augmentedFace.push_back(edgeToPoint_[currEdgeInd]);
+                    }
+                    augmentedFace.push_back(interVert);
+                }
+                jumpVertices.resize(augmentedFace.size(),-1);
+                edge cutEdgeInds(-1,-1);
+                for(int i=0;i<augmentedFace.size();i++)
+                {
+                    if(augmentedFace[i]==addedEdge[0])
+                        cutEdgeInds[0] = i;
+                    if(augmentedFace[i]==addedEdge[1])
+                        cutEdgeInds[1] = i;
+                }
+                if(cutEdgeInds[0]==cutEdgeInds[1])
+                    FatalErrorInFunction<<"Can not happen"<<exit(FatalError);
+                jumpVertices[cutEdgeInds[0]] = cutEdgeInds[1];
+                jumpVertices[cutEdgeInds[1]] = cutEdgeInds[0];
+                
                 labelList   newFace1(0);
-                scalar      newFace1Sign;
-                labelList   newFace2(0);
-                scalar      newFace2Sign;
-                label       faceInd = 0;
-                label       currPointIndex = 0;
-                label       relPointIndex = 0; // zero at the first appended point
-                label       firstFacePoint = currFace[faceInd];
-                label       currPoint = firstFacePoint;
-                label       firstCutPoint;
-                label       secondCutPoint;
-            
-            
-                // Cycle to first non cut point
-                while(pointsToSide_[currPoint]==0)
-                {
-                    currPoint = currFace.nextLabel(currPointIndex);
-                    currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                    relPointIndex++;
-                }
-            
-                // Append fist point to first face
-                newFace1.append(currPoint);
-                newFace1Sign = pointsToSide_[currPoint];
-            
-            
-                //Info<<"First part of face 1"<<endl;
-                while(pointsToSide_[currPoint] == pointsToSide_[currFace.nextLabel(currPointIndex)])
-                {
-                    currPoint = currFace.nextLabel(currPointIndex);
-                    currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                    relPointIndex++;
-                    newFace1.append(currPoint);
-                }
-//////////////////////////////////////////////////////////////////////////////////
-//      Fallunterscheidung jump point old or addedCutFaceNeighbor
-//////////////////////////////////////////////////////////////////////////////////
-                label nextPoint = -1;
-            
-                // Cut point is old point
-                if(pointsToSide_[currFace.nextLabel(currPointIndex)] == 0)
-                {
-                    //Info<<newMeshPoints_[currFace[faceInd+1]];
-                    firstCutPoint = currFace.nextLabel(currPointIndex);
-                    if(relPointIndex+2 >= currFace.size())
-                    {
-                        FatalErrorInFunction
-                        << "First cut point is the last point of face. "
-                        << "THis can not happen"
-                        << exit(FatalError);
-                    }
+                labelList   newFace2(0);              
                 
-                    nextPoint = currFace.nextLabel((currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1);
-                
-                    currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                    relPointIndex++;
-                
-                    secondCutPoint = -1;
-                    if(addedEdge.start() == firstCutPoint)
-                        secondCutPoint = addedEdge.end();
-                    else if(addedEdge.end() == firstCutPoint)
-                        secondCutPoint = addedEdge.start();
-                    else
-                    {
-                        FatalErrorInFunction
-                        << "Error: No Point matches in CutFace"
-                        << exit(FatalError);
-                    }                
-                }
-                // Cut point is added point
-                else if(pointsToSide_[currPoint] * pointsToSide_[currFace.nextLabel(currPointIndex)] < 0)
+                int face1Ind = cutEdgeInds[0];
+                do
                 {
-                    nextPoint = currFace.nextLabel(currPointIndex);
-                    labelList currPointEdges = this->pointEdges()[currPoint];
-                    labelList nextPointEdges = this->pointEdges()[nextPoint];
+                    newFace1.append(augmentedFace[face1Ind]);
+                    face1Ind = (face1Ind+1)%augmentedFace.size();
+                }
+                while(face1Ind!=cutEdgeInds[1]);
+                newFace1.append(augmentedFace[cutEdgeInds[1]]);
+                label signFace1 = pointsToSide_[newFace1[1]];
                 
-                    label sharedEdge = -1;
-                    for(int k=0;k<currPointEdges.size();k++)
-                    {
-                        for(int j=0;j<nextPointEdges.size();j++)
-                        {
-                            if(currPointEdges[k] == nextPointEdges[j])
-                                sharedEdge = currPointEdges[k];
-                        }
-                    }
-                    //Info<<"SharedEdge: "<<sharedEdge<<endl;
-            
-                    if(sharedEdge == -1)
-                    {
-                        FatalErrorInFunction
-                        << "Error: No shared Edge found in Cut Cell Method"
-                        << exit(FatalError);
-                    }
-                    firstCutPoint = edgeToPoint_[sharedEdge];
-                    //Info<<firstCutPoint<<endl;
-                
-                    secondCutPoint = -1;
-                    if(addedEdge.start() == firstCutPoint)
-                        secondCutPoint = addedEdge.end();
-                    else if(addedEdge.end() == firstCutPoint)
-                        secondCutPoint = addedEdge.start();
-                    else
-                    {
-                        FatalErrorInFunction
-                        << "Error: No Point matches in CutFace"
-                        << exit(FatalError);
-                    }
-                    //Info<<firstCutPoint<<endl;
-                }
-                else
+                int face2Ind = cutEdgeInds[1];
+                do
                 {
-                    FatalErrorInFunction
-                    << "Next point is neither a cut point nor a point at the " 
-                    << "other side of the cut."
-                    << exit(FatalError);
+                    newFace2.append(augmentedFace[face2Ind]);
+                    face2Ind = (face2Ind+1)%augmentedFace.size();
                 }
-            
-                //Info<<firstCutPoint<<endl;
-
-                //Info<<"Add cut points"<<endl;
-                newFace1.append(firstCutPoint);
-                newFace2.append(firstCutPoint);
-            
-                currPoint = nextPoint;
-                currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                relPointIndex++;
-            
-                newFace2.append(currPoint);
-                newFace2Sign = pointsToSide_[currPoint];
-            
-                //Info<<"Create face 2"<<endl;
-                while(pointsToSide_[currPoint] == pointsToSide_[currFace.nextLabel(currPointIndex)])
-                {
-                    currPoint = currFace.nextLabel(currPointIndex);
-                    currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                    relPointIndex++;
-                    newFace2.append(currPoint);
-                }
-                //Info<<"Finished loop"<<endl;
-                newFace2.append(secondCutPoint);
-                newFace1.append(secondCutPoint);
-            
-                if(secondCutPoint < nbrOfPrevPoints)
-                {
-                    currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                    relPointIndex++;
-                }
-            
-                //Info<<"Finish face 1"<<endl;
-                while(relPointIndex+1 < meshFaces[i].size())
-                {
-                    currPoint = currFace.nextLabel(currPointIndex);
-                    currPointIndex = (currPointIndex >= currFace.size()-1) ? 0 : currPointIndex+1;
-                    relPointIndex++;
-                    newFace1.append(currPoint);
-                
-                    if(newFace1[0] == currPoint)
-                    {
-                        FatalErrorInFunction
-                        << "The starting point is added again. Something is wrong here."
-                        << exit(FatalError);
-                    }                    
-                }
+                while(face2Ind!=cutEdgeInds[0]);
+                newFace2.append(augmentedFace[cutEdgeInds[0]]);
+                label signFace2 = pointsToSide_[newFace2[1]];
 
                 oldFacesToCutFaces_[i].setCapacity(2);
                 cutFaces_.append(face(newFace1));
-                cutFacesToSide_.append(newFace1Sign);
+                cutFacesToSide_.append(signFace1);
                 oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
                 cutFaces_.append(face(newFace2));
-                cutFacesToSide_.append(newFace2Sign);
+                cutFacesToSide_.append(signFace2);
                 oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
             }
         }
@@ -9085,7 +8973,6 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     oldFacesToCutFaces_.setCapacity(oldFacesToCutFaces_.size());
     cutFacesToSide_.setCapacity(cutFacesToSide_.size());
     
-    //FatalErrorInFunction<<"Temp end!"<< exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printCutFaces
@@ -12739,7 +12626,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     
     
     Info<<"deletedCell.size():"<<deletedCell.size()<<endl;
-    //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
