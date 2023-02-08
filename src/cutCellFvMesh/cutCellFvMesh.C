@@ -11469,6 +11469,29 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     
                     if(minusCellAlreadyDoneInd!=-1 && plusCellAlreadyDoneInd!=-1)
                     {
+                        Info<<Foam::endl;
+                        Info<<"j:"<<j<<Foam::endl;
+                        Info<<"meshCell:"<<meshCells[i].labels(meshFaces)<<endl;
+                        Info<<"pointToSide [";
+                        for(label vertice: meshCells[i].labels(meshFaces))
+                        {
+                            Info<<vertice<<"  "<<pointsToSide_[vertice]<<Foam::endl;
+                        }
+                        Info<<"]"<<Foam::endl;                        Info<<"cellToFaces_["<<i<<"]:"<<cellToFaces_[i]<<Foam::endl;
+                        Info<<"cut faces[";
+                        for(label face: cellToFaces_[i])
+                        {
+                            Info<<newMeshFaces_[face]<<" ";
+                        }
+                        Info<<"]"<<Foam::endl;
+                        Info<<"cellfaces [";
+                        for(label face: meshCells[i])
+                        {
+                            Info<<newMeshFaces_[face]<<" ";
+                        }
+                        Info<<"]"<<Foam::endl;
+                        Info<<"plusCells:"<<plusCells<<endl;
+                        Info<<"minusCells:"<<minusCells<<endl;
                         FatalErrorInFunction<<"Cut Face neigbors two already done cell parts. Can not happen"<<exit(FatalError);
                     }
                     else if(minusCellAlreadyDoneInd!=-1)
