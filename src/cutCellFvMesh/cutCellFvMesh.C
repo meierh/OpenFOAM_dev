@@ -11134,6 +11134,34 @@ void Foam::cutCellFvMesh::createNewMeshData_cutNeg_plus
     //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 
+bool faceBordersFace(const face& first, const face& second)
+{
+    label numberOfEqualEdges=0;
+    for(edge oneEdgeFirst: first.edges())
+    {
+        for(edge oneEdgeSecond: second.edges())
+        {
+            if(oneEdgeFirst==oneEdgeSecond)
+            {
+                numberOfEqualEdges++;
+                continue;
+            }
+            oneEdgeSecond.flip();
+            if(oneEdgeFirst==oneEdgeSecond)
+            {
+                numberOfEqualEdges++;
+                continue;
+            }
+        }
+    }
+    if(numberOfEqualEdges==0)
+        return false;
+    else if(numberOfEqualEdges==1)
+        return true;
+    else
+        FatalErrorInFunction<<"Can not happen"<<exit(FatalError);
+}
+
 void Foam::cutCellFvMesh::createNewMeshData_MC33
 (
 )
@@ -11231,324 +11259,423 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             const labelList& thisCellEdges = cellToEdges[i];
             const labelList& thisCellPoints = cellToPoints[i];
             oldSplittedCellToNewPlusCell[i] = i;
+            
+            std::vector<std::vector<label>> adjacentFaces(cellToFaces_[i].size());
+            std::vector<bool> treatedFaces(cellToFaces_[i].size(),false);
             for(int j=0;j<cellToFaces_[i].size();j++)
             {
-                if(cellToFaces_[i][j] >= nbrOfPrevFaces)
+                face facej = newMeshFaces_[cellToFaces_[i][j]];
+                for(int k=0;k<cellToFaces_[i].size();k++)
                 {
-                    std::unordered_set<label> pointsTreated;                    
-                    DynamicList<label> minusCell;
-                    DynamicList<label> plusCell;
-                    DynamicList<face> minusCellCutFaces;
-                    DynamicList<face> plusCellCutFaces;
-                    
-                    face cutFace = newMeshFaces_[cellToFaces_[i][j]];
-                    minusCellCutFaces.append(cutFace);
-                    plusCellCutFaces.append(cutFace);
-                    DynamicList<DynamicList<edge>> facePointEdges;
-                    facePointEdges.setSize(cutFace.size());
-
-                    //store the points around each cutFace cutted edge via facePointEdges
-                    for(int k=0;k<cutFace.size();k++)
+                    face facek = newMeshFaces_[cellToFaces_[i][k]];
+                    if(j!=k && faceBordersFace(facej,facek))
                     {
-                        label pointInd = cutFace[k];
-                        DynamicList<label> edgeInds;
-                        if((pointInd<nbrOfPrevPoints && pointToEgde_[pointInd]!=-1)||
-                           (pointToEgde_[pointInd]==-1 && pointInd>=nbrOfPrevPoints))
-                            FatalErrorInFunction<<"Cut Point to edge assignment is wrong."<<endl;
-                            
-                        if(pointInd>=nbrOfPrevPoints)
-                            edgeInds.append(pointToEgde_[pointInd]);
-                        else
-                        {
-                            labelList pointEdges = pointToEdges[pointInd];
-                            for(int l=0;l<pointEdges.size();l++)
-                            {
-                                labelList edgeCells = this->edgeCells(pointEdges[l]);
-                                for(int m=0;m<edgeCells.size();m++)
-                                {
-                                    if(edgeCells[m] == i)
-                                    {
-                                        edgeInds.append(pointEdges[l]);
-                                    }
-                                }
-                            }
-                        }
-                        for(int l=0;l<edgeInds.size();l++)
-                        {
-                            if(edgesTreated.count(edgeInds[l]) == 0)
-                            {
-                                facePointEdges[k].append(newMeshEdges_[edgeInds[l]]);
-                                edgesTreated.insert(edgeInds[l]);
-                            }
-                        }
-                        pointsTreated.insert(pointInd);
+                        adjacentFaces[j].push_back(k);
                     }
-
-                    //store the front points from the cut edges of each cut face
-                    DynamicList<label> plusCellFrontPoints;
-                    DynamicList<label> minusCellFrontPoints;
-                    //Info<<"facePointEdges.size():"<<facePointEdges.size()<<endl;
-                    for(int l=0;l<facePointEdges.size();l++)
-                    {
-                        for(int m=0;m<facePointEdges[l].size();m++)
-                        {
-                            labelList edgePoints(2);
-                            edge oneEdge = facePointEdges[l][m];
-                            edgePoints[0] = oneEdge.start();
-                            edgePoints[1] = oneEdge.end();
-                            for(int n=0;n<edgePoints.size();n++)
-                            {
-                                Info<<"edgePoints[n]:"<<edgePoints[n]<<" treated:"<<pointsTreated.count(edgePoints[n]);
-                                if(pointsTreated.count(edgePoints[n])==0)
-                                {
-                                    Info<<" inside "<<pointsToSide_[edgePoints[n]];
-                                    //Info<<"Try point: "<<edgePoints[n]<<endl;
-                                    if(pointsToSide_[edgePoints[n]] == 0)
-                                    {
-                                        FatalErrorInFunction<<"Can not happen."<<exit(FatalError);                                                                        
-                                    }
-                                    else if(pointsToSide_[edgePoints[n]] == 1)
-                                    {
-                                        plusCell.append(edgePoints[n]);
-                                        plusCellFrontPoints.append(edgePoints[n]);
-                                        pointsTreated.insert(edgePoints[n]);
-                                        Info<<" +";
-                                    }
-                                    else if(pointsToSide_[edgePoints[n]] == -1)
-                                    {
-                                        minusCell.append(edgePoints[n]);
-                                        minusCellFrontPoints.append(edgePoints[n]);
-                                        pointsTreated.insert(edgePoints[n]);
-                                        Info<<" -";
-                                    }
-                                    else
-                                        FatalErrorInFunction<<"Point side must bei -1,0,1."<<exit(FatalError);
-                                }
-                                Info<<endl;
-                            }
-                        }
-                    }
-
-                    while(plusCellFrontPoints.size() > 0)
-                    {
-                        //Info<<"Step"<<endl;
-                        DynamicList<label> temp = plusCellFrontPoints;
-                        plusCellFrontPoints.setSize(0);
-                        for(int l=0;l<temp.size();l++)
-                        {
-                            label frontPointInd = temp[l];
-                            for(int m=0;m<thisCellEdges.size();m++)
-                            {
-                                if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == 1)
-                                {
-                                    label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
-
-                                    if(otherPoint!=-1 && pointsTreated.count(otherPoint)==0)
-                                    {
-                                        //Info<<" added";
-                                        
-                                        if(pointsToSide_[otherPoint] == -1)
-                                        {
-                                            Info<<"thisCellEdges:"<<thisCellEdges<<endl;
-                                            Info<<"nbrOfPrevEdges:"<<nbrOfPrevEdges<<endl;
-                                            for(int n=0;n<thisCellEdges.size();n++)
-                                            {
-                                                Info<<thisCellEdges[n]<<":"<<newMeshEdges_[thisCellEdges[n]]<<" -- side:"<<edgesToSide_[thisCellEdges[n]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].end()]<<endl;
-                                            }
-                                            Info<<"----------m:"<<m<<endl;
-                                            Info<<thisCellEdges[m]<<":"<<newMeshEdges_[thisCellEdges[m]]<<" -- side:"<<edgesToSide_[thisCellEdges[m]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].end()]<<endl;                                            
-                                            FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<exit(FatalError);
-                                        }
-                                        
-                                        plusCell.append(otherPoint);
-                                        plusCellFrontPoints.append(otherPoint);
-                                        edgesTreated.insert(thisCellEdges[m]);
-                                        pointsTreated.insert(otherPoint);
-                                    }
-                                    //Info<<endl;
-                                }                                
-                            }
-                        }
-                    }
-                    while(minusCellFrontPoints.size() > 0)
-                    {
-                        //Info<<"Step"<<endl;
-                        DynamicList<label> temp = minusCellFrontPoints;
-                        minusCellFrontPoints.setSize(0);
-                        for(int l=0;l<temp.size();l++)
-                        {
-                            label frontPointInd = temp[l];
-                            for(int m=0;m<thisCellEdges.size();m++)
-                            {
-                                if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == -1)
-                                {
-                                    label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
-                                    //Info<<"startpoint:"<<frontPointInd<<" edge:"<<thisCellEdges[m]<<" otherPoint: "<<otherPoint;
-                                    if(otherPoint!=-1 && pointsTreated.count(otherPoint)==0)
-                                    {
-                                        //Info<<" added";
-                                        if(pointsToSide_[otherPoint] == 1)
-                                        {
-                                            Info<<"thisCellEdges:"<<thisCellEdges<<endl;
-                                            Info<<"nbrOfPrevEdges:"<<nbrOfPrevEdges<<endl;
-                                            for(int n=0;n<thisCellEdges.size();n++)
-                                            {
-                                                Info<<thisCellEdges[n]<<":"<<newMeshEdges_[thisCellEdges[n]]<<" -- side:"<<edgesToSide_[thisCellEdges[n]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].end()]<<endl;
-                                            }
-                                            Info<<"----------m:"<<m<<endl;
-                                            Info<<thisCellEdges[m]<<":"<<newMeshEdges_[thisCellEdges[m]]<<" -- side:"<<edgesToSide_[thisCellEdges[m]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].end()]<<endl;                                            
-                                            FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<exit(FatalError);
-                                        }                                    
-                                        minusCell.append(otherPoint);
-                                        minusCellFrontPoints.append(otherPoint);
-                                        edgesTreated.insert(thisCellEdges[m]);
-                                        pointsTreated.insert(otherPoint);
-                                    }
-                                    //Info<<endl;
-                                }                                
-                            }
-                        }
-                    }
-                    if(plusCell.size()==0 && minusCell.size()==0)
-                    {
-                        Info<<endl<<endl;
-                        Info<<"cell:"<<i<<endl;
-                        Info<<"j:"<<j<<endl;
-                        Info<<"facePointEdges:"<<facePointEdges<<endl;
-                        Info<<"cutFace:"<<cutFace<<endl;
-                        Info<<"cell faces:"<<meshCells[i]<<endl;
-                        Info<<"cell Points: "<<meshCells[i].labels(meshFaces)<<endl;
-                        Info<<"cellToFaces_:"<<cellToFaces_[i]<<endl;
-                        for(int k=0;k<cellToFaces_[i].size();k++)
-                        {
-                            Info<<"   cellToFaces:"<<cellToFaces_[i][k]<<endl;
-                            Info<<"   newMeshFaces_["<<cellToFaces_[i][k]<<"]:"<<newMeshFaces_[cellToFaces_[i][k]]<<endl;                            
-                        }
-                        Info<<"nbrNewFaces:"<<newMeshFaces_.size()<<endl;
-                        Info<<"newMeshFace:"<<newMeshFaces_[cellToFaces_[i][j]]<<endl;
-                        Info<<"plusCellFrontPoints:"<<plusCellFrontPoints<<endl;
-                        Info<<"minusCellFrontPoints:"<<minusCellFrontPoints<<endl;
-                        Info<<"plusCell:"<<plusCell<<endl;
-                        Info<<"minusCell:"<<minusCell<<endl;
-                        Info<<endl;
-                        Info<<"plusCells:"<<plusCells<<endl;
-                        Info<<"minusCells:"<<minusCells<<endl;
-                        FatalErrorInFunction<<"Face does not create at least one cell."<<exit(FatalError);
-                    }
-                    
-                    label minusCellAlreadyDoneInd = -1;
-                    label plusCellAlreadyDoneInd = -1;
-                    for(int k=0;k<minusCellsCutFacesMap.size();k++)
-                    {
-                        std::unordered_set<label>& oneCellMap = minusCellsCutFacesMap[k];
-                        bool cellDone = true;
-                        for(const label& vertice: minusCell)
-                            if(oneCellMap.count(vertice)==0)
-                                cellDone = false;
-                        if(cellDone)
-                        {
-                            if(minusCellAlreadyDoneInd!=-1)
-                                FatalErrorInFunction<<"Cell part already done multiple times. Can not happen"<<exit(FatalError);
-                            minusCellAlreadyDoneInd = k;
-                        }
-                    }
-                    for(int k=0;k<plusCellsCutFacesMap.size();k++)
-                    {
-                        std::unordered_set<label>& oneCellMap = plusCellsCutFacesMap[k];
-                        bool cellDone = true;
-                        for(const label& vertice: plusCell)
-                            if(oneCellMap.count(vertice)==0)
-                                cellDone = false;
-                        if(cellDone)
-                        {
-                            if(plusCellAlreadyDoneInd!=-1)
-                                FatalErrorInFunction<<"Cell part already done multiple times. Can not happen"<<exit(FatalError);
-                            plusCellAlreadyDoneInd = k;
-                        }
-                    }
-                    
-                    if(minusCellAlreadyDoneInd!=-1 && plusCellAlreadyDoneInd!=-1)
-                    {
-                        Info<<Foam::endl;
-                        Info<<"j:"<<j<<Foam::endl;
-                        Info<<"meshCell:"<<meshCells[i].labels(meshFaces)<<endl;
-                        Info<<"pointToSide [";
-                        for(label vertice: meshCells[i].labels(meshFaces))
-                        {
-                            Info<<vertice<<"  "<<pointsToSide_[vertice]<<Foam::endl;
-                        }
-                        Info<<"]"<<Foam::endl;                        Info<<"cellToFaces_["<<i<<"]:"<<cellToFaces_[i]<<Foam::endl;
-                        Info<<"cut faces[";
-                        for(label face: cellToFaces_[i])
-                        {
-                            Info<<newMeshFaces_[face]<<" ";
-                        }
-                        Info<<"]"<<Foam::endl;
-                        Info<<"cellfaces [";
-                        for(label face: meshCells[i])
-                        {
-                            Info<<newMeshFaces_[face]<<" ";
-                        }
-                        Info<<"]"<<Foam::endl;
-                        Info<<"plusCells:"<<plusCells<<endl;
-                        Info<<"minusCells:"<<minusCells<<endl;
-                        FatalErrorInFunction<<"Cut Face neigbors two already done cell parts. Can not happen"<<exit(FatalError);
-                    }
-                    else if(minusCellAlreadyDoneInd!=-1)
-                    {
-                        plusCells.append(plusCell);
-                        
-                        plusCellsCutFacesMap.append(std::unordered_set<label>());
-                        for(const label& vertice : plusCell)
-                            plusCellsCutFacesMap.last().insert(vertice);
-                        
-                        plusCellsCutFaces.append(plusCellCutFaces);
-                        
-                        minusCellsCutFaces[minusCellAlreadyDoneInd].append(cutFace);
-                    }
-                    else if(plusCellAlreadyDoneInd!=-1)
-                    {
-                        minusCells.append(minusCell);
-                        
-                        minusCellsCutFacesMap.append(std::unordered_set<label>());
-                        for(const label& vertice : minusCell)
-                            minusCellsCutFacesMap.last().insert(vertice);
-                        
-                        minusCellsCutFaces.append(minusCellCutFaces);
-                        
-                        plusCellsCutFaces[plusCellAlreadyDoneInd].append(cutFace);
-                    }
-                    else
-                    {
-                        minusCells.append(minusCell);
-                        minusCellsCutFacesMap.append(std::unordered_set<label>());
-                        for(const label& vertice : minusCell)
-                            minusCellsCutFacesMap.last().insert(vertice);
-                        minusCellsCutFaces.append(minusCellCutFaces);
-                        
-                        plusCells.append(plusCell);
-                        plusCellsCutFacesMap.append(std::unordered_set<label>());
-                        for(const label& vertice : plusCell)
-                            plusCellsCutFacesMap.last().insert(vertice);
-                        plusCellsCutFaces.append(plusCellCutFaces);
-                    }
-
-                    Info<<"i:"<<i<<endl;
-                    Info<<"j:"<<j<<endl;
-                    Info<<"cutFace:"<<cutFace<<endl;
-                    Info<<"meshCell:"<<meshCells[i].labels(meshFaces)<<endl;
-                    Info<<"plusCells:"<<plusCells<<endl;
-                    Info<<"minusCells:"<<minusCells<<endl;
-                    Info<<"facePointEdges:"<<facePointEdges<<endl;
                 }
             }
-            /*
-            for(int j=0;j<thisCellPoints.size();j++)
+            bool allFacesTreated=false;
+            DynamicList<DynamicList<label>> connectedFacesLocInd;
+            std::vector<label> front;
+            while(!allFacesTreated)
             {
-                if(pointsTreatedToPM_Cell.count(thisCellPoints[j])==0)
-                    FatalErrorInFunction<<"Untreated point remains"<<exit(FatalError);
+                if(front.size()==0)
+                {
+                    label nextFrontFace = -1;
+                    for(int j=0;j<cellToFaces_[i].size();j++)
+                    {
+                        if(!treatedFaces[j])
+                        {
+                            nextFrontFace = j;
+                            break;
+                        }
+                    }
+                    if(nextFrontFace==-1)
+                        allFacesTreated=true;
+                    else
+                    {
+                        front.push_back(nextFrontFace);
+                        connectedFacesLocInd.append(DynamicList<label>());
+                    }
+                }
+                else
+                {
+                    std::vector<label> nextFront;
+                    for(label faceInd: front)
+                    {
+                        treatedFaces[faceInd] = true;
+                        for(label conFace : adjacentFaces[faceInd])
+                        {
+                            if(!treatedFaces[conFace])
+                            {
+                                nextFront.push_back(conFace);
+                            }
+                        }
+                        connectedFacesLocInd.last().append(faceInd);
+                    }
+                    front = nextFront;
+                }
             }
-            */
+            Info<<"cellToFaces_[i].size():"<<cellToFaces_[i].size()<<Foam::endl;
+            Info<<"cellToFaces_[i]:"<<cellToFaces_[i]<<Foam::endl;
+            Info<<"cellToFaces_[i].size():"<<cellToFaces_[i].size()<<Foam::endl;
+            Info<<"connectedFacesLocInd:"<<connectedFacesLocInd<<Foam::endl;
+            
+            if(connectedFacesLocInd.size()>1)
+                FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+            
+            DynamicList<DynamicList<label>> connectedFaces;
+            connectedFaces.setSize(connectedFacesLocInd.size());
+            for(int j=0;j<connectedFacesLocInd.size();j++)
+            {
+                for(label oneFaceInd: connectedFacesLocInd[j])
+                {
+                    Info<<"oneFaceInd:"<<oneFaceInd<<"/"<<cellToFaces_[i].size()<<Foam::endl;
+                    connectedFaces[j].append(cellToFaces_[i][oneFaceInd]);
+                }
+            }            
+            
+            for(int j=0;j<connectedFaces.size();j++)
+            {
+                for(label oneFace: connectedFaces[j])
+                {
+                    if(oneFace < nbrOfPrevFaces)
+                        FatalErrorInFunction<<"Can not happen"<<exit(FatalError);
+                }
+                
+                std::unordered_set<label> uniConFacePnts;
+                for(label oneFaceInd: connectedFaces[j])
+                {
+                    for(label onePnt: newMeshFaces_[oneFaceInd])
+                    {
+                        uniConFacePnts.insert(onePnt);
+                    }
+                }
+                std::unordered_set<label> pointsTreated;                    
+                DynamicList<label> minusCell;
+                DynamicList<label> plusCell;
+                
+                DynamicList<face> minusCellCutFaces;
+                DynamicList<face> plusCellCutFaces;
+                for(label oneFaceInd: connectedFaces[j])
+                {
+                    face cutFace = newMeshFaces_[oneFaceInd];
+                    minusCellCutFaces.append(cutFace);
+                    plusCellCutFaces.append(cutFace);
+                }
+                
+                DynamicList<DynamicList<edge>> facePointEdges;
+                facePointEdges.setSize(uniConFacePnts.size());
+                //store the points around each cutFace cutted edge via facePointEdges
+                label k=0;
+                for(auto iter=uniConFacePnts.begin();iter!=uniConFacePnts.end();iter++,k++)
+                {
+                    label pointInd = *iter;
+                    DynamicList<label> edgeInds;
+                    if((pointInd<nbrOfPrevPoints && pointToEgde_[pointInd]!=-1)||
+                       (pointToEgde_[pointInd]==-1 && pointInd>=nbrOfPrevPoints))
+                        FatalErrorInFunction<<"Cut Point to edge assignment is wrong."<<endl;
+                        
+                    if(pointInd>=nbrOfPrevPoints)
+                        edgeInds.append(pointToEgde_[pointInd]);
+                    else
+                    {
+                        labelList pointEdges = pointToEdges[pointInd];
+                        for(int l=0;l<pointEdges.size();l++)
+                        {
+                            labelList edgeCells = this->edgeCells(pointEdges[l]);
+                            for(int m=0;m<edgeCells.size();m++)
+                            {
+                                if(edgeCells[m] == i)
+                                {
+                                    edgeInds.append(pointEdges[l]);
+                                }
+                            }
+                        }
+                    }
+                    for(int l=0;l<edgeInds.size();l++)
+                    {
+                        if(edgesTreated.count(edgeInds[l]) == 0)
+                        {
+                            facePointEdges[k].append(newMeshEdges_[edgeInds[l]]);
+                            edgesTreated.insert(edgeInds[l]);
+                        }
+                    }
+                    pointsTreated.insert(pointInd);
+                }
+
+                //store the front points from the cut edges of each cut face
+                DynamicList<label> plusCellFrontPoints;
+                DynamicList<label> minusCellFrontPoints;
+                //Info<<"facePointEdges.size():"<<facePointEdges.size()<<endl;
+                for(int l=0;l<facePointEdges.size();l++)
+                {
+                    for(int m=0;m<facePointEdges[l].size();m++)
+                    {
+                        labelList edgePoints(2);
+                        edge oneEdge = facePointEdges[l][m];
+                        edgePoints[0] = oneEdge.start();
+                        edgePoints[1] = oneEdge.end();
+                        for(int n=0;n<edgePoints.size();n++)
+                        {
+                            Info<<"edgePoints[n]:"<<edgePoints[n]<<" treated:"<<pointsTreated.count(edgePoints[n]);
+                            if(pointsTreated.count(edgePoints[n])==0)
+                            {
+                                Info<<" inside "<<pointsToSide_[edgePoints[n]];
+                                //Info<<"Try point: "<<edgePoints[n]<<endl;
+                                if(pointsToSide_[edgePoints[n]] == 0)
+                                {
+                                    FatalErrorInFunction<<"Can not happen."<<exit(FatalError);                                                                        
+                                }
+                                else if(pointsToSide_[edgePoints[n]] == 1)
+                                {
+                                    plusCell.append(edgePoints[n]);
+                                    plusCellFrontPoints.append(edgePoints[n]);
+                                    pointsTreated.insert(edgePoints[n]);
+                                    Info<<" +";
+                                }
+                                else if(pointsToSide_[edgePoints[n]] == -1)
+                                {
+                                    minusCell.append(edgePoints[n]);
+                                    minusCellFrontPoints.append(edgePoints[n]);
+                                    pointsTreated.insert(edgePoints[n]);
+                                    Info<<" -";
+                                }
+                                else
+                                    FatalErrorInFunction<<"Point side must bei -1,0,1."<<exit(FatalError);
+                            }
+                            Info<<endl;
+                        }
+                    }
+                }
+
+                while(plusCellFrontPoints.size() > 0)
+                {
+                    //Info<<"Step"<<endl;
+                    DynamicList<label> temp = plusCellFrontPoints;
+                    plusCellFrontPoints.setSize(0);
+                    for(int l=0;l<temp.size();l++)
+                    {
+                        label frontPointInd = temp[l];
+                        for(int m=0;m<thisCellEdges.size();m++)
+                        {
+                            if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == 1)
+                            {
+                                label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
+
+                                if(otherPoint!=-1 && pointsTreated.count(otherPoint)==0)
+                                {
+                                    //Info<<" added";
+                                    
+                                    if(pointsToSide_[otherPoint] == -1)
+                                    {
+                                        Info<<"thisCellEdges:"<<thisCellEdges<<endl;
+                                        Info<<"nbrOfPrevEdges:"<<nbrOfPrevEdges<<endl;
+                                        for(int n=0;n<thisCellEdges.size();n++)
+                                        {
+                                            Info<<thisCellEdges[n]<<":"<<newMeshEdges_[thisCellEdges[n]]<<" -- side:"<<edgesToSide_[thisCellEdges[n]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].end()]<<endl;
+                                        }
+                                        Info<<"----------m:"<<m<<endl;
+                                        Info<<thisCellEdges[m]<<":"<<newMeshEdges_[thisCellEdges[m]]<<" -- side:"<<edgesToSide_[thisCellEdges[m]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].end()]<<endl;                                            
+                                        FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<exit(FatalError);
+                                    }
+                                    
+                                    plusCell.append(otherPoint);
+                                    plusCellFrontPoints.append(otherPoint);
+                                    edgesTreated.insert(thisCellEdges[m]);
+                                    pointsTreated.insert(otherPoint);
+                                }
+                                //Info<<endl;
+                            }                                
+                        }
+                    }
+                }
+                while(minusCellFrontPoints.size() > 0)
+                {
+                    //Info<<"Step"<<endl;
+                    DynamicList<label> temp = minusCellFrontPoints;
+                    minusCellFrontPoints.setSize(0);
+                    for(int l=0;l<temp.size();l++)
+                    {
+                        label frontPointInd = temp[l];
+                        for(int m=0;m<thisCellEdges.size();m++)
+                        {
+                            if(edgesTreated.count(thisCellEdges[m])==0 && edgesToSide_[thisCellEdges[m]] == -1)
+                            {
+                                label otherPoint = newMeshEdges_[thisCellEdges[m]].otherVertex(frontPointInd);
+                                //Info<<"startpoint:"<<frontPointInd<<" edge:"<<thisCellEdges[m]<<" otherPoint: "<<otherPoint;
+                                if(otherPoint!=-1 && pointsTreated.count(otherPoint)==0)
+                                {
+                                    //Info<<" added";
+                                    if(pointsToSide_[otherPoint] == 1)
+                                    {
+                                        Info<<"thisCellEdges:"<<thisCellEdges<<endl;
+                                        Info<<"nbrOfPrevEdges:"<<nbrOfPrevEdges<<endl;
+                                        for(int n=0;n<thisCellEdges.size();n++)
+                                        {
+                                            Info<<thisCellEdges[n]<<":"<<newMeshEdges_[thisCellEdges[n]]<<" -- side:"<<edgesToSide_[thisCellEdges[n]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[n]].end()]<<endl;
+                                        }
+                                        Info<<"----------m:"<<m<<endl;
+                                        Info<<thisCellEdges[m]<<":"<<newMeshEdges_[thisCellEdges[m]]<<" -- side:"<<edgesToSide_[thisCellEdges[m]]<<" firstside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].start()]<<" secondside:"<<pointsToSide_[newMeshEdges_[thisCellEdges[m]].end()]<<endl;                                            
+                                        FatalErrorInFunction<<"Edge with 1 side has non 1 point"<<exit(FatalError);
+                                    }                                    
+                                    minusCell.append(otherPoint);
+                                    minusCellFrontPoints.append(otherPoint);
+                                    edgesTreated.insert(thisCellEdges[m]);
+                                    pointsTreated.insert(otherPoint);
+                                }
+                                //Info<<endl;
+                            }                                
+                        }
+                    }
+                }
+                if(plusCell.size()==0 && minusCell.size()==0)
+                {
+                    Info<<endl<<endl;
+                    Info<<"cell:"<<i<<endl;
+                    Info<<"j:"<<j<<endl;
+                    Info<<"facePointEdges:"<<facePointEdges<<endl;
+                    for(label oneFaceInd: connectedFaces[j])
+                    {
+                        face cutFace = newMeshFaces_[oneFaceInd];
+                        Info<<"cutFace:"<<cutFace<<endl;
+                    }
+                    Info<<"cell faces:"<<meshCells[i]<<endl;
+                    Info<<"cell Points: "<<meshCells[i].labels(meshFaces)<<endl;
+                    Info<<"cellToFaces_:"<<cellToFaces_[i]<<endl;
+                    for(int k=0;k<cellToFaces_[i].size();k++)
+                    {
+                        Info<<"   cellToFaces:"<<cellToFaces_[i][k]<<endl;
+                        Info<<"   newMeshFaces_["<<cellToFaces_[i][k]<<"]:"<<newMeshFaces_[cellToFaces_[i][k]]<<endl;                            
+                    }
+                    Info<<"nbrNewFaces:"<<newMeshFaces_.size()<<endl;
+                    Info<<"newMeshFace:"<<newMeshFaces_[cellToFaces_[i][j]]<<endl;
+                    Info<<"plusCellFrontPoints:"<<plusCellFrontPoints<<endl;
+                    Info<<"minusCellFrontPoints:"<<minusCellFrontPoints<<endl;
+                    Info<<"plusCell:"<<plusCell<<endl;
+                    Info<<"minusCell:"<<minusCell<<endl;
+                    Info<<endl;
+                    Info<<"plusCells:"<<plusCells<<endl;
+                    Info<<"minusCells:"<<minusCells<<endl;
+                    FatalErrorInFunction<<"Face does not create at least one cell."<<exit(FatalError);
+                }
+                
+                label minusCellAlreadyDoneInd = -1;
+                label plusCellAlreadyDoneInd = -1;
+                for(int k=0;k<minusCellsCutFacesMap.size();k++)
+                {
+                    std::unordered_set<label>& oneCellMap = minusCellsCutFacesMap[k];
+                    bool cellDone = true;
+                    for(const label& vertice: minusCell)
+                        if(oneCellMap.count(vertice)==0)
+                            cellDone = false;
+                    if(cellDone)
+                    {
+                        if(minusCellAlreadyDoneInd!=-1)
+                            FatalErrorInFunction<<"Cell part already done multiple times. Can not happen"<<exit(FatalError);
+                        minusCellAlreadyDoneInd = k;
+                    }
+                }
+                for(int k=0;k<plusCellsCutFacesMap.size();k++)
+                {
+                    std::unordered_set<label>& oneCellMap = plusCellsCutFacesMap[k];
+                    bool cellDone = true;
+                    for(const label& vertice: plusCell)
+                        if(oneCellMap.count(vertice)==0)
+                            cellDone = false;
+                    if(cellDone)
+                    {
+                        if(plusCellAlreadyDoneInd!=-1)
+                            FatalErrorInFunction<<"Cell part already done multiple times. Can not happen"<<exit(FatalError);
+                        plusCellAlreadyDoneInd = k;
+                    }
+                }
+                
+                if(minusCellAlreadyDoneInd!=-1 && plusCellAlreadyDoneInd!=-1)
+                {
+                    Info<<Foam::endl;
+                    Info<<"j:"<<j<<Foam::endl;
+                    Info<<"meshCell:"<<meshCells[i].labels(meshFaces)<<endl;
+                    Info<<"pointToSide [";
+                    for(label vertice: meshCells[i].labels(meshFaces))
+                    {
+                        Info<<vertice<<"  "<<pointsToSide_[vertice]<<Foam::endl;
+                    }
+                    Info<<"]"<<Foam::endl;                        Info<<"cellToFaces_["<<i<<"]:"<<cellToFaces_[i]<<Foam::endl;
+                    Info<<"cut faces[";
+                    for(label face: cellToFaces_[i])
+                    {
+                        Info<<newMeshFaces_[face]<<" ";
+                    }
+                    Info<<"]"<<Foam::endl;
+                    Info<<"cellfaces [";
+                    for(label face: meshCells[i])
+                    {
+                        Info<<newMeshFaces_[face]<<" ";
+                    }
+                    Info<<"]"<<Foam::endl;
+                    Info<<"plusCells:"<<plusCells<<endl;
+                    Info<<"minusCells:"<<minusCells<<endl;
+                    FatalErrorInFunction<<"Cut Face neigbors two already done cell parts. Can not happen"<<exit(FatalError);
+                }
+                else if(minusCellAlreadyDoneInd!=-1)
+                {
+                    plusCells.append(plusCell);
+                    
+                    plusCellsCutFacesMap.append(std::unordered_set<label>());
+                    for(const label& vertice : plusCell)
+                        plusCellsCutFacesMap.last().insert(vertice);
+                    
+                    plusCellsCutFaces.append(plusCellCutFaces);
+                    
+                    for(label oneFaceInd: connectedFaces[j])
+                    {
+                        face cutFace = newMeshFaces_[oneFaceInd];
+                        minusCellsCutFaces[minusCellAlreadyDoneInd].append(cutFace);
+                    }
+                }
+                else if(plusCellAlreadyDoneInd!=-1)
+                {
+                    minusCells.append(minusCell);
+                    
+                    minusCellsCutFacesMap.append(std::unordered_set<label>());
+                    for(const label& vertice : minusCell)
+                        minusCellsCutFacesMap.last().insert(vertice);
+                    
+                    minusCellsCutFaces.append(minusCellCutFaces);
+                    for(label oneFaceInd: connectedFaces[j])
+                    {
+                        face cutFace = newMeshFaces_[oneFaceInd];
+                        plusCellsCutFaces[plusCellAlreadyDoneInd].append(cutFace);
+                    }
+                }
+                else
+                {
+                    minusCells.append(minusCell);
+                    minusCellsCutFacesMap.append(std::unordered_set<label>());
+                    for(const label& vertice : minusCell)
+                        minusCellsCutFacesMap.last().insert(vertice);
+                    minusCellsCutFaces.append(minusCellCutFaces);
+                    
+                    plusCells.append(plusCell);
+                    plusCellsCutFacesMap.append(std::unordered_set<label>());
+                    for(const label& vertice : plusCell)
+                        plusCellsCutFacesMap.last().insert(vertice);
+                    plusCellsCutFaces.append(plusCellCutFaces);
+                }
+
+                Info<<"i:"<<i<<endl;
+                Info<<"j:"<<j<<endl;
+                for(label oneFaceInd: connectedFaces[j])
+                {
+                    face cutFace = newMeshFaces_[oneFaceInd];
+                    Info<<"cutFace:"<<cutFace<<endl;
+                }
+                Info<<"meshCell:"<<meshCells[i].labels(meshFaces)<<endl;
+                Info<<"plusCells:"<<plusCells<<endl;
+                Info<<"minusCells:"<<minusCells<<endl;
+                Info<<"facePointEdges:"<<facePointEdges<<endl;
+            }
 
             label countOldPoints = 0;
             for(int j=0;j<plusCells.size();j++)
@@ -11586,7 +11713,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 Info<<"minusCells: "<<minusCells<<endl;
                 FatalErrorInFunction<<"Old points unequal 8 but original cells have to be a cube"<<exit(FatalError);
             }
-
+            
             Info<<"minusCells:"<<minusCells<<endl;
             Info<<"plusCells:"<<plusCells<<endl;
             if(minusCells.size()==0 || plusCells.size()==0)
@@ -11642,38 +11769,6 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             }
             else
                 FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
-           
-            /*
-            if(i==197231 || i==185733)
-            {
-                FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-            }
-            
-            
-            if(i==41)
-            {
-                Info<<endl<<endl;
-                Info<<"---"<<endl;
-                Info<<"cellToNewMinusCellsPointLabels:"<<cellToNewMinusCellsPointLabels[i]<<endl;
-                Info<<"cellToNewMinusCellsCutFaces:"<<cellToNewMinusCellsCutFaces[i]<<endl;
-                Info<<"cellToNewMinusCellsIndexes:"<<cellToNewMinusCellsIndexes[i]<<endl;
-                Info<<"---"<<endl;
-                Info<<"cellToNewPlusCellsPointLabels:"<<cellToNewPlusCellsPointLabels[i]<<endl;
-                Info<<"cellToNewPlusCellsCutFaces:"<<cellToNewPlusCellsCutFaces[i]<<endl;
-                Info<<"cellToNewPlusCellsIndexes:"<<cellToNewPlusCellsIndexes[i]<<endl;
-                Info<<"---"<<endl;
-                Info<<"meshCell Labels:"<<meshCells[i].labels(meshFaces)<<endl;
-                Info<<"meshCell Points:"<<meshCells[i].points(meshFaces,meshPoints)<<endl;
-                for(int j=0;j<cellToFaces_[i].size();j++)
-                {
-                    Info<<"cellToFaces_["<<i<<"]["<<j<<"]:"<<cellToFaces_[i][j]<<" -- "<<newMeshFaces_[cellToFaces_[i][j]]<<" --";
-                    for(int k=0;k<newMeshFaces_[cellToFaces_[i][j]].size();k++)
-                        Info<<" "<<newMeshPoints_[newMeshFaces_[cellToFaces_[i][j]][k]];
-                    Info<<endl;
-                }
-                FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-            }
-            */
             
         }
 
@@ -11681,6 +11776,10 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         {
             deletedCell[i] = true;
         }
+        
+        
+        Info<<"
+        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     }
     
     label maxCellInd = 0;
