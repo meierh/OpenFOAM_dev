@@ -70,7 +70,7 @@ class NurbsStructureInterface
         std::string folder;
         
         //******************* Parameters *******************//
-            const double	latScale = 1.;			// Scaling factor for XML geometry
+            double    latScale;// = 1;			// Scaling factor for XML geometry
             const int	latDir = 2;				// Lattice direction (e.g. for gravity load)
             gsVector<double,3> latSize;
         
@@ -113,8 +113,6 @@ class NurbsStructureInterface
 
 
         //******************* Parameters *******************//
-            
-            
         const dimensionedScalar& alpha;
         const volScalarField& T;
         const volScalarField& p;

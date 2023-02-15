@@ -327,6 +327,9 @@ void Foam::NurbsStructureInterface::computeIBForce()
 
 Foam::word Foam::NurbsStructureInterface::getXMLPath()
 {
+    Info<<"lateScale:"<<latScale<<endl;
+    Info<<"latDir:"<<latDir<<endl;
+
     fileName caseDirectory = runDirectory+"/"+caseName;
     fileName constantDirectory = caseDirectory;
 
@@ -364,9 +367,29 @@ Foam::word Foam::NurbsStructureInterface::getXMLPath()
 
 int Foam::NurbsStructureInterface::loadRodsFromXML()
 {
+    printf("loadRodsFromXML\n");
     std::string rodsXMLFilePath = xmlPath;
     ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
-    
+	const int  nR = rodsList.size();
+    Info<<"rodsList.size():"<<rodsList.size()<<endl;
+    Info<<"nR:"<<nR<<endl;
+    for(int i=0;i<nR;i++)
+    {
+        Info<<"---Curve:"<<i<<endl;
+        gismo::gsKnotVector<double> knots = rodsList[i].knots();
+        Info<<"Knots [";
+        for(double knot: knots)
+            Info<<knot<<", ";
+        Info<<"]"<<endl;
+        gismo::gsMatrix<double> coefs = rodsList[i].coefs();
+        Info<<"Coefs ["<<endl;
+        for(int j=0;j<coefs.rows();j++)
+        {
+            Info<<"("<<coefs(j,0)<<","<<coefs(j,1)<<","<<coefs(j,2)<<")"<<endl;
+        }
+        Info<<"]"<<endl;
+
+    }
 
     double	x0 = 1e6, x1 = -1e6, y0 = 1e6, y1 = -1e6, z0 = 1e6, z1 = -1e6;
     for(int i=0; i<nR; i++)
@@ -391,8 +414,17 @@ int Foam::NurbsStructureInterface::loadRodsFromXML()
         z1 = std::fmax(z1, rodsList[i].coefs().topRows(0).coeff(0, 2));
         z1 = std::fmax(z1, rodsList[i].coefs().bottomRows(1).coeff(0, 2));
     }
+    Info<<"x0:"<<x0<<endl;
+    Info<<"x1:"<<x1<<endl;
+    Info<<"y0:"<<y0<<endl;
+    Info<<"y1:"<<y1<<endl;
+    Info<<"z0:"<<z0<<endl;
+    Info<<"z1:"<<z1<<endl;
+    Info<<"lateScale:"<<latScale<<endl;
+    Info<<"latDir:"<<latDir<<endl;
     latSize << x1 - x0, y1 - y0, z1 - z0;
     
+    latScale=1;
     gsVector<double,3> dX;
     dX << -x0, -y0, -z0;
     for (int i = 0; i < nR; i++)
@@ -401,15 +433,20 @@ int Foam::NurbsStructureInterface::loadRodsFromXML()
         rodsList[i].translate(dX);				// translate to 0
         rodsList[i].scale(latScale);
     }
+    Info<<"lateScale:"<<latScale<<endl;
     latSize *= latScale;
     printf("Rods:  %i\n", nR);
     printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
     
-    return rodsList.size();
+    FatalIOError<<"Temp Stop"<<exit(FatalIOError);
+    
+    return nR;
 }
 
 void Foam::NurbsStructureInterface::createNurbsStructure()
 {
+    printf("Create Nurbs Structure ... \n");
+
         // * Base NURBS curve - straight line as B-Spline
     const int	el = 1;
     const int	p = 1;

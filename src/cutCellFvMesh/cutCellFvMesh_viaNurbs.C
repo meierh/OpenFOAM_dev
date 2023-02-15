@@ -1596,7 +1596,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
 
     //printMesh();
     Info<<"Please write"<<endl;
-    this->write();
+    //this->write();
     Info<<"Written"<<endl;
     //printMesh();
     selfTestMesh();
@@ -2038,7 +2038,14 @@ void Foam::cutCellFvMesh::setInitialDeformationCurve
     label nbrOfDefNurbsCurves = nurbs_to_knots.size();
     if(nbrOfDefNurbsCurves!=nurbs_to_controlPoints.size() || nbrOfDefNurbsCurves!=nurbs_to_weights.size() ||            
        nbrOfDefNurbsCurves!=nurbs_to_degree.size()        || nbrOfDefNurbsCurves!=Curves->size())
-        FatalErrorInFunction<<"Wrong Deformation curve number"<< exit(FatalError); 
+    {
+        Info<<"nbrOfDefNurbsCurves:"<<nbrOfDefNurbsCurves<<endl;
+        Info<<"nurbs_to_controlPoints.size():"<<nurbs_to_controlPoints.size()<<endl;
+        Info<<"nurbs_to_weights.size():"<<nurbs_to_weights.size()<<endl;
+        Info<<"Curves->size():"<<Curves->size()<<endl;
+        Info<<"nurbs_to_degree.size()"<<nurbs_to_degree.size()<<endl;
+        FatalErrorInFunction<<"Wrong Deformation curve number"<< exit(FatalError);
+    }
 
     for(int i=0;i<nbrOfDefNurbsCurves;i++)
     {
