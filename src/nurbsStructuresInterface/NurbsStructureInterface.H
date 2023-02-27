@@ -135,8 +135,14 @@ class NurbsStructureInterface
         void computeIBForce();
         void assignBoundaryFacesToNurbsCurves();
         template<typename Tensor_Type>
-        std::unique_ptr<std::vector<std::vector<Tensor_Type>>> computeDistributedLoad(const Field<Tensor_Type> immersedBoundaryField);
-        void assignForceOnCurve();
+        std::unique_ptr<std::vector<std::vector<Tensor_Type>>> computeDistributedLoad
+        (
+            const Field<Tensor_Type> immersedBoundaryField
+        );
+        
+        void assignForceOnCurve();        
+        std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
+        
 };
 }
 #endif

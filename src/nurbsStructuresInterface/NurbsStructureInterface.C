@@ -52,6 +52,7 @@ Curves(mesh.getCurves())
     
     assignBoundaryFacesToNurbsCurves();
     assignForceOnCurve();
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
 }
 
 void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
@@ -196,14 +197,14 @@ std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInter
             
             Foam::zero null;
             Tensor_Type thisSpanValue = Tensor_Type(null);
-            Info<<thisSpanValue<<"  ";
+            //Info<<thisSpanValue<<"  ";
             for(int j=0;j<facesInLimits.size();j++)
             {
                 face thisFace = faces[facesInLimits[j]];
                 Tensor_Type thisFaceField = immersedBoundaryField[facesInLimits[j]-nurbsBoundaryStart];
                 thisSpanValue += weightsInLimits[j]*thisFaceField*thisFace.mag(points);                
             }
-            Info<<nurbsBoundaryStart<<"  "<<facesInLimits.size()<<" "<<weightsInLimits.size()<<thisSpanValue<<Foam::endl;
+            //Info<<nurbsBoundaryStart<<"  "<<facesInLimits.size()<<" "<<weightsInLimits.size()<<thisSpanValue<<Foam::endl;
 
             Tensor_Type valuePerSpan = thisSpanValue/(nurbsToLimits[nurbsInd][i+1]-nurbsToLimits[nurbsInd][i]);
             (*result)[nurbsInd][i] = valuePerSpan;
@@ -238,12 +239,16 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
     {
         const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];
+        /*
+        Info<<"oneCurveDistrLoad:"<<Foam::endl;
         for(int i=0;i<oneCurveDistrLoad.size();i++)
             Info<<"("<<oneCurveDistrLoad[i]<<") ";
         Info<<Foam::endl;
+        */
         
         
         std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
+        int degree=1;
         knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0];
         for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
         {
@@ -253,43 +258,62 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
             knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
         }
         knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back();    
-        gismo::gsKnotVector<double> knotVector;
-        knotVector.insert(knotContainer);
+        gismo::gsKnotVector<double> knotVector(knotContainer,degree);
+        //knotVector.insert(knotContainer);
         
-        gismo::gsMatrix<double> w(1,nurbsToLimits[nurbsInd].size()*2-2);
+        gismo::gsMatrix<double> w(nurbsToLimits[nurbsInd].size()*2-2,1);
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
-            w(0,i) = 1;
+            w(i,0) = 1;
         
+        /*
         Info<<"w.rows:"<<w.rows()<<Foam::endl;
         Info<<"w.cols:"<<w.cols()<<Foam::endl;
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
             Info<<w(0,i)<<" ";
         Info<<Foam::endl;
+        */
         
-        gismo::gsMatrix<double> Pcoeff(3,nurbsToLimits[nurbsInd].size()*2-2);
+        gismo::gsMatrix<double> Pcoeff(nurbsToLimits[nurbsInd].size()*2-2,3);
         int k=0;
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i+=2,k++)
         {
             for(label d=0;d<3;d++)
             {
-                Pcoeff(d,i) = oneCurveDistrLoad[k][d];
-                Pcoeff(d,i+1) = oneCurveDistrLoad[k][d];
+                Pcoeff(i,d) = oneCurveDistrLoad[k][d];
+                Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
             }
         }
+        
         
         Info<<"Pcoeff.rows:"<<Pcoeff.rows()<<Foam::endl;
         Info<<"Pcoeff.cols:"<<Pcoeff.cols()<<Foam::endl;
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
-            Info<<"("<<Pcoeff(0,i)<<","<<Pcoeff(1,i)<<","<<Pcoeff(2,i)<<") ";
+            Info<<"("<<Pcoeff(i,0)<<","<<Pcoeff(i,1)<<","<<Pcoeff(i,2)<<") ";
         Info<<Foam::endl;
+        Info<<"--------------------------------------"<<Foam::endl;
+        for(int i=0;i<rodsList.size();i++)
+        {
+            const gismo::gsKnotVector<double>& rodknotVector = rodsList[i].knots();
+            const gsMatrix<double>& weights = rodsList[i].weights();
+            const gsMatrix<double>& coeffs = rodsList[i].coefs();
+            Info<<"rodknotVector.size():"<<rodknotVector.size()<<Foam::endl;
+            Info<<"weights.cols():"<<weights.cols()<<"   weights.rows():"<<weights.rows()<<Foam::endl;
+            Info<<"coeffs.cols():"<<coeffs.cols()<<"   coeffs.rows():"<<coeffs.rows()<<Foam::endl;
+        }
+        Info<<"--------------------------------------"<<Foam::endl;
 
-        
+        Info<<"knotVector.size():"<<knotVector.size()<<Foam::endl;
+        Info<<"knotVector.degree():"<<knotVector.degree()<<Foam::endl;
+
+        Info<<"w.cols():"<<w.cols()<<"   w.rows():"<<w.rows()<<Foam::endl;
+        Info<<"Pcoeff.cols():"<<Pcoeff.cols()<<"   Pcoeff.rows():"<<Pcoeff.rows()<<Foam::endl;
+
+        //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+        forceCurveStorage[nurbsInd].reset(new gismo::gsNurbs<double>(knotVector,w,Pcoeff));
+                
+        Rods[nurbsInd]->set_force_lR(forceCurveStorage[nurbsInd].get());
         FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-        gismo::gsNurbs<double> forceDistr(knotVector,w,Pcoeff);
-        
-        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-        
-        //Rods[nurbsInd]->set_force_lR(forceDistr);
+
     }
 }
 
@@ -369,7 +393,11 @@ int Foam::NurbsStructureInterface::loadRodsFromXML()
 {
     printf("loadRodsFromXML\n");
     std::string rodsXMLFilePath = xmlPath;
-    ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
+    bool importSuccess = ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
+    if(!importSuccess)
+    {
+        FatalIOError<<"Importing of Nurbs into rodMesh failed"<<exit(FatalIOError);
+    }
 	const int  nR = rodsList.size();
     Info<<"rodsList.size():"<<rodsList.size()<<endl;
     Info<<"nR:"<<nR<<endl;
@@ -438,7 +466,7 @@ int Foam::NurbsStructureInterface::loadRodsFromXML()
     printf("Rods:  %i\n", nR);
     printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
     
-    FatalIOError<<"Temp Stop"<<exit(FatalIOError);
+    //FatalIOError<<"Temp Stop"<<exit(FatalIOError);
     
     return nR;
 }
@@ -513,7 +541,8 @@ void Foam::NurbsStructureInterface::createNurbsStructure()
         // Gravity 
         if (applyGravity)
             Rods[i]->set_force_lG(loadG);
-    }    
+    }
+    forceCurveStorage.resize(nR);
 }
 
 void Foam::NurbsStructureInterface::createNurbsBoundary()
@@ -752,10 +781,15 @@ void Foam::NurbsStructureInterface::moveNurbs()
 void Foam::NurbsStructureInterface::createDeformationCurve()
 {
     label nbrNurbs = myMesh->m_Rods.size();
-    std::vector<scalarList> nurbs_to_knots(nbrNurbs);
-    std::vector<List<vector>> nurbs_to_controlPoints(nbrNurbs);
-    std::vector<scalarList> nurbs_to_weights(nbrNurbs);
-    std::vector<label> nurbs_to_degree(nbrNurbs);
+    label nbrNurbs2 = myMesh->m_nR;
+    Info<<"nbrNurbs:"<<nbrNurbs<<Foam::endl;
+    Info<<"nbrNurbs2:"<<nbrNurbs2<<Foam::endl;
+    //FatalIOError<<"Temp Stop"<<exit(FatalIOError);
+
+    std::vector<scalarList> nurbs_to_knots;
+    std::vector<List<vector>> nurbs_to_controlPoints;
+    std::vector<scalarList> nurbs_to_weights;
+    std::vector<label> nurbs_to_degree;
 
     for(int i=0;i<nbrNurbs;i++)
     {
