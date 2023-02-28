@@ -1895,10 +1895,16 @@ void Foam::cutCellFvMesh::moveNurbsCurves
     std::vector<List<List<vector>>>& movedDeformationControlPoints
 )
 {
+    Info<<"Mesh assign Deformation curve in cutCellFvMesh"<<Foam::endl;
     if((*(this->Curves)).size()!=static_cast<unsigned long>(movedDeformationControlPoints.size()))
+    {
+        Info<<"(*(this->Curves)).size():"<<(*(this->Curves)).size()<<Foam::endl;
+        Info<<"movedDeformationControlPoints.size():"<<movedDeformationControlPoints.size()<<Foam::endl;
         FatalErrorInFunction<<"Given number of controlPoint update blocks must equal the number of Nurbs"<< exit(FatalError);
+    }
     for(int i=0;i<movedDeformationControlPoints.size();i++)
     {
+        Info<<"Assign Deformation curve "<<i<<" with "<<movedDeformationControlPoints[i][0].size()<<" CPs"<<Foam::endl;
         (*(this->Curves))[i].moveNurbs(movedDeformationControlPoints[i]);
     }
 }

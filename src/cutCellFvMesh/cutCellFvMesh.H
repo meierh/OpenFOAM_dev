@@ -316,7 +316,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             
         //List<std::shared_ptr<Nurbs>> Curves;
         std::shared_ptr<std::vector<Nurbs1D>> Curves;
-        std::shared_ptr<std::vector<Nurbs1D>> Deformations;
+        //std::shared_ptr<std::vector<Nurbs1D>> Deformations;
 
         
         std::unique_ptr<KdTree> MainTree;

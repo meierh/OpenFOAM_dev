@@ -684,11 +684,23 @@ void Foam::Nurbs1D::moveNurbs
     }
     else
     {
-        if(controlPoints.size() != this->controlPoints.size())
-            FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
+        if(controlPoints.size() != this->controlPoints[current].size())
+        {
+            FatalErrorInFunction<<"Number of nurbs curves dimension must stay the same at all times"<<exit(FatalError);
+        }
+        if(controlPoints.size()<1 || controlPoints.size()>2)
+        {
+            FatalErrorInFunction<<"Number of nurbs curves dimension must be within [1,2]"<<exit(FatalError);
+        }
+        if(controlPoints[0].size() != this->controlPoints[current][0].size())
+        {
+            Info<<"controlPoints[0].size():"<<controlPoints[0].size()<<Foam::endl;
+            Info<<"this->controlPoints[current][0].size():"<<this->controlPoints[current][0].size()<<Foam::endl;
+            FatalErrorInFunction<<"Number of control points must stay the same at all times"<<exit(FatalError);
+        }
         for(int i=0;i<controlPoints.size();i++)
-            if(controlPoints[i].size() != this->controlPoints[i].size())
-                FatalErrorInFunction<<"Number of nurbs curves must stay the same at all times"<<exit(FatalError);
+            if(controlPoints[i].size() != this->controlPoints[current][i].size())
+                FatalErrorInFunction<<"Number of control points must stay the same at all times"<<exit(FatalError);
     
         knots[previous] = knots[current];
         this->controlPoints[previous] = this->controlPoints[current];
@@ -730,6 +742,7 @@ void Foam::Nurbs1D::createDeformationCurve
     label nurbs_to_degree
 )
 {
+    Info<<"Create Deformation Curve with "<<nurbs_to_controlPoints.size()<<" CPs and "<<nurbs_to_knots.size()<<" knots"<<Foam::endl;
     Deformations = std::make_shared<Nurbs1D>(nurbs_to_knots,nurbs_to_controlPoints,nurbs_to_weights,
                                              nurbs_to_degree,this->diameter,this->deltaX);
 }
