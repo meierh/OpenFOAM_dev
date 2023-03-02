@@ -699,37 +699,6 @@ void Foam::NurbsStructureInterface::setSolverOptions()
     outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
 }
 
-void Foam::NurbsStructureInterface::createNurbs()
-{
-// **** Loading curves from file **** //
-	std::string name = "BCC_3x3x3_L20";
-    //std::string folder = runDirectory+"/"+caseName;
-    
-    /*
-    if (_mkdir(("..\\output\\" + name).c_str()) != 0 && errno != EEXIST) throw("Problem making folder!");
-    if (_mkdir(folder.c_str()) != 0) throw("Problem making folder!");
-    */
-// **** End **** //
-    
-// **** Create initial geometry **** //
-
-// **** End **** //
-    
-// **** Create rods and mesh **** //
-
-    // * Boundary conditions
-
-
-    // * Rod mesh
-
-
-    // * Load steps
-
-    
-// **** End **** //
-
-}
-
 Foam::NurbsStructureInterface::~NurbsStructureInterface()
 {
     for (int i = 0; i < nR; i++)
@@ -745,7 +714,7 @@ void Foam::NurbsStructureInterface::solveOneStep()
 {
     assignForceOnCurve();
     myMesh->solve(1.0,solveOpt);
-    //moveNurbs();
+    moveNurbs();
 }
 
 void Foam::NurbsStructureInterface::moveNurbs()

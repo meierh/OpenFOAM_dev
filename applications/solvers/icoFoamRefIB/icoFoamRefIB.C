@@ -48,14 +48,12 @@ int main(int argc, char *argv[])
     runTime.write();
     
     NurbsStructureInterface solidStructure(runTime,alpha,T,p,U,mesh,nu);
-    solidStructure.moveNurbs();
 
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+    runTime.write();
 
     Info<< "\nStarting time loop\n" << endl;
 
-    
     while (runTime.loop())
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
@@ -125,6 +123,8 @@ int main(int argc, char *argv[])
             + fvm::div(phi,T)
             - fvm::laplacian(alpha,T)
         );
+        
+        solidStructure.moveNurbs();
         
         runTime.write();
 

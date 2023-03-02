@@ -676,22 +676,6 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     testForNonHexMesh(*this);
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary_MC33();
-    
-    
-    Info<<"pointDist[4608]:"<<pointDist[4608]<<Foam::endl;    
-    const fvBoundaryMesh& bound = this->boundary();
-    const label IBPatchID = bound.findPatchID("cutCell");
-    Info<<"IBPatchID:"<<IBPatchID<<Foam::endl;
-    const fvBoundaryMesh& boundary = this->boundary();
-    const fvPatch& nurbsBoundary = boundary[IBPatchID];
-    const faceList& faces = this->faces();
-    label i=0;
-    label faceInd=nurbsBoundary.start();
-    Info<<"Collect faces"<<Foam::endl;
-    Info<<"this->points().size():"<<this->points().size()<<Foam::endl;
-    Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<Foam::endl;
-    Info<<"pointDist.size():"<<pointDist.size()<<Foam::endl;
-
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
@@ -1596,7 +1580,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
 
     //printMesh();
     Info<<"Please write"<<endl;
-    //this->write();
+    this->write();
     Info<<"Written"<<endl;
     //printMesh();
     selfTestMesh();

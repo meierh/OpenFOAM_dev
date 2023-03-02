@@ -57,7 +57,6 @@ class NurbsStructureInterface
         word getXMLPath();
         int loadRodsFromXML();
         void createNurbsStructure();
-        void createNurbs();
         void createNurbsBoundary();
         void setSolverOptions();
         void createDeformationCurve();
