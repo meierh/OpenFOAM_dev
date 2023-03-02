@@ -681,6 +681,7 @@ void Foam::Nurbs1D::moveNurbs
     if(Deformations)
     {
         Deformations->moveNurbs(controlPoints);
+        nurbsMoved = true;
     }
     else
     {

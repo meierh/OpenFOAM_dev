@@ -1889,6 +1889,17 @@ void Foam::cutCellFvMesh::moveNurbsCurves
     for(int i=0;i<movedDeformationControlPoints.size();i++)
     {
         Info<<"Assign Deformation curve "<<i<<" with "<<movedDeformationControlPoints[i][0].size()<<" CPs"<<Foam::endl;
+        Info<<"Moved CPs:";
+        for(int j=0;j<movedDeformationControlPoints[i][0].size();j+=10)
+        {
+            vector avgVec;
+            for(int k=0;k<10;k++)
+            {
+                avgVec += movedDeformationControlPoints[i][0][k+j];
+            }
+            Info<<avgVec<<" ";
+        }
+        Info<<Foam::endl;
         (*(this->Curves))[i].moveNurbs(movedDeformationControlPoints[i]);
     }
 }

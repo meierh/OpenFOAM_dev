@@ -227,19 +227,17 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     
     Field<vector> ibWallForces = (-Sfp/magSfp) & totalStressIB;
     
-    //std::unique_ptr<std::vector<std::vector<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
+    vector avgVec;
+    for(vector currVec : ibWallForces)
+        avgVec += currVec;
+    avgVec /= ibWallForces.size();
+    Info<<"ibWallForces sum:"<<avgVec<<Foam::endl;
+    
     auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
     
     for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
     {
-        const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];
-        /*
-        Info<<"oneCurveDistrLoad:"<<Foam::endl;
-        for(int i=0;i<oneCurveDistrLoad.size();i++)
-            Info<<"("<<oneCurveDistrLoad[i]<<") ";
-        Info<<Foam::endl;
-        */
-        
+        const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];      
         
         std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
         int degree=1;
@@ -259,52 +257,37 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
             w(i,0) = 1;
         
-        /*
-        Info<<"w.rows:"<<w.rows()<<Foam::endl;
-        Info<<"w.cols:"<<w.cols()<<Foam::endl;
-        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
-            Info<<w(0,i)<<" ";
-        Info<<Foam::endl;
-        */
-        
         gismo::gsMatrix<double> Pcoeff(nurbsToLimits[nurbsInd].size()*2-2,3);
         int k=0;
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i+=2,k++)
         {
             for(label d=0;d<3;d++)
             {
-                Pcoeff(i,d) = oneCurveDistrLoad[k][d];
-                Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
+                Pcoeff(i,d) = 0; //oneCurveDistrLoad[k][d];
+                Pcoeff(i+1,d) = 0; //oneCurveDistrLoad[k][d];
             }
         }
-        
-        /*        
-        Info<<"Pcoeff.rows:"<<Pcoeff.rows()<<Foam::endl;
-        Info<<"Pcoeff.cols:"<<Pcoeff.cols()<<Foam::endl;
-        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
-            Info<<"("<<Pcoeff(i,0)<<","<<Pcoeff(i,1)<<","<<Pcoeff(i,2)<<") ";
-        Info<<Foam::endl;
-        Info<<"--------------------------------------"<<Foam::endl;
-        for(int i=0;i<rodsList.size();i++)
-        {
-            const gismo::gsKnotVector<double>& rodknotVector = rodsList[i].knots();
-            const gsMatrix<double>& weights = rodsList[i].weights();
-            const gsMatrix<double>& coeffs = rodsList[i].coefs();
-            Info<<"rodknotVector.size():"<<rodknotVector.size()<<Foam::endl;
-            Info<<"weights.cols():"<<weights.cols()<<"   weights.rows():"<<weights.rows()<<Foam::endl;
-            Info<<"coeffs.cols():"<<coeffs.cols()<<"   coeffs.rows():"<<coeffs.rows()<<Foam::endl;
-        }
-        Info<<"--------------------------------------"<<Foam::endl;
-        Info<<"knotVector.size():"<<knotVector.size()<<Foam::endl;
-        Info<<"knotVector.degree():"<<knotVector.degree()<<Foam::endl;
-        Info<<"w.cols():"<<w.cols()<<"   w.rows():"<<w.rows()<<Foam::endl;
-        Info<<"Pcoeff.cols():"<<Pcoeff.cols()<<"   Pcoeff.rows():"<<Pcoeff.rows()<<Foam::endl;
-        */
 
-        //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-        forceCurveStorage[nurbsInd].reset(new gismo::gsNurbs<double>(knotVector,w,Pcoeff));
-                
-        Rods[nurbsInd]->set_force_lR(forceCurveStorage[nurbsInd].get());
+        Info<<"RodStart:"<<Rods[nurbsInd]->m_Curve.domainStart()<<Foam::endl;
+        Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;
+        
+        gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
+        Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
+        Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
+        for(double start=forceNurbs->domainStart(); start<forceNurbs->domainEnd()+0.1; start+=0.1)
+        {
+            gismo::gsMatrix<double> u(1,1);
+            u(0,0) = start;
+            gismo::gsMatrix<double> f = forceNurbs->eval(u);
+            Info<<"f.rows:"<<f.rows()<<Foam::endl;
+            Info<<"f.cols:"<<f.cols()<<Foam::endl;
+            Info<<u(0,0)<<": ("<<f(0,0)<<","<<f(1,0)<<","<<f(2,0)<<")"<<Foam::endl;
+        }
+        
+        forceCurveStorage[nurbsInd].reset(forceNurbs);
+        
+        //Here lies the problem
+        //(myMesh->m_Rods[nurbsInd])->set_force_lR(forceCurveStorage[nurbsInd].get());
     }
 }
 
@@ -712,8 +695,9 @@ Foam::NurbsStructureInterface::~NurbsStructureInterface()
 
 void Foam::NurbsStructureInterface::solveOneStep()
 {
+    Info<<"Solve Nurbs structure"<<Foam::endl;
     assignForceOnCurve();
-    myMesh->solve(1.0,solveOpt);
+    myMesh->solve(0.0,solveOpt);
     moveNurbs();
 }
 

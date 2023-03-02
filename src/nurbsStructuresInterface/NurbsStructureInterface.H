@@ -46,7 +46,6 @@ class NurbsStructureInterface
         NurbsStructureInterface(const NurbsStructureInterface&) = delete;
         
         void solveOneStep();
-        void moveNurbs();
         
     private:
         Time& runTime;
@@ -141,7 +140,7 @@ class NurbsStructureInterface
         
         void assignForceOnCurve();        
         std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
-        
+        void moveNurbs();        
 };
 }
 #endif

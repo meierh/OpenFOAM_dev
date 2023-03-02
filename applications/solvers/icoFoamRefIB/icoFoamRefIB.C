@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
             - fvm::laplacian(alpha,T)
         );
         
-        solidStructure.moveNurbs();
+        solidStructure.solveOneStep();
         
         runTime.write();
 
