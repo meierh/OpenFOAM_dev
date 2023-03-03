@@ -241,7 +241,8 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         
         std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
         int degree=1;
-        knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0];
+        double delta = nurbsToLimits[nurbsInd][1]-nurbsToLimits[nurbsInd][0];
+        knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0] - delta/200;
         for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
         {
             double delta = nurbsToLimits[nurbsInd][k+1]-nurbsToLimits[nurbsInd][k-1];
@@ -249,9 +250,15 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
             knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
             knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
         }
-        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back();    
+        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back() + delta/200;
+        
+        Info<<"delta:"<<delta<<Foam::endl;
+        Info<<"delta/200:"<<delta/200<<Foam::endl;
+        Info<<"nurbsToLimits[nurbsInd].back():"<<nurbsToLimits[nurbsInd].back()<<Foam::endl;
+        Info<<"nurbsToLimits[nurbsInd].back()+delta/200:"<<nurbsToLimits[nurbsInd].back()+delta/2000<<Foam::endl;
+
+        
         gismo::gsKnotVector<double> knotVector(knotContainer,degree);
-        //knotVector.insert(knotContainer);
         
         gismo::gsMatrix<double> w(nurbsToLimits[nurbsInd].size()*2-2,1);
         for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
@@ -263,8 +270,8 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         {
             for(label d=0;d<3;d++)
             {
-                Pcoeff(i,d) = 0; //oneCurveDistrLoad[k][d];
-                Pcoeff(i+1,d) = 0; //oneCurveDistrLoad[k][d];
+                Pcoeff(i,d) = oneCurveDistrLoad[k][d];
+                Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
             }
         }
 
@@ -274,7 +281,15 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
         Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
         Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
-        for(double start=forceNurbs->domainStart(); start<forceNurbs->domainEnd()+0.1; start+=0.1)
+        gismo::gsKnotVector<double>& knotVectorRead = forceNurbs->knots();
+        
+        /*
+        for(int j=0;j<knotVectorRead.size();j++)
+        {
+            Info<<knotVectorRead[j]<<"  ";
+        }        
+        Info<<Foam::endl;
+        for(double start=forceNurbs->domainStart(); start<forceNurbs->domainEnd(); start+=0.1)
         {
             gismo::gsMatrix<double> u(1,1);
             u(0,0) = start;
@@ -283,11 +298,11 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
             Info<<"f.cols:"<<f.cols()<<Foam::endl;
             Info<<u(0,0)<<": ("<<f(0,0)<<","<<f(1,0)<<","<<f(2,0)<<")"<<Foam::endl;
         }
+        */
         
         forceCurveStorage[nurbsInd].reset(forceNurbs);
-        
-        //Here lies the problem
-        //(myMesh->m_Rods[nurbsInd])->set_force_lR(forceCurveStorage[nurbsInd].get());
+
+        (myMesh->m_Rods[nurbsInd])->set_force_lR(forceCurveStorage[nurbsInd].get());
     }
 }
 
@@ -306,21 +321,6 @@ void Foam::NurbsStructureInterface::computeIBHeatFlux()
     
     Info<<"gradT size:"<<gradTBoundary.size()<<endl; 
     Info<<"ibgradT size:"<<ibgradT.size()<<endl;
-}
-
-void Foam::NurbsStructureInterface::computeIBForce()
-{
-    tmp<GeometricField<Tensor<double>,fvPatchField,volMesh>> gU = fvc::grad(U);
-    GeometricField<Tensor<double>,fvPatchField,volMesh>& gradU = gU.ref();
-    GeometricField<SymmTensor<double>,fvPatchField,volMesh> totalStress = symm(-p*tensor::one + nu*(gradU + gradU.T()));
-    
-    const vectorField& Sfp = mesh.Sf().boundaryField()[IBPatchID];
-    const scalarField& magSfp = mesh.magSf().boundaryField()[IBPatchID];
-    const symmTensorField& totalStressIB = totalStress.boundaryField()[IBPatchID];
-    
-    Field<Vector<double>> ibWallForces = (-Sfp/magSfp) & totalStressIB;
-    Info<<"ibWallForces size:"<<ibWallForces.size()<<endl;
-
 }
 
 Foam::word Foam::NurbsStructureInterface::getXMLPath()
@@ -697,7 +697,7 @@ void Foam::NurbsStructureInterface::solveOneStep()
 {
     Info<<"Solve Nurbs structure"<<Foam::endl;
     assignForceOnCurve();
-    myMesh->solve(0.0,solveOpt);
+    myMesh->solve(1.0,solveOpt);
     moveNurbs();
 }
 

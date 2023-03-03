@@ -130,7 +130,6 @@ class NurbsStructureInterface
         
         void computeIBHeatFlux();
         void computeIBTemperature();
-        void computeIBForce();
         void assignBoundaryFacesToNurbsCurves();
         template<typename Tensor_Type>
         std::unique_ptr<std::vector<std::vector<Tensor_Type>>> computeDistributedLoad
