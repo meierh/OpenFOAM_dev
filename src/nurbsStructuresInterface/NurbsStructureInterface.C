@@ -252,11 +252,12 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         }
         knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back() + delta/200;
         
+        /*
         Info<<"delta:"<<delta<<Foam::endl;
         Info<<"delta/200:"<<delta/200<<Foam::endl;
         Info<<"nurbsToLimits[nurbsInd].back():"<<nurbsToLimits[nurbsInd].back()<<Foam::endl;
         Info<<"nurbsToLimits[nurbsInd].back()+delta/200:"<<nurbsToLimits[nurbsInd].back()+delta/2000<<Foam::endl;
-
+        */
         
         gismo::gsKnotVector<double> knotVector(knotContainer,degree);
         
@@ -270,17 +271,17 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         {
             for(label d=0;d<3;d++)
             {
-                Pcoeff(i,d) = oneCurveDistrLoad[k][d];
-                Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
+                Pcoeff(i,d) = 0;// oneCurveDistrLoad[k][d];
+                Pcoeff(i+1,d) = 0;//oneCurveDistrLoad[k][d];
             }
         }
 
-        Info<<"RodStart:"<<Rods[nurbsInd]->m_Curve.domainStart()<<Foam::endl;
-        Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;
+        //Info<<"RodStart:"<<Rods[nurbsInd]->m_Curve.domainStart()<<Foam::endl;
+        //Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;
         
         gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
-        Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
-        Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
+        //Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
+        //Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
         gismo::gsKnotVector<double>& knotVectorRead = forceNurbs->knots();
         
         /*
@@ -643,12 +644,17 @@ void Foam::NurbsStructureInterface::setSolverOptions()
     myMesh->setLinearSolver(1);
     myMesh->setOMPnThreads(omp_nthreads);
 
-    solveOpt.tempCtrl = 0;
-    solveOpt.vtkOut = 0; // plot_vtk;
+    
+    solveOpt.stats  = 1;	// Write to command line
+    solveOpt.vtkOut = 0;	// Write VTK every X load steps
+    solveOpt.mmOut  = 0;	// Write matrices & vectors in 1:first / 2:every Newton step 
+    solveOpt.tempCtrl  = 0;	// Temperature controlled simulation (for 4DP)
+    solveOpt.vtk_n = plot_n;	// vtk eval. points
     solveOpt.folder = folder;
-    solveOpt.vtk_n = plot_n;
-    solveOpt.mmOut = 0;
-    solveOpt.useLoadFun = 0;
+    solveOpt.name    = "mesh";	// Name for vtk files
+    solveOpt.time_method = 1;	// 0: static, 1: Backward Euler, 2: Crank-Nicolson
+    solveOpt.time_dt    = 0.01;	// Time step size
+    solveOpt.useLoadFun  = 0;	// Use loadFun also for static case
 
     std::string evalFile = folder + "\\eval";
     myMesh->setSolveEvalOut(std::vector<int>(0), std::vector<double>(0), evalFile);
