@@ -271,8 +271,8 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         {
             for(label d=0;d<3;d++)
             {
-                Pcoeff(i,d) = 0;// oneCurveDistrLoad[k][d];
-                Pcoeff(i+1,d) = 0;//oneCurveDistrLoad[k][d];
+                Pcoeff(i,d) = oneCurveDistrLoad[k][d];
+                Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
             }
         }
 
@@ -300,10 +300,9 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
             Info<<u(0,0)<<": ("<<f(0,0)<<","<<f(1,0)<<","<<f(2,0)<<")"<<Foam::endl;
         }
         */
-        
         forceCurveStorage[nurbsInd].reset(forceNurbs);
 
-        (myMesh->m_Rods[nurbsInd])->set_force_lR(forceCurveStorage[nurbsInd].get());
+        (myMesh->m_Rods[nurbsInd])->set_force_lG(forceCurveStorage[nurbsInd].get());
     }
 }
 
@@ -547,7 +546,16 @@ void Foam::NurbsStructureInterface::createNurbsBoundary()
     pp_rid = std::vector<int>(0);
     std::vector<bool>	pp_eid(0);
     std::vector<double>		pp_wts(0);
-
+    
+    for (int i = 0; i < nR; i++)
+    {
+        Rods[i]->setBCu(0, uBC0); 
+        Rods[i]->setBCr(0, rBC0); 
+        Rods[i]->setBCu(1, uBC0); 
+        Rods[i]->setBCr(1, rBC0); 
+    }
+    
+/*
     if (bcMode == 0)
     {
         for (int i = 0; i < nR; i++)
@@ -590,6 +598,7 @@ void Foam::NurbsStructureInterface::createNurbsBoundary()
             }
         }
     }
+    */
 }
 
 void Foam::NurbsStructureInterface::setSolverOptions()
@@ -646,7 +655,7 @@ void Foam::NurbsStructureInterface::setSolverOptions()
 
     
     solveOpt.stats  = 1;	// Write to command line
-    solveOpt.vtkOut = 0;	// Write VTK every X load steps
+    solveOpt.vtkOut = 1;	// Write VTK every X load steps
     solveOpt.mmOut  = 0;	// Write matrices & vectors in 1:first / 2:every Newton step 
     solveOpt.tempCtrl  = 0;	// Temperature controlled simulation (for 4DP)
     solveOpt.vtk_n = plot_n;	// vtk eval. points
@@ -727,6 +736,8 @@ void Foam::NurbsStructureInterface::moveNurbs()
         }
     }
     mesh.moveNurbsCurves(nurbs_to_new_controlPoints);
+    mesh.moveTheMesh();
+    mesh.update();
 }
 
 void Foam::NurbsStructureInterface::createDeformationCurve()

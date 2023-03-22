@@ -142,6 +142,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         //cell to Side (+1,0,-1)
         labelList cellsToSide_;
         
+        //Set of all points on cut cell patch
+        std::unordered_set<label> cutPatchPoint;
+        
         //cutfaces to Side(+1,0,-1)
         DynamicList<label> cutFacesToSide_;
         
@@ -417,6 +420,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         //Create pointsToSide Data
         void pointsToSide();
         void pointsToSide(const pointField& points);
+        void findCutCellPnts();
         
         //Create edgesToSide Data
         void edgesToSide();

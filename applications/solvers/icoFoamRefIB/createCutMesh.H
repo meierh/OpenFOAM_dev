@@ -14,7 +14,7 @@ Foam::cutCellFvMesh mesh
         Foam::IOobject::MUST_READ
     ),
     cutCellFvMesh::cutStatus::delNegMesh,
-    0.2
+    0.25
 );
 
 Foam::Info<<"CUTCELLFVMESH Test done"<<Foam::endl;

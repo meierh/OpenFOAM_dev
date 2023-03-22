@@ -676,6 +676,7 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit)
     testForNonHexMesh(*this);
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary_MC33();
+    findCutCellPnts();
 }
 
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
@@ -1273,7 +1274,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary()
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
     //End
-
+    
     //printMesh();
     Info<<"Please write"<<endl;
     this->write();
@@ -1605,6 +1606,44 @@ bool Foam::cutCellFvMesh::writeObject
     return fvMesh::writeObject(fmt, ver, cmp, write);
 }
 
+void Foam::cutCellFvMesh::findCutCellPnts()
+{
+    const fvBoundaryMesh& boundary = this->boundary();
+    const fvPatchList& patches = boundary;
+
+    label cutCellID = boundary.findPatchID("cutCell");
+    if(cutCellID==-1)
+    {
+        for(int i=0;i<patches.size();i++)
+        {
+            Info<<patches[i].name()<<Foam::endl;
+        }
+        FatalErrorInFunction<<"Cut cell patch not found! Can not happen!"<< exit(FatalError);
+    }
+    const polyPatch& cutCellPatch = this->boundaryMesh()[cutCellID];
+    const labelList& cutCellPatchPoints = cutCellPatch.meshPoints();
+    for(label cutCellPnt: cutCellPatchPoints)
+    {
+        cutPatchPoint.insert(cutCellPnt);
+    }
+    
+    for(int i=0;i<this->boundaryMesh().size();i++)
+    {
+        if(i==cutCellID)
+        {
+            continue;
+        }
+        const labelList& patchPoints = this->boundaryMesh()[i].meshPoints();
+        for(label pnt: cutCellPatchPoints)
+        {
+            if(cutPatchPoint.find(pnt)==cutPatchPoint.end())
+            {
+                cutPatchPoint.erase(pnt);
+            }
+        } 
+    }
+}
+
 void Foam::cutCellFvMesh::moveTheMesh()
 {
     //Info<<"owner:"<<this->owner()<<endl;    
@@ -1630,7 +1669,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
     for(int i=0;i<meshPoints.size();i++)
     {
         newPoints[i] = meshPoints[i];
-        if(pointsToSide_[i]==0)
+        if(cutPatchPoint.find(i)!=cutPatchPoint.end())
         {
             DynamicList<nurbsReference>& reference = meshPointNurbsReference[i];
             if(reference.size()==0)
@@ -1716,8 +1755,10 @@ void Foam::cutCellFvMesh::moveTheMesh()
     //valuePointPatchField<vector>::operator==(movingPointsField);
     Info<<"    fixedValuePointPatchField:"<<fVPPF->size()<<endl;
     Info<<"    fVPPF->updated():"<<fVPPF->updated()<<endl;
+    /*
     if(fVPPF->updated())
         FatalErrorInFunction<< "Already updated. Can not happen!"<<endl<< exit(FatalError);
+    */
     
     /*
     volVectorField& vVF = dMS->cellDisplacement();
@@ -1749,7 +1790,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
     //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     
-    //rawPtr->solve();
+    rawPtr->solve();
     
     motionPtr_.set(rawPtr);
     
@@ -1759,119 +1800,6 @@ void Foam::cutCellFvMesh::moveTheMesh()
     //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     Info<<"Moved Set movement to field"<<endl;
-    
-    /*
-    surfaceScalarField* weights_ = new surfaceScalarField
-     (
-         IOobject
-         (
-             "weights",
-             this->pointsInstance(),
-             *this,
-             IOobject::NO_READ,
-             IOobject::NO_WRITE,
-             false // Do not register
-         ),
-         *this,
-         dimless
-     );
-     surfaceScalarField& weights = *weights_;
- 
-     // Set local references to mesh data
-     // (note that we should not use fvMesh sliced fields at this point yet
-     //  since this causes a loop when generating weighting factors in
-     //  coupledFvPatchField evaluation phase)
-     const labelUList& owner = this->faceOwner();
-     const labelUList& neighbour = this->faceNeighbour();
- 
-     const vectorField& Cf = this->faceCentres();
-     const vectorField& C = this->cellCentres();
-     const vectorField& Sf = this->faceAreas();
- 
-     // ... and reference to the internal field of the weighting factors
-     scalarField& w = weights.primitiveFieldRef();
-
-         Info<<"1"<<endl;
-
-    Info<<"owner:"<<owner<<endl;
-     forAll(owner, facei)
-     {
-         Info<<endl<<"facei:"<<facei<<endl;
-         Info<<"Sf[facei]:"<<Sf[facei]<<endl;
-         Info<<"owner[facei]:"<<owner[facei]<<" / "<<C.size()<<endl;
-         Info<<"C[owner[facei]]:"<<C[owner[facei]]<<endl;
-         Info<<"C[neighbour[facei]]:"<<C[neighbour[facei]]<<endl;
-         // Note: mag in the dot-product.
-         // For all valid meshes, the non-orthogonality will be less that
-         // 90 deg and the dot-product will be positive.  For invalid
-         // meshes (d & s <= 0), this will stabilise the calculation
-         // but the result will be poor.
-         const scalar SfdOwn = mag(Sf[facei]&(Cf[facei] - C[owner[facei]]));
-         const scalar SfdNei = mag(Sf[facei]&(C[neighbour[facei]] - Cf[facei]));
-         const scalar SfdOwnNei = SfdOwn + SfdNei;
- 
-         Info<<facei<<"  SfdOwn:"<<SfdOwn<<"     SfdNei:"<<SfdNei<<"     SfdOwnNei:"<<SfdOwnNei<<"     vGreat:"<<vGreat<<endl;
-         if (SfdNei/vGreat < SfdOwnNei)
-         {
-            Info<<"   "<<facei<<"  SfdOwn:"<<SfdOwn<<"     SfdNei:"<<SfdNei<<"     SfdOwnNei:"<<SfdOwnNei<<endl;
-             w[facei] = SfdNei/SfdOwnNei;
-         }
-         else
-         {
-             const scalar dOwn = mag(Cf[facei] - C[owner[facei]]);
-             const scalar dNei = mag(C[neighbour[facei]] - Cf[facei]);
-             const scalar dOwnNei = dOwn + dNei;
-             
-            Info<<"   "<<facei<<"  dOwn:"<<dOwn<<"     dNei:"<<dNei<<"     dOwnNei:"<<dOwnNei<<endl;
-             
-             w[facei] = dNei/dOwnNei;
-         }
-     }
-         Info<<"2"<<endl;
-
-    
-     surfaceScalarField::Boundary& wBf =
-         weights.boundaryFieldRef();
- 
-     */
-        /*
-     forAll(this->boundary(), patchi)
-     {
-         this->boundary()[patchi].makeWeights(wBf[patchi]);
-     }
-        */
-
-        
-    /*
-    Info<<"this->points.size():"<<this->points().size()<<endl;
-    Info<<"this->nPoints():"<<this->nPoints()<<endl;
-    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
-    
-    
-    tmp<pointField> x = motionPtr_->newPoints();	
-    Info<<"newPoints size:"<<x->size()<<endl;
-    
-    
-    rawPtr = motionPtr_.ptr();  
-    //Info<<"rawPtr null:"<<(rawPtr==0)<<endl;
-    try{
-        dMS = dynamic_cast<displacementLaplacianFvMotionSolver*>(rawPtr);
-    }catch(...){
-        FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
-    }    
-    pointVectorField& pVF2 = dMS->pointDisplacement();
-    Info<<"pointDisplacement.size():"<<pVF2.primitiveField().size()<<endl;
-    Info<<"points0().size():"<<dMS->points0().size()<<endl;
-
-    motionPtr_.set(rawPtr);        
-    
-    Info<<"this->points.size():"<<this->points().size()<<endl;
-    Info<<"this->nPoints():"<<this->nPoints()<<endl;
-    Info<<"this->oldPoints().size():"<<this->oldPoints().size()<<endl;
-    
-    FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    Info<<"Moved Set movement to field"<<endl;
-    */
 }
 
 void Foam::cutCellFvMesh::moveNurbsCurves

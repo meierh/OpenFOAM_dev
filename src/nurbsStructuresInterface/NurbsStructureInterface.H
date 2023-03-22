@@ -78,8 +78,8 @@ class NurbsStructureInterface
             const int	el_sim = 16;			// Refine knot vector of splines to el elements
 
             // * Parameters for cross-sections
-            const double	geoR0 = 0.8;			// Radius [mm]
-            const double	geoE0 = 60;				// Young's modulus [MPa]
+            const double	geoR0 = 200;			// Radius [mm]
+            const double	geoE0 = 0.006;			// Young's modulus [MPa]
             const double	geoNu = 0.45;			// Poisson's ratio [.]
             const double	geoRho = 1100e-9;		// Density [kg/mm設
             const double	Temp0 = 25.;			// Ambient temperature [蚓]
@@ -87,7 +87,7 @@ class NurbsStructureInterface
             // * Parameters for loads and boundary conditions
             const int	bcMode = 0;				// 0:Clamp in latDir
             const bool	bcRot = 1;				// Fix rotations on clamped boundaries
-            const bool	applyGravity = 1;		// Apply gravity load
+            const bool	applyGravity = 0;		// Apply gravity load
             // Apply non-zero DBC along latDir
             const double	loadStrain = 0.1;		// ... equivalent to an effective strain of ...
             const int	loadDir = +1;			// ... in +1:tension or -1:compression
