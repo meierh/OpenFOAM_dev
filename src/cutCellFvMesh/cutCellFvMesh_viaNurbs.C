@@ -58,92 +58,7 @@ NurbsTrees(List<std::unique_ptr<BsTree>>((*(this->Curves)).size()))
     Info<<"After refinement"<<endl;
     testForNonHexMesh(*this);
     //Apply the immersed boundary cut method
-    cutTheImmersedBoundary_MC33();
-    findCutCellPnts();
-    
-    
-    scalar wholeCellVol = 0;
-    scalar plusCutCellVol = 0;
-    scalar minusCutCellVol = 0;
-    for(int i=0;i<cellsLis.size();i++)
-    {
-        wholeCellVol = oldCellVolume[i];
-        Info<<"Cell "<<i<<" Vol: "<<wholeCellVol<<endl;
-        if((oldCellToMinusCutCell[i] != -1 && oldCellToPlusCutCell[i] == -1) ||
-           (oldCellToMinusCutCell[i] == -1 && oldCellToPlusCutCell[i] != -1))
-            Info<<"Can not happen"<<endl;
-        if(oldCellToPlusCutCell[i] != -1)
-        {
-            Info<<oldCellToMinusCutCell[i]<<endl;
-            Info<<oldCellToPlusCutCell[i]<<endl;
-            
-            cell minusCell = cutCells[oldCellToMinusCutCell[i]];
-            Info<<"\t MinusCell: ";
-            for(int i=0;i<minusCell.size();i++)
-                Info<<minusCell[i]<<" ";
-            Info<<endl;
-            
-            cell plusCell = cutCells[oldCellToPlusCutCell[i]];
-            Info<<"\t PlusCell: ";
-            for(int i=0;i<plusCell.size();i++)
-                Info<<plusCell[i]<<" ";
-            Info<<endl;
-            
-            Info<<"Got cells"<<endl;
-            minusCutCellVol = minusCell.mag(newMeshPoints_,faces);
-            plusCutCellVol = plusCell.mag(newMeshPoints_,faces);
-            Info<<"\t MinusCell: "<<minusCutCellVol<<endl;
-            Info<<"\t PlusCell: "<<plusCutCellVol<<endl;
-        }
-    }
-    
-    scalarList cutCellVol(cutCells.size());
-    for(int i=0;i<cutCells.size();i++)
-    {
-        cutCellVol[i] = cutCells[i].mag(newMeshPoints_,faces);
-    }
-    
-    
-    scalarList solidFrac(oldCellVolume.size());
-    for(int i=0;i<oldCellVolume.size();i++)
-    {
-        Info<<i<<endl;
-        if(cellsToSide_[i] == 1)
-            solidFrac[i] = 0;
-        else if(cellsToSide_[i] == -1)
-            solidFrac[i] = 1;
-        else
-        {
-            scalar plusSideVol = cutCellVol[oldCellToPlusCutCell[i]];
-            Info<<plusSideVol<<endl;            
-            scalar minusSideVol = cutCellVol[oldCellToMinusCutCell[i]];
-            Info<<minusSideVol<<endl;
-            solidFrac[i] = minusSideVol / (plusSideVol+minusSideVol);
-        }
-    }
-    
-    solidFraction = std::unique_ptr<volScalarField>
-    (
-        new volScalarField
-        (
-            Foam::IOobject
-            (
-                "solidFraction",
-                runTime.timeName(),
-                (*this),
-                IOobject::MUST_READ,
-                IOobject::AUTO_WRITE
-            ),
-            (*this)
-        )
-    );
-    
-    for(int i=0;i<oldCellVolume.size();i++)
-    {
-        (*solidFraction)[i] = solidFrac[i];
-    }
-    solidFraction->write();
-    
+    computeSolidFraction_MC33(solidFraction);
 }
 
 Foam::cutCellFvMesh::cutCellFvMesh
@@ -1543,7 +1458,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     Info<<"Ending"<<endl;
 }
 
-void Foam::cutCellFvMesh::computeSolidFraction_MC33()
+void Foam::cutCellFvMesh::computeSolidFraction_MC33(std::unique_ptr<volScalarField>& solidFraction)
 {
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
@@ -1743,48 +1658,51 @@ void Foam::cutCellFvMesh::computeSolidFraction_MC33()
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
-    std::unordered_map<label,DynamicList<label>> cellIndToFaces;
+    std::unordered_map<label,DynamicList<label>> newCellIndToNewFaces;
     for(int faceInd=0;faceInd<faces.size();faceInd++)
     {
-        cellIndToFaces[owner[faceInd]].append(faceInd);
+        newCellIndToNewFaces[owner[faceInd]].append(faceInd);
         if(faceInd<neighbour.size())
         {
-            cellIndToFaces[neighbour[faceInd]].append(faceInd);
+            newCellIndToNewFaces[neighbour[faceInd]].append(faceInd);
         }
     }    
     
-    std::unordered_map<label,cell> cellIndToCell;
-    for(auto iter=cellIndToFaces.start();iter!=cellIndToFaces.end();iter++)
+    std::unordered_map<label,cell> newCellIndToNewCellObj;
+    for(auto iter=newCellIndToNewFaces.begin();iter!=newCellIndToNewFaces.end();iter++)
     {
-        cellIndToCell[iter->first] = cell(iter->second);
+        newCellIndToNewCellObj[iter->first] = cell(iter->second);
     }
     
-    
+    scalarList solidFrac(oldCellVolume.size());
     for(int i=0;i<oldCellVolume.size();i++)
     {
-        Info<<i<<endl;
-        if(cellsToSide_[i] == 1)
-            solidFrac[i] = 0;
-        else if(cellsToSide_[i] == -1)
-            solidFrac[i] = 1;
+        scalar newMinusCellVol = 0;
+        scalar oldVol = oldCells[i].mag(oldPoints,oldFaceList);
+        if(deletedCell[i])
+        {
+            scalar newMinusCellVol = 0;
+            for(label newCell : mapOldCellsToNewCells[i])
+            {
+                auto iter = newCellIndToNewCellObj.find(newCell);
+                if(iter==newCellIndToNewCellObj.end())
+                    FatalErrorInFunction<<"Can not happen!"<<endl<< exit(FatalError);
+                newMinusCellVol += iter->second.mag(points,faces);
+            }
+            solidFrac[i] = newMinusCellVol/oldVol;
+        }
         else
         {
-            scalar plusSideVol = cutCellVol[oldCellToPlusCutCell[i]];
-            Info<<plusSideVol<<endl;            
-            scalar minusSideVol = cutCellVol[oldCellToMinusCutCell[i]];
-            Info<<minusSideVol<<endl;
-            solidFrac[i] = minusSideVol / (plusSideVol+minusSideVol);
+            if(mapOldCellsToNewCells[i].size()!=1)
+                FatalErrorInFunction<<"Can not happen!"<<endl<< exit(FatalError);
+            solidFrac[i] = 0;
         }
+    }    
+    for(int i=0;i<oldCellVolume.size();i++)
+    {
+        (*solidFraction)[i] = solidFrac[i];
     }
-    
-    resetPrimitives(Foam::clone(points),
-                    Foam::clone(faces),
-                    Foam::clone(owner),
-                    Foam::clone(neighbour),
-                    patchSizes,
-                    patchStarts,
-                    false);
-    
+    solidFraction->write();
 }
 
 bool Foam::cutCellFvMesh::update()

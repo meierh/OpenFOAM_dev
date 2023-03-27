@@ -370,6 +370,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void cutTheImmersedBoundary();
         void cutTheImmersedBoundary_MC33();
         void refineTheImmersedBoundary();
+        void computeSolidFraction_MC33(std::unique_ptr<volScalarField>& solidFraction);
 
         
         // Print Functions for debugg purposes
