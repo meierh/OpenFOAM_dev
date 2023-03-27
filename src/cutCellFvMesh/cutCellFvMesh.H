@@ -448,19 +448,19 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 
         label sideToNurbs(point pnt,bool& foundFlag);
         
-        std::unique_ptr<mapPolyMesh> CutCellPolyMeshMap;
+        //std::unique_ptr<mapPolyMesh> CutCellPolyMeshMap;
         
         // Add edges for cutting the cells and create dependency data for creating cut cells
         // Adds to edges_;
-        void newMeshEdges();
         void newMeshEdges_MC33();
-
+        
         
         bool equalEdges
         (
             std::unordered_set<label> setA,
             std::unordered_set<label> setB
         );
+        /*
         void findCycles
         (
             int i,
@@ -477,6 +477,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<std::unordered_set<label>>& closedCycleEdges,
             DynamicList<DynamicList<label>>& closedCycleEdgesList
         );
+        */
         vector vectorToNurbs
         (
             point pnt,
@@ -504,6 +505,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar& nurbsPara
         );
         
+        /*
         void computeClosedFaceFront
         (
             label centerPointInd,
@@ -516,7 +518,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<DynamicList<face>>& closedFaceFrontOut,
             DynamicList<DynamicList<std::unordered_set<label>>>& closedFaceFrontMapOut
         );
+        */
         
+        /*
         void groupEdgesToFaces
         (
             List<DynamicList<DynamicList<label>>>& cellNonconnectedEdges,
@@ -526,23 +530,16 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             List<DynamicList<DynamicList<std::unordered_set<label>>>>& cellNonConnectedMultiPointMap,
             List<DynamicList<DynamicList<std::unordered_set<label>>>>& cellNonConnectedMultiEdgeMap
         );
+        */
         
         // Add faces for cutting the cells and create dependency data for creating cut cells
         // Adds to faces_;
-        void newMeshFaces();
-        void newMeshFaces_plus();
         void newMeshFaces_MC33();
         
         // Splits all old faces being cut into too
-        void cutOldFaces();
-        void cutOldFaces_plus();
         void cutOldFaces_MC33();
 
-        //rebuild mesh by using cut data
-        void createNewMeshData();
-        
         //rebuild mesh deleting negative side
-        void createNewMeshData_cutNeg_plus();
         void createNewMeshData_MC33();
         
         // project distance from Nurbs Surface on Points
@@ -556,12 +553,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         List<bool> correctListFaceNormalDir(const pointField& points,const faceList& faces,const labelList& owner,const labelList& neighbour);
 
         //cell agglomeration
+        /*
         void agglomerateSmallCells_cutNeg
         (
             scalarList& newCellVolume,
             scalarList& oldCellVolume,
             scalar partialThreeshold = 0.25
         );
+        */
         
         void agglomerateSmallCells_cutNeg_plus
         (
@@ -570,6 +569,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold = 0.25
         );
         
+        /*
         labelList searchDown
         (
             scalarListList& possibleMergeFaceArea,
@@ -580,7 +580,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             label count,
             std::unordered_set<label> cellReserved
         );
+        */
         
+        /*
         labelList searchDown_rec
         (
             DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
@@ -592,7 +594,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<DynamicList<label>>& blockedCells,
             std::unordered_set<label>& cellReserved
         );
+        */
         
+        /*
         List<DynamicList<label>> searchDown_iter
         (
             DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
@@ -601,7 +605,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<bool>& oneMergeFaceSufficient,
             DynamicList<bool>& mergeNecessary
         );
+        */
         
+        /*
         List<DynamicList<label>> searchDown_iter_preBlock
         (
             const labelList& owner,
@@ -612,6 +618,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<bool>& oneMergeFaceSufficient,
             DynamicList<bool>& mergeNecessary
         );
+        */
         
         List<DynamicList<label>> assignMergeFaces
         (

@@ -224,7 +224,7 @@ const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned in
 	const unsigned short int *pcase = table;
 
 	unsigned int k, c, m, n;
-	double t;
+	//double t;
 	if (verticePattern&0x80) {
 		c = pcase[verticePattern^0xFF];
 		m = (c&0x800) == 0;
