@@ -75,8 +75,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 std::string getBitPattern(const unsigned short int x);
                 
             private:
-                const unsigned short int table[2310];
                 cutCellFvMesh& mesh;
+                const unsigned short int table[2310];
                 
                 MC33_real v[8];
                 //Procedures

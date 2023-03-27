@@ -262,10 +262,10 @@ Foam::cutCellFvMesh::cutCellFvMesh
     scalar cellDimToStructureDimLimit
 ):
 dynamicRefineFvMesh(io),
-ibAlgorithm(state),
-marchingCubesAlgorithm(*this),
+cellDimToStructureDimLimit(cellDimToStructureDimLimit),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
-cellDimToStructureDimLimit(cellDimToStructureDimLimit)
+ibAlgorithm(state),
+marchingCubesAlgorithm(*this)
 {  
     intersectionRadius = 0;
     bool refineIsHex = false;
@@ -1120,7 +1120,6 @@ void Foam::cutCellFvMesh::computeSolidFraction_MC33(std::unique_ptr<volScalarFie
     scalarList solidFrac(oldCellVolume.size());
     for(int i=0;i<oldCellVolume.size();i++)
     {
-        scalar newMinusCellVol = 0;
         scalar oldVol = oldCells[i].mag(oldPoints,oldFaceList);
         if(deletedCell[i])
         {
@@ -1193,7 +1192,6 @@ void Foam::cutCellFvMesh::findCutCellPnts()
         {
             continue;
         }
-        const labelList& patchPoints = this->boundaryMesh()[i].meshPoints();
         for(label pnt: cutCellPatchPoints)
         {
             if(cutPatchPoint.find(pnt)==cutPatchPoint.end())
@@ -1206,9 +1204,6 @@ void Foam::cutCellFvMesh::findCutCellPnts()
 
 void Foam::cutCellFvMesh::moveTheMesh()
 {
-    //Info<<"owner:"<<this->owner()<<endl;    
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    
     point minVec = point(-1,-1,-1);
     scalar minLen = std::numeric_limits<scalar>::max();
     point avgVec = point(0,0,0);
@@ -1297,7 +1292,7 @@ void Foam::cutCellFvMesh::moveTheMesh()
     }
     Info<<"    fixedValuePointPatchField:"<<fVPPF->size()<<endl;
     Info<<"cutCellPointToMotion.size():"<<cutCellPointToMotion.size()<<endl;
-    if(patchPoints.size()!=cutCellPointToMotion.size())
+    if(static_cast<unsigned int>(patchPoints.size())!=cutCellPointToMotion.size())
         FatalErrorInFunction<<"Wrong patch"<<endl<< exit(FatalError);
     
     Field<vector> movingPointsField(patchPoints.size());
@@ -1305,59 +1300,17 @@ void Foam::cutCellFvMesh::moveTheMesh()
     {
         movingPointsField[j] = cutCellPointToMotion[patchPoints[j]];
     }
-    label intFieldSize = fVPPF->primitiveField().size();
 
-    //Info<<"    movingPointsField:"<<movingPointsField.size()<<endl;
-    //Info<<"movingPointsField:"<<movingPointsField<<endl;
     fVPPF->setSize(movingPointsField.size());
     for(int i=0;i<fVPPF->size();i++)
         (*fVPPF)[i] = movingPointsField[i];
     //valuePointPatchField<vector>::operator==(movingPointsField);
     Info<<"    fixedValuePointPatchField:"<<fVPPF->size()<<endl;
-    Info<<"    fVPPF->updated():"<<fVPPF->updated()<<endl;
-    /*
-    if(fVPPF->updated())
-        FatalErrorInFunction<< "Already updated. Can not happen!"<<endl<< exit(FatalError);
-    */
-    
-    /*
-    volVectorField& vVF = dMS->cellDisplacement();
-    Info<<"nbrCells:"<<this->cells().size()<<endl;
-    Info<<"cellDisp Field size:"<<vVF.size()<<endl;
-    Info<<"cellDisp Field:"<<vVF.primitiveFieldRef()<<endl;
-    if(this->cells().size()!=vVF.size())
-        vVF.setSize(this->cells().size());
-        //vVF.Field<vector>::operator==(Field<vector>(this->cells().size()));
-    Info<<"cellDisp Field size:"<<vVF.size()<<endl;
-    Info<<"cellDisp Field:"<<vVF.primitiveFieldRef()<<endl;
-    volVectorField::Boundary& vVF_Bound = vVF.boundaryFieldRef();
-    for(int i=0;i<vVF_Bound.size();i++)
-    {
-        fvPatchField<vector>& boundField = vVF_Bound[i];
-        const fvPatch& boundPatch = boundField.patch();
-        Info<<"boundPatch size:"<<boundPatch.size()<<endl;
-        //Info<<"boundField size:"<<boundField<<endl;
-        Info<<"boundField size:"<<boundField.size()<<endl;
-        if(boundPatch.size()!=boundField.size())
-            boundField.setSize(boundPatch.size());
-        Info<<"boundField size:"<<boundField.size()<<endl;
-        //Info<<"boundField size:"<<boundField<<endl;
-        Info<<"---"<<endl;
-    }
-    */
-    
-    
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-    
+    Info<<"    fVPPF->updated():"<<fVPPF->updated()<<endl;    
     
     rawPtr->solve();
     
     motionPtr_.set(rawPtr);
-    
-    //Info<<"owner:"<<this->faceOwner()<<endl;
-
-    
-    //FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
     
     Info<<"Moved Set movement to field"<<endl;
 }
@@ -1374,13 +1327,13 @@ void Foam::cutCellFvMesh::moveNurbsCurves
         Info<<"movedDeformationControlPoints.size():"<<movedDeformationControlPoints.size()<<Foam::endl;
         FatalErrorInFunction<<"Given number of controlPoint update blocks must equal the number of Nurbs"<< exit(FatalError);
     }
-    for(int i=0;i<movedDeformationControlPoints.size();i++)
+    for(unsigned int i=0;i<movedDeformationControlPoints.size();i++)
     {
         Info<<"Assign Deformation curve "<<i<<" with "<<movedDeformationControlPoints[i][0].size()<<" CPs"<<Foam::endl;
         Info<<"Moved CPs:";
         for(int j=0;j<movedDeformationControlPoints[i][0].size();j+=10)
         {
-            vector avgVec;
+            vector avgVec=vector(zero());
             for(int k=0;k<10;k++)
             {
                 avgVec += movedDeformationControlPoints[i][0][k+j];
@@ -1398,7 +1351,6 @@ void testForNonHexMesh(fvMesh& mesh)
     const faceList& faces = mesh.faces();
     label cubeCells=0;
     label nonCubeCells=0;
-    label nonCubeBorderCell=0;
         
     for(int i=0;i<cells.size();i++)
     {
@@ -1413,7 +1365,7 @@ void testForNonHexMesh(fvMesh& mesh)
         
         if(nVertices!=8 || nEdges!=12 || nFaces!=6)
         {
-            nonCubeCell==true;
+            nonCubeCell=true;
         }
         
         bool notFourVerticeFace = false;
@@ -1441,9 +1393,6 @@ void Foam::cutCellFvMesh::checkForHexCellsInCutArea()
 {
     const cellList& cells = this->cells();
     const faceList& faces = this->faces();
-    label cubeCells=0;
-    label nonCubeCells=0;
-    label nonCubeBorderCell=0;
     
     for(int i=0;i<cells.size();i++)
     {
@@ -1474,7 +1423,7 @@ void Foam::cutCellFvMesh::checkForHexCellsInCutArea()
             
             if(nVertices!=8 || nEdges!=12 || nFaces!=6)
             {
-                nonCubeCell==true;
+                nonCubeCell=true;
             }
             
             bool notFourVerticeFace = false;
@@ -1524,7 +1473,7 @@ void Foam::cutCellFvMesh::setInitialDeformationCurve
     std::vector<label>& nurbs_to_degree
 )
 {
-    label nbrOfDefNurbsCurves = nurbs_to_knots.size();
+    unsigned int nbrOfDefNurbsCurves = nurbs_to_knots.size();
     if(nbrOfDefNurbsCurves!=nurbs_to_controlPoints.size() || nbrOfDefNurbsCurves!=nurbs_to_weights.size() ||            
        nbrOfDefNurbsCurves!=nurbs_to_degree.size()        || nbrOfDefNurbsCurves!=Curves->size())
     {
@@ -1536,7 +1485,7 @@ void Foam::cutCellFvMesh::setInitialDeformationCurve
         FatalErrorInFunction<<"Wrong Deformation curve number"<< exit(FatalError);
     }
 
-    for(int i=0;i<nbrOfDefNurbsCurves;i++)
+    for(unsigned int i=0;i<nbrOfDefNurbsCurves;i++)
     {
         (*Curves)[i].createDeformationCurve(nurbs_to_knots[i],nurbs_to_controlPoints[i],
                                             nurbs_to_weights[i],nurbs_to_degree[i]);
