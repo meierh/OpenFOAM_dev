@@ -481,6 +481,7 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             }
         }
         
+        Info<<"reRefinementCells:"<<reRefinementCells.size()<<Foam::endl;
         autoPtr<mapPolyMesh> reRefineMap = this->refine(reRefinementCells);
         this->motionPtr_->updateMesh(reRefineMap);
         const labelList& pntMapNewToOld = reRefineMap->pointMap();
@@ -549,10 +550,22 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
 
         Info<<cellDimToStructureDim<<"/"<<cellDimToStructureDimLimit<<endl;
         
+        List<scalar> test(Pstream::nProcs());
+        test[Pstream::myProcNo()] = cellDimToStructureDim;
+        Info<<"nProcs:"<<Pstream::nProcs()<<Foam::endl;
+        Info<<"Pstream::myProcNo():"<<Pstream::myProcNo()<<Foam::endl;
+        
+        //Pstream::gatherList<scalar>(test);
+        //Info<<"test:"<<test<<Foam::endl;
+        
+        Info<<"Communicated"<<Foam::endl;
+        
         if(cellDimToStructureDim > cellDimToStructureDimLimit)
         {
             Info<<"Pre mesh cell nbr:"<<this->cells().size()<<endl;
             autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
+            Info<<"Refined"<<Foam::endl;
+            /*
             const labelList& pntMapNewToOld = reRefineMap->pointMap();
             for(int i=0;i<pntMapNewToOld.size();i++)
             {
@@ -586,6 +599,7 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             //Info<<"pntMapNewToOld.size():"<<pntMapNewToOld.size()<<endl;
             //Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
             //FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+            */
 
             this->motionPtr_->updateMesh(refineMap);
             refinementIteration++;

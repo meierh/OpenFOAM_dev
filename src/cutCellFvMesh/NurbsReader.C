@@ -15,11 +15,23 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::getNurbsCurves()
 
 Foam::word Foam::NurbsReader::getXMLPath()
 {
+    int index = caseName.find("/");
+    if(index!=-1)
+    {
+        fileName reducedCaseName = caseName.substr(0,index);
+
+        fileName endingCaseName = caseName.substr(index+1,-1);       
+        if(endingCaseName.find("processor")!=0)
+        {
+            FatalIOError<<"Error reading parallel case. Subdirectory does not contain 'processor'!"<<exit(FatalIOError);
+        }
+        caseName = reducedCaseName;
+    }
     fileName caseDirectory = runDirectory+"/"+caseName;
-    fileName constantDirectory = caseDirectory;
+    Info<<"caseDirectory:"<<caseDirectory<<Foam::endl;
 
     DIR  *dir = NULL;
-    const char *pathConstantDirectory = constantDirectory.c_str();
+    const char *pathConstantDirectory = caseDirectory.c_str();
     dir = opendir(pathConstantDirectory);
     if(dir==NULL)
         FatalIOError<<"Error reading Nurbs file. Could not open the directory!"<<exit(FatalIOError);
@@ -45,7 +57,7 @@ Foam::word Foam::NurbsReader::getXMLPath()
         FatalIOError<<"No Nurbs file found!"<<exit(FatalIOError);
     if(xmlFiles.size()>1)
         Info<<"Multiple Nurbs files found. First one will be used!"<<endl;
-    word fullPath = constantDirectory+"/"+xmlFiles[0];
+    word fullPath = caseDirectory+"/"+xmlFiles[0];
     
     return fullPath;
 }
