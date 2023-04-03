@@ -207,6 +207,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell(in
 		mc33Cube.cell=-1;
 		return mc33Cube;		
 	}
+	
 }
 
 const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned int verticePattern)

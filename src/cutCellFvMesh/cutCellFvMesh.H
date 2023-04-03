@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <chrono>
 #include <queue>
+#include <cassert>
 //#include <sys/types.h>
 //#include <dirent.h>
 //#include <string.h>
@@ -657,6 +658,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void checkForHexCellsInCutArea();
                 
         scalar minNurbsRadius();
+        
+        void Barrier(bool stop=false);
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
 }

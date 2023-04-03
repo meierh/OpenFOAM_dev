@@ -1,5 +1,19 @@
 #include "cutCellFvMesh.H"
 
+void Foam::cutCellFvMesh::Barrier(bool stop)
+{
+    labelList test(Pstream::nProcs(),0);
+    test[Pstream::myProcNo()] = Pstream::myProcNo();
+    Pstream::gatherList(test);
+    Pstream::scatterList(test);
+    std::cout<<"XXXXXXXXXXXXX---------------Barrier:"<<Pstream::myProcNo()<<"----"<<test[0]<<","<<test[1]<<","<<test[2]<<","<<test[3]<<"---------------XXXXXXXXXXXX"<<std::endl;
+    fflush(stdout);
+    Pstream::gatherList(test);
+    if(stop)
+        FatalErrorInFunction<<Pstream::myProcNo()<<"Temp Stop!"<< exit(FatalError);
+
+}
+
 Foam::scalar norm2(Foam::vector pnt)
 {
     return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
@@ -346,8 +360,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
     const cellList& meshCells = this->cells();
     const edgeList& basisEdges = this->edges();
     const faceList& basisFaces = this->faces();
-
-    //marchingCubesAlgorithm = MC33(*this);
+    
     mc33CutCellData.setCapacity(meshCells.size());
     for(int i=0;i<meshCells.size();i++)
     {
@@ -355,6 +368,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
         const labelList& cellLabels = thisCell.labels(basisFaces);
         bool onePlus=false;
         bool oneNeg=false;
+        
         for(label cellPointLabel : cellLabels)
         {
             if(pointDist[cellPointLabel] >= 0)
@@ -362,6 +376,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
             else 
                 oneNeg = true;
         }
+        
         MC33::MC33Cube oneCube;
         if(onePlus && oneNeg)
         {
@@ -406,6 +421,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
             }
         }
     }
+    
     for(int i=0;i<meshCells.size();i++)
     {            
         if(mc33CutCellData[i].cell!=-1)
@@ -416,7 +432,7 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
                     FatalErrorInFunction<<"Missing assignment"<< exit(FatalError);
             }
         }
-    }
+    }  
 }
 
 void Foam::cutCellFvMesh::newMeshPoints_MC33()

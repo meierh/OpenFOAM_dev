@@ -247,12 +247,13 @@ void Foam::cutCellFvMesh::projectNurbsSurface(bool reset)
         t4 = std::chrono::high_resolution_clock::now();
         time_span2 += t4-t3;
     }
+    /*
     Info<<endl;
     Info<<"Kd-Tree took \t\t\t\t" << time_span1.count() << " seconds."<<endl;
     Info<<"BsTree took \t\t\t\t" << time_span3.count() << " seconds."<<endl;
     Info<<"Newton took \t\t\t\t" << time_span4.count() << " seconds."<<endl;
     Info<<"BsTree + Newton took \t\t\t" << time_span2.count() << " seconds."<<endl;
-    Info<<"newCalculatedPnts:"<<newCalculatedPnts<<" / "<<points.size()<<endl;
+    */
 }
 
 Foam::cutCellFvMesh::cutCellFvMesh
@@ -286,27 +287,30 @@ marchingCubesAlgorithm(*this)
         FatalIOError<<"\"useHexTopology yes\" must be defined and set in dynamicMeshDict"<< exit(FatalIOError);     
     
     // Initialize mesh class
-    Info<<"Read Nurbs"<<endl;
     fileName runDirectory = this->fvMesh::polyMesh::objectRegistry::rootPath();
     fileName caseName = this->fvMesh::polyMesh::objectRegistry::caseName();
     NurbsReader Reader(runDirectory,caseName);
     Curves = Reader.getNurbsCurves();
     MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
     NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
-    Info<<"Created Main Tree"<<endl;
     for(unsigned long i=0;i<(*(this->Curves)).size();i++)
     {
         NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree((*(this->Curves))[i])));
     }
-    Info<<"Prepared all Data"<<endl;
-    Info<<"Before refinement"<<endl;
     testForNonHexMesh(*this);    
     // Refine nurbs cut surface
     refineTheImmersedBoundary();
-    Info<<"After refinement"<<endl;
-    testForNonHexMesh(*this);
+    if(Pstream::master())
+    {
+        Info<<"Pre-refinement done"<<endl;
+    }
+    //testForNonHexMesh(*this);
     //Apply the immersed boundary cut method
     cutTheImmersedBoundary_MC33();
+    if(Pstream::master())
+    {
+        Info<<"Cut-mesh done"<<endl;
+    }
     findCutCellPnts();
 }
 
@@ -316,22 +320,15 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
     label refinementIteration=0;
     while(true)
     {
-        Info<<"-------------------------------------------------"<<endl;
+        if(Pstream::master())
+        {
+            Info<<"------------- Pre-refinement iteration "<<refinementIteration<<" -------------"<<Foam::endl;
+        }
         // Project distance to points
-        std::chrono::high_resolution_clock::time_point t1;
-        std::chrono::high_resolution_clock::time_point t2;
-        std::chrono::duration<double> time_span;
-        Info<<"Projection of distance field ";
-        t1 = std::chrono::high_resolution_clock::now();
-        projectNurbsSurface();
-        t2 = std::chrono::high_resolution_clock::now();
-        time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-        Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-        
+        projectNurbsSurface();        
         newToOldPointIndMap.clear();
         
         // Collect refinement canidate cells
-        Info<<"Collect all cutCells"<<endl;
         const faceList& faces = this->faces();
         const cellList& cells = this->cells();
         const labelList& owner  = this->faceOwner();
@@ -401,7 +398,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             refineCells.append(cell);
         
         // Collect reRefinement cells
-        Info<<"Collect all reRefinment cells"<<endl;
         DynamicList<label> reRefinementCells;
         reRefinementCells.append(refineCells);
         std::unordered_set<label> reRefinementCellsMap;
@@ -481,7 +477,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             }
         }
         
-        Info<<"reRefinementCells:"<<reRefinementCells.size()<<Foam::endl;
         autoPtr<mapPolyMesh> reRefineMap = this->refine(reRefinementCells);
         this->motionPtr_->updateMesh(reRefineMap);
         const labelList& pntMapNewToOld = reRefineMap->pointMap();
@@ -504,8 +499,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
                 FatalErrorInFunction<<"Can not happen"<< exit(FatalError);
             }
         }
-        //Info<<"pntMapNewToOld.size():"<<pntMapNewToOld.size()<<endl;
-        //Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<endl;
         
         const cellList& cells2 = this->cells();
         const faceList& faces2 = this->faces();
@@ -520,7 +513,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             }
         }
         
-        Info<<"Test for cell size ratio"<<endl;
         // Test for cell size ratio
         scalar maxEdgeLen = std::numeric_limits<scalar>::min();
         scalar minEdgeLen = std::numeric_limits<scalar>::max();
@@ -538,18 +530,18 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
             }
         }
         avgEdgeLen /= refineCells.size();
-        Info<<"maxEdgeLen:"<<maxEdgeLen<<endl;
-        Info<<"minEdgeLen:"<<minEdgeLen<<endl;
-        Info<<"avgEdgeLen:"<<avgEdgeLen<<endl;
         scalar minRadius = minNurbsRadius();
-        Info<<"minRadius:"<<minRadius<<endl;
         scalar cellDimToStructureDim = maxEdgeLen/minRadius;
         
-        if(cellDimToStructureDim>=oldCellDimToStructureDim)
-            FatalErrorInFunction<<"No progress in near nurbs refinement"<< exit(FatalError);
-
-        Info<<cellDimToStructureDim<<"/"<<cellDimToStructureDimLimit<<endl;
+        Pstream::gather(cellDimToStructureDim,[](scalar a,scalar b){return std::max(a,b);});
+        Pstream::scatter(cellDimToStructureDim);
+        if(Pstream::master())
+            Info<<"cellDimFactor/cellDimFactorLimits :"<<cellDimToStructureDim<<"/"<<cellDimToStructureDimLimit<<Foam::endl;
         
+        if(Pstream::master() && cellDimToStructureDim>=oldCellDimToStructureDim)
+            FatalErrorInFunction<<"No progress in near nurbs refinement"<< exit(FatalError);
+        
+        /*
         List<scalar> test(Pstream::nProcs());
         test[Pstream::myProcNo()] = cellDimToStructureDim;
         Info<<"nProcs:"<<Pstream::nProcs()<<Foam::endl;
@@ -559,12 +551,11 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
         //Info<<"test:"<<test<<Foam::endl;
         
         Info<<"Communicated"<<Foam::endl;
+        */
         
         if(cellDimToStructureDim > cellDimToStructureDimLimit)
         {
-            Info<<"Pre mesh cell nbr:"<<this->cells().size()<<endl;
             autoPtr<mapPolyMesh> refineMap = this->refine(refineCells);
-            Info<<"Refined"<<Foam::endl;
             /*
             const labelList& pntMapNewToOld = reRefineMap->pointMap();
             for(int i=0;i<pntMapNewToOld.size();i++)
@@ -603,7 +594,6 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
 
             this->motionPtr_->updateMesh(refineMap);
             refinementIteration++;
-            Info<<"----------------------------------------"<<endl;
         }
         else
             break;
@@ -613,71 +603,77 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
 
 void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
 {
+    if(Pstream::master())
+    {
+        Info<<"------------- Cut-mesh computation -------------"<<Foam::endl;
+    }
+    
     std::chrono::high_resolution_clock::time_point t1;
     std::chrono::high_resolution_clock::time_point t2;
     std::chrono::duration<double> time_span;
     
-    Info<<"Projection of distance field ";
     t1 = std::chrono::high_resolution_clock::now();
     projectNurbsSurface();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-    
-    Info<<"Execution of Marching Cubes";
+    if(Pstream::master())
+        Info<<"Projection of distance field took \t\t\t" << time_span.count() << " seconds."<<endl;    
+        
     t1 = std::chrono::high_resolution_clock::now();
     executeMarchingCubes();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-        
-    Info<<"Adding of cut points";
+    if(Pstream::master())
+        Info<<"Execution of Marching Cubes took \t\t\t" << time_span.count() << " seconds."<<endl;  
+
     t1 = std::chrono::high_resolution_clock::now();
     newMeshPoints_MC33();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    if(Pstream::master())
+        Info<<"Adding of cut points took \t\t\t\t" << time_span.count() << " seconds."<<endl;
     
-    Info<<"Adding of cut edges";
     t1 = std::chrono::high_resolution_clock::now();
     newMeshEdges_MC33();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t\t" << time_span.count() << " seconds."<<endl;
-        
+    if(Pstream::master())
+        Info<<"Adding of cut edges took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+   
     edgesToSide();
     
-    Info<<"Adding of cut faces";
     t1 = std::chrono::high_resolution_clock::now();
     newMeshFaces_MC33();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t\t"<< time_span.count() << " seconds."<<endl;
-        
-    Info<<"Cutting old faces";
+    if(Pstream::master())
+        Info<<"Adding of cut faces took \t\t\t\t" << time_span.count() << " seconds."<<endl;
+    
     t1 = std::chrono::high_resolution_clock::now();
     cutOldFaces_MC33();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
-        
+    if(Pstream::master())
+        Info<<"Cutting old faces took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+
     pointField points(0);
     faceList faces(0);
     labelList owner(0);
     labelList neighbour(0);
     List<std::unordered_map<label,label>> oldPointIndToPatchInd;
-    
-    Info<<"-------------------------------------------"<<endl;
-    Info<<"Create new Mesh data and cut negative cells";
+
+Barrier(true);
+
     t1 = std::chrono::high_resolution_clock::now();
     createNewMeshData_MC33();
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t"<< time_span.count() << " seconds."<<endl;
-    Info<<"-------------------------------------------"<<endl;
+    if(Pstream::master())
+        Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
 
-    Info<<"Combine resetPrimitives data"<<endl;
     t1 = std::chrono::high_resolution_clock::now();  
+    
+
     
     faces.append(splitAndUnsplitFacesInterior);
     faces.append(splitAndUnsplitFacesBoundary);

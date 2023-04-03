@@ -18,6 +18,10 @@ Foam::word Foam::NurbsReader::getXMLPath()
     int index = caseName.find("/");
     if(index!=-1)
     {
+        if(!Pstream::parRun())
+        {
+            FatalIOError<<"Here is something wrong. Case name suggests parallel but is not !"<<exit(FatalIOError);
+        }
         fileName reducedCaseName = caseName.substr(0,index);
 
         fileName endingCaseName = caseName.substr(index+1,-1);       
@@ -27,8 +31,14 @@ Foam::word Foam::NurbsReader::getXMLPath()
         }
         caseName = reducedCaseName;
     }
+    else
+    {
+        if(Pstream::parRun())
+        {
+            FatalIOError<<"Here is something wrong. Case name suggests not parallel but is!"<<exit(FatalIOError);
+        }
+    }
     fileName caseDirectory = runDirectory+"/"+caseName;
-    Info<<"caseDirectory:"<<caseDirectory<<Foam::endl;
 
     DIR  *dir = NULL;
     const char *pathConstantDirectory = caseDirectory.c_str();
@@ -151,14 +161,12 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
         {
             knotList.append(number);
         }
-        Info<<"knotList:"<<knotList<<endl;
         
         DynamicList<scalar> weightList;
         while(weightString>>number)
         {
             weightList.append(number);
         }
-        Info<<"weightList:"<<weightList<<endl;
         
         DynamicList<vector> coefList;
         DynamicList<scalar> numberList;
@@ -171,11 +179,11 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
         for(int i=0;i<numberList.size();i+=3)
         {
             coefList.append(vector(numberList[i],numberList[i+1],numberList[i+2]));
-        }            
-        Info<<"coefList:"<<coefList<<endl;
-        Info<<"nurbsDegree:"<<nurbsDegree<<endl;        
+        }      
         
         nurbsCurves->push_back(Nurbs1D(knotList, coefList, weightList, nurbsDegree));
     }
+    if(Pstream::master())
+        Info<<"Loaded "<<nurbsCurves->size()<<"Nurbs Curve from "<<fullXMLPath<<Foam::endl;
     return nurbsCurves;
 }
