@@ -3454,15 +3454,19 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     const labelListList& cellToEdges = this->cellEdges();
 
     // Store old boundary patches
-    Info<<endl;
     labelList oldFaceToPatchInd(meshFaces.size(),-1);
     patchStarts = labelList(boundMesh.size());
     patchSizes = labelList(boundMesh.size());
+    label cutCellPatchIndex = -1;
     for(int i=0;i<boundMesh.size();i++)
     {
         patchStarts[i] = boundMesh[i].start();
         patchSizes[i] = boundMesh[i].faceCentres().size();
         word namePatch = boundMesh[i].name();
+        if(namePatch=="cutCell")
+        {
+            cutCellPatchIndex = i;
+        }
         Info<<namePatch<<"   BoundaryFaceStart:"<<patchStarts[i]<<" FacesSize:"<<patchSizes[i]<<endl;
     }
     for(int i=0;i<patchStarts.size();i++)
@@ -3471,7 +3475,11 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         {
             oldFaceToPatchInd[patchStarts[i]+j] = i;
         }
-    } 
+    }
+    if(cutCellPatchIndex==-1)
+    {
+        FatalErrorInFunction<<"Cut Cell patch does not exist"<<exit(FatalError);
+    }
 
     //Prepare data storage for old to new cell index
     oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
@@ -3481,7 +3489,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         oldSplittedCellToNewPlusCell[i].setSize(0);
         oldSplittedCellToNewMinusCell[i].setSize(0);
     }
-    
+        
     // Compute new cellIndexes for added cells
     List<DynamicList<label>> oldCellsToAddedMinusSideCellIndex(meshCells.size());
     deletedCell = List<bool>(meshCells.size(),false);
@@ -4008,8 +4016,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             deletedCell[i] = true;
         }
     }
-
-    label maxCellInd = 0;
+    
+    label maxCellInd = deletedCell.size()-1;
     for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
         for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
             maxCellInd = std::max(cellToNewMinusCellsIndexes[i][j],maxCellInd);
@@ -4017,15 +4025,30 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
             maxCellInd = std::max(cellToNewPlusCellsIndexes[i][j],maxCellInd);
     maxCellInd++;
-        
-    List<bool> correctdeletedCell(maxCellInd,false);
+            
+    List<bool> correctdeletedCell(maxCellInd,false);        
     for(int i=0;i<deletedCell.size();i++)
         correctdeletedCell[i] = deletedCell[i];
+    
+    labelList deletedCellSIZE(Pstream::nProcs(),0);
+    deletedCellSIZE[Pstream::myProcNo()] = deletedCell.size();
+    Pstream::gatherList(deletedCellSIZE);
+    if(Pstream::master())
+        std::cout<<"--------deletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<deletedCellSIZE[0]<<","<<deletedCellSIZE[1]<<","<<deletedCellSIZE[2]<<","<<deletedCellSIZE[3]<<"----------"<<std::endl;
+    
+    labelList correctdeletedCellSIZE(Pstream::nProcs(),0);
+    correctdeletedCellSIZE[Pstream::myProcNo()] = correctdeletedCell.size();
+    Pstream::gatherList(correctdeletedCellSIZE);
+    if(Pstream::master())
+        std::cout<<"--------correctdeletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<correctdeletedCellSIZE[0]<<","<<correctdeletedCellSIZE[1]<<","<<correctdeletedCellSIZE[2]<<","<<correctdeletedCellSIZE[3]<<"----------"<<std::endl;
+
     for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
     {
         for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
         {
             label minusCellInd = cellToNewMinusCellsIndexes[i][j];
+            
+            
             if(minusCellInd<deletedCell.size())
             {
                 if(!correctdeletedCell[minusCellInd])
@@ -4035,7 +4058,16 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 correctdeletedCell[minusCellInd] = true;
         }
     }
-    deletedCell = correctdeletedCell;    
+    
+    deletedCell = correctdeletedCell;
+    
+    deletedCellSIZE = labelList(Pstream::nProcs(),0);
+    deletedCellSIZE[Pstream::myProcNo()] = deletedCell.size();
+    Pstream::gatherList(deletedCellSIZE);
+    if(Pstream::master())
+        std::cout<<"--------deletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<deletedCellSIZE[0]<<","<<deletedCellSIZE[1]<<","<<deletedCellSIZE[2]<<","<<deletedCellSIZE[3]<<"----------"<<std::endl;
+    
+//Barrier(true);
         
     List<label> newCellToSide(maxCellInd+1,0);
     for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
@@ -4064,6 +4096,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         }
     }
         
+//Barrier(true);
+
     // Compute List of new faces splitting old cells
     for(int i=0;i<cellToFaces_.size();i++)
     {
@@ -4125,7 +4159,9 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             }
         }
     }
-        
+
+Barrier(true);
+    
     // Compute the List of new faces resulting from the splitting of old faces
     for(int i=0;i<neighbour.size();i++)
     {
@@ -4564,6 +4600,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         }    
     }    
     
+Barrier(true);
+    
     //reduce for empty cells
     DynamicList<label> cellReductionNumb;
     cellReductionNumb.setSize(deletedCell.size());
@@ -4676,6 +4714,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     for(int i=0;i<deletedCell.size();i++)
         if(deletedCell[i])
             nbrDeletedCells++;
+    
+Barrier(true);
     
     //correct face owner and neigbour 
     for(int i=0;i<addedCutFaces.size();i++)

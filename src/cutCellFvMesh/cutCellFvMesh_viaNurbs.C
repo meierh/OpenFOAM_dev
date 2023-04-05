@@ -662,7 +662,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     labelList neighbour(0);
     List<std::unordered_map<label,label>> oldPointIndToPatchInd;
 
-Barrier(true);
 
     t1 = std::chrono::high_resolution_clock::now();
     createNewMeshData_MC33();
@@ -673,7 +672,7 @@ Barrier(true);
 
     t1 = std::chrono::high_resolution_clock::now();  
     
-
+Barrier(true);
     
     faces.append(splitAndUnsplitFacesInterior);
     faces.append(splitAndUnsplitFacesBoundary);
