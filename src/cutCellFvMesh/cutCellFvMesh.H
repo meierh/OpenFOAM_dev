@@ -297,6 +297,19 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             std::unordered_map<label,label> sAUFB_NewToOldMap;
             std::unordered_multimap<label,label> sAUFB_OldToNewMap;
             
+            //insert interface splitted faces
+            // added interface split faces
+            DynamicList<face>  splitAndUnsplitFacesInterface;
+            // added interface split faces owner
+            DynamicList<label> splitAndUnsplitFacesInterfaceOwner;
+            // added interface split faces neighbor
+            DynamicList<label> splitAndUnsplitFacesInterfaceNeighbor;
+            // added interface split faces patch Index
+            DynamicList<label> splitAndUnsplitFacesInterfacePatchInd;
+            // faceInd to sub list index
+            std::unordered_map<label,label> sAUFI_NewToOldMap;
+            std::unordered_multimap<label,label> sAUFI_OldToNewMap;
+            
             //list of indexes of minus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
             //list of indexes of plus side cell of splitted cell or empty if cell is not split
