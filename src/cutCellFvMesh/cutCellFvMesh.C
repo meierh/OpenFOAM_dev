@@ -4044,21 +4044,21 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     addedCutFaces.append(addedFace);
                     addedCutFacesNeighbor.append(-1);
                     addedCutFacesOwner.append(i);
-                    addedCutFacesPatchInd.append(patchStarts.size()-1);
+                    addedCutFacesPatchInd.append(cutCellPatchIndex);
                 }
                 else if(oldSplittedCellToNewPlusCell[i].size()==1 && oldSplittedCellToNewMinusCell[i].size()>1)
                 {
                     addedCutFaces.append(addedFace);
                     addedCutFacesNeighbor.append(-1);
                     addedCutFacesOwner.append(i);
-                    addedCutFacesPatchInd.append(patchStarts.size()-1);
+                    addedCutFacesPatchInd.append(cutCellPatchIndex);
                 }
                 else if(oldSplittedCellToNewPlusCell[i].size()>1 && oldSplittedCellToNewMinusCell[i].size()==1)
                 {
                     addedCutFaces.append(addedFace);
                     addedCutFacesNeighbor.append(-1);
                     addedCutFacesOwner.append(oldSplittedCellToNewPlusCell[i][j]);
-                    addedCutFacesPatchInd.append(patchStarts.size()-1);                    
+                    addedCutFacesPatchInd.append(cutCellPatchIndex);                    
                 }
                 else
                     FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
@@ -4335,7 +4335,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     sAUFITB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesInteriorToBoundary.size(),i));
                     sAUFITB_OldToNewMap.insert(std::pair<label,label>(i,-1));
                     splitAndUnsplitFacesInteriorToBoundary.append(face1);
-                    splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(patchStarts.size()-1);
+                    splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(cutCellPatchIndex);
                     if(newOwnerCellPlusOrMinus==+1 && newNeighborCellPlusOrMinus==-1)
                     {
                         splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
@@ -4375,11 +4375,12 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             }
             else if(facesToSide_[i] == 0)
             {
+                
                 sAUFITB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesInteriorToBoundary.size(),i));
                 sAUFITB_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesInteriorToBoundary.size()));
                 splitAndUnsplitFacesInteriorToBoundary.append(meshFaces[i]);
                 splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
-                splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(patchStarts.size()-1);                
+                splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(cutCellPatchIndex);                
                 
                 label ownerCellSide = cellsToSide_[owner[i]];
                 label neighbourCellSide = cellsToSide_[neighbour[i]];
@@ -4388,7 +4389,12 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 else if(ownerCellSide==-1 && neighbourCellSide==+1)
                     splitAndUnsplitFacesInteriorToBoundaryOwner.append(neighbour[i]);
                 else
+                {
+                    Info<<"meshFaces[i]:"<<meshFaces[i]<<Foam::endl;
+                    for(label pnt : meshFaces[i])
+                        Info<<"pnt:"<<pnt<<" dist:"<<pointsToSide_[pnt]<<Foam::endl;
                     FatalErrorInFunction<<"Complete four point zero face must neighbor a negative and a positive cell"<< exit(FatalError);
+                }
             }
             // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
@@ -4478,8 +4484,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 }
                 else if(oldFaceToPatchInd[i]>cutCellPatchIndex)
                 {
-                    sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
-                    sAUFI_OldToNewMap.insert(std::pair<label,label>(i,-1));
+                    sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,-1));
                     splitAndUnsplitFacesInterface.append(face1);
                     splitAndUnsplitFacesInterfaceNeighbor.append(-1);
                     splitAndUnsplitFacesInterfaceOwner.append(newOwnerCell);
@@ -4505,8 +4511,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 }
                 else if(oldFaceToPatchInd[i]>cutCellPatchIndex)
                 {
-                    sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
-                    sAUFI_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
+                    sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
                     splitAndUnsplitFacesInterface.append(meshFaces[i]);
                     splitAndUnsplitFacesInterfaceNeighbor.append(-1);
                     splitAndUnsplitFacesInterfaceOwner.append(owner[i]);
@@ -4532,8 +4538,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 }
                 else if(oldFaceToPatchInd[i]>cutCellPatchIndex)
                 {
-                    sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
-                    sAUFI_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
+                    sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
                     splitAndUnsplitFacesInterface.append(meshFaces[i]);
                     splitAndUnsplitFacesInterfaceNeighbor.append(-1);
                     splitAndUnsplitFacesInterfaceOwner.append(owner[i]);
@@ -4728,37 +4734,86 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             << exit(FatalError);
         }
     }
+    for(int i=0;i<splitAndUnsplitFacesInterface.size();i++)
+    {
+        if(cellReductionNumb[splitAndUnsplitFacesInterfaceOwner[i]] != -1)
+        {
+            splitAndUnsplitFacesInterfaceOwner[i] -= cellReductionNumb[splitAndUnsplitFacesInterfaceOwner[i]];
+        }
+        else
+        {
+            FatalErrorInFunction
+            << "Face neighbors or ownes deleted cell. This can not happen."
+            << exit(FatalError);
+        }
+    }
         
     if(patchStarts.size()==0)
         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
     if(splitAndUnsplitFacesBoundaryPatchInd.size()==0)
         FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-        
-    patchStarts[0] = splitAndUnsplitFacesInterior.size();
-    label countFaces=0;
-    label patchNbrInd=1;
-    label lastPatch = splitAndUnsplitFacesBoundaryPatchInd[0];
-    for(int i=0;i<splitAndUnsplitFacesBoundaryPatchInd.size();i++)
+    
+    DynamicList<label> facesToBoundaryPatchInd;
+    facesToBoundaryPatchInd.append(splitAndUnsplitFacesInteriorPatchInd);
+    facesToBoundaryPatchInd.append(splitAndUnsplitFacesBoundaryPatchInd);
+    facesToBoundaryPatchInd.append(addedCutFacesPatchInd);
+    facesToBoundaryPatchInd.append(splitAndUnsplitFacesInteriorToBoundaryPatchInd);
+    facesToBoundaryPatchInd.append(splitAndUnsplitFacesInterfacePatchInd);
+    
+    label interiorFacesOffset = splitAndUnsplitFacesInteriorPatchInd.size();
+    label boundaryFacesOffset = interiorFacesOffset+splitAndUnsplitFacesBoundaryPatchInd.size();
+    
+    std::unordered_set<label> treatedPatches;
+    label lastPatch = -1;
+    DynamicList<label> boundaryPatchesStart;
+    DynamicList<label> interfacePatchesStart;
+    for(int i=0;i<facesToBoundaryPatchInd.size();i++)
     {
-        if(splitAndUnsplitFacesBoundaryPatchInd[i]==lastPatch)
-            countFaces++;
-        else
+        if(i<interiorFacesOffset)
         {
-            if(patchNbrInd>=patchStarts.size()-1)
-                FatalErrorInFunction<<"Go to non boundary patch!"<< exit(FatalError);
-            patchStarts[patchNbrInd] = patchStarts[patchNbrInd-1]+countFaces;
-            patchNbrInd++;
-            countFaces=0;
-            lastPatch = splitAndUnsplitFacesBoundaryPatchInd[i];
-            countFaces++;
+            if(facesToBoundaryPatchInd[i]!=-1)
+            {
+                FatalErrorInFunction<<"Interior face must not be in a patch!"<< exit(FatalError);
+            }
+        }
+        else if(i<boundaryFacesOffset)
+        {
+            if(facesToBoundaryPatchInd[i] != lastPatch)
+            {
+                if(treatedPatches.find(facesToBoundaryPatchInd[i])!=treatedPatches.end())
+                {
+                    FatalErrorInFunction<<"Patch was already treated!"<< exit(FatalError);
+                }
+                treatedPatches.insert(facesToBoundaryPatchInd[i]);
+                lastPatch = facesToBoundaryPatchInd[i];
+                boundaryPatchesStart.append(i);
+            }
         }
     }
-    patchStarts[patchNbrInd] = patchStarts[patchNbrInd-1]+countFaces;
-    for(int i=0;i<patchSizes.size()-1;i++)
+    if(boundaryPatchesStart.size()!=patchStarts.size())
+    {
+        FatalErrorInFunction<<"Patch size does not match!"<< exit(FatalError);
+    }
+    for(int i=0;i<patchStarts.size();i++)
+    {
+        if(treatedPatches.find(i)==treatedPatches.end())
+            FatalErrorInFunction<<"Patch was not treated!"<< exit(FatalError);
+    }
+    patchStarts = boundaryPatchesStart;
+    if(patchStarts[0] != interiorFacesOffset)
+    {
+        FatalErrorInFunction<<"Starting patch index does not match"<< exit(FatalError);
+    }
+    if(patchStarts[cutCellPatchIndex] != boundaryFacesOffset)
+    {
+        FatalErrorInFunction<<"Starting patch index does not match"<< exit(FatalError);
+    }
+
+    for(int i=0;i<patchStarts.size()-1;i++)
     {
         patchSizes[i] = patchStarts[i+1]-patchStarts[i];
     }
-    patchSizes[patchSizes.size()-1] = addedCutFaces.size()+splitAndUnsplitFacesInteriorToBoundary.size();
+    patchSizes.last() = facesToBoundaryPatchInd.size()-patchStarts.last();
     
     deletedCellSIZE = labelList(Pstream::nProcs(),0);
     deletedCellSIZE[Pstream::myProcNo()] = deletedCell.size();
