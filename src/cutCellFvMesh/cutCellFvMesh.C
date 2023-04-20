@@ -4867,7 +4867,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     if(Pstream::master())
         std::cout<<"--------patchStartsSIZE:"<<Pstream::myProcNo()<<"----"<<patchStartsSIZE[0]<<","<<patchStartsSIZE[1]<<","<<patchStartsSIZE[2]<<","<<patchStartsSIZE[3]<<"----------"<<std::endl;
     
-    Barrier(false);
+//Barrier(false);
     
     if(boundaryPatchesStart.size()!=patchStarts.size())
     {
@@ -4912,7 +4912,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         std::cout<<"--------deletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<deletedCellSIZE[0]<<","<<deletedCellSIZE[1]<<","<<deletedCellSIZE[2]<<","<<deletedCellSIZE[3]<<"----------"<<std::endl;
     
 
-Barrier(true);
+//Barrier(true);
 
 }
 

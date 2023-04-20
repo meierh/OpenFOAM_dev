@@ -670,24 +670,57 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     if(Pstream::master())
         Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
 
-    t1 = std::chrono::high_resolution_clock::now();  
+    t1 = std::chrono::high_resolution_clock::now();
     
-Barrier(true);
+    label nOldPoints = this->points().size();
+    label nOldFaces = this->faces().size();
+    label nOldCells = this->cells().size();
     
+    labelList pointMap; 
+    labelList reversePointMap; 
+    List<objectMap> pointsFromPoints;
+    
+    labelList faceMap;
+    labelList reverseFaceMap;
+    List<objectMap> facesFromPoints;
+    List<objectMap> facesFromEdges;
+    List<objectMap> facesFromFaces;
+    
+    labelList cellMap;
+    labelList reverseCellMap;
+    List<objectMap> cellsFromPoints;
+    List<objectMap> cellsFromEdges;
+    List<objectMap> cellsFromFaces;
+    List<objectMap> cellsFromCells;
+    
+    labelHashSet flipFaceFlux;
+    labelListList patchPointMap;
+    labelListList pointZoneMap;
+    labelListList faceZonePointMap;
+    labelListList faceZoneFaceMap;
+    labelListList cellZoneMap;
+    pointField preMotionPoints;
+    labelList oldPatchStarts;
+    labelList oldPatchNMeshPoints;
+    autoPtr<scalarField> oldCellVolumesPtr;
+        
     faces.append(splitAndUnsplitFacesInterior);
     faces.append(splitAndUnsplitFacesBoundary);
     faces.append(addedCutFaces);
     faces.append(splitAndUnsplitFacesInteriorToBoundary);
+    faces.append(splitAndUnsplitFacesInterface);
     
     owner.append(splitAndUnsplitFacesInteriorOwner);
     owner.append(splitAndUnsplitFacesBoundaryOwner);
     owner.append(addedCutFacesOwner);
     owner.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
+    owner.append(splitAndUnsplitFacesInterfaceOwner);
     
     neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
     neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
     neighbour.append(addedCutFacesNeighbor);
     neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
+    neighbour.append(splitAndUnsplitFacesInterfaceNeighbor);
     
     for(int i=0;i<owner.size();i++)
     {
@@ -708,15 +741,13 @@ Barrier(true);
             FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
         }
     }
-    
-    //pointsToSide_ = pointsToSide;
-    Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<endl;
+        
     
     List<bool> pntDeleted(newMeshPoints_.size(),true);
     for(const face& oneFace: faces)
         for(const label& oneVertice: oneFace)
             pntDeleted[oneVertice] = false;
-            
+
     labelList pntOldIndToNewInd(newMeshPoints_.size(),-1);
     label index=0;
     for(int i=0;i<pntDeleted.size();i++)
@@ -728,16 +759,30 @@ Barrier(true);
         }
     }
     points.setSize(index+1);
+    pointMap.setSize(points.size());
+    reversePointMap.setSize(nbrOfPrevPoints);
     index=0;
     for(int i=0;i<pntDeleted.size();i++)
     {
+        if(i<nbrOfPrevPoints)
+        {
+            if(pntDeleted[i])
+                reversePointMap[i] = -1;
+            else
+                reversePointMap[i] = index;
+        }
+        
         if(!pntDeleted[i])
         {
             points[index] = newMeshPoints_[i];
+            if(i<nbrOfPrevPoints)
+                pointMap[index] = i;
+            else
+                pointMap[index] = -1;
             index++;
         }
     }
-    
+        
     for(face& oneFace: faces)
     {
         for(label& oneVertice: oneFace)
@@ -764,7 +809,7 @@ Barrier(true);
     }
     meshPointNurbsReference = meshPointNurbsReference_new;
     pointDist = pointDist_new;
-                    
+                        
     const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
     oldPointIndToPatchInd.setSize(boundaryMesh.size());
     for(int i=0;i<boundaryMesh.size();i++)
@@ -774,13 +819,6 @@ Barrier(true);
         for(int j=0;j<patchPoints.size();j++)
             oldPointIndToPatchInd[i].insert(std::pair<label,label>(patchPoints[j],j));
     }
-            
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t"<< time_span.count() << " seconds."<<endl;
-
-    //printMesh();
-    //FatalErrorInFunction<<"Temporary stop!"<<exit(FatalError);
 
     Info<<"Correcting face normal direction";
     t1 = std::chrono::high_resolution_clock::now();
@@ -806,6 +844,12 @@ Barrier(true);
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
+    mapPolyMesh motionSolverMap(*this,nOldPoints,nOldFaces,nOldCells,pointMap,pointsFromPoints,faceMap,facesFromPoints,
+                                facesFromEdges,facesFromFaces,cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,
+                                cellsFromCells,reversePointMap,reverseFaceMap,reverseCellMap,flipFaceFlux,patchPointMap,
+                                pointZoneMap,faceZonePointMap,faceZoneFaceMap,cellZoneMap,preMotionPoints,
+                                oldPatchStarts,oldPatchNMeshPoints,oldCellVolumesPtr);
+        
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
                     Foam::clone(owner),
@@ -832,9 +876,9 @@ Barrier(true);
     }
     
     this->topoChanging(true);
-
+    
     //Reset field size for motionSolver
-    //Begin
+    //Begin    
     Foam::motionSolver* rawPtr = motionPtr_.ptr();  
     displacementLaplacianFvMotionSolver* dMS;
     try{
@@ -843,27 +887,57 @@ Barrier(true);
             FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
     }catch(...){
         FatalErrorInFunction<< "Cast to displacementMotionSolver failed. Must use the one"<<endl<< exit(FatalError);
-    }    
+    }
     pointVectorField& pVF = dMS->pointDisplacement();
     if(this->points().size()!=pVF.size())
         pVF.setSize(this->points().size());
     pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
-    //Info<<"boundFieldPointDispl.size():"<<boundFieldPointDispl.size()<<endl;
+
+    labelList data(Pstream::nProcs(),0);
+    data[Pstream::myProcNo()] = boundFieldPointDispl.size();
+    Pstream::gatherList(data);
+    if(Pstream::master())
+        std::cout<<Pstream::myProcNo()<<"----"<<data[0]<<","<<data[1]<<","<<data[2]<<","<<data[3]<<"----"<<std::endl;
+    
+    wordList boundaryFieldTypes = boundFieldPointDispl.types();
+    if(boundaryFieldTypes.size()!=boundFieldPointDispl.size())
+        FatalErrorInFunction<< "Size mismatch"<<exit(FatalError);
     for(int i=0;i<boundFieldPointDispl.size();i++)
     {
-        pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[i];
+        pointPatchField<vector>* boundaryPatchField = &boundFieldPointDispl[i];        
         const pointPatch& boundaryPointPatch = boundaryPatchField->patch();
         const labelList& patchPoints = boundaryPointPatch.meshPoints();
-        fixedValuePointPatchField<vector>* fVPPF;
-        try{
-            fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
+        
+        if(boundaryFieldTypes[i] == "fixedValue")
+        {
+            fixedValuePointPatchField<vector>* fVPPF;
+            try{
+                fVPPF = dynamic_cast<fixedValuePointPatchField<vector>*>(boundaryPatchField);
             if(fVPPF==NULL)
+                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one  "<<boundaryPatchField->size()<<"  "<<patchPoints.size()<<"  "<<i<<endl<< exit(FatalError);
+            }catch(...){
                 FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
-        }catch(...){
-            FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+            }
+            fVPPF->setSize(patchPoints.size());
         }
-        fVPPF->setSize(patchPoints.size());       
+        else if(boundaryFieldTypes[i] == "processor")
+        {
+            processorPointPatchField<vector>* pPPF;
+            try{
+                pPPF = dynamic_cast<processorPointPatchField<vector>*>(boundaryPatchField);
+            if(pPPF==NULL)
+                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one  "<<boundaryPatchField->size()<<"  "<<patchPoints.size()<<"  "<<i<<endl<< exit(FatalError);
+            }catch(...){
+                FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
+            }
+            //pPPF->primitiveField().setSize(patchPoints.size());
+            Info<<"patchPoints.size():"<<patchPoints.size()<<Foam::endl;
+            Info<<"pPPF->primitiveField().size():"<<pPPF->primitiveField().size()<<Foam::endl;
+        }
+        else
+            FatalErrorInFunction<<"Unexpected Patch type"<<exit(FatalError);
     }
+    
     volVectorField& vVF = dMS->cellDisplacement();
     if(this->cells().size()!=vVF.size())
         vVF.setSize(this->cells().size());
@@ -879,9 +953,13 @@ Barrier(true);
     pointsNull.setSize(this->points().size());
     for(int i=0;i<this->points().size();i++)
         pointsNull[i] = this->points()[i];
+Barrier(true);
+    
     motionPtr_.set(rawPtr);
     //End
    
+Barrier(true);
+
     Info<<"First self test"<<endl;
     selfTestMesh();
     
@@ -908,6 +986,8 @@ Barrier(true);
     //printMesh();
     selfTestMesh();
     Info<<"Ending"<<endl;
+Barrier(true);
+
 }
 
 void Foam::cutCellFvMesh::computeSolidFraction_MC33(std::unique_ptr<volScalarField>& solidFraction)

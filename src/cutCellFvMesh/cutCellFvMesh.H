@@ -26,6 +26,7 @@
 #include "displacementMotionSolver.H"
 #include "valuePointPatchField.H"
 #include "fixedValuePointPatchField.H"
+#include "processorPointPatchField.H"
 #include "motionDiffusivity.H"
 #include "displacementLaplacianFvMotionSolver.H"
 #include "patchWave.H"
