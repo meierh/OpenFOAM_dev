@@ -671,38 +671,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
 
     t1 = std::chrono::high_resolution_clock::now();
-    
-    label nOldPoints = this->points().size();
-    label nOldFaces = this->faces().size();
-    label nOldCells = this->cells().size();
-    
-    labelList pointMap; 
-    labelList reversePointMap; 
-    List<objectMap> pointsFromPoints;
-    
-    labelList faceMap;
-    labelList reverseFaceMap;
-    List<objectMap> facesFromPoints;
-    List<objectMap> facesFromEdges;
-    List<objectMap> facesFromFaces;
-    
-    labelList cellMap;
-    labelList reverseCellMap;
-    List<objectMap> cellsFromPoints;
-    List<objectMap> cellsFromEdges;
-    List<objectMap> cellsFromFaces;
-    List<objectMap> cellsFromCells;
-    
-    labelHashSet flipFaceFlux;
-    labelListList patchPointMap;
-    labelListList pointZoneMap;
-    labelListList faceZonePointMap;
-    labelListList faceZoneFaceMap;
-    labelListList cellZoneMap;
-    pointField preMotionPoints;
-    labelList oldPatchStarts;
-    labelList oldPatchNMeshPoints;
-    autoPtr<scalarField> oldCellVolumesPtr;
         
     faces.append(splitAndUnsplitFacesInterior);
     faces.append(splitAndUnsplitFacesBoundary);
@@ -844,11 +812,13 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     
     testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
     
-    mapPolyMesh motionSolverMap(*this,nOldPoints,nOldFaces,nOldCells,pointMap,pointsFromPoints,faceMap,facesFromPoints,
-                                facesFromEdges,facesFromFaces,cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,
-                                cellsFromCells,reversePointMap,reverseFaceMap,reverseCellMap,flipFaceFlux,patchPointMap,
-                                pointZoneMap,faceZonePointMap,faceZoneFaceMap,cellZoneMap,preMotionPoints,
-                                oldPatchStarts,oldPatchNMeshPoints,oldCellVolumesPtr);
+    /*
+    meshCuttingMap = mapPolyMesh(*this,nOldPoints,nOldFaces,nOldCells,pointMap,pointsFromPoints,faceMap,facesFromPoints,
+                                 facesFromEdges,facesFromFaces,cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,
+                                 cellsFromCells,reversePointMap,reverseFaceMap,reverseCellMap,flipFaceFlux,patchPointMap,
+                                 pointZoneMap,faceZonePointMap,faceZoneFaceMap,cellZoneMap,preMotionPoints,
+                                 oldPatchStarts,oldPatchNMeshPoints,oldCellVolumesPtr);
+    */
         
     resetPrimitives(Foam::clone(points),
                     Foam::clone(faces),
@@ -876,6 +846,9 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     }
     
     this->topoChanging(true);
+    //updateMesh(motionSolverMap);
+    //motionPtr_->topoChange(motionSolverMap);
+    
     
     //Reset field size for motionSolver
     //Begin    
@@ -918,7 +891,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
             }catch(...){
                 FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
             }
-            fVPPF->setSize(patchPoints.size());
+//            fVPPF->setSize(patchPoints.size());
         }
         else if(boundaryFieldTypes[i] == "processor")
         {

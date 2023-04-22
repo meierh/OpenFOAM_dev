@@ -176,17 +176,17 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             
             //label of face for every added Point or zero side point and null for intersection non-cut point
             //labelListList pointToFaces_;
-            DynamicList<DynamicList<label>> pointToFaces_;
+            //DynamicList<DynamicList<label>> pointToFaces_;
             //label of added points for every face or null if no point added
             //labelListList faceToPoints_;
-            DynamicList<DynamicList<label>> faceToPoints_;
+            //DynamicList<DynamicList<label>> faceToPoints_;
             
             //label of cells for every added point and null for every intersection point
             //labelListList pointToCells_;
-            DynamicList<DynamicList<label>> pointToCells_;
+            //DynamicList<DynamicList<label>> pointToCells_;
             //label of added point for every cell or null if no added Points
             //labelListList cellToPoints_;
-            DynamicList<DynamicList<label>> cellToPoints_;
+            //DynamicList<DynamicList<label>> cellToPoints_;
       //End
             
       //Edges and data added by addMeshEdges function
@@ -204,18 +204,18 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             //labelListList faceToEdges_;
         
             //label of cells for every added point and null for every intersection point
-            DynamicList<DynamicList<label>> edgeToCells_;
+            //DynamicList<DynamicList<label>> edgeToCells_;
             //labelListList edgeToCells_;
             //label of added edge or zero side edge for every cell or zero size
-            DynamicList<DynamicList<label>> cellToEdges_;
+            //DynamicList<DynamicList<label>> cellToEdges_;
             //labelListList cellToEdges_;
             
             //true if face is problematic due to zero points -> 4,3 or 2 zero points
-            List<bool> problematicFace;
+            //List<bool> problematicFace;
             //number of total zero points in problematic face
-            List<label> problematicFacePoints;
+            //List<label> problematicFacePoints;
             //number of total new zero points in problematic face
-            List<label> problematicFaceNewPoints;
+            //List<label> problematicFaceNewPoints;
       //End
             
       //Faces and data added by addMeshFaces function
@@ -320,7 +320,41 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             //list of labels to map old cell index to new plus side cut cell index; deleted Cells are set to -1
             DynamicList<DynamicList<label>> mapOldCellsToNewCells;
             //list of labels to map new cell index to old cells
-            labelList mapNewCellsToOldCells;
+            //labelList mapNewCellsToOldCells;
+            
+            //mapPolyMesh data
+            label nOldPoints;
+            labelList pointMap; 
+            labelList reversePointMap; 
+            List<objectMap> pointsFromPoints; // not written
+            pointField preMotionPoints;
+            labelListList pointZoneMap; // not written
+            
+            label nOldFaces;
+            labelList faceMap;
+            labelList reverseFaceMap;
+            List<objectMap> facesFromPoints; // not written
+            List<objectMap> facesFromEdges; // not written
+            List<objectMap> facesFromFaces; // not written
+            labelListList faceZonePointMap; // not written
+            labelListList faceZoneFaceMap; // not written
+            labelHashSet flipFaceFlux; // not written
+            
+            label nOldCells;
+            labelList cellMap;
+            labelList reverseCellMap;
+            List<objectMap> cellsFromPoints; // not written
+            List<objectMap> cellsFromEdges; // not written
+            List<objectMap> cellsFromFaces; // not written
+            List<objectMap> cellsFromCells; // not written
+            autoPtr<scalarField> oldCellVolumesPtr;
+            labelListList cellZoneMap; // not written
+            
+            labelListList patchPointMap;
+            labelList oldPatchStarts;
+            labelList oldPatchNMeshPoints;
+            
+            //mapPolyMesh meshCuttingMap;
         //End
             
         //Data for solidFraction Computation

@@ -379,7 +379,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
 {
     const cellList& meshCells = this->cells();
     const pointField& basisPoints = this->points();
-    const faceList& basisFaces = this->faces();
+    //const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
     const labelListList& edgeCells = this->edgeCells();
     
@@ -388,6 +388,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
 
     for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
     {
+        //Compute local edgeInd of treated edge for all neighborCells and store in neigboringMC33Cubes_sharedEdge_localInd
         List<label> neigboringMC33Cubes_sharedEdge_localInd(edgeCells[edgInd].size(),-1);
         for(int i=0;i<edgeCells[edgInd].size();i++)
         {
@@ -416,6 +417,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             }
         }
 
+        //Test if edge is cut and check for consistency
         bool oneAssgined = false;
         bool oneNotAssigned = false;
         for(int i=0;i<edgeCells[edgInd].size();i++)
@@ -433,13 +435,10 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                     label cutEdge1 = std::get<0>(oneTriangle);
                     label cutEdge2 = std::get<1>(oneTriangle);
                     label cutEdge3 = std::get<2>(oneTriangle);
-                    /*
-                    Info<<"cellInd:"<<cellInd<<"  sharedEdge_localInd: "<<sharedEdge_localInd;
-                    Info<<"  -  ["<<cutEdge1<<","<<cutEdge2<<","<<cutEdge3<<"]"<<Foam::endl;
-                    */
+
                     if(cutEdge1==sharedEdge_localInd ||
-                    cutEdge2==sharedEdge_localInd ||
-                    cutEdge3==sharedEdge_localInd)
+                       cutEdge2==sharedEdge_localInd ||
+                       cutEdge3==sharedEdge_localInd)
                     {
                         MC33Cube_cellLocal_cutfaceInd.append(j);
                         neighborhood_count.append(0);
@@ -496,7 +495,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 if(MC33Cube_cellLocal_cutfaceInd.size()>0)
                     oneAssgined=true;
                 edgeToNeigboringMC33Cubes_faceToCutEdge_localInd[edgInd][i] = sharedEdge_localInd;
-                //Info<<i<<"  MC33Cube_cellLocal_cutfaceInd:"<<MC33Cube_cellLocal_cutfaceInd<<Foam::endl;                
             }
             else
             {
@@ -510,63 +508,34 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             Info<<"oneAssgined:"<<oneAssgined<<Foam::endl;
             FatalErrorInFunction<<"Inconsistent edge assignment!"<< exit(FatalError);
         }
-        
         if(oneAssgined && !oneNotAssigned)
         {
             edgeIsCutEdge[edgInd] = true;
         }
     }
     
-    nbrOfPrevPoints = basisPoints.size();    
-    newMeshPointsInFunc.append(basisPoints);
+    nOldPoints = nbrOfPrevPoints = basisPoints.size();
+    preMotionPoints = basisPoints;
+    
+    DynamicList<label>provisional_pointMap;
+    for(label oldInd=0; oldInd<nOldPoints; oldInd++)
+    {
+        if(pointsToSide_[oldInd]==+1)
+        {
+            provisional_pointMap.append(oldInd);
+        }
+    }
+    reversePointMap.setSize(nOldPoints,-1);
+    for(label newInd=0; newInd<provisional_pointMap.size(); newInd++)
+    {
+        reversePointMap[provisional_pointMap[newInd]] = newInd;
+    }
 
+    newMeshPointsInFunc.append(basisPoints);
     pointsToSide(basisPoints);
     
     pointToEgde_.setSize(basisPoints.size(),-1);
     edgeToPoint_.setSize(basisEdges.size(),-1);
-    
-    pointToFaces_.setSize(basisPoints.size());
-    const labelListList& pointFaces = this->pointFaces();
-    const labelListList& edgeFaces = this->edgeFaces();
-    for(int i=0;i<basisPoints.size();i++)
-    {
-        if(pointsToSide_[i] == 0)
-        {
-            pointToFaces_[i] = pointFaces[i];
-        }
-    }
-    faceToPoints_.setSize(basisFaces.size());
-    for(int i=0;i<basisPoints.size();i++)
-    {
-        if(pointToFaces_[i].size() != 0)
-        {
-            for(int k=0;k<pointToFaces_[i].size();k++)
-            {
-                faceToPoints_[pointToFaces_[i][k]].append(i);
-            }
-        }
-    }
-    
-    pointToCells_.setSize(basisPoints.size());
-    const labelListList& pointCells = this->pointCells();
-    for(int i=0;i<basisPoints.size();i++)
-    {
-        if(pointsToSide_[i] == 0)
-        {
-            pointToCells_[i] = pointCells[i];
-        }
-    }
-    cellToPoints_.setSize(meshCells.size());
-    for(int i=0;i<basisPoints.size();i++)
-    {
-        if(pointToCells_[i].size() != 0)
-        {
-            for(int k=0;k<pointToCells_[i].size();k++)
-            {
-                cellToPoints_[pointToCells_[i][k]].append(i);
-            }
-        }
-    }
         
     for(int edgInd=0;edgInd<basisEdges.size();edgInd++)
     {
@@ -606,36 +575,13 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 if(!found)
                     FatalErrorInFunction<<"New Point have a dist to Nurbs!"<< exit(FatalError);
 
+                provisional_pointMap.append(-1);
                 cutPointInd = newMeshPointsInFunc.size();
                 newMeshPointsInFunc.append(newPoint);
                 meshPointNurbsReference.append(reference);            
-                pointsToSide_.append(0);            
+                pointsToSide_.append(1);            
                 pointToEgde_.append(edgInd);
                 edgeToPoint_[edgInd] = cutPointInd;
-                
-                DynamicList<label> insertedgeFaces;
-                insertedgeFaces.setSize(edgeFaces[edgInd].size());
-                for(int j=0;j<edgeFaces[edgInd].size();j++)
-                    insertedgeFaces[j] = edgeFaces[edgInd][j];
-                pointToFaces_.append(insertedgeFaces);
-                
-                for(int k=0;k<edgeFaces[edgInd].size();k++)
-                {
-                    label faceLabel = edgeFaces[edgInd][k];
-                    faceToPoints_[faceLabel].append(cutPointInd);
-                }
-
-                DynamicList<label> insertedgeCells;        
-                insertedgeCells.setSize(edgeCells[edgInd].size());
-                for(int j=0;j<edgeCells[edgInd].size();j++)
-                    insertedgeCells[j] = edgeCells[edgInd][j];
-                pointToCells_.append(insertedgeCells);
-                
-                for(int k=0;k<edgeCells[edgInd].size();k++)
-                {
-                    label cellLabel = edgeCells[edgInd][k];
-                    cellToPoints_[cellLabel].append(cutPointInd);
-                }
             }
             
             for(int i=0;i<edgeCells[edgInd].size();i++)
@@ -674,16 +620,25 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             }
         }
     }
-
-    newMeshPoints_ = pointField(newMeshPointsInFunc.size());
-    for(int i=0;i<newMeshPoints_.size();i++)
-        newMeshPoints_[i] = newMeshPointsInFunc[i];
-    newMeshPointsInFunc.setCapacity(0);
+    pointMap = provisional_pointMap;
     
-    pointToEgde_.setCapacity(pointToEgde_.size());
-    pointToFaces_.setCapacity(pointToFaces_.size());
-    pointToCells_.setCapacity(pointToFaces_.size());
     
+    newMeshPoints_ = pointField(pointMap.size());
+    label newInd=0;
+    for(;newInd<pointMap.size() && pointMap[newInd]!=-1; newInd++)
+    {
+        newMeshPoints_[newInd] = newMeshPointsInFunc[pointMap[newInd]];
+    }
+    if((pointMap.size()-newInd) != (newMeshPointsInFunc.size()-nOldPoints))
+    {
+        FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
+    }
+    for(label i=0; newInd<pointMap.size(); i++,newInd++)
+    {
+        newMeshPoints_[newInd] = newMeshPointsInFunc[nOldPoints+i];
+    }
+    
+    pointToEgde_.setCapacity(pointToEgde_.size());   
 }
 
 void Foam::cutCellFvMesh::printAddedPoints
@@ -693,38 +648,9 @@ void Foam::cutCellFvMesh::printAddedPoints
     Info<<"---------------------------------------AddedPoints-----------------------------------"<<endl;
     for(int k=nbrOfPrevPoints;k<newMeshPoints_.size();k++)
     {
-        Info<<"Point added: "<<k<<"-"<<newMeshPoints_[k]<<"\t"<<"at cells: ";
-        for(int l=0;l<pointToCells_[k].size();l++)
-            Info<<pointToCells_[k][l]<<" ";
-        Info<<"and at faces: ";
-        for(int l=0;l<pointToFaces_[k].size();l++)
-            Info<<pointToFaces_[k][l]<<" ";
-        Info<<"and at edge: ";
+        Info<<"Point added: "<<k<<"-"<<newMeshPoints_[k]<<"\t";
+        Info<<" at edge: ";
         Info<<pointToEgde_[k]<<endl;
-    }
-    Info<<"--------------------------------------CelltoPoints-----------------------------------"<<endl;
-    for(int k=0;k<cellToPoints_.size();k++)
-    {
-        Info<<"Cell "<<k<<" has added Points: ";
-        for(int j=0;j<cellToPoints_[k].size();j++)
-        {
-            int index = cellToPoints_[k][j];
-            Info<<index<<"-"<<newMeshPoints_[index]<<" ";
-        }
-        Info<<endl;
-    }
-    Info<<"--------------------------------------FacetoPoints-----------------------------------"<<endl;
-    for(int k=0;k<faceToPoints_.size();k++)
-    {
-        if(faceToPoints_[k].size() == 0)
-            continue;
-        Info<<"Face "<<k<<" has added Points: ";
-        for(int j=0;j<faceToPoints_[k].size();j++)
-        {
-            int index = faceToPoints_[k][j];
-            Info<<index<<"-"<<newMeshPoints_[index]<<" ";
-        }
-        Info<<endl;
     }
     Info<<"--------------------------------------EdgetoPoints-----------------------------------"<<endl;
     for(int k=0;k<edgeToPoint_.size();k++)
@@ -2004,7 +1930,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
 (
 )
 {
-    const cellList& meshCells = this->cells();
     const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
     const labelList& faceOwner = this->faceOwner();
@@ -2158,11 +2083,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
         {}
         else
             FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
-
-        if(faceInd==31980)
-        {
-            Info<<"faceInd:"<<faceInd<<"  areThereCutsInFace:"<<areThereCutsInFace[0]<<Foam::endl;
-        }
         
         if(areThereCutsInFace[0])
         {
@@ -2191,11 +2111,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                 
                 label mc33_edg_vert1 = thisCellCube.cutEdgeVerticeIndex[mc33_loc_edg1];
                 label mc33_edg_vert2 = thisCellCube.cutEdgeVerticeIndex[mc33_loc_edg2];
-                
-                if(faceInd==31980)
-                {
-                    Info<<"faceInd:"<<faceInd<<"  mc33_edg_vert1:"<<mc33_edg_vert1<<"  mc33_edg_vert2:"<<mc33_edg_vert2<<Foam::endl;
-                }
                 
                 if(mc33_edg_vert1 != mc33_edg_vert2)
                 //Avoid null triangles
@@ -2242,9 +2157,7 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
             }
         }
     }
-    
-    //Info<<faceToEdges_.size()<<endl;
-    //Info<<newMeshEdges_.size()<<endl;
+
     for(int i=0;i<newMeshEdges_.size();i++)
     {
         if(edgeToFaces_[i].size() != 0)
@@ -2256,11 +2169,11 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
         }
     }
     
+    /*
     edgeToCells_.setSize(newMeshEdges_.size());
     const labelList& owner = this->faceOwner();
     const labelList& neighbour = this->faceNeighbour();
     const labelListList& edgeCells = this->edgeCells();
-
     for(int i=0;i<newMeshEdges_.size();i++)
     {
         if(edgeToFaces_[i].size() != 0)
@@ -2285,7 +2198,9 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
             }
         }
     }
+    */
     
+    /*
     cellToEdges_.setCapacity(meshCells.size());
     for(int i=0;i<newMeshEdges_.size();i++)
     {
@@ -2297,13 +2212,13 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
             }
         }
     }
+    */
     
     newMeshEdges_.setCapacity(newMeshEdges_.size());
     edgesToSide_.setCapacity(edgesToSide_.size());
     edgeToFaces_.setCapacity(edgeToFaces_.size());
     faceToEdges_.setCapacity(faceToEdges_.size());
-    edgeToCells_.setCapacity(edgeToCells_.size());
-    
+    //edgeToCells_.setCapacity(edgeToCells_.size());
 }
 
 /*
@@ -2428,7 +2343,6 @@ bool Foam::cutCellFvMesh::equalEdges
     return true;
 }
 
-
 void Foam::cutCellFvMesh::printAddedEdges
 (
 )
@@ -2438,23 +2352,9 @@ void Foam::cutCellFvMesh::printAddedEdges
     {
         Info<<"Edge added: -"<<k<<"-"<< newMeshPoints_[newMeshEdges_[k].start()]
         <<"->"<<
-        newMeshPoints_[newMeshEdges_[k].end()]<<"\t"<<"at cells: ";
-        for(int l=0;l<edgeToCells_[k].size();l++)
-            Info<<edgeToCells_[k][l]<<" ";
-        Info<<"and at faces: ";
+        newMeshPoints_[newMeshEdges_[k].end()]<<"\t";
+        Info<<"at faces: ";
         Info<<edgeToFaces_[k]<<endl;
-    }        
-    Info<<"---------------------------------------CelltoEdge------------------------------------"<<endl;
-    for(int k=0;k<cellToEdges_.size();k++)
-    {
-        Info<<"Cell "<<k<<" has added Edges: ";
-        for(int j=0;j<cellToEdges_[k].size();j++)
-        {
-            int index = cellToEdges_[k][j];
-            Info<<" -"<<index<<"-" <<newMeshPoints_[newMeshEdges_[index].start()]<<"->"<<
-            newMeshPoints_[newMeshEdges_[index].end()];
-        }
-        Info<<endl;
     }
     Info<<"---------------------------------------FacetoEdge------------------------------------"<<endl;
     for(int k=0;k<faceToEdges_.size();k++)
@@ -3402,6 +3302,20 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     const polyBoundaryMesh& boundMesh = this->boundaryMesh();
     const labelListList& pointToEdges = this->pointEdges();
     const labelListList& cellToEdges = this->cellEdges();
+    
+    nOldFaces = meshFaces.size();
+    reverseFaceMap.setSize(nOldFaces,-1);
+    DynamicList<label> provisional_faceMap;
+    
+    nOldCells = meshCells.size();
+    reverseCellMap.setSize(nOldCells,-1);
+    DynamicList<label> provisional_cellMap;
+    oldCellVolumesPtr->setSize(nOldCells,0);
+    for(int i=0;i<nOldCells;i++)
+    {
+        (*oldCellVolumesPtr)[i] = meshCells[i].mag(meshPoints,meshFaces);
+    }
+    
 
     // Store old boundary patches
     labelList oldFaceToPatchInd(meshFaces.size(),-1);
@@ -3463,6 +3377,11 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     {
         if(cellToFaces_[i].size() > 0)
         {
+            if(cellsToSide_[i] != 0)
+            {                
+                FatalErrorInFunction<<"Non Zero cell has face inside!"<<exit(FatalError);
+            }
+            
             std::unordered_set<label> edgesTreated;
             DynamicList<DynamicList<label>> minusCells;
             DynamicList<DynamicList<label>> plusCells;
@@ -3960,8 +3879,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             else
                 FatalErrorInFunction<<"This combination is not possible"<<exit(FatalError);
         }
-
-        if(cellsToSide_[i] == -1)
+        else if(cellsToSide_[i] == -1)
         {
             deletedCell[i] = true;
         }
@@ -4621,7 +4539,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     //reduce for empty cells
     DynamicList<label> cellReductionNumb;
     cellReductionNumb.setSize(deletedCell.size());
-    mapOldCellsToNewCells.setSize(meshCells.size());
+    //mapOldCellsToNewCells.setSize(meshCells.size());
     label count = 0;
     label countDel = 0;
     for(int i=0;i<deletedCell.size();i++)
@@ -4640,7 +4558,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
 
                 if(cellToNewPlusCellsIndexes[i].size()==0)
                 {            
-                    mapOldCellsToNewCells[i].setSize(0);
+                    //mapOldCellsToNewCells[i].setSize(0);
                 }
                 else
                 {
@@ -4649,7 +4567,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                         
                     for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
                     {
-                        mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
+                        //mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
                     }
                 }
             }
@@ -4668,12 +4586,13 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     Info<<endl<<"cellToNewMinusCellsIndexes["<<i<<"].size():"<<cellToNewMinusCellsIndexes[i].size()<<endl;
                     FatalErrorInFunction<<"Nondeleted Cell. Invalid cell splitting."<<exit(FatalError);
                 }
-                mapOldCellsToNewCells[i].append(count);
+                //mapOldCellsToNewCells[i].append(count);
             }
             cellReductionNumb[i] = countDel;
         }
         count++;
     }
+    
     
     label maxNewCell = 0;
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
@@ -4708,11 +4627,13 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         }
     }
     
+    
     for(int i=cellReductionNumb.size();i<maxNumOfNewCellsNonCorr+1;i++)
     {
         cellReductionNumb.append(countDel);
     }
     
+    /*
     mapNewCellsToOldCells = labelList(maxNumOfNewCellsCorr+1,-1);
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
@@ -4726,6 +4647,9 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             mapNewCellsToOldCells[mapOldCellsToNewCells[i][j]] = i;                
         }
     }
+    */
+    
+    
     label nbrDeletedCells = 0;
     for(int i=0;i<deletedCell.size();i++)
         if(deletedCell[i])
@@ -7263,19 +7187,19 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
         << exit(FatalError); 
     }
     
-    if(newCellVolume.size() != mapNewCellsToOldCells.size())
+    if(newCellVolume.size() != cellMap.size())
     {
         Info<<"newCellVolume.size():"<<newCellVolume.size()<<endl;
-        Info<<"mapNewCellsToOldCells.size():"<<mapNewCellsToOldCells.size()<<endl;
+        Info<<"cellMap.size():"<<cellMap.size()<<endl;
         FatalErrorInFunction<< "Must not happen!"<< exit(FatalError);
     }
     
     for(int i=0;i<newCellVolume.size();i++)
     {
-        if(mapNewCellsToOldCells[i] == -1)
+        if(cellMap[i] == -1)
             partialVolumeScale[i] = 1;
         else
-            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[mapNewCellsToOldCells[i]];
+            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[cellMap[i]];
     }
     
     const cellList& newCells = this->cells();
