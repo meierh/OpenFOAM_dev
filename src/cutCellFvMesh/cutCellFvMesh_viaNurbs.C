@@ -656,12 +656,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     if(Pstream::master())
         Info<<"Cutting old faces took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
 
-    pointField points(0);
-    faceList faces(0);
-    labelList owner(0);
-    labelList neighbour(0);
     List<std::unordered_map<label,label>> oldPointIndToPatchInd;
-
 
     t1 = std::chrono::high_resolution_clock::now();
     createNewMeshData_MC33();
@@ -671,46 +666,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
 
     t1 = std::chrono::high_resolution_clock::now();
-        
-    faces.append(splitAndUnsplitFacesInterior);
-    faces.append(splitAndUnsplitFacesBoundary);
-    faces.append(addedCutFaces);
-    faces.append(splitAndUnsplitFacesInteriorToBoundary);
-    faces.append(splitAndUnsplitFacesInterface);
     
-    owner.append(splitAndUnsplitFacesInteriorOwner);
-    owner.append(splitAndUnsplitFacesBoundaryOwner);
-    owner.append(addedCutFacesOwner);
-    owner.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
-    owner.append(splitAndUnsplitFacesInterfaceOwner);
-    
-    neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
-    neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
-    neighbour.append(addedCutFacesNeighbor);
-    neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
-    neighbour.append(splitAndUnsplitFacesInterfaceNeighbor);
-    
-    for(int i=0;i<owner.size();i++)
-    {
-        if(owner[i]<0)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
-            Info<<"owner[i]:"<<owner[i]<<endl;
-            Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
-            FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
-        }
-        if(neighbour[i]<-1)
-        {
-            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
-            Info<<"faces["<<i<<"]:"<<faces[i]<<endl;
-            Info<<"owner[i]:"<<owner[i]<<endl;
-            Info<<"neighbour[i]:"<<neighbour[i]<<endl;            
-            FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
-        }
-    }
-        
-    
+    /*
     List<bool> pntDeleted(newMeshPoints_.size(),true);
     for(const face& oneFace: faces)
         for(const label& oneVertice: oneFace)
@@ -762,22 +719,10 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
             oneVertice = pntOldIndToNewInd[oneVertice];
         }
     }
-    Info<<"Set Ref"<<endl;
-    DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference_new;
-    meshPointNurbsReference_new.setSize(points.size());
-    scalarList pointDist_new;
-    pointDist_new.setSize(points.size());
-    for(int i=0;i<meshPointNurbsReference.size();i++)
-    {
-        if(!pntDeleted[i])
-        {                
-            meshPointNurbsReference_new[pntOldIndToNewInd[i]] = meshPointNurbsReference[i];
-            pointDist_new[pntOldIndToNewInd[i]] = pointDist[i];
-        }
-    }
-    meshPointNurbsReference = meshPointNurbsReference_new;
-    pointDist = pointDist_new;
-                        
+    */
+    
+
+    /*                    
     const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
     oldPointIndToPatchInd.setSize(boundaryMesh.size());
     for(int i=0;i<boundaryMesh.size();i++)
@@ -787,15 +732,16 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         for(int j=0;j<patchPoints.size();j++)
             oldPointIndToPatchInd[i].insert(std::pair<label,label>(patchPoints[j],j));
     }
+    */
 
     Info<<"Correcting face normal direction";
     t1 = std::chrono::high_resolution_clock::now();
-    correctFaceNormalDir(points,faces,owner,neighbour);
+    correctFaceNormalDir(new_points,new_faces,new_owner,new_neighbour);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
 
-    
+    /*    
     const pointField& oldPoints = this->points();
     const faceList& oldFaceList = this->faces();
     const cellList& oldCells = this->cells();    
@@ -809,8 +755,9 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
             FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
         }   
     }
+    */
     
-    testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
+    testNewMeshData(new_faces,new_owner,new_neighbour,patchStarts,patchSizes);
     
     /*
     meshCuttingMap = mapPolyMesh(*this,nOldPoints,nOldFaces,nOldCells,pointMap,pointsFromPoints,faceMap,facesFromPoints,
@@ -820,15 +767,17 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
                                  oldPatchStarts,oldPatchNMeshPoints,oldCellVolumesPtr);
     */
         
-    resetPrimitives(Foam::clone(points),
-                    Foam::clone(faces),
-                    Foam::clone(owner),
-                    Foam::clone(neighbour),
+    resetPrimitives(Foam::clone(new_points),
+                    Foam::clone(new_faces),
+                    Foam::clone(new_owner),
+                    Foam::clone(new_neighbour),
                     patchSizes,
                     patchStarts,
                     false);
+    
     Info<<"Reset"<<endl;
     
+    /*
     std::unordered_set<label> activePnts;
     for(int i=0;i<this->faces().size();i++)
         for(int j=0;j<this->faces()[i].size();j++)
@@ -844,6 +793,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         Info<<"this->points().size():"<<this->points().size()<<endl;
         FatalErrorInFunction<< "Invalid point number"<<endl<< exit(FatalError);
     }
+    */
     
     this->topoChanging(true);
     //updateMesh(motionSolverMap);
@@ -943,7 +893,7 @@ Barrier(true);
     newCellVolume = scalarList(newCells.size());
     for(int i=0;i<newCellVolume.size();i++)
     {
-        newCellVolume[i] = newCells[i].mag(points,this->faces());
+        newCellVolume[i] = newCells[i].mag(new_points,this->faces());
     }
     t1 = std::chrono::high_resolution_clock::now();
     agglomerateSmallCells_cutNeg_plus(newCellVolume,oldCellVolume,partialThreeshold);

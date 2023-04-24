@@ -268,9 +268,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInteriorNeighbor;
             // added interior split faces patch Index
             DynamicList<label> splitAndUnsplitFacesInteriorPatchInd;
+            // added interior split faces old Index
+            DynamicList<label> splitAndUnsplitFacesInteriorOldInd;
             // faceInd to sub list index
-            std::unordered_map<label,label> sAUFI_NewToOldMap;
-            std::unordered_multimap<label,label> sAUFI_OldToNewMap;
+            //std::unordered_map<label,label> sAUFI_NewToOldMap;
+            //std::unordered_multimap<label,label> sAUFI_OldToNewMap;
             
             //insert interior to boundary splitted faces
             // added interior to boundary split faces
@@ -281,9 +283,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryNeighbor;
             // added interior to boundary split faces patch Index
             DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryPatchInd;
+            // added interior to boundary split faces old Index
+            DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryOldInd;
             // faceInd to sub list index
-            std::unordered_map<label,label> sAUFITB_NewToOldMap;
-            std::unordered_multimap<label,label> sAUFITB_OldToNewMap;
+            //std::unordered_map<label,label> sAUFITB_NewToOldMap;
+            //std::unordered_multimap<label,label> sAUFITB_OldToNewMap;
             
             //insert boundary splitted faces
             // added boundary split faces
@@ -294,9 +298,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesBoundaryNeighbor;
             // added boundary split faces patch Index
             DynamicList<label> splitAndUnsplitFacesBoundaryPatchInd;
+            // added boundary split faces old index
+            DynamicList<label> splitAndUnsplitFacesBoundaryOldInd;
             // faceInd to sub list index
-            std::unordered_map<label,label> sAUFB_NewToOldMap;
-            std::unordered_multimap<label,label> sAUFB_OldToNewMap;
+            //std::unordered_map<label,label> sAUFB_NewToOldMap;
+            //std::unordered_multimap<label,label> sAUFB_OldToNewMap;
             
             //insert interface splitted faces
             // added interface split faces
@@ -307,9 +313,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInterfaceNeighbor;
             // added interface split faces patch Index
             DynamicList<label> splitAndUnsplitFacesInterfacePatchInd;
+            // added interface split faces old Ind
+            DynamicList<label>  splitAndUnsplitFacesInterfaceOldInd;
             // faceInd to sub list index
-            std::unordered_map<label,label> sAUFIf_NewToOldMap;
-            std::unordered_multimap<label,label> sAUFIf_OldToNewMap;
+            //std::unordered_map<label,label> sAUFIf_NewToOldMap;
+            //std::unordered_multimap<label,label> sAUFIf_OldToNewMap;
             
             //list of indexes of minus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
@@ -365,6 +373,12 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             //uncut cell to plus side cut cell face collection
             labelList oldCellToPlusCutCell;
         //End
+            
+            //New mesh data
+            pointField new_points;
+            faceList new_faces;
+            labelList new_owner;
+            labelList new_neighbour;
             
         //List<std::shared_ptr<Nurbs>> Curves;
         std::shared_ptr<std::vector<Nurbs1D>> Curves;
@@ -610,6 +624,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold = 0.25
         );
         */
+        
+        void agglomerateSmallCells_MC33
+        (
+            scalar partialThreeshold = 0.25
+        );
         
         void agglomerateSmallCells_cutNeg_plus
         (

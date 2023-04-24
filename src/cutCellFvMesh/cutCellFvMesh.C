@@ -148,7 +148,10 @@ void Foam::cutCellFvMesh::facesToSide
         
         if(!negExist)
         {
-            facesToSide_[i] = +1;
+            if(posExist)
+                facesToSide_[i] = +1;
+            else
+                facesToSide_[i] = +2;
         }
         else
         {
@@ -185,7 +188,10 @@ void Foam::cutCellFvMesh::facesToSide
         
         if(!negExist)
         {
-            facesToSide[i] = +1;
+            if(posExist)
+                facesToSide[i] = +1;
+            else
+                facesToSide[i] = +2;
         }
         else
         {
@@ -2925,7 +2931,7 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
             
                 newMeshFaces_.append(addedFace);
         
-                facesToSide_.append(0);
+                facesToSide_.append(+2);
         
                 DynamicList<label> newFaceCell;;
                 newFaceCell.append(cellInd);
@@ -3025,9 +3031,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     cutFaces_.setCapacity(meshFaces.size());
     oldFacesToCutFaces_.setCapacity(meshFaces.size());
     cutFacesToSide_.setCapacity(meshFaces.size());
-    
-    Info<<"faceToEdges_[31980]:"<<faceToEdges_[31980]<<endl;
-    
+        
     for(int i=0;i<meshFaces.size();i++)
     {       
         label ownerCell = cellOwner[i];        
@@ -3340,6 +3344,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             oldFaceToPatchInd[patchStarts[i]+j] = i;
         }
     }
+    oldPatchStarts = patchStarts;
+    oldPatchNMeshPoints = patchSizes;
     if(cutCellPatchIndex==-1)
     {
         FatalErrorInFunction<<"Cut Cell patch does not exist"<<exit(FatalError);
@@ -3898,6 +3904,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     for(int i=0;i<deletedCell.size();i++)
         correctdeletedCell[i] = deletedCell[i];
     
+    /*
     labelList deletedCellSIZE(Pstream::nProcs(),0);
     deletedCellSIZE[Pstream::myProcNo()] = deletedCell.size();
     Pstream::gatherList(deletedCellSIZE);
@@ -3909,14 +3916,13 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     Pstream::gatherList(correctdeletedCellSIZE);
     if(Pstream::master())
         std::cout<<"--------correctdeletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<correctdeletedCellSIZE[0]<<","<<correctdeletedCellSIZE[1]<<","<<correctdeletedCellSIZE[2]<<","<<correctdeletedCellSIZE[3]<<"----------"<<std::endl;
+    */
 
     for(int i=0;i<cellToNewMinusCellsIndexes.size();i++)
     {
         for(int j=0;j<cellToNewMinusCellsIndexes[i].size();j++)
         {
             label minusCellInd = cellToNewMinusCellsIndexes[i][j];
-            
-            
             if(minusCellInd<deletedCell.size())
             {
                 if(!correctdeletedCell[minusCellInd])
@@ -3925,15 +3931,16 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             else
                 correctdeletedCell[minusCellInd] = true;
         }
-    }
-    
+    }    
     deletedCell = correctdeletedCell;
     
+    /*
     deletedCellSIZE = labelList(Pstream::nProcs(),0);
     deletedCellSIZE[Pstream::myProcNo()] = deletedCell.size();
     Pstream::gatherList(deletedCellSIZE);
     if(Pstream::master())
         std::cout<<"--------deletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<deletedCellSIZE[0]<<","<<deletedCellSIZE[1]<<","<<deletedCellSIZE[2]<<","<<deletedCellSIZE[3]<<"----------"<<std::endl;
+    */
     
 //Barrier(true);
         
@@ -4056,7 +4063,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         {
             face face1      = cutFaces_[oldFacesToCutFaces_[i][j]];
             label signFace1 = cutFacesToSide_[oldFacesToCutFaces_[i][j]];
-            
+                        
             if(signFace1>=0)
             {
                 label oldOwnerCell = owner[i];
@@ -4301,6 +4308,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     sAUFITB_OldToNewMap.insert(std::pair<label,label>(i,-1));
                     splitAndUnsplitFacesInteriorToBoundary.append(face1);
                     splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(cutCellPatchIndex);
+                    splitAndUnsplitFacesInteriorToBoundaryOldInd.append(i);
                     if(newOwnerCellPlusOrMinus==+1 && newNeighborCellPlusOrMinus==-1)
                     {
                         splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
@@ -4315,14 +4323,36 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                         FatalErrorInFunction<<"Zero face in face does not border a negative and a positive cell" << exit(FatalError);
                     */
                 }
+                else if(signFace1==2)
+                {
+                    FatalErrorInFunction<<"Splitted face can not be an all zero face" << exit(FatalError);
+                    
+                    splitAndUnsplitFacesInteriorToBoundary.append(face1);
+                    splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(cutCellPatchIndex);
+                    splitAndUnsplitFacesInteriorToBoundaryOldInd.append(-1);
+                    
+                    if(newOwnerCellPlusOrMinus==+1 && newNeighborCellPlusOrMinus==-1)
+                    {
+                        splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
+                        splitAndUnsplitFacesInteriorToBoundaryOwner.append(newOwnerCell);
+                    }
+                    else if(newOwnerCellPlusOrMinus==-1 && newNeighborCellPlusOrMinus==+1)
+                    {
+                        splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
+                        splitAndUnsplitFacesInteriorToBoundaryOwner.append(newNeighborCell);
+                    }
+                    else
+                        FatalErrorInFunction<<"Zero face in face does not border a negative and a positive cell" << exit(FatalError);
+                }
                 else
                 {
-                    sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesInterior.size(),i));
-                    sAUFI_OldToNewMap.insert(std::pair<label,label>(i,-1));
+                    //sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesInterior.size(),i));
+                    //sAUFI_OldToNewMap.insert(std::pair<label,label>(i,-1));
                     splitAndUnsplitFacesInterior.append(face1);
                     splitAndUnsplitFacesInteriorNeighbor.append(newNeighborCell);
                     splitAndUnsplitFacesInteriorOwner.append(newOwnerCell);
                     splitAndUnsplitFacesInteriorPatchInd.append(-1);
+                    splitAndUnsplitFacesInteriorOldInd.append(-1);
                 }
             }
         }
@@ -4332,12 +4362,13 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             // Interior uncut face on positive side is appended  without change
             if(facesToSide_[i] == 1)
             {
-                sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesInterior.size(),i));
-                sAUFI_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesInterior.size()));
+                //sAUFI_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesInterior.size(),i));
+                //sAUFI_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesInterior.size()));
                 splitAndUnsplitFacesInterior.append(meshFaces[i]);
                 splitAndUnsplitFacesInteriorNeighbor.append(neighbour[i]);
                 splitAndUnsplitFacesInteriorOwner.append(owner[i]);
                 splitAndUnsplitFacesInteriorPatchInd.append(-1);
+                splitAndUnsplitFacesInteriorOldInd.append(i);
             }
             else if(facesToSide_[i] == 0)
             {
@@ -4364,6 +4395,25 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     FatalErrorInFunction<<"Complete four point zero face must neighbor a negative and a positive cell"<< exit(FatalError);
                 }
                 */
+            }
+            else if(facesToSide_[i] == 2)
+            {              
+                splitAndUnsplitFacesInteriorToBoundary.append(meshFaces[i]);
+                splitAndUnsplitFacesInteriorToBoundaryPatchInd.append(cutCellPatchIndex);
+                splitAndUnsplitFacesInteriorToBoundaryOldInd.append(i);
+                
+                if(cellsToSide_[neighbour[i]]==1 && cellsToSide_[owner[i]]==0)
+                {
+                    splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
+                    splitAndUnsplitFacesInteriorToBoundaryOwner.append(neighbour[i]);
+                }
+                else if(cellsToSide_[neighbour[i]]==0 && cellsToSide_[owner[i]]==1)
+                {
+                    splitAndUnsplitFacesInteriorToBoundaryNeighbor.append(-1);
+                    splitAndUnsplitFacesInteriorToBoundaryOwner.append(owner[i]);
+                }
+                else
+                    FatalErrorInFunction<<"Cell side of owner or neighbor must be wrong" << exit(FatalError);
             }
             // Interior cell on that is neither +1 nor -1 must be 0 and be treated in the first if part
             else if(facesToSide_[i] != -1)
@@ -4442,28 +4492,30 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 if(newOwnerCell==-1)
                     FatalErrorInFunction<< "Old splitted face does not neigbour a newSplit Cell." << exit(FatalError);
                 
-                if(signFace1==0)
+                if(signFace1==0 || signFace1==2)
                 {
-                    FatalErrorInFunction<< "New cut boundary face can not have a zero sign" << exit(FatalError);
+                    FatalErrorInFunction<< "New cut boundary face can not have a zero sign and must not be a zero face" << exit(FatalError);
                 }
 
                 if(oldFaceToPatchInd[i]<cutCellPatchIndex)
                 {
-                    sAUFB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
-                    sAUFB_OldToNewMap.insert(std::pair<label,label>(i,-1));
+                    //sAUFB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    //sAUFB_OldToNewMap.insert(std::pair<label,label>(i,-1));
                     splitAndUnsplitFacesBoundary.append(face1);
                     splitAndUnsplitFacesBoundaryNeighbor.append(-1);
                     splitAndUnsplitFacesBoundaryOwner.append(newOwnerCell);
                     splitAndUnsplitFacesBoundaryPatchInd.append(oldFaceToPatchInd[i]);
+                    splitAndUnsplitFacesBoundaryOldInd.append(-1);
                 }
                 else if(oldFaceToPatchInd[i]>cutCellPatchIndex)
                 {
-                    sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
-                    sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,-1));
+                    //sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    //sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,-1));
                     splitAndUnsplitFacesInterface.append(face1);
                     splitAndUnsplitFacesInterfaceNeighbor.append(-1);
                     splitAndUnsplitFacesInterfaceOwner.append(newOwnerCell);
                     splitAndUnsplitFacesInterfacePatchInd.append(oldFaceToPatchInd[i]);
+                    splitAndUnsplitFacesInterfaceOldInd.append(-1);
                 }
                 else
                     FatalErrorInFunction<< "Old splitted boundary face can not be a cutCellPatch face" << exit(FatalError);
@@ -4474,6 +4526,36 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         {            
             if(facesToSide_[i] == 1)
             {
+                if(oldFaceToPatchInd[i]<cutCellPatchIndex)
+                {
+                    //sAUFB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    //sAUFB_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
+                    splitAndUnsplitFacesBoundary.append(meshFaces[i]);
+                    splitAndUnsplitFacesBoundaryNeighbor.append(-1);
+                    splitAndUnsplitFacesBoundaryOwner.append(owner[i]);
+                    splitAndUnsplitFacesBoundaryPatchInd.append(oldFaceToPatchInd[i]);
+                    splitAndUnsplitFacesBoundaryOldInd.append(i);
+                }
+                else if(oldFaceToPatchInd[i]>cutCellPatchIndex)
+                {
+                    //sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                    //sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
+                    splitAndUnsplitFacesInterface.append(meshFaces[i]);
+                    splitAndUnsplitFacesInterfaceNeighbor.append(-1);
+                    splitAndUnsplitFacesInterfaceOwner.append(owner[i]);
+                    splitAndUnsplitFacesInterfacePatchInd.append(oldFaceToPatchInd[i]);
+                    splitAndUnsplitFacesInterfaceOldInd.append(i);
+                }
+                else
+                    FatalErrorInFunction<< "Old splitted boundary face can not be a cutCellPatch face" << exit(FatalError);
+            }
+            else if(facesToSide_[i] == 0)
+            {
+                FatalErrorInFunction
+                << "A zero side face can not appear if the face is not cut!"
+                << exit(FatalError);
+                
+                /*
                 if(oldFaceToPatchInd[i]<cutCellPatchIndex)
                 {
                     sAUFB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
@@ -4494,12 +4576,40 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 }
                 else
                     FatalErrorInFunction<< "Old splitted boundary face can not be a cutCellPatch face" << exit(FatalError);
+                */
             }
-            else if(facesToSide_[i] == 0)
+            else if(facesToSide_[i] == 2)
             {
-                FatalErrorInFunction
-                << "A zero side face can not appear if the face is not cut!"
-                << exit(FatalError);
+                if(cellsToSide_[owner[i]]==0)
+                {
+                }
+                else if(cellsToSide_[owner[i]]==1)
+                {
+                    if(oldFaceToPatchInd[i]<cutCellPatchIndex)
+                    {
+                        //sAUFB_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                        //sAUFB_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
+                        splitAndUnsplitFacesBoundary.append(meshFaces[i]);
+                        splitAndUnsplitFacesBoundaryNeighbor.append(-1);
+                        splitAndUnsplitFacesBoundaryOwner.append(owner[i]);
+                        splitAndUnsplitFacesBoundaryPatchInd.append(oldFaceToPatchInd[i]);
+                        splitAndUnsplitFacesBoundaryOldInd.append(i);
+                    }
+                    else if(oldFaceToPatchInd[i]>cutCellPatchIndex)
+                    {
+                        //sAUFIf_NewToOldMap.insert(std::pair<label,label>(splitAndUnsplitFacesBoundary.size(),i));
+                        //sAUFIf_OldToNewMap.insert(std::pair<label,label>(i,splitAndUnsplitFacesBoundary.size()));
+                        splitAndUnsplitFacesInterface.append(meshFaces[i]);
+                        splitAndUnsplitFacesInterfaceNeighbor.append(-1);
+                        splitAndUnsplitFacesInterfaceOwner.append(owner[i]);
+                        splitAndUnsplitFacesInterfacePatchInd.append(oldFaceToPatchInd[i]);
+                        splitAndUnsplitFacesInterfaceOldInd.append(i);
+                    }
+                    else
+                        FatalErrorInFunction<< "Old splitted boundary face can not be a cutCellPatch face" << exit(FatalError);
+                }
+                else
+                    FatalErrorInFunction<<"Cell side of owner or neighbor must be wrong" << exit(FatalError);
                 
                 /*
                 if(oldFaceToPatchInd[i]<cutCellPatchIndex)
@@ -4539,8 +4649,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     //reduce for empty cells
     DynamicList<label> cellReductionNumb;
     cellReductionNumb.setSize(deletedCell.size());
-    //mapOldCellsToNewCells.setSize(meshCells.size());
-    label count = 0;
+    mapOldCellsToNewCells.setSize(meshCells.size());
+    //label count = 0;
     label countDel = 0;
     for(int i=0;i<deletedCell.size();i++)
     {
@@ -4558,7 +4668,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
 
                 if(cellToNewPlusCellsIndexes[i].size()==0)
                 {            
-                    //mapOldCellsToNewCells[i].setSize(0);
+                    mapOldCellsToNewCells[i].setSize(0);
                 }
                 else
                 {
@@ -4567,7 +4677,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                         
                     for(int j=0;j<cellToNewPlusCellsIndexes[i].size();j++)
                     {
-                        //mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
+                        mapOldCellsToNewCells[i].append(cellToNewPlusCellsIndexes[i][j]);
                     }
                 }
             }
@@ -4586,20 +4696,22 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                     Info<<endl<<"cellToNewMinusCellsIndexes["<<i<<"].size():"<<cellToNewMinusCellsIndexes[i].size()<<endl;
                     FatalErrorInFunction<<"Nondeleted Cell. Invalid cell splitting."<<exit(FatalError);
                 }
-                //mapOldCellsToNewCells[i].append(count);
+                mapOldCellsToNewCells[i].append(i);
+                reverseCellMap[i] = i;
             }
             cellReductionNumb[i] = countDel;
         }
-        count++;
+        //count++;
     }
     
-    
+    /*
     label maxNewCell = 0;
     for(int i=0;i<mapOldCellsToNewCells.size();i++)
     {
         for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
             maxNewCell = (maxNewCell<mapOldCellsToNewCells[i][j])?mapOldCellsToNewCells[i][j]:maxNewCell;
     }
+    */
     
     label maxNumOfNewCellsCorr = 0;
     label maxNumOfNewCellsNonCorr = 0; // added
@@ -4616,17 +4728,28 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         for(int j=0;j<mapOldCellsToNewCells[i].size();j++)
         {
             if(mapOldCellsToNewCells[i][j]<i)
-                FatalErrorInFunction<<"Old cells can only be mapped to new cells of higher index."<<exit(FatalError);            
+                FatalErrorInFunction<<"Old cells can only be mapped to new cells of higher index."<<exit(FatalError);
             if(maxNumOfNewCellsNonCorr<mapOldCellsToNewCells[i][j]) // added
                 maxNumOfNewCellsNonCorr = mapOldCellsToNewCells[i][j]; // added
             if(cellReductionNumb[mapOldCellsToNewCells[i][j]]==-1)
-                FatalErrorInFunction<<"Positive new cell is deleted. Can not happen"<<exit(FatalError);            
+                FatalErrorInFunction<<"Positive new cell is deleted. Can not happen"<<exit(FatalError);
             mapOldCellsToNewCells[i][j] -= cellReductionNumb[mapOldCellsToNewCells[i][j]];
             if(maxNumOfNewCellsCorr<mapOldCellsToNewCells[i][j])
                 maxNumOfNewCellsCorr = mapOldCellsToNewCells[i][j];
         }
+        if(reverseCellMap[i]!=-1)
+        {
+            reverseCellMap[i] -= cellReductionNumb[reverseCellMap[i]];
+        }
     }
-    
+    cellMap.setSize(maxNumOfNewCellsCorr,-1);
+    for(int oldCelli=0;oldCelli<reverseCellMap.size();oldCelli++)
+    {
+        if(reverseCellMap[oldCelli]!=-1)
+        {
+            cellMap[reverseCellMap[oldCelli]] = oldCelli;
+        }
+    }
     
     for(int i=cellReductionNumb.size();i<maxNumOfNewCellsNonCorr+1;i++)
     {
@@ -4649,11 +4772,12 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     }
     */
     
-    
+    /*
     label nbrDeletedCells = 0;
     for(int i=0;i<deletedCell.size();i++)
         if(deletedCell[i])
             nbrDeletedCells++;
+    */
     
 //Barrier(true);
     
@@ -4779,6 +4903,8 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             }
         }
     }
+    
+    /*
     labelList boundaryPatchesStartSIZE(Pstream::nProcs(),0);
     boundaryPatchesStartSIZE[Pstream::myProcNo()] = boundaryPatchesStart.size();
     Pstream::gatherList(boundaryPatchesStartSIZE);
@@ -4790,6 +4916,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     Pstream::gatherList(patchStartsSIZE);
     if(Pstream::master())
         std::cout<<"--------patchStartsSIZE:"<<Pstream::myProcNo()<<"----"<<patchStartsSIZE[0]<<","<<patchStartsSIZE[1]<<","<<patchStartsSIZE[2]<<","<<patchStartsSIZE[3]<<"----------"<<std::endl;
+    */
     
 //Barrier(false);
     
@@ -4829,15 +4956,105 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     Info<<"facesToBoundaryPatchInd.size():"<<facesToBoundaryPatchInd.size()<<Foam::endl;
     */
     
+    /*
     deletedCellSIZE = labelList(Pstream::nProcs(),0);
     deletedCellSIZE[Pstream::myProcNo()] = deletedCell.size();
     Pstream::gatherList(deletedCellSIZE);
     if(Pstream::master())
         std::cout<<"--------deletedCellSIZE:"<<Pstream::myProcNo()<<"----"<<deletedCellSIZE[0]<<","<<deletedCellSIZE[1]<<","<<deletedCellSIZE[2]<<","<<deletedCellSIZE[3]<<"----------"<<std::endl;
+    */
     
 
 //Barrier(true);
 
+    //std::function<faceList&(faceList&)> face_vertice_correction;
+    auto face_vertice_correction = [&](faceList& faces)
+    {
+        for(face& oneFace : faces)
+        {
+            for(int i=0;i<oneFace.size();i++)
+            {
+                label reduced_index_vertice = reversePointMap[oneFace[i]];
+                if(reduced_index_vertice<0)
+                    FatalErrorInFunction<<"Invalid entry in reversePointMap!"<< exit(FatalError);
+                oneFace[i] = reduced_index_vertice;
+            }
+        }
+        return faces;
+    };
+
+    new_points = newMeshPoints_;
+    
+    new_faces.append(face_vertice_correction(splitAndUnsplitFacesInterior));
+    new_faces.append(face_vertice_correction(splitAndUnsplitFacesBoundary));
+    new_faces.append(face_vertice_correction(addedCutFaces));
+    new_faces.append(face_vertice_correction(splitAndUnsplitFacesInteriorToBoundary));
+    new_faces.append(face_vertice_correction(splitAndUnsplitFacesInterface));
+    
+    new_owner.append(splitAndUnsplitFacesInteriorOwner);
+    new_owner.append(splitAndUnsplitFacesBoundaryOwner);
+    new_owner.append(addedCutFacesOwner);
+    new_owner.append(splitAndUnsplitFacesInteriorToBoundaryOwner);
+    new_owner.append(splitAndUnsplitFacesInterfaceOwner);
+    
+    new_neighbour.append(splitAndUnsplitFacesInteriorNeighbor);
+    new_neighbour.append(splitAndUnsplitFacesBoundaryNeighbor);
+    new_neighbour.append(addedCutFacesNeighbor);
+    new_neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
+    new_neighbour.append(splitAndUnsplitFacesInterfaceNeighbor);
+    
+    for(int i=0;i<owner.size();i++)
+    {
+        if(owner[i]<0)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"new_faces["<<i<<"]:"<<new_faces[i]<<endl;
+            Info<<"new_owner[i]:"<<new_owner[i]<<endl;
+            Info<<"new_neighbour[i]:"<<new_neighbour[i]<<endl;            
+            FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
+        }
+        if(neighbour[i]<-1)
+        {
+            Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
+            Info<<"new_faces["<<i<<"]:"<<new_faces[i]<<endl;
+            Info<<"new_owner[i]:"<<new_owner[i]<<endl;
+            Info<<"new_neighbour[i]:"<<new_neighbour[i]<<endl;       
+            FatalErrorInFunction<<"Neighbour fail stop"<< exit(FatalError); 
+        }
+    }
+    
+    faceMap.setSize(0);
+    faceMap.append(splitAndUnsplitFacesInteriorOldInd);
+    faceMap.append(splitAndUnsplitFacesBoundaryOldInd);
+    faceMap.append(labelList(addedCutFaces.size(),-1));
+    faceMap.append(splitAndUnsplitFacesInteriorToBoundaryOldInd);
+    faceMap.append(splitAndUnsplitFacesInterfaceOldInd);
+
+    for(int newFacei=0;newFacei<faceMap.size();newFacei++)
+    {
+        if(faceMap[newFacei]!=-1)
+        {
+            reverseFaceMap[faceMap[newFacei]] = newFacei;
+        }
+    }
+
+    DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference_new;
+    meshPointNurbsReference_new.setSize(new_points.size());
+    scalarList pointDist_new;
+    pointDist_new.setSize(new_points.size());
+    for(int oldPointi=0;oldPointi<meshPointNurbsReference.size();oldPointi++)
+    {
+        label newPointi = reversePointMap[oldPointi];
+        if(newPointi!=-1)
+        {                
+            meshPointNurbsReference_new[newPointi] = meshPointNurbsReference[oldPointi];
+            pointDist_new[newPointi] = pointDist[oldPointi];
+        }
+    }
+    meshPointNurbsReference = meshPointNurbsReference_new;
+    pointDist = pointDist_new;
+    
+    //patchPointMap
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
@@ -7155,6 +7372,44 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
     Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
 }
 */
+
+void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
+(
+    scalar partialThreeshold = 0.25
+)
+{
+    std::unordered_map<label,DynamicList<label>> cell_to_faces;
+    
+    label maxCell=-1;
+    for(int faceInd=0;faceInd<new_owner.size();faceInd++)
+    {
+        maxCell = std::max(maxCell,new_owner[faceInd]);
+        cell_to_faces[new_owner[faceInd]].append(faceInd);
+    }
+    for(int faceInd=0;faceInd<new_neighbour.size();faceInd++)
+    {
+        maxCell = std::max(maxCell,new_neighbour[faceInd]);
+        cell_to_faces[new_neighbour[faceInd]].append(faceInd);
+    }
+    
+    cellList cells(maxCell+1);
+    scalarList cellVolume(cells.size());
+    for(int cellInd=0;cellInd<cells.size();cellInd++)
+    {
+        DynamicList<label>& cellFaces = cell_to_faces[cellInd];
+        if(cellFaces.size()<4)
+        {
+            FatalErrorInFunction<<"Illformed cell!"<< exit(FatalError); 
+        }
+        cellList[cellInd] = cell(cellFaces);
+        cellVolume[cellInd] = cellList[cellInd].mag(new_points,new_faces);
+    }
+    
+    
+    
+    
+    
+}
 
 void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
 (
