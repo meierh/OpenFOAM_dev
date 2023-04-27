@@ -7456,9 +7456,36 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             };
             std::sort(faces_size_list.begin(),faces_size_list.end(),tuple_compare);
             cell_to_merge_Candidates[cellInd] = faces_size_list;
+
+            label merge_indx = -1;
+            for(label merge_option_ind=0;merge_option_ind<faces_size_list.size();merge_option_ind++)
+            {
+                label merge_cell_index = std::get<2>(cell_to_merge_Candidates[cellInd][merge_option_ind])
+                if(!too_small_cell[merge_cell_index])
+                {
+                    merge_indx = merge_option_ind;
+                    break;
+                }
+            }
+            if(merge_indx==-1)
+            {
+                deleted_cell_to_merge_cell[cellInd] = -2;
+            }
+            else
+            {
+                deleted_cell_to_merge_cell[cellInd] = std::get<2>(cell_to_merge_Candidates[cellInd][merge_indx];
+            }
+            deleted_faces[std::get<1>(cell_to_merge_Candidates[cellInd][merge_indx])] = true;
         }
-        deleted_cell_to_merge_cell[cellInd] = std::get<2>(cell_to_merge_Candidates[cellInd][0]);
-        deleted_faces[std::get<1>(cell_to_merge_Candidates[cellInd][0])] = true;
+    }
+    for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
+    {
+        label merge_cell = cellInd;
+        while(deleted_cell_to_merge_cell[merge_cell]==-2)
+        {
+            merge_cell = std::get<2>(cell_to_merge_Candidates[merge_cell][0]);
+        }
+        deleted_cell_to_merge_cell[cellInd] = merge_cell;
     }
     
     DynamicList<face> new_faces;
@@ -7485,33 +7512,74 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     this->faceMap = faceMap;
     
     labelList cellindex_correction(cells.size());
-    label new_index=0;
-    labelList cellReduction(cells.size());
+    std::unordered_set<label> replacedCells;
     for(label cellInd=0;cellInd<cells.size();cellInd++)
     {
         label merge_cell = deleted_cell_to_merge_cell[cellInd];
         if(merge_cell!=-1)
         {
             cellindex_correction[cellInd] = merge_cell;
+            this->cellMap[merge_cell] = -1;
+            replacedCells.insert(merge_cell);
+            replacedCells.insert(cellInd);
         }
         cellindex_correction[cellInd] = cellInd;
     }
-    labelList cellReductionNumb(cells.size(),-1);
-    
-    
-    for(label oldCelli=0;oldCelli<reverseCellMap.size();oldCelli++)
+    for(label oldCelli=0;oldCelli<this->reverseCellMap.size();oldCelli++)
     {
+        if(replacedCells.find(oldCelli)!=replacedCells.end())
+            this->reverseCellMap[oldCelli] = -1;
     }
     
+    label new_cell_index=0;
+    labelList cellReductionNumb(cells.size(),-1);
+    for(label cellInd=0;cellInd<cells.size();cellInd++)
+    {
+        if(deleted_cell_to_merge_cell[cellInd]==-1)
+        {
+            cellReductionNumb[cellInd] = new_cell_index;
+            new_cell_index++;
+        }
+    }
     
+    bool reached_boundary = false;
+    for(label faceInd=0;faceInd<new_owner.size();faceInd++)
+    {
+        if(new_owner[faceInd]==-1)
+            FatalErrorInFunction<<"Must not happen!"<< exit(FatalError);
+        new_owner[faceInd] = cellReductionNumb[cellindex_correction[new_owner[faceInd]]];
+        
+        if(!reached_boundary)
+        {
+            if(new_neighbour[faceInd]==-1)
+            {
+                reached_boundary = true;
+            }
+            else
+            {
+                new_neighbour[faceInd] = cellReductionNumb[cellindex_correction[new_neighbour[faceInd]]];
+            }
+        }
+        else
+        {
+            if(new_neighbour[faceInd]!=-1)
+            {
+                FatalErrorInFunction<<"Must not happen!"<< exit(FatalError);
+            }
+        }
+    }
     
-    
-    
-    
-    
-    
-    
-    
+    labelList cellMap(new_cell_index,-1);
+    for(label celli=0;celli<this->cellMap.size();celli++)
+    {
+        this->cellMap[celli] = cellindex_correction[this->cellMap[celli]];
+        
+        if(cellReductionNumb[celli]!=-1)
+        {
+            cellMap[cellReductionNumb[celli]] = cellMap[celli];
+        }
+    }
+    this->cellMap = cellMap;
 }
 
 
