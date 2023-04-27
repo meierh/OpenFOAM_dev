@@ -627,15 +627,17 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
         void agglomerateSmallCells_MC33
         (
-            scalar partialThreeshold = 0.25
+            scalar partialThreeshold = 0.01
         );
         
+        /*
         void agglomerateSmallCells_cutNeg_plus
         (
             scalarList& newCellVolume,
             scalarList& oldCellVolume,
             scalar partialThreeshold = 0.25
         );
+        */
         
         /*
         labelList searchDown

@@ -896,7 +896,7 @@ Barrier(true);
         newCellVolume[i] = newCells[i].mag(new_points,this->faces());
     }
     t1 = std::chrono::high_resolution_clock::now();
-    agglomerateSmallCells_cutNeg_plus(newCellVolume,oldCellVolume,partialThreeshold);
+    agglomerateSmallCells_MC33(partialThreeshold);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;

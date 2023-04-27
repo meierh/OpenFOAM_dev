@@ -7375,7 +7375,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
 
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 (
-    scalar partialThreeshold = 0.25
+    scalar partialThreeshold
 )
 {
     std::unordered_map<label,DynamicList<label>> cell_to_faces;
@@ -7393,7 +7393,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
     
     cellList cells(maxCell+1);
-    scalarList cellVolume(cells.size());
+    std::vector<scalar> cellVolume(cells.size());
     for(int cellInd=0;cellInd<cells.size();cellInd++)
     {
         DynamicList<label>& cellFaces = cell_to_faces[cellInd];
@@ -7401,9 +7401,112 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         {
             FatalErrorInFunction<<"Illformed cell!"<< exit(FatalError); 
         }
-        cellList[cellInd] = cell(cellFaces);
-        cellVolume[cellInd] = cellList[cellInd].mag(new_points,new_faces);
+        cells[cellInd] = cell(cellFaces);
+        cellVolume[cellInd] = cells[cellInd].mag(new_points,new_faces);
     }
+    std::sort(cellVolume.begin(),cellVolume.end(),std::greater<scalar>());
+    label lower_tenth = 0.9*cells.size();
+    
+    scalar tenth_perc_element = cellVolume[lower_tenth];
+    scalar cell_size_threshold = tenth_perc_element*partialThreeshold;
+    
+    List<bool> too_small_cell(cells.size(),false);
+    for(int cellInd=0;cellInd<cells.size();cellInd++)
+    {
+        if(cellVolume[cellInd]<cell_size_threshold)
+        {
+            too_small_cell[cellInd]=true;
+        }
+    }
+    
+    
+    List<bool> deleted_faces(new_faces.size(),false);
+    List<label> deleted_cell_to_merge_cell(cells.size(),-1);
+    List<std::vector<std::tuple<scalar,label,label>>> cell_to_merge_Candidates(too_small_cell.size());
+    for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
+    {
+        if(too_small_cell[cellInd])
+        {   
+            const cell& oneCell = cells[cellInd];
+            std::vector<std::tuple<scalar,label,label>> faces_size_list;
+            for(int cells_face_Ind=0;cells_face_Ind<oneCell.size();cells_face_Ind++)
+            {
+                const label face_Ind = oneCell[cells_face_Ind];
+                const face& oneFace = new_faces[oneCell[cells_face_Ind]];
+                if(new_owner[face_Ind]!=-1)
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                if(new_neighbour[face_Ind]!=-1)
+                {
+                    label face_neighbor_cell_ind = -1;
+                    label owner_ind = new_owner[face_Ind];
+                    label neighbor_ind = new_neighbour[face_Ind];
+                    if(owner_ind == cellInd && neighbor_ind != cellInd)
+                        face_neighbor_cell_ind = neighbor_ind;
+                    else if(neighbor_ind == cellInd && owner_ind != cellInd)
+                        face_neighbor_cell_ind = owner_ind;
+                    else
+                        FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    
+                    faces_size_list.push_back({oneFace.mag(new_points),face_Ind,face_neighbor_cell_ind});
+                }
+            }
+            auto tuple_compare = [](const std::tuple<scalar,label,label>&a, const std::tuple<scalar,label,label>&b)
+            {
+                return std::get<0>(a)<std::get<0>(b);
+            };
+            std::sort(faces_size_list.begin(),faces_size_list.end(),tuple_compare);
+            cell_to_merge_Candidates[cellInd] = faces_size_list;
+        }
+        deleted_cell_to_merge_cell[cellInd] = std::get<2>(cell_to_merge_Candidates[cellInd][0]);
+        deleted_faces[std::get<1>(cell_to_merge_Candidates[cellInd][0])] = true;
+    }
+    
+    DynamicList<face> new_faces;
+    DynamicList<label> new_owner;
+    DynamicList<label> new_neighbour;    
+    DynamicList<label> faceMap;
+    for(int oldFaceInd=0;oldFaceInd<this->reverseFaceMap.size();oldFaceInd++)
+    {
+        if(deleted_faces[this->reverseFaceMap[oldFaceInd]])
+        {
+            this->reverseFaceMap[oldFaceInd] = -1;
+        }
+    }
+    for(int faceInd=0;faceInd<deleted_faces.size();faceInd++)
+    {
+        if(!deleted_faces[faceInd])
+        {
+            faceMap.append(this->faceMap[faceInd]);
+            new_faces.append(this->new_faces[faceInd]);
+            new_owner.append(this->new_owner[faceInd]);
+            new_neighbour.append(this->new_neighbour[faceInd]);
+        }
+    }
+    this->faceMap = faceMap;
+    
+    labelList cellindex_correction(cells.size());
+    label new_index=0;
+    labelList cellReduction(cells.size());
+    for(label cellInd=0;cellInd<cells.size();cellInd++)
+    {
+        label merge_cell = deleted_cell_to_merge_cell[cellInd];
+        if(merge_cell!=-1)
+        {
+            cellindex_correction[cellInd] = merge_cell;
+        }
+        cellindex_correction[cellInd] = cellInd;
+    }
+    labelList cellReductionNumb(cells.size(),-1);
+    
+    
+    for(label oldCelli=0;oldCelli<reverseCellMap.size();oldCelli++)
+    {
+    }
+    
+    
+    
+    
+    
     
     
     
@@ -7411,6 +7514,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     
 }
 
+
+/*
 void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
 (
     scalarList& newCellVolume,
@@ -7543,9 +7648,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
                 << exit(FatalError);
             }
         }
-        /*
+
         Info<<"cell:"<<i<<" mergeNecessary:"<<mergeNecessary[i]<<" partialVolumeScale:"<<partialVolumeScale[i]<<endl;
-        */
+
     }
     
     for(int i=0;i<newCellVolume.size();i++)
@@ -7818,14 +7923,14 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     Info<<"Processing of small cells ";
     t1 = std::chrono::high_resolution_clock::now(); 
 
-    /*
+    
     std::unordered_set<label> cellReserved;
     DynamicList<DynamicList<label>> blockedCells;
     blockedCells.setSize(possibleMergeCells.size());
     
     
     labelList mergeFaceOfCell = searchDown_rec(possibleMergeFaceArea,possibleMergeFaces,possibleMergeCells,oneMergeFaceSufficient,mergeNecessary,0,blockedCells,cellReserved);
-    */
+    
 
     
     List<DynamicList<label>> mergeFaceOfCell = assignMergeFaces(owner,neighbour,
@@ -8170,11 +8275,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
     
-    /*
-    FatalErrorInFunction
-    << "Temporary stop"
-    << exit(FatalError);
-    */
     
     if(mergeFaceOfCell.size() == 0)
     {
@@ -8367,11 +8467,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
     int insertCounter = 0;
     for(int i = 0;i<newFaces_.size();i++)
     {
-        /*
-        Info<<"Move "<<i<<" of "<<newFaces_.size()<<" to "<<insertCounter
-        <<"/"<<newFaces_.size()-countDeleteFaces<<
-        "-"<<newOwner_.size()-countDeleteFaces<<endl;
-        */
+
         if(newOwner_[i] != -1)
         {
             //Info<<"0"<<endl;
@@ -8459,10 +8555,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
         }
         else
         {
-            /*
-            Info<<"newOwner__["<<i<<"]:"<<cellReductionNumb[newOwner__[i]]<<endl
-            <<"newNeighbour__["<<i<<"]:"<<cellReductionNumb[newNeighbour__[i]]<<endl;
-            */
             
             FatalErrorInFunction
             << "Face neighbors or ownes deleted cell. This can not happen."
@@ -8527,12 +8619,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
         }
     }
     
-    /*
-    Info<<"newCell: "<<50491<<" was "<<newCellNumToOldCellNum[50941]<<endl;
-    Info<<"mergeFaceOfCell:"<<mergeFaceOfCell[newCellNumToOldCellNum[50941][0]]
-    <<" mergeNecessary: "<<mergeNecessary[newCellNumToOldCellNum[50941][0]]<<" with "<<
-    "partialVolumeScale: "<<partialVolumeScale[newCellNumToOldCellNum[50941][0]]<<endl;
-    */
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
@@ -8551,20 +8637,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg_plus
                     patchStarts,
                     true);
     
-    /*
-     * Uncomment later!!!
-    testForCellSize
-    (
-        possibleMergeFaceArea,possibleMergeFaces, possibleMergeCells,
-        oneMergeFaceSufficient, mergeNecessary, mergeFaceOfCell,partialThreeshold
-    );
-    */
     
     
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
 }
+*/
 
 /*
 labelList Foam::cutCellFvMesh::searchDown
