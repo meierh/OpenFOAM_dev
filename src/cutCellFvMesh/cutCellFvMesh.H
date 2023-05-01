@@ -113,7 +113,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         cutStatus ibAlgorithm;
         
         // Threshold of cell size difference
-        scalar partialThreeshold = 0.25;
+        scalar partialThreeshold = 0.1;
         
         // Level-Set Function for Boundary Computation
         std::function<scalar(const vector)> levelSet;

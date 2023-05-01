@@ -388,10 +388,11 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     //const faceList& basisFaces = this->faces();
     const edgeList& basisEdges = this->edges();
     const labelListList& edgeCells = this->edgeCells();
+    newMeshPointsInFunc.append(basisPoints);
+    pointsToSide(basisPoints);
     
     List<List<label>> edgeToNeigboringMC33Cubes_faceToCutEdge_localInd(edgeCells.size());
     List<bool> edgeIsCutEdge(edgeCells.size(),false);
-
     for(int edgInd=0;edgInd<edgeCells.size();edgInd++)
     {
         //Compute local edgeInd of treated edge for all neighborCells and store in neigboringMC33Cubes_sharedEdge_localInd
@@ -522,8 +523,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     
     nOldPoints = nbrOfPrevPoints = basisPoints.size();
     preMotionPoints = basisPoints;
-    
-    DynamicList<label>provisional_pointMap;
+    DynamicList<label> provisional_pointMap;
     for(label oldInd=0; oldInd<nOldPoints; oldInd++)
     {
         if(pointsToSide_[oldInd]==+1)
@@ -531,18 +531,15 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             provisional_pointMap.append(oldInd);
         }
     }
+
     reversePointMap.setSize(nOldPoints,-1);
     for(label newInd=0; newInd<provisional_pointMap.size(); newInd++)
     {
         reversePointMap[provisional_pointMap[newInd]] = newInd;
     }
 
-    newMeshPointsInFunc.append(basisPoints);
-    pointsToSide(basisPoints);
-    
     pointToEgde_.setSize(basisPoints.size(),-1);
     edgeToPoint_.setSize(basisEdges.size(),-1);
-        
     for(int edgInd=0;edgInd<basisEdges.size();edgInd++)
     {
         if(edgeIsCutEdge[edgInd])
@@ -628,7 +625,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     }
     pointMap = provisional_pointMap;
     
-    
     newMeshPoints_ = pointField(pointMap.size());
     label newInd=0;
     for(;newInd<pointMap.size() && pointMap[newInd]!=-1; newInd++)
@@ -643,7 +639,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     {
         newMeshPoints_[newInd] = newMeshPointsInFunc[nOldPoints+i];
     }
-    
     pointToEgde_.setCapacity(pointToEgde_.size());   
 }
 
@@ -3314,12 +3309,11 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     nOldCells = meshCells.size();
     reverseCellMap.setSize(nOldCells,-1);
     DynamicList<label> provisional_cellMap;
-    oldCellVolumesPtr->setSize(nOldCells,0);
+    oldCellVolumesPtr = autoPtr<scalarField>(new scalarField(nOldCells,0));
     for(int i=0;i<nOldCells;i++)
     {
         (*oldCellVolumesPtr)[i] = meshCells[i].mag(meshPoints,meshFaces);
     }
-    
 
     // Store old boundary patches
     labelList oldFaceToPatchInd(meshFaces.size(),-1);
@@ -3351,6 +3345,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         FatalErrorInFunction<<"Cut Cell patch does not exist"<<exit(FatalError);
     }
 
+    
     //Prepare data storage for old to new cell index
     oldSplittedCellToNewPlusCell = List<DynamicList<label>>(meshCells.size());
     oldSplittedCellToNewMinusCell = List<DynamicList<label>>(meshCells.size());
@@ -4968,15 +4963,42 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
 //Barrier(true);
 
     //std::function<faceList&(faceList&)> face_vertice_correction;
+    labelList oldToNewPointInd(newMeshPointsInFunc.size(),-1);
+    label maxOldCellNewIndex = 0;
+    for(label oldCelli=0;oldCelli<reversePointMap.size();oldCelli++)
+    {
+        if(reversePointMap[oldCelli]!=-1)
+        {
+            oldToNewPointInd[oldCelli] = reversePointMap[oldCelli];
+            maxOldCellNewIndex = std::max(reversePointMap[oldCelli],maxOldCellNewIndex);
+        }
+    }
+    for(label newCelli=reversePointMap.size();newCelli<oldToNewPointInd.size();newCelli++)
+    {
+        maxOldCellNewIndex++;
+        oldToNewPointInd[newCelli] = maxOldCellNewIndex;
+    }
+ 
     auto face_vertice_correction = [&](faceList& faces)
     {
         for(face& oneFace : faces)
         {
             for(int i=0;i<oneFace.size();i++)
             {
-                label reduced_index_vertice = reversePointMap[oneFace[i]];
+                label reduced_index_vertice = oldToNewPointInd[oneFace[i]];
                 if(reduced_index_vertice<0)
+                {
+                    Info<<"maxOldCellNewIndex:"<<maxOldCellNewIndex<<Foam::endl;
+                    Info<<"newMeshPointsInFunc.size():"<<newMeshPointsInFunc.size()<<Foam::endl;
+                    Info<<"this->points().size():"<<this->points().size()<<Foam::endl;
+                    Info<<"nOldPoints:"<<nOldPoints<<Foam::endl;
+                    Info<<"new_points.size():"<<new_points.size()<<Foam::endl;
+                    Info<<"pointMap.size():"<<pointMap.size()<<Foam::endl;
+                    Info<<"reversePointMap.size():"<<reversePointMap.size()<<Foam::endl;
+                    Info<<"reduced_index_vertice:"<<reduced_index_vertice<<Foam::endl;
+                    Info<<"pointsToSide_["<<oneFace[i]<<"]:"<<pointsToSide_[oneFace[i]]<<Foam::endl;
                     FatalErrorInFunction<<"Invalid entry in reversePointMap!"<< exit(FatalError);
+                }
                 oneFace[i] = reduced_index_vertice;
             }
         }
@@ -5002,7 +5024,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     new_neighbour.append(addedCutFacesNeighbor);
     new_neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
     new_neighbour.append(splitAndUnsplitFacesInterfaceNeighbor);
-    
+        
     for(int i=0;i<owner.size();i++)
     {
         if(owner[i]<0)
@@ -5042,11 +5064,18 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     meshPointNurbsReference_new.setSize(new_points.size());
     scalarList pointDist_new;
     pointDist_new.setSize(new_points.size());
+    Info<<"oldToNewPointInd.size():"<<oldToNewPointInd.size()<<Foam::endl;
+    Info<<"pointDist_new.size():"<<pointDist_new.size()<<Foam::endl;
+    Info<<"pointDist.size():"<<pointDist.size()<<Foam::endl;
+    Info<<"nOldPoints:"<<nOldPoints<<Foam::endl;
+    Info<<"meshPointNurbsReference.size():"<<meshPointNurbsReference.size()<<Foam::endl;
     for(int oldPointi=0;oldPointi<meshPointNurbsReference.size();oldPointi++)
     {
-        label newPointi = reversePointMap[oldPointi];
+        label newPointi = oldToNewPointInd[oldPointi];
+        if(newPointi>=new_points.size())
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
         if(newPointi!=-1)
-        {                
+        {
             meshPointNurbsReference_new[newPointi] = meshPointNurbsReference[oldPointi];
             pointDist_new[newPointi] = pointDist[oldPointi];
         }
@@ -5054,7 +5083,9 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     meshPointNurbsReference = meshPointNurbsReference_new;
     pointDist = pointDist_new;
     
+    Info<<"End"<<Foam::endl;
     //patchPointMap
+    //Barrier(true);
 }
 
 void Foam::cutCellFvMesh::printNewMeshData
@@ -7391,7 +7422,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         maxCell = std::max(maxCell,new_neighbour[faceInd]);
         cell_to_faces[new_neighbour[faceInd]].append(faceInd);
     }
-    
+
     cellList cells(maxCell+1);
     std::vector<scalar> cellVolume(cells.size());
     for(int cellInd=0;cellInd<cells.size();cellInd++)
@@ -7406,9 +7437,23 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
     std::sort(cellVolume.begin(),cellVolume.end(),std::greater<scalar>());
     label lower_tenth = 0.9*cells.size();
-    
+
     scalar tenth_perc_element = cellVolume[lower_tenth];
+    
+    List<scalar> test3(Pstream::nProcs(),Foam::zero());
+    test3[Pstream::myProcNo()] = tenth_perc_element;
+    Pstream::gatherList(test3);
+    Pstream::scatterList(test3);
+    Info<<"tenth_perc_element:"<<Pstream::myProcNo()<<"----"<<test3[0]<<","<<test3[1]<<","<<test3[2]<<","<<test3[3]<<Foam::endl;
+    
     scalar cell_size_threshold = tenth_perc_element*partialThreeshold;
+    
+    List<scalar> test0(Pstream::nProcs(),Foam::zero());
+    test0[Pstream::myProcNo()] = cell_size_threshold;
+    Pstream::gatherList(test0);
+    Pstream::scatterList(test0);
+    Info<<"cell_size_threshold:"<<Pstream::myProcNo()<<"----"<<test0[0]<<","<<test0[1]<<","<<test0[2]<<","<<test0[3]<<Foam::endl;
+    
     
     List<bool> too_small_cell(cells.size(),false);
     for(int cellInd=0;cellInd<cells.size();cellInd++)
@@ -7418,7 +7463,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             too_small_cell[cellInd]=true;
         }
     }
-    
     
     List<bool> deleted_faces(new_faces.size(),false);
     List<label> deleted_cell_to_merge_cell(cells.size(),-1);
@@ -7433,7 +7477,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             {
                 const label face_Ind = oneCell[cells_face_Ind];
                 const face& oneFace = new_faces[oneCell[cells_face_Ind]];
-                if(new_owner[face_Ind]!=-1)
+                if(new_owner[face_Ind]==-1)
                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                 if(new_neighbour[face_Ind]!=-1)
                 {
@@ -7458,9 +7502,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             cell_to_merge_Candidates[cellInd] = faces_size_list;
 
             label merge_indx = -1;
-            for(label merge_option_ind=0;merge_option_ind<faces_size_list.size();merge_option_ind++)
+            for(unsigned int merge_option_ind=0;merge_option_ind<faces_size_list.size();merge_option_ind++)
             {
-                label merge_cell_index = std::get<2>(cell_to_merge_Candidates[cellInd][merge_option_ind])
+                label merge_cell_index = std::get<2>(cell_to_merge_Candidates[cellInd][merge_option_ind]);
                 if(!too_small_cell[merge_cell_index])
                 {
                     merge_indx = merge_option_ind;
@@ -7469,24 +7513,51 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             }
             if(merge_indx==-1)
             {
-                deleted_cell_to_merge_cell[cellInd] = -2;
+                merge_indx=0;
             }
-            else
-            {
-                deleted_cell_to_merge_cell[cellInd] = std::get<2>(cell_to_merge_Candidates[cellInd][merge_indx];
-            }
+            deleted_cell_to_merge_cell[cellInd] = std::get<2>(cell_to_merge_Candidates[cellInd][merge_indx]);
             deleted_faces[std::get<1>(cell_to_merge_Candidates[cellInd][merge_indx])] = true;
         }
     }
+
+    label smallnbr=0;
+    for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
+    {
+        if(too_small_cell[cellInd])
+            smallnbr++;
+    }
+    labelList test1(Pstream::nProcs(),0);
+    test1[Pstream::myProcNo()] = smallnbr;
+    Pstream::gatherList(test1);
+    Pstream::scatterList(test1);
+    Info<<"smallnbr:"<<Pstream::myProcNo()<<"----"<<test1[0]<<","<<test1[1]<<","<<test1[2]<<","<<test1[3]<<Foam::endl;
+    
+    label nbr=0;
     for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
     {
         label merge_cell = cellInd;
-        while(deleted_cell_to_merge_cell[merge_cell]==-2)
-        {
-            merge_cell = std::get<2>(cell_to_merge_Candidates[merge_cell][0]);
-        }
-        deleted_cell_to_merge_cell[cellInd] = merge_cell;
+        if(deleted_cell_to_merge_cell[merge_cell]==-2)
+            nbr++;
     }
+    labelList test(Pstream::nProcs(),0);
+    test[Pstream::myProcNo()] = nbr;
+    Pstream::gatherList(test);
+    Pstream::scatterList(test);
+    Info<<"nbr:"<<Pstream::myProcNo()<<"----"<<test[0]<<","<<test[1]<<","<<test[2]<<","<<test[3]<<Foam::endl;
+    
+    label cell=0;
+    for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
+    {
+        label merge_cell = cellInd;
+        if(deleted_cell_to_merge_cell[merge_cell]==-2)
+            cell=merge_cell;
+    }
+    labelList test2(Pstream::nProcs(),0);
+    test[Pstream::myProcNo()] = cell;
+    Pstream::gatherList(test2);
+    Pstream::scatterList(test2);
+    Info<<"cell:"<<Pstream::myProcNo()<<"----"<<test2[0]<<","<<test2[1]<<","<<test2[2]<<","<<test2[3]<<Foam::endl;
+Barrier(true);
     
     DynamicList<face> new_faces;
     DynamicList<label> new_owner;
@@ -7518,11 +7589,16 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         label merge_cell = deleted_cell_to_merge_cell[cellInd];
         if(merge_cell!=-1)
         {
-            cellindex_correction[cellInd] = merge_cell;
-            this->cellMap[merge_cell] = -1;
-            replacedCells.insert(merge_cell);
-            replacedCells.insert(cellInd);
-        }
+            if(deleted_cell_to_merge_cell[merge_cell]!=-1)
+            {
+            }
+            else
+            {
+                cellindex_correction[cellInd] = merge_cell;
+                this->cellMap[merge_cell] = -1;
+                replacedCells.insert(merge_cell);
+                replacedCells.insert(cellInd);
+            }
         cellindex_correction[cellInd] = cellInd;
     }
     for(label oldCelli=0;oldCelli<this->reverseCellMap.size();oldCelli++)
