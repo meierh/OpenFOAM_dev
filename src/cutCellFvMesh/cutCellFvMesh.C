@@ -7553,11 +7553,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             cell=merge_cell;
     }
     labelList test2(Pstream::nProcs(),0);
-    test[Pstream::myProcNo()] = cell;
+    test2[Pstream::myProcNo()] = cell;
     Pstream::gatherList(test2);
     Pstream::scatterList(test2);
     Info<<"cell:"<<Pstream::myProcNo()<<"----"<<test2[0]<<","<<test2[1]<<","<<test2[2]<<","<<test2[3]<<Foam::endl;
-Barrier(true);
     
     DynamicList<face> new_faces;
     DynamicList<label> new_owner;
@@ -7582,15 +7581,49 @@ Barrier(true);
     }
     this->faceMap = faceMap;
     
-    labelList cellindex_correction(cells.size());
+    labelList cellindex_correction(cells.size(),-1);
     std::unordered_set<label> replacedCells;
+    std::vector<std::unordered_set<label>> multiMergeCellSets;
+    std::unordered_map<label,label> cellToSetInd;
     for(label cellInd=0;cellInd<cells.size();cellInd++)
     {
         label merge_cell = deleted_cell_to_merge_cell[cellInd];
         if(merge_cell!=-1)
         {
-            if(deleted_cell_to_merge_cell[merge_cell]!=-1)
+            if(too_small_cell[merge_cell])
             {
+                auto iterCell = cellToSetInd.find(cellInd);
+                auto iterMergeCell = cellToSetInd.find(merge_cell);
+                if(iterCell==cellToSetInd.end() && iterMergeCell==cellToSetInd.end())
+                {
+                    cellToSetInd[cellInd] = multiMergeCellSets.size();
+                    cellToSetInd[merge_cell] = multiMergeCellSets.size();
+                    multiMergeCellSets.push_back({cellInd,merge_cell});
+                }
+                else if(iterCell!=cellToSetInd.end() && iterMergeCell==cellToSetInd.end())
+                {
+                    cellToSetInd[merge_cell] = iterCell->second;
+                    multiMergeCellSets[iterCell->second].insert(merge_cell);
+                }
+                else if(iterCell==cellToSetInd.end() && iterMergeCell!=cellToSetInd.end())
+                {
+                    cellToSetInd[cellInd] = iterMergeCell->second;
+                    multiMergeCellSets[iterMergeCell->second].insert(cellInd);
+                }
+                else
+                {
+                    if(iterCell->second != iterMergeCell->second)
+                    {
+                        label combinedSetInd = iterMergeCell->second;
+                        std::unordered_set<label>& combinedSet = multiMergeCellSets[combinedSetInd];                        
+                        label appendSetInd = iterCell->second;
+                        std::unordered_set<label>& appendSet = multiMergeCellSets[appendSetInd];
+                        std::for_each(appendSet.cbegin(),appendSet.cend(),
+                                      [&](label it){cellToSetInd[it]=combinedSetInd;});
+                        combinedSet.insert(appendSet.cbegin(),appendSet.cend());
+                        appendSet.clear();                        
+                    }
+                }
             }
             else
             {
@@ -7599,8 +7632,45 @@ Barrier(true);
                 replacedCells.insert(merge_cell);
                 replacedCells.insert(cellInd);
             }
-        cellindex_correction[cellInd] = cellInd;
+        }
+        else
+        {
+            cellindex_correction[cellInd] = cellInd;
+        }
     }
+    
+    for(std::unordered_set<label> mergeSet : multiMergeCellSets)
+    {
+        if(mergeSet.size()<2)
+            FatalErrorInFunction<<"Must not happen!"<< exit(FatalError);
+        auto iterSet = mergeSet.cbegin();
+        label newInd = *iterSet;
+        iterSet++;
+        
+        cellindex_correction[newInd] = newInd;
+        this->cellMap[newInd] = -1;
+        replacedCells.insert(newInd);
+        
+        for(;iterSet!=mergeSet.cend();iterSet++)
+        {
+            cellindex_correction[*iterSet] = newInd;
+            replacedCells.insert(*iterSet);
+        }
+    }
+    
+    for(label index : cellindex_correction)
+        if(index==-1)
+            FatalErrorInFunction<<"Must not happen!"<< exit(FatalError);
+    
+    labelList test4(Pstream::nProcs(),0);
+    test4[Pstream::myProcNo()] = multiMergeCellSets.size();
+    Pstream::gatherList(test4);
+    Pstream::scatterList(test4);
+    Info<<"multiMergeCellSets:"<<Pstream::myProcNo()<<"----"<<test4[0]<<","<<test4[1]<<","<<test4[2]<<","<<test4[3]<<Foam::endl;
+
+Barrier(true);
+
+    
     for(label oldCelli=0;oldCelli<this->reverseCellMap.size();oldCelli++)
     {
         if(replacedCells.find(oldCelli)!=replacedCells.end())
