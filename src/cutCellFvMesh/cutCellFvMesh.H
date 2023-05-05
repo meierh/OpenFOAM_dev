@@ -362,7 +362,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList oldPatchStarts;
             labelList oldPatchNMeshPoints;
             
-            //mapPolyMesh meshCuttingMap;
+            std::unique_ptr<mapPolyMesh> meshCuttingMap;
         //End
             
         //Data for solidFraction Computation

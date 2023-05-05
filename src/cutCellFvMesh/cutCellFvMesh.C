@@ -7667,9 +7667,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     Pstream::gatherList(test4);
     Pstream::scatterList(test4);
     Info<<"multiMergeCellSets:"<<Pstream::myProcNo()<<"----"<<test4[0]<<","<<test4[1]<<","<<test4[2]<<","<<test4[3]<<Foam::endl;
-
-Barrier(true);
-
     
     for(label oldCelli=0;oldCelli<this->reverseCellMap.size();oldCelli++)
     {
@@ -7725,7 +7722,7 @@ Barrier(true);
             cellMap[cellReductionNumb[celli]] = cellMap[celli];
         }
     }
-    this->cellMap = cellMap;
+    this->cellMap = cellMap;    
 }
 
 

@@ -669,10 +669,9 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     agglomerateSmallCells_MC33(partialThreeshold);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t" << time_span.count() << " seconds."<<endl;
-    
-Barrier(true);
-    
+    if(Pstream::master())
+        Info<< "Agglomeration of small cells took \t"<< time_span.count() << " seconds."<<endl;
+        
     /*
     List<bool> pntDeleted(newMeshPoints_.size(),true);
     for(const face& oneFace: faces)
@@ -740,12 +739,16 @@ Barrier(true);
     }
     */
 
-    Info<<"Correcting face normal direction";
+//Barrier(true);
+    
     t1 = std::chrono::high_resolution_clock::now();
     correctFaceNormalDir(new_points,new_faces,new_owner,new_neighbour);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< " took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
+    if(Pstream::master())
+        Info<< "Correcting face normal direction \t"<< time_span.count() << " seconds."<<endl;
+
+//Barrier(true);
 
     /*    
     const pointField& oldPoints = this->points();
@@ -764,15 +767,9 @@ Barrier(true);
     */
     
     testNewMeshData(new_faces,new_owner,new_neighbour,patchStarts,patchSizes);
-    
-    /*
-    meshCuttingMap = mapPolyMesh(*this,nOldPoints,nOldFaces,nOldCells,pointMap,pointsFromPoints,faceMap,facesFromPoints,
-                                 facesFromEdges,facesFromFaces,cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,
-                                 cellsFromCells,reversePointMap,reverseFaceMap,reverseCellMap,flipFaceFlux,patchPointMap,
-                                 pointZoneMap,faceZonePointMap,faceZoneFaceMap,cellZoneMap,preMotionPoints,
-                                 oldPatchStarts,oldPatchNMeshPoints,oldCellVolumesPtr);
-    */
-        
+    if(Pstream::master())
+        Info<< "Mesh Data tested"<<endl;
+
     resetPrimitives(Foam::clone(new_points),
                     Foam::clone(new_faces),
                     Foam::clone(new_owner),
@@ -780,8 +777,40 @@ Barrier(true);
                     patchSizes,
                     patchStarts,
                     false);
+    if(Pstream::master())
+        Info<< "Primitives reset"<<endl;
+    
+//Barrier(true);
+    
+    const fvBoundaryMesh& boundary = this->boundary();
+    patchPointMap.setSize(boundary.size());
+    for(label patchInd=0;patchInd<boundary.size();patchInd++)
+    {
+        const fvPatch& fvpatch = boundary[patchInd];
+        const polyPatch& polypatch = fvpatch.patch();
+        const labelList& meshPoints = polypatch.meshPoints();
+        patchPointMap[patchInd].setSize(meshPoints.size());
+        for(label i=0;i<meshPoints.size();i++)
+        {
+            label pnt = meshPoints[i];
+            if(pnt>=this->pointMap.size())
+                FatalErrorInFunction<< "Invalid point"<<endl<< exit(FatalError);
+            label oldPnt = this->pointMap[pnt];
+            patchPointMap[patchInd][i] = oldPnt;            
+        }
+    }
+    meshCuttingMap = std::unique_ptr<mapPolyMesh>(new mapPolyMesh(*this,nOldPoints,nOldFaces,nOldCells,pointMap,
+                                                    pointsFromPoints,faceMap,facesFromPoints,facesFromEdges,
+                                                    facesFromFaces,cellMap,cellsFromPoints,cellsFromEdges,cellsFromFaces,
+                                                    cellsFromCells,reversePointMap,reverseFaceMap,reverseCellMap,
+                                                    flipFaceFlux,patchPointMap, pointZoneMap,faceZonePointMap,
+                                                    faceZoneFaceMap,cellZoneMap,preMotionPoints,oldPatchStarts,
+                                                    oldPatchNMeshPoints,oldCellVolumesPtr));
+    if(Pstream::master())
+        Info<< "Created mapPolyMesh data"<<endl;
     
     Info<<"Reset"<<endl;
+//Barrier(true);
     
     /*
     std::unordered_set<label> activePnts;
@@ -801,8 +830,36 @@ Barrier(true);
     }
     */
     
+    labelList DATA(Pstream::nProcs(),0);
+    
+    DATA[Pstream::myProcNo()] = this->nCells();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"nCells:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->cellMap.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"cellMap.size():          "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->nOldCells;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"nOldCells:              "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->reverseCellMap.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"reverseCellMap.size():  "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+//Barrier(true);
+    
     this->topoChanging(true);
-    //updateMesh(motionSolverMap);
+    updateMesh(*meshCuttingMap);
     //motionPtr_->topoChange(motionSolverMap);
     
     
@@ -847,6 +904,8 @@ Barrier(true);
             }catch(...){
                 FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
             }
+            Info<<"patchPoints.size():"<<patchPoints.size()<<Foam::endl;
+            Info<<"fVPPF->size():"<<fVPPF->size()<<Foam::endl;            
 //            fVPPF->setSize(patchPoints.size());
         }
         else if(boundaryFieldTypes[i] == "processor")
@@ -861,7 +920,7 @@ Barrier(true);
             }
             //pPPF->primitiveField().setSize(patchPoints.size());
             Info<<"patchPoints.size():"<<patchPoints.size()<<Foam::endl;
-            Info<<"pPPF->primitiveField().size():"<<pPPF->primitiveField().size()<<Foam::endl;
+            Info<<"pPPF->size():"<<pPPF->size()<<Foam::endl;
         }
         else
             FatalErrorInFunction<<"Unexpected Patch type"<<exit(FatalError);
