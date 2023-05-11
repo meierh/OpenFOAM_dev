@@ -4737,7 +4737,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             reverseCellMap[i] -= cellReductionNumb[reverseCellMap[i]];
         }
     }
-    cellMap.setSize(maxNumOfNewCellsCorr,-1);
+    cellMap.setSize(maxNumOfNewCellsCorr+1,-1);
     for(int oldCelli=0;oldCelli<reverseCellMap.size();oldCelli++)
     {
         if(reverseCellMap[oldCelli]!=-1)
@@ -5267,7 +5267,8 @@ void Foam::cutCellFvMesh::selfTestMesh()
     }
     
     scalar maxCellSize = -1,avgCellSize=0,minCellSize=std::numeric_limits<double>::max();;
-    if(meshCells.size()>0) minCellSize = meshCells[0].mag(meshPoints,meshFaces);
+    if(meshCells.size()>0) 
+        minCellSize = meshCells[0].mag(meshPoints,meshFaces);
     for(int i=0;i<meshCells.size();i++)
     {
         scalar thisCellSize = meshCells[i].mag(meshPoints,meshFaces);
@@ -5290,7 +5291,7 @@ void Foam::cutCellFvMesh::selfTestMesh()
         }
     }
     Info<<"countExtrSmall: "<<countExtrSmall<<endl;
-
+    
     //Test faces
     for(int i=0;i<meshFaces.size();i++)
     {
@@ -5651,6 +5652,8 @@ void Foam::cutCellFvMesh::selfTestMesh()
             }
         }      
     }
+Barrier(true);
+
     
     //Test cells
     //Test if cell centre is inside cell
@@ -7444,7 +7447,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     test3[Pstream::myProcNo()] = tenth_perc_element;
     Pstream::gatherList(test3);
     Pstream::scatterList(test3);
-    Info<<"tenth_perc_element:"<<Pstream::myProcNo()<<"----"<<test3[0]<<","<<test3[1]<<","<<test3[2]<<","<<test3[3]<<Foam::endl;
+    Info<<"7447 tenth_perc_element:"<<Pstream::myProcNo()<<"----"<<test3[0]<<","<<test3[1]<<","<<test3[2]<<","<<test3[3]<<Foam::endl;
     
     scalar cell_size_threshold = tenth_perc_element*partialThreeshold;
     
@@ -7452,7 +7455,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     test0[Pstream::myProcNo()] = cell_size_threshold;
     Pstream::gatherList(test0);
     Pstream::scatterList(test0);
-    Info<<"cell_size_threshold:"<<Pstream::myProcNo()<<"----"<<test0[0]<<","<<test0[1]<<","<<test0[2]<<","<<test0[3]<<Foam::endl;
+    Info<<"7455 cell_size_threshold:"<<Pstream::myProcNo()<<"----"<<test0[0]<<","<<test0[1]<<","<<test0[2]<<","<<test0[3]<<Foam::endl;
     
     
     List<bool> too_small_cell(cells.size(),false);
@@ -7530,7 +7533,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     test1[Pstream::myProcNo()] = smallnbr;
     Pstream::gatherList(test1);
     Pstream::scatterList(test1);
-    Info<<"smallnbr:"<<Pstream::myProcNo()<<"----"<<test1[0]<<","<<test1[1]<<","<<test1[2]<<","<<test1[3]<<Foam::endl;
+    Info<<"7533 smallnbr:"<<Pstream::myProcNo()<<"----"<<test1[0]<<","<<test1[1]<<","<<test1[2]<<","<<test1[3]<<Foam::endl;
     
     label nbr=0;
     for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
@@ -7543,7 +7546,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     test[Pstream::myProcNo()] = nbr;
     Pstream::gatherList(test);
     Pstream::scatterList(test);
-    Info<<"nbr:"<<Pstream::myProcNo()<<"----"<<test[0]<<","<<test[1]<<","<<test[2]<<","<<test[3]<<Foam::endl;
+    Info<<"7546 nbr:"<<Pstream::myProcNo()<<"----"<<test[0]<<","<<test[1]<<","<<test[2]<<","<<test[3]<<Foam::endl;
     
     label cell=0;
     for(int cellInd=0;cellInd<too_small_cell.size();cellInd++)
@@ -7556,7 +7559,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     test2[Pstream::myProcNo()] = cell;
     Pstream::gatherList(test2);
     Pstream::scatterList(test2);
-    Info<<"cell:"<<Pstream::myProcNo()<<"----"<<test2[0]<<","<<test2[1]<<","<<test2[2]<<","<<test2[3]<<Foam::endl;
+    Info<<"7559 cell:"<<Pstream::myProcNo()<<"----"<<test2[0]<<","<<test2[1]<<","<<test2[2]<<","<<test2[3]<<Foam::endl;
     
     DynamicList<face> new_faces;
     DynamicList<label> new_owner;
@@ -7579,7 +7582,71 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             new_neighbour.append(this->new_neighbour[faceInd]);
         }
     }
-    this->faceMap = faceMap;
+    
+    label maxOwnerCell=0;
+    label maxNeighborCell=0;
+    for(label cellInd : new_owner)
+        maxOwnerCell = std::max(maxOwnerCell,cellInd);
+    for(label cellInd : new_neighbour)
+        maxNeighborCell = std::max(maxNeighborCell,cellInd);
+    
+    label thismaxOwnerCell=0;
+    label thismaxNeighborCell=0;
+    for(label cellInd : this->new_owner)
+        thismaxOwnerCell = std::max(thismaxOwnerCell,cellInd);
+    for(label cellInd : this->new_neighbour)
+        thismaxNeighborCell = std::max(thismaxNeighborCell,cellInd);
+    
+    labelList DATA(Pstream::nProcs(),0);
+    
+    DATA[Pstream::myProcNo()] = maxOwnerCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7601 maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = maxNeighborCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7607 maxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = thismaxOwnerCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7613 thismaxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = thismaxNeighborCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7619 thismaxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+
+    DATA[Pstream::myProcNo()] = this->new_faces.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7589 this->new_faces.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+
+    DATA[Pstream::myProcNo()] = new_faces.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7595 new_faces.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    this->faceMap = labelList(faceMap);
+    this->new_faces = faceList(new_faces);
+    this->new_owner = labelList(new_owner);
+    this->new_neighbour = labelList(new_neighbour);
+    
+    DATA[Pstream::myProcNo()] = this->new_faces.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7606 this->new_faces.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;    
+    
+Barrier(true);
     
     labelList cellindex_correction(cells.size(),-1);
     std::unordered_set<label> replacedCells;
@@ -7662,11 +7729,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         if(index==-1)
             FatalErrorInFunction<<"Must not happen!"<< exit(FatalError);
     
+    /*
     labelList test4(Pstream::nProcs(),0);
     test4[Pstream::myProcNo()] = multiMergeCellSets.size();
     Pstream::gatherList(test4);
     Pstream::scatterList(test4);
-    Info<<"multiMergeCellSets:"<<Pstream::myProcNo()<<"----"<<test4[0]<<","<<test4[1]<<","<<test4[2]<<","<<test4[3]<<Foam::endl;
+    Info<<"7672 multiMergeCellSets:"<<Pstream::myProcNo()<<"----"<<test4[0]<<","<<test4[1]<<","<<test4[2]<<","<<test4[3]<<Foam::endl;
+    */
     
     for(label oldCelli=0;oldCelli<this->reverseCellMap.size();oldCelli++)
     {
@@ -7685,6 +7754,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
     
+    label maxExistCell = 0;
     bool reached_boundary = false;
     for(label faceInd=0;faceInd<new_owner.size();faceInd++)
     {
@@ -7712,7 +7782,80 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
     
+    maxOwnerCell=0;
+    maxNeighborCell=0;
+    for(label cellInd : new_owner)
+        maxOwnerCell = std::max(maxOwnerCell,cellInd);
+    for(label cellInd : new_neighbour)
+        maxNeighborCell = std::max(maxNeighborCell,cellInd);
+    
+    thismaxOwnerCell=0;
+    thismaxNeighborCell=0;
+    for(label cellInd : this->new_owner)
+        thismaxOwnerCell = std::max(thismaxOwnerCell,cellInd);
+    for(label cellInd : this->new_neighbour)
+        thismaxNeighborCell = std::max(thismaxNeighborCell,cellInd);
+    
+    /*
+    DATA[Pstream::myProcNo()] = maxOwnerCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7734 maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = maxNeighborCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7740 maxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = thismaxOwnerCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7752 thismaxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = thismaxNeighborCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7758 thismaxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->new_faces.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7746 new_faces.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->new_owner.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7746 new_owner.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->new_neighbour.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7746 new_neighbour.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->cellMap.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7752 this->cellMap.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    */
+    
     labelList cellMap(new_cell_index,-1);
+    
+    /*
+    DATA[Pstream::myProcNo()] = cellMap.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"7760 cellMap.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    */
+    
     for(label celli=0;celli<this->cellMap.size();celli++)
     {
         this->cellMap[celli] = cellindex_correction[this->cellMap[celli]];

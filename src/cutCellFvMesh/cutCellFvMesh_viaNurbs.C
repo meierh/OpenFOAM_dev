@@ -666,7 +666,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
         
     t1 = std::chrono::high_resolution_clock::now();
-    agglomerateSmallCells_MC33(partialThreeshold);
+    //agglomerateSmallCells_MC33(partialThreeshold);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     if(Pstream::master())
@@ -742,7 +742,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
 //Barrier(true);
     
     t1 = std::chrono::high_resolution_clock::now();
-    correctFaceNormalDir(new_points,new_faces,new_owner,new_neighbour);
+    //correctFaceNormalDir(new_points,new_faces,new_owner,new_neighbour);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     if(Pstream::master())
@@ -766,9 +766,67 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     }
     */
     
-    testNewMeshData(new_faces,new_owner,new_neighbour,patchStarts,patchSizes);
+    //testNewMeshData(new_faces,new_owner,new_neighbour,patchStarts,patchSizes);
     if(Pstream::master())
         Info<< "Mesh Data tested"<<endl;
+    
+    
+    label maxOwnerCell=0;
+    label maxNeighborCell=0;
+    for(label cellInd : this->new_owner)
+        maxOwnerCell = std::max(maxOwnerCell,cellInd);
+    for(label cellInd : this->new_neighbour)
+        maxNeighborCell = std::max(maxNeighborCell,cellInd);
+    
+    labelList DATA(Pstream::nProcs(),0);
+    
+    DATA[Pstream::myProcNo()] = maxOwnerCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = maxNeighborCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"maxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = new_faces.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = maxOwnerCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"807 maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+        
+    DATA[Pstream::myProcNo()] = maxNeighborCell;
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"813 maxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->new_faces.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"819 new_faces.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->new_owner.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"825 new_owner.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
+    
+    DATA[Pstream::myProcNo()] = this->new_neighbour.size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"831 new_neighbour.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
 
     resetPrimitives(Foam::clone(new_points),
                     Foam::clone(new_faces),
@@ -779,6 +837,12 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
                     false);
     if(Pstream::master())
         Info<< "Primitives reset"<<endl;
+    
+    DATA[Pstream::myProcNo()] = this->cells().size();
+    Pstream::gatherList(DATA);
+    Pstream::scatterList(DATA);
+    if(Pstream::master())
+        Info<<"this->cells().size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
     
 //Barrier(true);
     
@@ -829,9 +893,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         FatalErrorInFunction<< "Invalid point number"<<endl<< exit(FatalError);
     }
     */
-    
-    labelList DATA(Pstream::nProcs(),0);
-    
+        
     DATA[Pstream::myProcNo()] = this->nCells();
     Pstream::gatherList(DATA);
     Pstream::scatterList(DATA);
@@ -856,15 +918,16 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     if(Pstream::master())
         Info<<"reverseCellMap.size():  "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
     
-//Barrier(true);
     
     this->topoChanging(true);
     updateMesh(*meshCuttingMap);
     //motionPtr_->topoChange(motionSolverMap);
     
-    
+//Barrier(true);
+
     //Reset field size for motionSolver
-    //Begin    
+    //Begin
+    /*
     Foam::motionSolver* rawPtr = motionPtr_.ptr();  
     displacementLaplacianFvMotionSolver* dMS;
     try{
@@ -941,37 +1004,21 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     pointsNull.setSize(this->points().size());
     for(int i=0;i<this->points().size();i++)
         pointsNull[i] = this->points()[i];
-Barrier(true);
     
     motionPtr_.set(rawPtr);
     //End
-   
-Barrier(true);
-
+    */
     Info<<"First self test"<<endl;
     selfTestMesh();
-    
-    //Agglomeration for too small cells
-    //Begin
-    Info<<"Agglomerate small cut-cells";
-    const cellList& newCells = this->cells();
-    newCellVolume = scalarList(newCells.size());
-    for(int i=0;i<newCellVolume.size();i++)
-    {
-        newCellVolume[i] = newCells[i].mag(new_points,this->faces());
-    }
-
-    //End
 
     //printMesh();
     Info<<"Please write"<<endl;
     this->write();
     Info<<"Written"<<endl;
     //printMesh();
-    selfTestMesh();
+    //selfTestMesh();
     Info<<"Ending"<<endl;
 Barrier(true);
-
 }
 
 void Foam::cutCellFvMesh::computeSolidFraction_MC33(std::unique_ptr<volScalarField>& solidFraction)
