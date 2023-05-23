@@ -531,6 +531,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             provisional_pointMap.append(oldInd);
         }
     }
+    label addedPointsStartInd = provisional_pointMap.size();
 
     reversePointMap.setSize(nOldPoints,-1);
     for(label newInd=0; newInd<provisional_pointMap.size(); newInd++)
@@ -540,6 +541,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
 
     pointToEgde_.setSize(basisPoints.size(),-1);
     edgeToPoint_.setSize(basisEdges.size(),-1);
+    DynamicList<label> nearestPntOfAddedPnt;
     for(int edgInd=0;edgInd<basisEdges.size();edgInd++)
     {
         if(edgeIsCutEdge[edgInd])
@@ -577,8 +579,20 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 distToNurbs(newPoint,found,reference);
                 if(!found)
                     FatalErrorInFunction<<"New Point have a dist to Nurbs!"<< exit(FatalError);
+                
+                // Assure each point has an reference point. Does not match the mapPolyMesh
+                label refIndex = -1;
+                if(pointsToSide_[startLabel]==+1)
+                    refIndex=startLabel;
+                else if(pointsToSide_[endLabel]==+1)
+                    refIndex=endLabel;
+                else
+                    FatalErrorInFunction<<"No refIndex found!"<< exit(FatalError);
 
                 provisional_pointMap.append(-1);
+                if(refIndex<0)
+                    FatalErrorInFunction<<"No refIndex found!"<< exit(FatalError);
+                nearestPntOfAddedPnt.append(refIndex);
                 cutPointInd = newMeshPointsInFunc.size();
                 newMeshPointsInFunc.append(newPoint);
                 meshPointNurbsReference.append(reference);            
@@ -639,6 +653,21 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     {
         newMeshPoints_[newInd] = newMeshPointsInFunc[nOldPoints+i];
     }
+    
+    label addedPntIndex=0;
+    for(label pointInd=addedPointsStartInd; pointInd<pointMap.size(); pointInd++,addedPntIndex++)
+    {
+        if(pointMap[pointInd]!=-1)
+            FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
+        if(!(addedPntIndex<nearestPntOfAddedPnt.size()))
+            FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
+        pointMap[pointInd] = nearestPntOfAddedPnt[addedPntIndex];
+    }
+    
+    for(label pnt : pointMap)
+        if(pnt<0)
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    
     pointToEgde_.setCapacity(pointToEgde_.size());   
 }
 

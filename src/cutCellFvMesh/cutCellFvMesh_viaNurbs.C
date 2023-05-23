@@ -602,7 +602,7 @@ void Foam::cutCellFvMesh::refineTheImmersedBoundary()
 }
 
 void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
-{
+{   
     if(Pstream::master())
     {
         Info<<"------------- Cut-mesh computation -------------"<<Foam::endl;
@@ -770,7 +770,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     if(Pstream::master())
         Info<< "Mesh Data tested"<<endl;
     
-    
     label maxOwnerCell=0;
     label maxNeighborCell=0;
     for(label cellInd : this->new_owner)
@@ -921,13 +920,15 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     
     this->topoChanging(true);
     updateMesh(*meshCuttingMap);
+    motionPtr_->updateMesh(*meshCuttingMap);
     //motionPtr_->topoChange(motionSolverMap);
+    
     
 //Barrier(true);
 
     //Reset field size for motionSolver
     //Begin
-    /*
+    
     Foam::motionSolver* rawPtr = motionPtr_.ptr();  
     displacementLaplacianFvMotionSolver* dMS;
     try{
@@ -939,7 +940,18 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     }
     pointVectorField& pVF = dMS->pointDisplacement();
     if(this->points().size()!=pVF.size())
+        FatalErrorInFunction<< Pstream::myProcNo()<<"-- this->points().size():"<<this->points().size()<<" pVF.size():"<<pVF.size()<<endl<< exit(FatalError);
+    for(vector& vec: pVF)
+    {
+        vec=vector(0,0,0);
+        if(vec!= vector(0,0,0))
+            FatalErrorInFunction<< Pstream::myProcNo()<<"Unequal zero"<<endl<< exit(FatalError);
+    }
+
+    /*
+    if(this->points().size()!=pVF.size())
         pVF.setSize(this->points().size());
+    */
     pointVectorField::Boundary& boundFieldPointDispl = pVF.boundaryFieldRef();
 
     labelList data(Pstream::nProcs(),0);
@@ -967,9 +979,14 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
             }catch(...){
                 FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
             }
-            Info<<"patchPoints.size():"<<patchPoints.size()<<Foam::endl;
-            Info<<"fVPPF->size():"<<fVPPF->size()<<Foam::endl;            
-//            fVPPF->setSize(patchPoints.size());
+            if(patchPoints.size()!=fVPPF->size())
+                FatalErrorInFunction<< Pstream::myProcNo()<<"-- patchPoints.size():"<<patchPoints.size()<<" fVPPF->size():"<<fVPPF->size()<<endl<< exit(FatalError);
+            for(vector& vec: *fVPPF)
+            {
+                vec=vector(0,0,0);
+                if(vec!= vector(0,0,0))
+                    FatalErrorInFunction<< Pstream::myProcNo()<<"Unequal zero"<<endl<< exit(FatalError);
+            }
         }
         else if(boundaryFieldTypes[i] == "processor")
         {
@@ -981,9 +998,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
             }catch(...){
                 FatalErrorInFunction<< "Cast to valuePointPatchField failed. Must use the one"<<endl<< exit(FatalError);
             }
-            //pPPF->primitiveField().setSize(patchPoints.size());
-            Info<<"patchPoints.size():"<<patchPoints.size()<<Foam::endl;
-            Info<<"pPPF->size():"<<pPPF->size()<<Foam::endl;
+            if(patchPoints.size()!=pPPF->size())
+                FatalErrorInFunction<< Pstream::myProcNo()<<"-- patchPoints.size():"<<patchPoints.size()<<" pPPF->size():"<<pPPF->size()<<endl<< exit(FatalError);
         }
         else
             FatalErrorInFunction<<"Unexpected Patch type"<<exit(FatalError);
@@ -991,25 +1007,42 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     
     volVectorField& vVF = dMS->cellDisplacement();
     if(this->cells().size()!=vVF.size())
-        vVF.setSize(this->cells().size());
+        FatalErrorInFunction<< Pstream::myProcNo()<<"-- this->cells().size():"<<this->cells().size()<<" vVF.size():"<<vVF.size()<<endl<< exit(FatalError);
+    for(vector& vec: vVF)
+    {
+        vec=vector(0,0,0);
+        if(vec!= vector(0,0,0))
+            FatalErrorInFunction<< Pstream::myProcNo()<<"Unequal zero"<<endl<< exit(FatalError);
+    }
+    
     volVectorField::Boundary& vVF_Bound = vVF.boundaryFieldRef();
     for(int i=0;i<vVF_Bound.size();i++)
     {
         fvPatchField<vector>& boundField = vVF_Bound[i];
         const fvPatch& boundPatch = boundField.patch();
         if(boundPatch.size()!=boundField.size())
-            boundField.setSize(boundPatch.size());
+            FatalErrorInFunction<< Pstream::myProcNo()<<"-- boundPatch.size():"<<boundPatch.size()<<" boundField.size():"<<boundField.size()<<endl<< exit(FatalError);
+        for(vector& vec: boundField)
+        {
+            vec=vector(0,0,0);
+            if(vec!= vector(0,0,0))
+                FatalErrorInFunction<< Pstream::myProcNo()<<"Unequal zero"<<endl<< exit(FatalError);
+        }
     }
     pointField& pointsNull = dMS->points0();
-    pointsNull.setSize(this->points().size());
-    for(int i=0;i<this->points().size();i++)
-        pointsNull[i] = this->points()[i];
-    
+    if(this->points().size()!=pointsNull.size())
+        FatalErrorInFunction<< Pstream::myProcNo()<<"-- this->points().size():"<<this->points().size()<<" pointsNull.size():"<<pointsNull.size()<<endl<< exit(FatalError);
+    for(vector& vec: pointsNull)
+    {
+        vec=vector(0,0,0);
+        if(vec!= vector(0,0,0))
+            FatalErrorInFunction<< Pstream::myProcNo()<<"Unequal zero"<<endl<< exit(FatalError);
+    }
     motionPtr_.set(rawPtr);
     //End
-    */
+    
     Info<<"First self test"<<endl;
-    selfTestMesh();
+    //selfTestMesh();
 
     //printMesh();
     Info<<"Please write"<<endl;

@@ -277,8 +277,7 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
         }
 
         //Info<<"RodStart:"<<Rods[nurbsInd]->m_Curve.domainStart()<<Foam::endl;
-        //Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;
-        
+        //Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;        
         gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
         //Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
         //Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
@@ -722,19 +721,114 @@ void Foam::NurbsStructureInterface::moveNurbs()
     label nbrNurbs = myMesh->m_Rods.size();
     std::vector<List<List<vector>>> nurbs_to_new_controlPoints;
     
-    for(int i=0;i<nbrNurbs;i++)
+    //Insert deformation CP_s into data structure in master and resize otherwise
+    if(Pstream::master())
     {
-        gsMatrix<double> new_CPs = myMesh->m_Rods[i]->m_Def_coefs;
-        label nbrControlPoints = new_CPs.cols();
-        nurbs_to_new_controlPoints.push_back(List<List<vector>>(1,List<vector>(nbrControlPoints)));
-        for(int n=0;n<nbrControlPoints;n++)
+        for(int i=0;i<nbrNurbs;i++)
         {
-            for(int d=0;d<3;d++)
+            gsMatrix<double> new_CPs = myMesh->m_Rods[i]->m_Def_coefs;
+            label nbrControlPoints = new_CPs.cols();
+            nurbs_to_new_controlPoints.push_back(List<List<vector>>(1,List<vector>(nbrControlPoints)));
+            for(int n=0;n<nbrControlPoints;n++)
             {
-                nurbs_to_new_controlPoints.back()[0][n][d] = new_CPs(d,n);
+                for(int d=0;d<3;d++)
+                {
+                    nurbs_to_new_controlPoints.back()[0][n][d] = new_CPs(d,n);
+                }
             }
         }
     }
+    else
+    {
+        nurbs_to_new_controlPoints.resize(nbrNurbs);
+    }
+    
+    //Transfer first dimension of CP list
+    labelList controlPntDim1Size(nbrNurbs,0);
+    if(Pstream::master())
+    {
+        for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
+        {
+            controlPntDim1Size[nurbsInd] = nurbs_to_new_controlPoints[nurbsInd].size();
+        }
+    }
+    Pstream::scatterList(controlPntDim1Size);
+    if(!Pstream::master())
+    {
+        for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
+        {
+            nurbs_to_new_controlPoints[nurbsInd].setSize(controlPntDim1Size[nurbsInd]);
+        }
+    }
+    
+    //Transfer second dimension of CP list
+    DynamicList<scalar> CP_data;
+    for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
+    {
+        labelList controlPntDim2Size(nurbs_to_new_controlPoints[nurbsInd].size(),0);
+        if(Pstream::master())
+        {
+            for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
+            {
+                controlPntDim2Size[firstDimInd] = nurbs_to_new_controlPoints[nurbsInd][firstDimInd].size();
+            }
+        }
+        Pstream::scatterList(controlPntDim2Size);
+        if(!Pstream::master())
+        {
+            for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
+            {
+                nurbs_to_new_controlPoints[nurbsInd][firstDimInd].setSize(controlPntDim2Size[firstDimInd]);
+            }
+        }
+        
+        for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
+        {
+            for(label secondDimInd=0;
+                secondDimInd<nurbs_to_new_controlPoints[nurbsInd][firstDimInd].size();
+                secondDimInd++
+               )
+            {
+                for(label vecDimInd=0;vecDimInd<3;vecDimInd++)
+                {
+                    if(Pstream::master())
+                    {
+                        CP_data.append(nurbs_to_new_controlPoints[nurbsInd][firstDimInd][secondDimInd][vecDimInd]);
+                    }
+                    else
+                    {
+                        CP_data.append(0);
+                    }
+                }
+            }
+        }
+    }
+    Pstream::scatterList(CP_data);
+    label CP_data_index=0;
+    if(!Pstream::master())
+    {
+        for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
+        {
+            for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
+            {
+                for(label secondDimInd=0;
+                    secondDimInd<nurbs_to_new_controlPoints[nurbsInd][firstDimInd].size();
+                    secondDimInd++
+                   )
+                {
+                    for(label vecDimInd=0;vecDimInd<3;vecDimInd++)
+                    {
+                        if(CP_data_index<CP_data.size())
+                            FatalErrorInFunction<<"Invalid index"<< exit(FatalError); 
+
+                        nurbs_to_new_controlPoints[nurbsInd][firstDimInd][secondDimInd][vecDimInd] = CP_data[CP_data_index];
+                        CP_data_index++;
+                    }
+                }
+            }
+        }
+    }    
+    
     mesh.moveNurbsCurves(nurbs_to_new_controlPoints);
     mesh.moveTheMesh();
     mesh.update();
