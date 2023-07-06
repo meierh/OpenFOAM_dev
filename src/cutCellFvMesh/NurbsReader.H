@@ -31,18 +31,31 @@
 
 namespace Foam
 {
+class NurbsData
+{
+    public:
+        DynamicList<scalar> knots;
+        DynamicList<vector> coefs;
+        DynamicList<scalar> weights;
+        label nurbsDegree;
+        scalar radius;
+};
+    
 class NurbsReader
 {
     public:
         explicit NurbsReader(fileName runDirectory, fileName caseName);
         NurbsReader(const NurbsReader&) = delete;
         std::shared_ptr<std::vector<Nurbs1D>> getNurbsCurves();
+        std::shared_ptr<std::vector<NurbsData>> getNurbsData();
+
         
     private:
         std::shared_ptr<std::vector<Nurbs1D>> readOutNurbsFromXML();
         word getXMLPath();
         word fullXMLPath;
         std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves;
+        std::shared_ptr<std::vector<NurbsData>> nurbsData;
         fileName runDirectory;
         fileName caseName;
 };

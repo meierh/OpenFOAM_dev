@@ -13,6 +13,11 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::getNurbsCurves()
     return nurbsCurves;
 }
 
+std::shared_ptr<std::vector<NurbsData>> Foam::NurbsReader::getNurbsData()
+{
+    return nurbsData;
+}
+
 Foam::word Foam::NurbsReader::getXMLPath()
 {
     int index = caseName.find("/");
@@ -75,6 +80,7 @@ Foam::word Foam::NurbsReader::getXMLPath()
 std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
 {
     std::shared_ptr<std::vector<Nurbs1D>> nurbsCurves = std::make_shared<std::vector<Nurbs1D>>();
+    std::shared_ptr<std::vector<NurbsData>> nurbsData = std::make_shared<std::vector<NurbsData>>();
     
     tinyxml2::XMLDocument nurbsDoc;
 	tinyxml2::XMLError xmlErrorID = nurbsDoc.LoadFile(fullXMLPath.c_str());
@@ -182,6 +188,7 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
         }      
         
         nurbsCurves->push_back(Nurbs1D(knotList, coefList, weightList, nurbsDegree));
+        nurbsData->push_back({knotList,coefList,weightList,nurbsDegree,0});
     }
     if(Pstream::master())
         Info<<"Loaded "<<nurbsCurves->size()<<"Nurbs Curve from "<<fullXMLPath<<Foam::endl;

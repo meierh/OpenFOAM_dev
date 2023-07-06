@@ -1,0 +1,3 @@
+NurbsFluidOptimizer.C
+
+LIB = $(FOAM_USER_LIBBIN)/libNurbsFluidOptimizer

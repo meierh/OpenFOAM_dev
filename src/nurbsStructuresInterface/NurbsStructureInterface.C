@@ -174,7 +174,7 @@ void Foam::NurbsStructureInterface::assignBoundaryFacesToNurbsCurves()
 }
 
 template<typename Tensor_Type>
-std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInterface::computeDistributedLoad
+std::unique_ptr<List<List<Tensor_Type>>> Foam::NurbsStructureInterface::computeDistributedLoad
 (
     const Field<Tensor_Type> immersedBoundaryField
 )
@@ -185,9 +185,9 @@ std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInter
     const pointField& points = mesh.points();
     const label nurbsBoundaryStart = nurbsBoundary.start();
         
-    auto result = std::unique_ptr<std::vector<std::vector<Tensor_Type>>>
+    auto result = std::unique_ptr<List<List<Tensor_Type>>>
     (
-        new std::vector<std::vector<Tensor_Type>>(Curves->size())
+        new List<List<Tensor_Type>>(Curves->size())
     );
     for(int nurbsInd=0; nurbsInd<Curves->size(); nurbsInd++)
     {
@@ -212,6 +212,26 @@ std::unique_ptr<std::vector<std::vector<Tensor_Type>>> Foam::NurbsStructureInter
             (*result)[nurbsInd][i] = valuePerSpan;
         }
     }
+    for(int nurbsInd=0; nurbsInd<Curves->size(); nurbsInd++)
+    {
+        List<List<Tensor_Type>> gatheredNurbsWeight(Pstream::nProcs());
+        gatheredNurbsWeight[Pstream::myProcNo()] = (*result)[nurbsInd];
+        Pstream::gatherList(gatheredNurbsWeight);
+        
+        if(Pstream::master())
+        {
+            for(int i=0;i<(*result)[nurbsInd].size();i++)
+            {
+                Foam::zero null;
+                Tensor_Type thisSpanValue = Tensor_Type(null);
+                for(int rank=0;rank<gatheredNurbsWeight.size();rank++)
+                {
+                    thisSpanValue += gatheredNurbsWeight[rank][i];
+                }
+                (*result)[nurbsInd][i] = thisSpanValue;
+            }
+        }
+    }    
     return std::move(result);
 }
 
@@ -227,81 +247,78 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     
     Field<vector> ibWallForces = (-Sfp/magSfp) & totalStressIB;
     
-    vector avgVec;
-    for(vector currVec : ibWallForces)
-        avgVec += currVec;
-    avgVec /= ibWallForces.size();
-    Info<<"ibWallForces sum:"<<avgVec<<Foam::endl;
-    
     auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
     
-    for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
+    if(Pstream::master())
     {
-        const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];      
-        
-        std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
-        int degree=1;
-        double delta = nurbsToLimits[nurbsInd][1]-nurbsToLimits[nurbsInd][0];
-        knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0] - delta/200;
-        for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
+        for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
         {
-            double delta = nurbsToLimits[nurbsInd][k+1]-nurbsToLimits[nurbsInd][k-1];
-            double epsilon = delta/200;
-            knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
-            knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
-        }
-        knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back() + delta/200;
-        
-        /*
-        Info<<"delta:"<<delta<<Foam::endl;
-        Info<<"delta/200:"<<delta/200<<Foam::endl;
-        Info<<"nurbsToLimits[nurbsInd].back():"<<nurbsToLimits[nurbsInd].back()<<Foam::endl;
-        Info<<"nurbsToLimits[nurbsInd].back()+delta/200:"<<nurbsToLimits[nurbsInd].back()+delta/2000<<Foam::endl;
-        */
-        
-        gismo::gsKnotVector<double> knotVector(knotContainer,degree);
-        
-        gismo::gsMatrix<double> w(nurbsToLimits[nurbsInd].size()*2-2,1);
-        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
-            w(i,0) = 1;
-        
-        gismo::gsMatrix<double> Pcoeff(nurbsToLimits[nurbsInd].size()*2-2,3);
-        int k=0;
-        for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i+=2,k++)
-        {
-            for(label d=0;d<3;d++)
+            const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];      
+            
+            std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
+            int degree=1;
+            double delta = nurbsToLimits[nurbsInd][1]-nurbsToLimits[nurbsInd][0];
+            knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0] - delta/200;
+            for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
             {
-                Pcoeff(i,d) = oneCurveDistrLoad[k][d];
-                Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
+                double delta = nurbsToLimits[nurbsInd][k+1]-nurbsToLimits[nurbsInd][k-1];
+                double epsilon = delta/200;
+                knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
+                knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
             }
-        }
+            knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back() + delta/200;
+            
+            /*
+            Info<<"delta:"<<delta<<Foam::endl;
+            Info<<"delta/200:"<<delta/200<<Foam::endl;
+            Info<<"nurbsToLimits[nurbsInd].back():"<<nurbsToLimits[nurbsInd].back()<<Foam::endl;
+            Info<<"nurbsToLimits[nurbsInd].back()+delta/200:"<<nurbsToLimits[nurbsInd].back()+delta/2000<<Foam::endl;
+            */
+            
+            gismo::gsKnotVector<double> knotVector(knotContainer,degree);
+            
+            gismo::gsMatrix<double> w(nurbsToLimits[nurbsInd].size()*2-2,1);
+            for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
+                w(i,0) = 1;
+            
+            gismo::gsMatrix<double> Pcoeff(nurbsToLimits[nurbsInd].size()*2-2,3);
+            int k=0;
+            for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i+=2,k++)
+            {
+                for(label d=0;d<3;d++)
+                {
+                    Pcoeff(i,d) = oneCurveDistrLoad[k][d];
+                    Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
+                }
+            }
 
-        //Info<<"RodStart:"<<Rods[nurbsInd]->m_Curve.domainStart()<<Foam::endl;
-        //Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;        
-        gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
-        //Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
-        //Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
-        gismo::gsKnotVector<double>& knotVectorRead = forceNurbs->knots();
-        
-        /*
-        for(int j=0;j<knotVectorRead.size();j++)
-        {
-            Info<<knotVectorRead[j]<<"  ";
-        }        
-        Info<<Foam::endl;
-        for(double start=forceNurbs->domainStart(); start<forceNurbs->domainEnd(); start+=0.1)
-        {
-            gismo::gsMatrix<double> u(1,1);
-            u(0,0) = start;
-            gismo::gsMatrix<double> f = forceNurbs->eval(u);
-            Info<<"f.rows:"<<f.rows()<<Foam::endl;
-            Info<<"f.cols:"<<f.cols()<<Foam::endl;
-            Info<<u(0,0)<<": ("<<f(0,0)<<","<<f(1,0)<<","<<f(2,0)<<")"<<Foam::endl;
-        }
-        */
-        forceCurveStorage[nurbsInd].reset(forceNurbs);
+            //Info<<"RodStart:"<<Rods[nurbsInd]->m_Curve.domainStart()<<Foam::endl;
+            //Info<<"RodEnd:"<<Rods[nurbsInd]->m_Curve.domainEnd()<<Foam::endl;        
+            gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
+            //Info<<"domainStart:"<<forceNurbs->domainStart()<<Foam::endl;
+            //Info<<"domainEnd:"<<forceNurbs->domainEnd()<<Foam::endl;
+            gismo::gsKnotVector<double>& knotVectorRead = forceNurbs->knots();
+            
+            /*
+            for(int j=0;j<knotVectorRead.size();j++)
+            {
+                Info<<knotVectorRead[j]<<"  ";
+            }        
+            Info<<Foam::endl;
+            for(double start=forceNurbs->domainStart(); start<forceNurbs->domainEnd(); start+=0.1)
+            {
+                gismo::gsMatrix<double> u(1,1);
+                u(0,0) = start;
+                gismo::gsMatrix<double> f = forceNurbs->eval(u);
+                Info<<"f.rows:"<<f.rows()<<Foam::endl;
+                Info<<"f.cols:"<<f.cols()<<Foam::endl;
+                Info<<u(0,0)<<": ("<<f(0,0)<<","<<f(1,0)<<","<<f(2,0)<<")"<<Foam::endl;
+            }
+            */
+            forceCurveStorage[nurbsInd].reset(forceNurbs);
 
-        (myMesh->m_Rods[nurbsInd])->set_force_lG(forceCurveStorage[nurbsInd].get());
+            (myMesh->m_Rods[nurbsInd])->set_force_lG(forceCurveStorage[nurbsInd].get());
+        }
     }
 }
 
@@ -711,7 +728,10 @@ void Foam::NurbsStructureInterface::solveOneStep()
 {
     Info<<"Solve Nurbs structure"<<Foam::endl;
     assignForceOnCurve();
-    myMesh->solve(1.0,solveOpt);
+
+    if(Pstream::master())
+        myMesh->solve(1.0,solveOpt);
+    
     moveNurbs();
 }
 

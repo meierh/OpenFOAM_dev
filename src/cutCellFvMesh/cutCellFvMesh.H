@@ -429,6 +429,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const IOobject& io,
             scalar cellDimToStructureDimLimit = 0.51
         );
+
+        explicit cutCellFvMesh
+        (
+            const IOobject& io,
+            cutStatus state,
+            NurbsReader& Reader,
+            scalar cellDimToStructureDimLimit
+        );
         
         void cutTheImmersedBoundary();
         void cutTheImmersedBoundary_MC33();

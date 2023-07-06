@@ -314,6 +314,64 @@ marchingCubesAlgorithm(*this)
     findCutCellPnts();
 }
 
+Foam::cutCellFvMesh::cutCellFvMesh
+(
+    const IOobject& io,
+    cutStatus state,
+    NurbsReader& Reader,
+    scalar cellDimToStructureDimLimit
+):
+dynamicRefineFvMesh(io),
+cellDimToStructureDimLimit(cellDimToStructureDimLimit),
+motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
+ibAlgorithm(state),
+marchingCubesAlgorithm(*this)
+{  
+    intersectionRadius = 0;
+    bool refineIsHex = false;
+    const dictionary& dynDict = this->dynamicMeshDict();
+    if(dynDict.found("useHexTopology",true,true))
+    {
+        const entry& hexEntry = dynDict.lookupEntry("useHexTopology",true,true);
+        if(hexEntry.isStream())
+        {
+            ITstream& hexTopStream = hexEntry.stream();
+            token hexTopToken;
+            hexTopStream.read(hexTopToken);
+            if(hexTopToken.wordToken().match("true"))
+                refineIsHex=true;
+        }
+    }
+    if(!refineIsHex)
+        FatalIOError<<"\"useHexTopology yes\" must be defined and set in dynamicMeshDict"<< exit(FatalIOError);     
+    
+    // Initialize mesh class
+    Curves = Reader.getNurbsCurves();
+    /// CHANGE LATER ///
+    
+    MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
+    NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
+    for(unsigned long i=0;i<(*(this->Curves)).size();i++)
+    {
+        NurbsTrees[i] = std::move(std::unique_ptr<BsTree>(new BsTree((*(this->Curves))[i])));
+    }
+    testForNonHexMesh(*this);    
+    // Refine nurbs cut surface
+    refineTheImmersedBoundary();
+    if(Pstream::master())
+    {
+        Info<<"Pre-refinement done"<<endl;
+    }
+    //testForNonHexMesh(*this);
+    //Apply the immersed boundary cut method
+    cutTheImmersedBoundary_MC33();
+    if(Pstream::master())
+    {
+        Info<<"Cut-mesh done"<<endl;
+    }
+    findCutCellPnts();
+}
+
 void Foam::cutCellFvMesh::refineTheImmersedBoundary()
 {
     scalar oldCellDimToStructureDim = std::numeric_limits<scalar>::max();

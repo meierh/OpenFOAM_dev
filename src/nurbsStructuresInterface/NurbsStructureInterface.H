@@ -132,7 +132,7 @@ class NurbsStructureInterface
         void computeIBTemperature();
         void assignBoundaryFacesToNurbsCurves();
         template<typename Tensor_Type>
-        std::unique_ptr<std::vector<std::vector<Tensor_Type>>> computeDistributedLoad
+        std::unique_ptr<List<List<Tensor_Type>>> computeDistributedLoad
         (
             const Field<Tensor_Type> immersedBoundaryField
         );
