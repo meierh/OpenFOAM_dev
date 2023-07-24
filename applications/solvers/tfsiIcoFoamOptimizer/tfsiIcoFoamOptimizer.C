@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
             fvVectorMatrix UEqn
             (
                 fvm::ddt(U)
-            + fvm::div(phi, U)
-            - fvm::laplacian(nu, U)
+                + fvm::div(phi, U)
+                - fvm::laplacian(nu, U)
             );
 
             if (piso.momentumPredictor())
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
                 (
                     "phiHbyA",
                     fvc::flux(HbyA)
-                + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
+                    + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
                 );
 
                 adjustPhi(phiHbyA, U, p);
@@ -138,6 +138,84 @@ int main(int argc, char *argv[])
                 << "  ClockTime = " << runTime.elapsedClockTime() << " s"
                 << nl << endl;
         }
+        
+        while (runTime.loop())
+        {
+            Info<< "Time = " << runTime.timeName() << nl << endl;
+
+            #include "CourantNo.H"
+
+            // Momentum predictor
+            
+            solve
+            (
+                - fvm::ddt(Ta)
+                + fvm::div(phi, UT)
+                - fvm::laplacian(nu, Ta)
+            );
+            
+            fvVectorMatrix UaEqn
+            (
+                - fvm::ddt(Ua)
+                - fvc::grad(Ua) & U
+                + fvm::div(phi, Ua)
+                - fvm::laplacian(nu, Ua)
+            );
+            if (piso.momentumPredictor())
+            {
+                solve(UaEqn == +fvc::grad(pa) - T*fvc::grad(Ta));
+            }
+                        
+            // --- PISO loop
+            while (piso.correct())
+            {
+                volScalarField rAUa(1.0/UaEqn.A());
+                volVectorField HbyAa(constrainHbyA(rAUa*UaEqn.H(), Ua, pa));
+                surfaceScalarField phiHbyAa
+                (
+                    "phiHbyAa",
+                    fvc::flux(HbyAa)
+                + fvc::interpolate(rAUa)*fvc::ddtCorr(Ua, phia)
+                );
+
+                adjustPhi(phiHbyAa, Ua, pa);
+
+                // Update the pressure BCs to ensure flux consistency
+                constrainPressure(pa, Ua, phiHbyAa, rAUa);
+
+                // Non-orthogonal pressure corrector loop
+                while (piso.correctNonOrthogonal())
+                {
+                    // Pressure corrector
+
+                    fvScalarMatrix paEqn
+                    (
+                        fvm::laplacian(rAUa, pa) == fvc::div(phiHbyAa)
+                    );
+
+                    paEqn.setReference(paRefCell, paRefValue);
+
+                    paEqn.solve();
+
+                    if (piso.finalNonOrthogonalIter())
+                    {
+                        phia = phiHbyAa - paEqn.flux();
+                    }
+                }
+
+                #include "continuityErrs.H"
+
+                Ua = HbyAa - rAUa*fvc::grad(pa);
+                Ua.correctBoundaryConditions();
+            }
+
+            runTime.write();
+
+            Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
+                << "  ClockTime = " << runTime.elapsedClockTime() << " s"
+                << nl << endl;
+        }
+        
         runTime.write();
 
         Info<< "End\n" << endl;
