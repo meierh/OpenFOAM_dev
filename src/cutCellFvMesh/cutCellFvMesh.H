@@ -333,6 +333,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             //mapPolyMesh data
             label nOldPoints;
             labelList pointMap; 
+            labelList purePointMap;
             labelList reversePointMap; 
             List<objectMap> pointsFromPoints; // not written
             pointField preMotionPoints;

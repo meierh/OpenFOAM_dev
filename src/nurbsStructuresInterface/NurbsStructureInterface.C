@@ -247,13 +247,13 @@ void Foam::NurbsStructureInterface::assignForceOnCurve()
     
     Field<vector> ibWallForces = (-Sfp/magSfp) & totalStressIB;
     
-    auto distrLoad = computeDistributedLoad<vector>(ibWallForces);
+    std::unique_ptr<List<List<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
     
     if(Pstream::master())
     {
         for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
         {
-            const std::vector<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];      
+            const List<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];      
             
             std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
             int degree=1;

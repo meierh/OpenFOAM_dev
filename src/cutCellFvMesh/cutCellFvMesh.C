@@ -654,6 +654,7 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
         newMeshPoints_[newInd] = newMeshPointsInFunc[nOldPoints+i];
     }
     
+    purePointMap = pointMap;
     label addedPntIndex=0;
     for(label pointInd=addedPointsStartInd; pointInd<pointMap.size(); pointInd++,addedPntIndex++)
     {
@@ -668,7 +669,39 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
         if(pnt<0)
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
     
-    pointToEgde_.setCapacity(pointToEgde_.size());   
+    pointToEgde_.setCapacity(pointToEgde_.size());
+    
+    
+    // Test section
+    Info<<"basisPoints:"<<basisPoints.size()<<Foam::endl;
+    Info<<"newMeshPoints_:"<<newMeshPoints_.size()<<Foam::endl;
+    Info<<"pointMap:"<<pointMap.size()<<Foam::endl;
+    Info<<"reversePointMap:"<<reversePointMap.size()<<Foam::endl;
+    Info<<"addedPointsStartInd:"<<addedPointsStartInd<<Foam::endl;
+    
+    for(int newInd=0;newInd<addedPointsStartInd;newInd++)
+    {
+        label oldInd = purePointMap[newInd];
+        if(reversePointMap[oldInd] != newInd)
+        {
+            Info<<"oldInd:"<<oldInd<<Foam::endl;
+            Info<<"newInd:"<<newInd<<Foam::endl;
+            Info<<"reversePointMap[oldInd]:"<<reversePointMap[oldInd]<<Foam::endl;
+            FatalErrorInFunction<<"Error in Index!"<< exit(FatalError);
+        }
+        if(basisPoints[oldInd] != newMeshPoints_[newInd])
+            FatalErrorInFunction<<"Error in Coordinates!"<< exit(FatalError);
+    }
+    for(int newInd=addedPointsStartInd;newInd<purePointMap.size();newInd++)
+    {
+        label oldInd = purePointMap[newInd];
+        if(oldInd!=-1)
+        {
+            Info<<"oldInd:"<<oldInd<<Foam::endl;
+            Info<<"newInd:"<<newInd<<Foam::endl;
+            FatalErrorInFunction<<"Error in Index!"<< exit(FatalError);
+        }
+    }
 }
 
 void Foam::cutCellFvMesh::printAddedPoints
@@ -2969,6 +3002,23 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
     newMeshFaces_.setCapacity(newMeshFaces_.size());
     faceToCells_.setCapacity(faceToCells_.size());
     cellToFaces_.setCapacity(cellToFaces_.size());
+    
+    /*
+    for(face& oneFace : newMeshFaces_)
+    {
+        for(label& vertice : oneFace)
+        {
+            label oldInd = vertice;
+            label newInd = reversePointMap[oldInd];
+            if(newInd<0 || newInd>=newMeshPoints_.size())
+            {
+                Info<<"newInd:"<<newInd<<Foam::endl;
+                FatalErrorInFunction<<"Invalid index"<<exit(FatalError);
+            }
+            vertice = newInd;  
+        }
+    }
+    */
 }
 
 void Foam::cutCellFvMesh::printAddedFaces
@@ -3049,15 +3099,13 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     const labelList& cellOwner = this->faceOwner();
     const labelList& cellNeighbor = this->faceNeighbour();
     const labelListList& faceToEdge = this->faceEdges();
-    
+
     cellsToSide();
+
+    oldFacesToCutFaces_.setSize(meshFaces.size());
     
-    cutFaces_.setCapacity(meshFaces.size());
-    oldFacesToCutFaces_.setCapacity(meshFaces.size());
-    cutFacesToSide_.setCapacity(meshFaces.size());
-        
     for(int i=0;i<meshFaces.size();i++)
-    {       
+    {
         label ownerCell = cellOwner[i];        
         DynamicList<face> ownerNewFaces;
         DynamicList<std::unordered_set<label>> ownerFacesPoints;
@@ -3070,7 +3118,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
                 ownerFacesPoints[j].insert(newMeshFaces_[cellToFaces_[ownerCell][j]][k]);
             }
         }
-
+        
         label neighborCell = -1;
         DynamicList<face> neighborNewFaces;
         DynamicList<std::unordered_set<label>> neighborFacesPoints;
@@ -3088,7 +3136,6 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
             }
         }
         
-        
         DynamicList<label> addedEdges;
         for(const label cutEdge: faceToEdges_[i])
         {
@@ -3097,7 +3144,6 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
                 addedEdges.append(cutEdge);
             }
         }
-        
         if(faceToEdges_[i].size()>2)
         {
             FatalErrorInFunction<<"Can not happen"<<exit(FatalError);
@@ -3240,10 +3286,23 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
             }
         }
     }
-    cutFaces_.setCapacity(cutFaces_.size());
-    oldFacesToCutFaces_.setCapacity(oldFacesToCutFaces_.size());
-    cutFacesToSide_.setCapacity(cutFacesToSide_.size());
     
+    /*
+    for(face& oneFace : cutFaces_)
+    {
+        for(label& vertice : oneFace)
+        {
+            label oldInd = vertice;
+            label newInd = reversePointMap[oldInd];
+            if(newInd<0 || newInd>=newMeshPoints_.size())
+            {
+                Info<<"newInd:"<<newInd<<Foam::endl;
+                FatalErrorInFunction<<"Invalid index"<<exit(FatalError);
+            }
+            vertice = newInd;  
+        }
+    }
+    */
 }
 
 void Foam::cutCellFvMesh::printCutFaces
@@ -3997,6 +4056,9 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         
 //Barrier(true);
 
+    Info<<"4000"<<Foam::endl;
+ 
+    Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<Foam::endl;
     // Compute List of new faces splitting old cells
     for(int i=0;i<cellToFaces_.size();i++)
     {
@@ -4005,12 +4067,40 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             if(cellToFaces_[i][j] >= nbrOfPrevFaces)
             {
                 face addedFace = newMeshFaces_[cellToFaces_[i][j]];
+                face vCorrAddedFace = addedFace;
+                for(label& vertice : vCorrAddedFace)
+                {
+                    label oldInd = vertice;
+                    label newInd = reversePointMap[oldInd];
+                    if(newInd<0 || newInd>=newMeshPoints_.size())
+                    {
+                        Info<<"error"<<Foam::endl;
+                        Info<<"nOldPoints:"<<nOldPoints<<Foam::endl;
+                        Info<<"newInd:"<<newInd<<Foam::endl;
+                        Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<Foam::endl;
+                        Info<<"oldInd:"<<oldInd<<Foam::endl;
+                        Info<<"reversePointMap.size():"<<reversePointMap.size()<<Foam::endl;
+                        FatalErrorInFunction<<"Invalid index"<<exit(FatalError);
+                    }
+                    vertice = newInd;
+                }
             
                 labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
                 cell thisCell = meshCells[i];
-                vector thisNormal = addedFace.normal(newMeshPoints_);
+                
+                for(int vertice : vCorrAddedFace)
+                {
+                    if(vertice<0 || vertice>=newMeshPoints_.size())
+                    {
+                        Info<<i<<" "<<j<<" "<<"Vertice "<<vertice<<" does not fit"<<Foam::endl;
+                        Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<Foam::endl;
+                    }
+                }
+                vector thisNormal = vCorrAddedFace.normal(newMeshPoints_);
                 //Info<<"This Normal: "<<thisNormal<<endl;
-                point thisCentre = addedFace.centre(newMeshPoints_);
+                Info<<"addedFace:"<<addedFace<<Foam::endl;
+                
+                point thisCentre = vCorrAddedFace.centre(newMeshPoints_);
                 //Info<<"This Centre: "<<thisCentre<<endl;
             
                 label testInd = -1;
