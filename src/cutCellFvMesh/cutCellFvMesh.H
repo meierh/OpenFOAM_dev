@@ -162,6 +162,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             // new PointField; previous points + added Points
             DynamicList<point> newMeshPointsInFunc;
             pointField newMeshPoints_;
+            List<bool> removedOldPoints;
         
             //Reference nurbs curves for zero points
             DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference;
@@ -195,6 +196,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             label nbrOfPrevEdges;
             // new PointField; previous points + added Points
             DynamicList<edge> newMeshEdges_;
+            List<bool> removedOldEdges;
         
             //label of face for every added edge or zero side edge and null every other edge
             DynamicList<DynamicList<label>> edgeToFaces_;
