@@ -2958,8 +2958,7 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
     const cellList& meshCells = this->cells();
     const faceList& basisFaces = this->faces();
     
-    nbrOfPrevFaces = basisFaces.size();
-    //nOldFaces = nbrOfPrevFaces = basisFaces.size();
+    nOldFaces = nbrOfPrevFaces = basisFaces.size();
     
     newMeshFaces_.append(basisFaces);
 
@@ -3131,6 +3130,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     cellsToSide();
 
     oldFacesToCutFaces_.setSize(meshFaces.size());
+    Info<<"cutFaces_.size():"<<cutFaces_.size()<<Foam::endl;
     
     for(int i=0;i<meshFaces.size();i++)
     {
@@ -3315,6 +3315,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
         }
     }
     
+    /*
     for(const face& oneFace : cutFaces_)
     {
         for(const label* iter=oneFace.cbegin(); iter!=oneFace.cend(); iter++)
@@ -3333,6 +3334,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
     Info<<"newMeshFaces_.size():"<<newMeshFaces_.size()<<Foam::endl;
     Info<<"nOldFaces:"<<nOldFaces<<Foam::endl;    
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+    */
 }
 
 void Foam::cutCellFvMesh::printCutFaces
@@ -4097,28 +4099,11 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             if(cellToFaces_[i][j] >= nbrOfPrevFaces)
             {
                 face addedFace = newMeshFaces_[cellToFaces_[i][j]];
-                face vCorrAddedFace = addedFace;
-                for(label& vertice : vCorrAddedFace)
-                {
-                    label oldInd = vertice;
-                    label newInd = reversePointMap[oldInd];
-                    if(newInd<0 || newInd>=newMeshPoints_.size())
-                    {
-                        Info<<"error"<<Foam::endl;
-                        Info<<"nOldPoints:"<<nOldPoints<<Foam::endl;
-                        Info<<"newInd:"<<newInd<<Foam::endl;
-                        Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<Foam::endl;
-                        Info<<"oldInd:"<<oldInd<<Foam::endl;
-                        Info<<"reversePointMap.size():"<<reversePointMap.size()<<Foam::endl;
-                        FatalErrorInFunction<<"Invalid index"<<exit(FatalError);
-                    }
-                    vertice = newInd;
-                }
             
                 labelList thisCellPointLabels = meshCells[i].labels(meshFaces);
                 cell thisCell = meshCells[i];
                 
-                for(int vertice : vCorrAddedFace)
+                for(int vertice : addedFace)
                 {
                     if(vertice<0 || vertice>=newMeshPoints_.size())
                     {
@@ -4126,11 +4111,11 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                         Info<<"newMeshPoints_.size():"<<newMeshPoints_.size()<<Foam::endl;
                     }
                 }
-                vector thisNormal = vCorrAddedFace.normal(newMeshPoints_);
+                vector thisNormal = addedFace.normal(newMeshPoints_);
                 //Info<<"This Normal: "<<thisNormal<<endl;
-                Info<<"addedFace:"<<addedFace<<Foam::endl;
+                //Info<<"addedFace:"<<addedFace<<Foam::endl;
                 
-                point thisCentre = vCorrAddedFace.centre(newMeshPoints_);
+                point thisCentre = addedFace.centre(newMeshPoints_);
                 //Info<<"This Centre: "<<thisCentre<<endl;
             
                 label testInd = -1;
@@ -5113,19 +5098,29 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
 
     //std::function<faceList&(faceList&)> face_vertice_correction;
     labelList oldToNewPointInd(newMeshPointsInFunc.size(),-1);
-    label maxOldCellNewIndex = 0;
-    for(label oldCelli=0;oldCelli<reversePointMap.size();oldCelli++)
+    label maxOldPntNewIndex = 0;
+    for(label oldPnti=0;oldPnti<reversePointMap.size();oldPnti++)
     {
-        if(reversePointMap[oldCelli]!=-1)
+        if(reversePointMap[oldPnti]!=-1)
         {
-            oldToNewPointInd[oldCelli] = reversePointMap[oldCelli];
-            maxOldCellNewIndex = std::max(reversePointMap[oldCelli],maxOldCellNewIndex);
+            oldToNewPointInd[oldPnti] = reversePointMap[oldPnti];
+            maxOldPntNewIndex = std::max(reversePointMap[oldPnti],maxOldPntNewIndex);
         }
     }
-    for(label newCelli=reversePointMap.size();newCelli<oldToNewPointInd.size();newCelli++)
+    for(label newPnti=reversePointMap.size();newPnti<oldToNewPointInd.size();newPnti++)
     {
-        maxOldCellNewIndex++;
-        oldToNewPointInd[newCelli] = maxOldCellNewIndex;
+        maxOldPntNewIndex++;
+        oldToNewPointInd[newPnti] = maxOldPntNewIndex;
+    }
+
+    new_points = pointField(maxOldPntNewIndex+1);
+    for(label oldPnti=0;oldPnti<oldToNewPointInd.size();oldPnti++)
+    {
+        label newPnti = oldToNewPointInd[oldPnti];
+        if(newPnti!=-1)
+        {
+            new_points[newPnti] = newMeshPoints_[oldPnti];
+        }
     }
  
     auto face_vertice_correction = [&](faceList& faces)
@@ -5137,7 +5132,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
                 label reduced_index_vertice = oldToNewPointInd[oneFace[i]];
                 if(reduced_index_vertice<0)
                 {
-                    Info<<"maxOldCellNewIndex:"<<maxOldCellNewIndex<<Foam::endl;
+                    Info<<"maxOldPntNewIndex:"<<maxOldPntNewIndex<<Foam::endl;
                     Info<<"newMeshPointsInFunc.size():"<<newMeshPointsInFunc.size()<<Foam::endl;
                     Info<<"this->points().size():"<<this->points().size()<<Foam::endl;
                     Info<<"nOldPoints:"<<nOldPoints<<Foam::endl;
@@ -5154,7 +5149,6 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
         return faces;
     };
 
-    new_points = newMeshPoints_;
     
     new_faces.append(face_vertice_correction(splitAndUnsplitFacesInterior));
     new_faces.append(face_vertice_correction(splitAndUnsplitFacesBoundary));
@@ -5174,9 +5168,9 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     new_neighbour.append(splitAndUnsplitFacesInteriorToBoundaryNeighbor);
     new_neighbour.append(splitAndUnsplitFacesInterfaceNeighbor);
         
-    for(int i=0;i<owner.size();i++)
+    for(int i=0;i<new_owner.size();i++)
     {
-        if(owner[i]<0)
+        if(new_owner[i]<0)
         {
             Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
             Info<<"new_faces["<<i<<"]:"<<new_faces[i]<<endl;
@@ -5184,7 +5178,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             Info<<"new_neighbour[i]:"<<new_neighbour[i]<<endl;            
             FatalErrorInFunction<<"Owner fail stop"<< exit(FatalError); 
         }
-        if(neighbour[i]<-1)
+        if(new_neighbour[i]<-1)
         {
             Info<<"nbrOfPrevFaces:"<<nbrOfPrevFaces<<endl;
             Info<<"new_faces["<<i<<"]:"<<new_faces[i]<<endl;
@@ -7561,6 +7555,177 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     scalar partialThreeshold
 )
 {
+    Info<<"Correct false cell topologies"<<Foam::endl;
+    std::unordered_map<label,DynamicList<label>> cellsFacesMap;
+    label cellNbr = -1;
+    for(int faceInd=0; faceInd<new_faces.size(); faceInd++)
+    {
+        label owner = new_owner[faceInd];
+        label neighbour = new_neighbour[faceInd];
+        cellsFacesMap[owner].append(faceInd);
+        if(neighbour!=-1)
+            cellsFacesMap[neighbour].append(faceInd);
+        cellNbr = std::max(owner,cellNbr);
+        cellNbr = std::max(neighbour,cellNbr);
+    }
+    cellNbr++;
+    List<cell> new_cells(cellNbr);
+    for(int cellInd=0; cellInd<new_cells.size(); cellInd++)
+    {
+        auto iter = cellsFacesMap.find(cellInd);
+        if(iter==cellsFacesMap.end())
+            FatalErrorInFunction<<"Missing cell index!"<< exit(FatalError);
+        if(iter->second.size()<4)
+            FatalErrorInFunction<<"Illformed cell has less than four faces!"<< exit(FatalError);
+        
+        new_cells[cellInd] = cell(iter->second);
+    }
+    
+    Info<<"Test for closed cell!"<<Foam::endl;
+    for(const cell& oneCell : new_cells)
+    {
+        DynamicList<face> cellFaces;
+        for(const label& faceInd : oneCell)
+        {
+            const face& oneFace = new_faces[faceInd];
+            //Info<<"----------------"<<Foam::endl;
+            //Info<<"oneFace:"<<oneFace<<Foam::endl;
+            for(const label& vertice : new_faces[faceInd])
+            {
+                label locVertInd = oneFace.which(vertice);
+                //Info<<" locVertInd:"<<locVertInd<<Foam::endl;
+                if(locVertInd==-1)
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                label prevVertice = oneFace.prevLabel(locVertInd);
+                //Info<<" prevVertice:"<<prevVertice<<Foam::endl;
+                bool prevVerticeCon = false;
+                label nextVertice = oneFace.nextLabel(locVertInd);
+                //Info<<" nextVertice:"<<nextVertice<<Foam::endl;
+                bool nextVerticeCon = false;
+                DynamicList<label> cellConFaceInds;
+                for(const label& othFaceInd : oneCell)
+                {
+                    if(othFaceInd == faceInd)
+                        continue;
+                    
+                    const face& othFace = new_faces[othFaceInd];
+                    if(othFace.which(vertice)!=-1)
+                    {
+                        cellConFaceInds.append(othFaceInd);
+                    }
+                }
+                for(const label& conFaceInd : cellConFaceInds)
+                {
+                    const face& conFace = new_faces[conFaceInd];
+                    //Info<<" conFace:"<<conFace<<Foam::endl;
+                    label conLocVertInd = conFace.which(vertice);
+                    if(conLocVertInd==-1)
+                    {
+                        Info<<" vertice:"<<vertice<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    }
+                    label conPrevVertice = conFace.prevLabel(conLocVertInd);
+                    label conNextVertice = conFace.nextLabel(conLocVertInd);
+                    
+                    if(prevVertice == conPrevVertice)
+                    {
+                        if(prevVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        prevVerticeCon = true;
+                    }
+                    else if(prevVertice == conNextVertice)
+                    {
+                        if(prevVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        prevVerticeCon = true;
+                    }
+                    
+                    if(nextVertice == conPrevVertice)
+                    {
+                        if(nextVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        nextVerticeCon = true;
+                    }
+                    else if(nextVertice == conNextVertice)
+                    {
+                        if(nextVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        nextVerticeCon = true;
+                    }
+                }
+                
+                if(!prevVerticeCon || !nextVerticeCon)
+                {
+                    FatalErrorInFunction<<"Edges connected to vertice are not connected to other face!"<< exit(FatalError);
+                }
+            }
+        }
+    }
+    
+    for(int faceInd=0; faceInd<new_faces.size(); faceInd++)
+    {
+        label ownerCellInd = new_owner[faceInd];
+        cell ownerCell = new_cells[ownerCellInd];
+        Info<<"ownerCell:"<<ownerCell<<Foam::endl;
+        Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]]<<Foam::endl;
+        Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]].points(this->faces(),this->points())<<Foam::endl;
+        std::unordered_set<label> ownerCellFaceMap;
+        for(const label& faceInd : ownerCell)
+            ownerCellFaceMap.insert(faceInd);
+        if(ownerCellFaceMap.find(faceInd)==ownerCellFaceMap.end())
+            FatalErrorInFunction<<"Error"<< exit(FatalError);
+        ownerCellFaceMap.erase(faceInd);
+        
+        vector centre = new_faces[faceInd].centre(new_points);
+        vector normal = new_faces[faceInd].normal(new_points);        
+        label posNormalHit = 0;
+        label negNormalHit = 0;
+        Info<<"-----------------"<<Foam::endl;
+        Info<<"faceInd:"<<faceInd<<" -"<<new_faces[faceInd].points(new_points)<<Foam::endl;
+        Info<<"centre:"<<centre<<Foam::endl;
+        Info<<"normal:"<<normal<<Foam::endl;
+        
+        for(auto iter=ownerCellFaceMap.cbegin();
+            iter!=ownerCellFaceMap.cend();
+            iter++)
+        {
+            label othFaceInd = *iter;
+            Info<<" othFaceInd:"<<othFaceInd<<" "<<new_faces[othFaceInd].points(new_points)<<Foam::endl;
+            const face& othFace = new_faces[othFaceInd];
+            pointHit posNormRes= othFace.ray(centre,normal,new_points);
+            posNormalHit = posNormRes.hit()?posNormalHit+1:posNormalHit;
+            if(posNormRes.hit())
+            {
+                Info<<"     Pos Hits "<<othFaceInd<<" using "<<normal<<" at dist:"<<posNormRes.distance()<<Foam::endl;
+            }
+            
+            pointHit negNormRes= othFace.ray(centre,-1*normal,new_points);
+            negNormalHit = negNormRes.hit()?negNormalHit+1:negNormalHit;
+            if(negNormRes.hit())
+            {
+                Info<<"     Neg Hits "<<othFaceInd<<" using "<<-1*normal<<" at dist:"<<negNormRes.distance()<<Foam::endl;
+            }
+        }
+        if(posNormalHit%2==0 && negNormalHit%2!=0)
+        {
+            //Normal direction correct
+        }
+        else if(posNormalHit%2!=0 && negNormalHit%2==0)
+        {
+            new_faces[faceInd] = new_faces[faceInd].reverseFace();
+        }
+        else
+        {
+            Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
+            Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
+            FatalErrorInFunction<<"Error"<< exit(FatalError);
+        }
+        
+    }
+
+    
+    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+
     std::unordered_map<label,DynamicList<label>> cell_to_faces;
     
     label maxCell=-1;

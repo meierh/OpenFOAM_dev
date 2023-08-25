@@ -714,8 +714,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     if(Pstream::master())
         Info<<"Cutting old faces took \t\t\t\t\t" << time_span.count() << " seconds."<<endl;
 
-    //List<std::unordered_map<label,label>> oldPointIndToPatchInd;
-
     t1 = std::chrono::high_resolution_clock::now();
     createNewMeshData_MC33();
     t2 = std::chrono::high_resolution_clock::now();
@@ -724,7 +722,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
         
     t1 = std::chrono::high_resolution_clock::now();
-    //agglomerateSmallCells_MC33(partialThreeshold);
+    agglomerateSmallCells_MC33(partialThreeshold);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     if(Pstream::master())
