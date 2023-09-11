@@ -7582,6 +7582,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
     
     Info<<"Test for closed cell!"<<Foam::endl;
+    //Testing if the faces of a cell form a closed set
     for(const cell& oneCell : new_cells)
     {
         DynamicList<face> cellFaces;
@@ -7662,6 +7663,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
     
+    //Testing if face normal direction is correct
     for(int faceInd=0; faceInd<new_faces.size(); faceInd++)
     {
         label ownerCellInd = new_owner[faceInd];
@@ -7679,7 +7681,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         vector centre = new_faces[faceInd].centre(new_points);
         vector normal = new_faces[faceInd].normal(new_points);        
         label posNormalHit = 0;
+        DynamicList<vector> posNormalHitPoint;
         label negNormalHit = 0;
+        DynamicList<vector> negNormalHitPoint;
         Info<<"-----------------"<<Foam::endl;
         Info<<"faceInd:"<<faceInd<<" -"<<new_faces[faceInd].points(new_points)<<Foam::endl;
         Info<<"centre:"<<centre<<Foam::endl;
@@ -7692,20 +7696,86 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             label othFaceInd = *iter;
             Info<<" othFaceInd:"<<othFaceInd<<" "<<new_faces[othFaceInd].points(new_points)<<Foam::endl;
             const face& othFace = new_faces[othFaceInd];
+            
             pointHit posNormRes= othFace.ray(centre,normal,new_points);
-            posNormalHit = posNormRes.hit()?posNormalHit+1:posNormalHit;
-            if(posNormRes.hit())
+            if(posNormRes.hit() && posNormRes.distance()>0)
             {
-                Info<<"     Pos Hits "<<othFaceInd<<" using "<<normal<<" at dist:"<<posNormRes.distance()<<Foam::endl;
+                posNormalHit++;
+                posNormalHitPoint.append(posNormRes.hitPoint());
+                Info<<"     Pos Hits "<<othFaceInd<<" using "<<normal<<" at dist:"<<posNormRes.distance()<<" and point:"<<posNormRes.hitPoint()<<Foam::endl;
             }
             
             pointHit negNormRes= othFace.ray(centre,-1*normal,new_points);
-            negNormalHit = negNormRes.hit()?negNormalHit+1:negNormalHit;
-            if(negNormRes.hit())
+            if(negNormRes.hit() && negNormRes.distance()>0)
             {
-                Info<<"     Neg Hits "<<othFaceInd<<" using "<<-1*normal<<" at dist:"<<negNormRes.distance()<<Foam::endl;
+                negNormalHit++;
+                negNormalHitPoint.append(negNormRes.hitPoint());
+                Info<<"     Neg Hits "<<othFaceInd<<" using "<<-1*normal<<" at dist:"<<negNormRes.distance()<<" and point:"<<negNormRes.hitPoint()<<Foam::endl;
             }
         }
+        
+        Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
+        Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
+        
+        Info<<"posNormalHitPoint:"<<posNormalHitPoint<<Foam::endl;
+        Info<<"negNormalHitPoint:"<<negNormalHitPoint<<Foam::endl;
+        
+        List<bool> posEqualTreated(posNormalHitPoint.size(),false);
+        for(label i=0;i<posNormalHitPoint.size();i++)
+        {
+            if(posEqualTreated[i])
+                continue;
+            
+            posEqualTreated[i] = true;
+            label equalsCount = 0;
+            for(int j=i+1;j<posNormalHitPoint.size();j++)
+            {
+                if(posEqualTreated[j])
+                    continue;
+                
+                scalar posHitPointDist = norm2(posNormalHitPoint[i]-posNormalHitPoint[j]);
+                if(posHitPointDist<1e-10)
+                {
+                    if(posEqualTreated[j])
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    equalsCount++;
+                    posEqualTreated[j] = true;
+                }
+            }
+            posNormalHit-=equalsCount;
+        }
+        List<bool> negEqualTreated(negNormalHitPoint.size(),false);
+        for(label i=0;i<negNormalHitPoint.size();i++)
+        {
+            if(negEqualTreated[i])
+                continue;
+            
+            negEqualTreated[i] = true;
+            label equalsCount = 0;
+            for(int j=i+1;j<negNormalHitPoint.size();j++)
+            {
+                if(negEqualTreated[j])
+                    continue;
+                
+                scalar negHitPointDist = norm2(negNormalHitPoint[i]-negNormalHitPoint[j]);
+                if(negHitPointDist<1e-10)
+                {
+                    if(negEqualTreated[j])
+                    {
+                        Info<<"-------------Error------------"<<Foam::endl;
+                        Info<<"i:"<<i<<Foam::endl;
+                        Info<<"j:"<<j<<Foam::endl;
+                        Info<<"negNormalHitPoint:"<<negNormalHitPoint<<Foam::endl;
+                        Info<<"negEqualTreated:"<<negEqualTreated<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    }
+                    equalsCount++;
+                    negEqualTreated[j] = true;
+                }
+            }
+            negNormalHit-=equalsCount;
+        }
+        
         if(posNormalHit%2==0 && negNormalHit%2!=0)
         {
             //Normal direction correct
@@ -7718,11 +7788,19 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         {
             Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
             Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
+            Info<<(negNormalHitPoint[0]==negNormalHitPoint[1])<<Foam::endl;
+            Info<<(negNormalHitPoint[0]-negNormalHitPoint[1])<<Foam::endl;
             FatalErrorInFunction<<"Error"<< exit(FatalError);
         }
         
     }
 
+    //Testing for nonconvexivity in cell and correct them
+    for(const cell& oneCell : new_cells)
+    {
+        std::unordered_map<label,DynamicList<label>> pntToFaceInd;
+        
+    }
     
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 
