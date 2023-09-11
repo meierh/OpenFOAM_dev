@@ -7799,7 +7799,45 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     for(const cell& oneCell : new_cells)
     {
         std::unordered_map<label,DynamicList<label>> pntToFaceInd;
+        for(const label oneFaceInd : oneCell)
+        {
+            const face& oneFace = new_faces[oneFaceInd];
+            for(const label pnt : oneFace)
+            {
+                pntToFaceInd[pnt].append(oneFaceInd);
+            }
+        }
+        List<label> pnts(pntToFaceInd.size());
+        label i=0;
+        for(auto iterI=pntToFaceInd.cbegin(); iterI!=pntToFaceInd.cend(); iterI++,i++)
+        {
+            pnts[i] = iterI.first;
+        }
         
+        List<DynamicList<std::pair<label,bool>>> interiorConnection(pntToFaceInd.size());
+        for(label i=0; i<pnts.size(); i++)
+        {
+            DynamicList<label>& pointFaces = pntToFaceInd.find(pnts[i]);            
+            std:unordered_set<label> treated;
+            for(label faceInd : pointFaces)
+            {
+                for(label pnt : new_faces[faceInd])
+                {
+                    if(treated.find(pnt)==treated.end())
+                    {
+                        interiorConnection[i].append({pnt,true})
+                        treated.insert(pnt);
+                    }
+                }
+            }
+            for(int j=0;j<pnts.size();j++)
+            {
+                if(i=!j && treated.find(pnt)==treated.end())
+                {
+                    //Test for interior connection of exterior
+                }
+            }
+        }
     }
     
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
