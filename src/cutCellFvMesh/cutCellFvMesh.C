@@ -7668,9 +7668,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     {
         label ownerCellInd = new_owner[faceInd];
         cell ownerCell = new_cells[ownerCellInd];
-        Info<<"ownerCell:"<<ownerCell<<Foam::endl;
-        Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]]<<Foam::endl;
-        Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]].points(this->faces(),this->points())<<Foam::endl;
+        //Info<<"ownerCell:"<<ownerCell<<Foam::endl;
+        //Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]]<<Foam::endl;
+        //Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]].points(this->faces(),this->points())<<Foam::endl;
         std::unordered_set<label> ownerCellFaceMap;
         for(const label& faceInd : ownerCell)
             ownerCellFaceMap.insert(faceInd);
@@ -7684,17 +7684,17 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         DynamicList<vector> posNormalHitPoint;
         label negNormalHit = 0;
         DynamicList<vector> negNormalHitPoint;
-        Info<<"-----------------"<<Foam::endl;
-        Info<<"faceInd:"<<faceInd<<" -"<<new_faces[faceInd].points(new_points)<<Foam::endl;
-        Info<<"centre:"<<centre<<Foam::endl;
-        Info<<"normal:"<<normal<<Foam::endl;
+        //Info<<"-----------------"<<Foam::endl;
+        //Info<<"faceInd:"<<faceInd<<" -"<<new_faces[faceInd].points(new_points)<<Foam::endl;
+        //Info<<"centre:"<<centre<<Foam::endl;
+        //Info<<"normal:"<<normal<<Foam::endl;
         
         for(auto iter=ownerCellFaceMap.cbegin();
             iter!=ownerCellFaceMap.cend();
             iter++)
         {
             label othFaceInd = *iter;
-            Info<<" othFaceInd:"<<othFaceInd<<" "<<new_faces[othFaceInd].points(new_points)<<Foam::endl;
+            //Info<<" othFaceInd:"<<othFaceInd<<" "<<new_faces[othFaceInd].points(new_points)<<Foam::endl;
             const face& othFace = new_faces[othFaceInd];
             
             pointHit posNormRes= othFace.ray(centre,normal,new_points);
@@ -7702,7 +7702,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             {
                 posNormalHit++;
                 posNormalHitPoint.append(posNormRes.hitPoint());
-                Info<<"     Pos Hits "<<othFaceInd<<" using "<<normal<<" at dist:"<<posNormRes.distance()<<" and point:"<<posNormRes.hitPoint()<<Foam::endl;
+                //Info<<"     Pos Hits "<<othFaceInd<<" using "<<normal<<" at dist:"<<posNormRes.distance()<<" and point:"<<posNormRes.hitPoint()<<Foam::endl;
             }
             
             pointHit negNormRes= othFace.ray(centre,-1*normal,new_points);
@@ -7710,15 +7710,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             {
                 negNormalHit++;
                 negNormalHitPoint.append(negNormRes.hitPoint());
-                Info<<"     Neg Hits "<<othFaceInd<<" using "<<-1*normal<<" at dist:"<<negNormRes.distance()<<" and point:"<<negNormRes.hitPoint()<<Foam::endl;
+                //Info<<"     Neg Hits "<<othFaceInd<<" using "<<-1*normal<<" at dist:"<<negNormRes.distance()<<" and point:"<<negNormRes.hitPoint()<<Foam::endl;
             }
         }
         
-        Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
-        Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
+        //Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
+        //Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
         
-        Info<<"posNormalHitPoint:"<<posNormalHitPoint<<Foam::endl;
-        Info<<"negNormalHitPoint:"<<negNormalHitPoint<<Foam::endl;
+        //Info<<"posNormalHitPoint:"<<posNormalHitPoint<<Foam::endl;
+        //Info<<"negNormalHitPoint:"<<negNormalHitPoint<<Foam::endl;
         
         List<bool> posEqualTreated(posNormalHitPoint.size(),false);
         for(label i=0;i<posNormalHitPoint.size();i++)
@@ -7782,7 +7782,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
         else if(posNormalHit%2!=0 && negNormalHit%2==0)
         {
-            new_faces[faceInd] = new_faces[faceInd].reverseFace();
+            //new_faces[faceInd] = new_faces[faceInd].reverseFace();
         }
         else
         {
@@ -7796,48 +7796,137 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
 
     //Testing for nonconvexivity in cell and correct them
-    for(const cell& oneCell : new_cells)
+    class CellEdge
     {
-        std::unordered_map<label,DynamicList<label>> pntToFaceInd;
-        for(const label oneFaceInd : oneCell)
+    public:
+        label smallerPointInd;
+        label largerPointInd;
+        std::array<label,2> faceInds;
+        const pointField& new_points;
+        const faceList& new_faces;        
+    };
+    
+    
+    label k=0;
+    for(label cellInd=0;cellInd<new_cells.size();cellInd++)
+    {
+        const cell& oneCell = new_cells[cellInd];
+        Info<<k++<<"-----------------------------------------------------------"<<Foam::endl;
+        for(label i=0;i<oneCell.size();i++)
         {
+            const label oneFaceInd = oneCell[i];
             const face& oneFace = new_faces[oneFaceInd];
-            for(const label pnt : oneFace)
-            {
-                pntToFaceInd[pnt].append(oneFaceInd);
-            }
+            Info<<"i:"<<i<<" pnts:"<<oneFace.points(new_points)<<Foam::endl;
         }
-        List<label> pnts(pntToFaceInd.size());
-        label i=0;
-        for(auto iterI=pntToFaceInd.cbegin(); iterI!=pntToFaceInd.cend(); iterI++,i++)
+        List<DynamicList<std::tuple<label,std::pair<label,label>,scalar>>> faceEdgeGraph(oneCell.size());
+        for(label i=0;i<oneCell.size();i++)
         {
-            pnts[i] = iterI.first;
-        }
-        
-        List<DynamicList<std::pair<label,bool>>> interiorConnection(pntToFaceInd.size());
-        for(label i=0; i<pnts.size(); i++)
-        {
-            DynamicList<label>& pointFaces = pntToFaceInd.find(pnts[i]);            
-            std:unordered_set<label> treated;
-            for(label faceInd : pointFaces)
+            const label oneFaceInd = oneCell[i];
+            const face& oneFace = new_faces[oneFaceInd];
+            for(const label pntIni : oneFace)
             {
-                for(label pnt : new_faces[faceInd])
+                label locVertInd = oneFace.which(pntIni);
+                if(locVertInd==-1)
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                label pntNext = oneFace.nextLabel(locVertInd);
+                
+                // Find the face connected to the two points pntIni,pntNext
+                label j_Conn = -1;
+                label smConnPnt = -1;
+                label laConnPnt = -1;
+                scalar cosAngle = 0;
+                for(label j=0;j<oneCell.size();j++)
                 {
-                    if(treated.find(pnt)==treated.end())
+                    if(i!=j)
                     {
-                        interiorConnection[i].append({pnt,true})
-                        treated.insert(pnt);
+                        const label otherFaceInd = oneCell[j];
+                        const face& otherFace = new_faces[otherFaceInd];
+                        label otherLocVertInd = otherFace.which(pntIni);
+                        if(otherLocVertInd!=-1)
+                        {
+                            label otherPntNext = otherFace.nextLabel(otherLocVertInd);
+                            label otherPntPrev = otherFace.prevLabel(otherLocVertInd);
+                            if(otherPntNext==pntNext || otherPntPrev==pntNext)
+                            {
+                                if(j_Conn!=-1)
+                                {
+                                    Info<<"j_Conn:"<<j_Conn<<Foam::endl;
+                                    Info<<"j:"<<j<<Foam::endl;
+                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                }
+                                j_Conn = j;
+                                if(pntIni<pntNext)
+                                {
+                                    smConnPnt = pntIni;
+                                    laConnPnt = pntNext;
+                                }
+                                else if(pntIni>pntNext)
+                                {
+                                    smConnPnt = pntNext;
+                                    laConnPnt = pntIni;
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                
+                                label oneFaceOwnerCellInd = new_owner[oneFaceInd];
+                                vector oneFaceNormal = oneFace.normal(new_points);
+                                if(oneFaceOwnerCellInd!=cellInd)
+                                    oneFaceNormal = -1*oneFaceNormal;
+                                    
+                                label otherFaceOwnerCellInd = new_owner[otherFaceInd];
+                                vector otherFaceNormal = otherFace.normal(new_points);
+                                if(otherFaceOwnerCellInd!=cellInd)
+                                    otherFaceNormal = -1*otherFaceNormal;
+                                
+                                vector oneFaceCenter = oneFace.centre(new_points);
+                                vector otherFaceCenter = otherFace.centre(new_points);
+                                vector oneToOther = otherFaceCenter-oneFaceCenter;
+                                vector otherToOne = oneFaceCenter-otherFaceCenter;
+                                scalar oneToOtherToNormalAngle = oneToOther & otherFaceNormal;
+                                scalar otherToOneToNormalAngle = otherToOne & oneFaceNormal;
+                                
+                                if(oneToOtherToNormalAngle>0 && otherToOneToNormalAngle>0)
+                                {
+                                }
+                                else if(oneToOtherToNormalAngle<0 && otherToOneToNormalAngle<0)
+                                {
+                                }
+                                else
+                                {
+                                    Info<<"cellInd:"<<cellInd<<Foam::endl;
+                                    Info<<"oneFaceOwnerCellInd:"<<oneFaceOwnerCellInd<<Foam::endl;
+                                    Info<<"otherFaceOwnerCellInd:"<<otherFaceOwnerCellInd<<Foam::endl;
+                                    
+                                    Info<<"i:"<<i<<" oneFace.points(new_points):"<<oneFace.points(new_points)<<Foam::endl;
+                                    Info<<"j:"<<j<<" otherFace.points(new_points):"<<otherFace.points(new_points)<<Foam::endl;
+                                    
+                                    Info<<"oneFaceCenter:"<<oneFaceCenter<<Foam::endl;
+                                    Info<<"otherFaceCenter:"<<otherFaceCenter<<Foam::endl;
+                                    Info<<"oneToOther:"<<oneToOther<<Foam::endl;
+                                    Info<<"otherToOne:"<<otherToOne<<Foam::endl;
+
+                                    Info<<"otherFace.normal(new_points):"<<otherFaceNormal<<Foam::endl;
+                                    Info<<"oneFace.normal(new_points):"<<oneFaceNormal<<Foam::endl;
+
+                                    Info<<"oneToOtherToNormalAngle:"<<oneToOtherToNormalAngle<<Foam::endl;
+                                    Info<<"otherToOneToNormalAngle:"<<otherToOneToNormalAngle<<Foam::endl;
+                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                }
+                            }
+                        }
                     }
                 }
+                if(j_Conn==-1)
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                faceEdgeGraph[i].append({j_Conn,{smConnPnt,laConnPnt},cosAngle});
             }
-            for(int j=0;j<pnts.size();j++)
-            {
-                if(i=!j && treated.find(pnt)==treated.end())
-                {
-                    //Test for interior connection of exterior
-                }
-            }
+            if(faceEdgeGraph[i].size()!=oneFace.size())
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
         }
+            
+        
+        
+        
     }
     
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
