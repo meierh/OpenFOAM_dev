@@ -635,6 +635,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold = 0.25
         );
         */
+        void triangulateCell
+        (
+            const cell& thisCell
+        );
+
         
         void agglomerateSmallCells_MC33
         (

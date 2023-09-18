@@ -7550,6 +7550,110 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
 }
 */
 
+void Foam::cutCellFvMesh::triangulateCell
+(
+    const cell& thisCell
+)
+{
+    DynamicList<label> remCell;
+    DynamicList<face> faces;
+    DynamicList<std::pair<label,bool>> faceMap;
+    DynamicList<label> owner;
+    DynamicList<label> neighbour;
+    for(label locFaceInd=0; locFaceInd<thisCell.size(); locFaceInd++)
+    {
+        label faceInd = thisCell[locFaceInd];
+        remCell.append(locFaceInd);
+        faces.append(new_faces[faceInd]);
+        faceMap.append({faceInd,true});
+        owner.append(new_owner[faceInd]);
+        neighbour.append(new_neighbour[faceInd]);
+    }
+    
+    while(remCell.size()>0)
+    {
+        //Collect point to ordered face mapping
+        std::unordered_map<label,DynamicList<label>> pointToFaces;
+        for(label locFaceInd=0; locFaceInd<remCell.size(); locFaceInd++)
+        {
+            const face& thisFace = faces[remCell[locFaceInd]];
+            for(const label pointInd : thisFace)
+            {
+                pointToFaces[pointInd].append(remCell[locFaceInd]);
+            }
+        }
+        //Order faces in point to face mapping
+        for(auto iter=pointToFaces.begin(); iter!=pointToFaces.end(); iter++)
+        {
+            label point = iter->first;
+            DynamicList<label>& pointFaces = iter->second;
+            label nbrFaces = pointFaces.size();
+            std::list<label> pointFacesLis(pointFaces.begin(),pointFaces.end());
+            pointFaces.clear();
+            label faceFrontInd = pointFacesLis.front();
+            pointFacesLis.pop_front();
+            pointFaces.append(faceFrontInd);
+            while(!pointFacesLis.empty())
+            {
+                const face& faceFront = faces[faceFrontInd];
+                label locPntInd = faceFront.which(point);
+                if(locPntInd==-1)
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                label nextPntInd = faceFront.nextLabel(locPntInd);
+                label prevPntInd = faceFront.prevLabel(locPntInd);
+                for(auto iter=pointFacesLis.cbegin(); ; )
+                {
+                    const face& faceCon = faces[*iter];
+                    if(faceCon.where(point)==-1)
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    if((faceCon.where(nextPntInd)!=-1 && faceCon.where(prevPntInd)==-1) ||
+                       (faceCon.where(nextPntInd)==-1 && faceCon.where(prevPntInd)!=-1))
+                    {
+                        pointFaces.append(*iter);
+                        faceFrontInd = *iter;
+                        pointFacesLis.erase(iter);
+                        break;
+                    }
+                    else if(faceCon.where(nextPntInd)!=-1 && faceCon.where(prevPntInd)!=-1)
+                    {
+                        iter++;
+                        if(iter==pointFacesLis.end())
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    }
+                    else
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                }
+            }
+            const face& firstFace = faces[pointFaces.first()];
+            const face& lastFace = faces[pointFaces.last()];
+            label locPntIndfirstFace = firstFace.which(point);
+            if(locPntIndfirstFace==-1)
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+            label locPntIndlastFace = lastFace.which(point);
+            if(locPntIndlastFace==-1)
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+            label nextPntIndfirstFace = firstFace.nextLabel(locPntIndfirstFace);
+            label prevPntIndfirstFace = firstFace.prevLabel(locPntIndfirstFace);
+            label nextPntIndlastFace = lastFace.nextLabel(locPntIndlastFace);
+            label prevPntIndlastFace = lastFace.prevLabel(locPntIndlastFace);
+            if(!((nextPntIndfirstFace==prevPntIndlastFace) ||
+                 (nextPntIndfirstFace==nextPntIndlastFace) ||
+                 (prevPntIndfirstFace==prevPntIndlastFace) ||
+                 (prevPntIndfirstFace==nextPntIndlastFace) ))
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+            if(nbrFaces!=pointFaces.size())
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+
+        }
+    }
+    
+        
+    
+    
+    
+
+}
+
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 (
     scalar partialThreeshold
@@ -7807,21 +7911,27 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     };
     
     
-    label k=0;
+    List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>> cellFaceEdgeGraph(new_cells.size());
+    std::vector<scalar> cellSize(new_cells.size());
+    List<bool> nonConvexCell(new_cells.size(),false);
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
     {
         const cell& oneCell = new_cells[cellInd];
-        Info<<k++<<"-----------------------------------------------------------"<<Foam::endl;
+        cellSize[cellInd] = oneCell.mag(new_points,new_faces);
+        /*
+        Info<<cellInd<<"-----------------------------------------------------------"<<Foam::endl;
         for(label i=0;i<oneCell.size();i++)
         {
             const label oneFaceInd = oneCell[i];
             const face& oneFace = new_faces[oneFaceInd];
             Info<<"i:"<<i<<" pnts:"<<oneFace.points(new_points)<<Foam::endl;
         }
-        List<DynamicList<std::tuple<label,std::pair<label,label>,scalar>>> faceEdgeGraph(oneCell.size());
-        for(label i=0;i<oneCell.size();i++)
+        */
+        List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>& faceEdgeGraph = cellFaceEdgeGraph[cellInd];
+        faceEdgeGraph.setSize(oneCell.size());
+        for(label locFaceInd=0;locFaceInd<oneCell.size();locFaceInd++)
         {
-            const label oneFaceInd = oneCell[i];
+            const label oneFaceInd = oneCell[locFaceInd];
             const face& oneFace = new_faces[oneFaceInd];
             for(const label pntIni : oneFace)
             {
@@ -7835,9 +7945,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 label smConnPnt = -1;
                 label laConnPnt = -1;
                 scalar cosAngle = 0;
+                bool convex = false;
                 for(label j=0;j<oneCell.size();j++)
                 {
-                    if(i!=j)
+                    if(locFaceInd!=j)
                     {
                         const label otherFaceInd = oneCell[j];
                         const face& otherFace = new_faces[otherFaceInd];
@@ -7885,32 +7996,46 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 scalar oneToOtherToNormalAngle = oneToOther & otherFaceNormal;
                                 scalar otherToOneToNormalAngle = otherToOne & oneFaceNormal;
                                 
+                                cosAngle = oneFaceNormal & otherFaceNormal;
                                 if(oneToOtherToNormalAngle>0 && otherToOneToNormalAngle>0)
                                 {
+                                    convex = true;
                                 }
                                 else if(oneToOtherToNormalAngle<0 && otherToOneToNormalAngle<0)
                                 {
+                                    convex = false;
                                 }
                                 else
                                 {
-                                    Info<<"cellInd:"<<cellInd<<Foam::endl;
-                                    Info<<"oneFaceOwnerCellInd:"<<oneFaceOwnerCellInd<<Foam::endl;
-                                    Info<<"otherFaceOwnerCellInd:"<<otherFaceOwnerCellInd<<Foam::endl;
-                                    
-                                    Info<<"i:"<<i<<" oneFace.points(new_points):"<<oneFace.points(new_points)<<Foam::endl;
-                                    Info<<"j:"<<j<<" otherFace.points(new_points):"<<otherFace.points(new_points)<<Foam::endl;
-                                    
-                                    Info<<"oneFaceCenter:"<<oneFaceCenter<<Foam::endl;
-                                    Info<<"otherFaceCenter:"<<otherFaceCenter<<Foam::endl;
-                                    Info<<"oneToOther:"<<oneToOther<<Foam::endl;
-                                    Info<<"otherToOne:"<<otherToOne<<Foam::endl;
+                                    scalar difference = std::abs(oneToOtherToNormalAngle-otherToOneToNormalAngle);
+                                    if(difference<1e-10)
+                                    {
+                                        convex = true;
+                                    }
+                                    else
+                                    {
+                                        Info<<"cellInd:"<<cellInd<<Foam::endl;
+                                        Info<<"oneFaceOwnerCellInd:"<<oneFaceOwnerCellInd<<Foam::endl;
+                                        Info<<"otherFaceOwnerCellInd:"<<otherFaceOwnerCellInd<<Foam::endl;
+                                        
+                                        Info<<"locFaceInd:"<<locFaceInd<<" oneFace.points(new_points):"<<oneFace.points(new_points)<<Foam::endl;
+                                        Info<<"j:"<<j<<" otherFace.points(new_points):"<<otherFace.points(new_points)<<Foam::endl;
+                                        
+                                        Info<<"oneFaceCenter:"<<oneFaceCenter<<Foam::endl;
+                                        Info<<"otherFaceCenter:"<<otherFaceCenter<<Foam::endl;
+                                        Info<<"oneToOther:"<<oneToOther<<Foam::endl;
+                                        Info<<"otherToOne:"<<otherToOne<<Foam::endl;
 
-                                    Info<<"otherFace.normal(new_points):"<<otherFaceNormal<<Foam::endl;
-                                    Info<<"oneFace.normal(new_points):"<<oneFaceNormal<<Foam::endl;
+                                        Info<<"otherFaceNormal:"<<otherFaceNormal<<Foam::endl;
+                                        Info<<"oneFaceNormal:"<<oneFaceNormal<<Foam::endl;
+                                        
+                                        Info<<"otherFaceNormal:"<<otherFace.normal(new_points)<<Foam::endl;
+                                        Info<<"oneFaceNormal:"<<oneFace.normal(new_points)<<Foam::endl;
 
-                                    Info<<"oneToOtherToNormalAngle:"<<oneToOtherToNormalAngle<<Foam::endl;
-                                    Info<<"otherToOneToNormalAngle:"<<otherToOneToNormalAngle<<Foam::endl;
-                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                        Info<<"oneToOtherToNormalAngle:"<<oneToOtherToNormalAngle<<Foam::endl;
+                                        Info<<"otherToOneToNormalAngle:"<<otherToOneToNormalAngle<<Foam::endl;
+                                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                    }
                                 }
                             }
                         }
@@ -7918,19 +8043,93 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 }
                 if(j_Conn==-1)
                     FatalErrorInFunction<<"Error"<< exit(FatalError);
-                faceEdgeGraph[i].append({j_Conn,{smConnPnt,laConnPnt},cosAngle});
+                faceEdgeGraph[locFaceInd].append({j_Conn,{smConnPnt,laConnPnt},convex,cosAngle});
+                nonConvexCell[cellInd] = true;
             }
-            if(faceEdgeGraph[i].size()!=oneFace.size())
+            if(faceEdgeGraph[locFaceInd].size()!=oneFace.size())
                 FatalErrorInFunction<<"Error"<< exit(FatalError);
         }
-            
-        
-        
-        
     }
+    std::sort(cellSize.begin(),cellSize.end());
+    scalar locMinCellSize = cellSize[cellSize.size()/10]/10;
+    struct scalar_min
+    {
+        scalar operator()(const scalar a, const scalar b) const
+        {
+            return std::min<scalar>(a,b);
+        }
+    };
+    scalar_min op;
+    Pstream::gather(locMinCellSize,op);
+    Pstream::scatter(locMinCellSize);
     
+    List<DynamicList<std::pair<label,label>>> smallCellMergeCand(new_cells.size());
+    List<bool> smallCell(new_cells.size(),false);
+    for(label cellInd=0;cellInd<new_cells.size();cellInd++)
+    {
+        const cell& oneCell = new_cells[cellInd];
+        scalar cellSize = oneCell.mag(new_points,new_faces);
+        if(cellSize<locMinCellSize)
+        {
+            smallCell[cellInd] = true;
+            for(label locFaceInd=0; locFaceInd<oneCell.size(); locFaceInd++)
+            {
+                label faceInd = oneCell[locFaceInd];
+                if(faceInd<new_neighbour.size())
+                {
+                    label faceNeighborCell=-1;
+                    if(new_owner[faceInd]==cellInd)
+                    {
+                        faceNeighborCell=new_neighbour[faceInd];
+                    }
+                    else if(new_neighbour[faceInd]==cellInd)
+                    {
+                        faceNeighborCell=new_owner[faceInd];
+                    }
+                    else
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    const cell& neighborCell = new_cells[faceNeighborCell];
+                    scalar neighborCellSize = neighborCell.mag(new_points,new_faces);
+                    if((neighborCellSize+cellSize)>=locMinCellSize)
+                    {
+                        smallCellMergeCand[cellInd].append({locFaceInd,faceNeighborCell});
+                    }
+                }
+            }
+        }
+    }
+
+    for(label cellInd=0;cellInd<new_cells.size();cellInd++)
+    {
+        if(nonConvexCell[cellInd])
+        {
+            
+        }
+    }
+
+    
+
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     std::unordered_map<label,DynamicList<label>> cell_to_faces;
     
     label maxCell=-1;
