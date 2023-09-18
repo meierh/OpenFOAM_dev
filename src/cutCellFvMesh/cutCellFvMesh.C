@@ -7604,24 +7604,31 @@ void Foam::cutCellFvMesh::triangulateCell
                 for(auto iter=pointFacesLis.cbegin(); ; )
                 {
                     const face& faceCon = faces[*iter];
-                    if(faceCon.where(point)==-1)
+                    if(faceCon.which(point)==-1)
                         FatalErrorInFunction<<"Error"<< exit(FatalError);
-                    if((faceCon.where(nextPntInd)!=-1 && faceCon.where(prevPntInd)==-1) ||
-                       (faceCon.where(nextPntInd)==-1 && faceCon.where(prevPntInd)!=-1))
+                    bool nextPntInFaceCon = (faceCon.which(nextPntInd)!=-1);
+                    bool prevPntInFaceCon = (faceCon.which(prevPntInd)!=-1);
+                    
+                    if((nextPntInFaceCon && !prevPntInFaceCon) ||
+                       (!nextPntInFaceCon && prevPntInFaceCon))
                     {
                         pointFaces.append(*iter);
                         faceFrontInd = *iter;
                         pointFacesLis.erase(iter);
                         break;
                     }
-                    else if(faceCon.where(nextPntInd)!=-1 && faceCon.where(prevPntInd)!=-1)
+                    else if(!nextPntInFaceCon && !prevPntInFaceCon)
                     {
                         iter++;
                         if(iter==pointFacesLis.end())
                             FatalErrorInFunction<<"Error"<< exit(FatalError);
                     }
                     else
+                    {
+                        Info<<"nextPntInFaceCon:"<<nextPntInFaceCon<<Foam::endl;
+                        Info<<"prevPntInFaceCon:"<<prevPntInFaceCon<<Foam::endl;
                         FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    }
                 }
             }
             const face& firstFace = faces[pointFaces.first()];
@@ -7645,13 +7652,10 @@ void Foam::cutCellFvMesh::triangulateCell
                 FatalErrorInFunction<<"Error"<< exit(FatalError);
 
         }
-    }
-    
         
-    
-    
-    
-
+        std::unordered_map<label,scalar> pointToMinAngle
+        break;
+    }
 }
 
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
@@ -7767,6 +7771,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
     
+    Info<<"Test for correct normal direction!"<<Foam::endl;
     //Testing if face normal direction is correct
     for(int faceInd=0; faceInd<new_faces.size(); faceInd++)
     {
@@ -7900,6 +7905,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
 
     //Testing for nonconvexivity in cell and correct them
+    Info<<"Test for nonconvex cell!"<<Foam::endl;
     class CellEdge
     {
     public:
@@ -8063,6 +8069,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     Pstream::gather(locMinCellSize,op);
     Pstream::scatter(locMinCellSize);
     
+    Info<<"Test for too small cell and find merge candidates"<<Foam::endl;
     List<DynamicList<std::pair<label,label>>> smallCellMergeCand(new_cells.size());
     List<bool> smallCell(new_cells.size(),false);
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
@@ -8075,19 +8082,23 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             for(label locFaceInd=0; locFaceInd<oneCell.size(); locFaceInd++)
             {
                 label faceInd = oneCell[locFaceInd];
-                if(faceInd<new_neighbour.size())
+                if(faceInd>=new_neighbour.size() || faceInd>=new_owner.size())
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+
+                label faceNeighborCell=-1;
+                if(new_owner[faceInd]==cellInd)
                 {
-                    label faceNeighborCell=-1;
-                    if(new_owner[faceInd]==cellInd)
-                    {
-                        faceNeighborCell=new_neighbour[faceInd];
-                    }
-                    else if(new_neighbour[faceInd]==cellInd)
-                    {
-                        faceNeighborCell=new_owner[faceInd];
-                    }
-                    else
-                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    faceNeighborCell=new_neighbour[faceInd];
+                }
+                else if(new_neighbour[faceInd]==cellInd)
+                {
+                    faceNeighborCell=new_owner[faceInd];
+                }
+                else
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                
+                if(faceNeighborCell!=-1)
+                {
                     const cell& neighborCell = new_cells[faceNeighborCell];
                     scalar neighborCellSize = neighborCell.mag(new_points,new_faces);
                     if((neighborCellSize+cellSize)>=locMinCellSize)
@@ -8098,18 +8109,20 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             }
         }
     }
-
+    
+    Info<<"Fix nonconvex cells"<<Foam::endl;
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
     {
+        triangulateCell(new_cells[cellInd]);
         if(nonConvexCell[cellInd])
         {
             
         }
     }
 
-    
-
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+
+
 
     
     
