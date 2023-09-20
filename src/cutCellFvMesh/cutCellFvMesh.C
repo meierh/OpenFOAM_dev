@@ -7653,7 +7653,7 @@ void Foam::cutCellFvMesh::triangulateCell
 
         }
         
-        std::unordered_map<label,scalar> pointToMinAngle
+        std::unordered_map<label,scalar> pointToMinAngle;
         break;
     }
 }

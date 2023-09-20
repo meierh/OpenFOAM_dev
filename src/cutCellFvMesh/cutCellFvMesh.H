@@ -75,6 +75,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 
                 MC33Cube computeCutCell(int cellInd);
                 std::string getBitPattern(const unsigned short int x);
+                enum Case { c0,c1,c2,c31,c32,c41,c42,c5,c611,c612,c62,c71,c72,c73,c741,c742,c8,c9,
+                            c1011,c1012,c102,c11,c1211,c1212,c122,c131,c132,c133,c134,c1351,c1352,c14};
                 
             private:
                 cutCellFvMesh& mesh;
