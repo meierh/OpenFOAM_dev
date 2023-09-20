@@ -186,6 +186,108 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell(in
 	{
 		mc33Cube.bitPattern = bitPattern;
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
+		label arrayIndex = triangleCase-table;
+		
+		if(arrayIndex<0)
+			FatalErrorInFunction<<"ArrayIndex must not be smaller than zero!"<< exit(FatalError);
+		else if(arrayIndex<128)
+			FatalErrorInFunction<<"ArrayIndex not a case!"<< exit(FatalError);
+		else if(arrayIndex<136)
+			// Case 1 Triangle Number 1
+			mc33Cube.cubeCase = c1;
+		else if(arrayIndex<160)
+			// Case 2 Triangle Number 2
+			mc33Cube.cubeCase = c2;
+		else if(arrayIndex<184)
+			// Case 3.1 Triangle Number 2
+			mc33Cube.cubeCase = c31;
+		else if(arrayIndex<232)
+			// Case 3.2 Triangle Number 4
+			mc33Cube.cubeCase = c32;
+		else if(arrayIndex<240)
+			// Case 4.1.1 Triangle Number 2
+			mc33Cube.cubeCase = c411;
+		else if(arrayIndex<264)
+			// Case 4.1.2 Triangle Number 6
+			mc33Cube.cubeCase = c412;
+		else if(arrayIndex<336)
+			// Case 5 Triangle Number 3
+			mc33Cube.cubeCase = c5;
+		else if(arrayIndex<408)
+			// Case 6.1.1 Triangle Number 3
+			mc33Cube.cubeCase = c611;
+		else if(arrayIndex<576)
+			// Case 6.1.2 Triangle Number 7
+			mc33Cube.cubeCase = c612;
+		else if(arrayIndex<696)
+			// Case 6.2 Triangle Number 5
+			mc33Cube.cubeCase = c62;
+		else if(arrayIndex<720)
+			// Case 7.1 Triangle Number 3
+			mc33Cube.cubeCase = c71;
+		else if(arrayIndex<840)
+			// Case 7.2 Triangle Number 5
+			mc33Cube.cubeCase = c72;
+		else if(arrayIndex<1056)
+			// Case 7.3 Triangle Number 9
+			mc33Cube.cubeCase = c73;
+		else if(arrayIndex<1096)
+			// Case 7.4.1 Triangle Number 5
+			mc33Cube.cubeCase = c741;
+		else if(arrayIndex<1168)
+			// Case 7.4.2 Triangle Number 9
+			mc33Cube.cubeCase = c742;
+		else if(arrayIndex<1174)
+			// Case 8 Triangle Number 2
+			mc33Cube.cubeCase = c8;
+		else if(arrayIndex<1190)
+			// Case 9 Triangle Number 4
+			mc33Cube.cubeCase = c9;
+		else if(arrayIndex<1214)
+			// Case 10.1.1 Triangle Number 4
+			mc33Cube.cubeCase = c1011;
+		else if(arrayIndex<1262)
+			// Case 10.1.2 Triangle Number 8
+			mc33Cube.cubeCase = c1012;
+		else if(arrayIndex<1310)
+			// Case 10.2 Triangle Number 8
+			mc33Cube.cubeCase = c102;
+		else if(arrayIndex<1334)
+			// Case 11 Triangle Number 4
+			mc33Cube.cubeCase = c11;
+		else if(arrayIndex<1358)
+			// Case 14 Triangle Number 4
+			mc33Cube.cubeCase = c14;
+		else if(arrayIndex<1454)
+			// Case 12.1.1 Triangle Number 4
+			mc33Cube.cubeCase = c1211;
+		else if(arrayIndex<1646)
+			// Case 12.1.2 Triangle Number 8
+			mc33Cube.cubeCase = c1212;
+		else if(arrayIndex<1838)
+			// Case 12.2 Triangle Number 8
+			mc33Cube.cubeCase = c122;
+		else if(arrayIndex<1846)
+			// Case 13.1 Triangle Number 4
+			mc33Cube.cubeCase = c131;
+		else if(arrayIndex<1918)
+			// Case 13.2 Triangle Number 6
+			mc33Cube.cubeCase = c132;
+		else if(arrayIndex<2158)
+			// Case 13.3 Triangle Number 10
+			mc33Cube.cubeCase = c133;
+		else if(arrayIndex<2206)
+			// Case 13.4 Triangle Number 12
+			mc33Cube.cubeCase = c134;
+		else if(arrayIndex<2286)
+			// Case 13.5.2 Triangle Number 10
+			mc33Cube.cubeCase = c1352;
+		else if(arrayIndex<2310)
+			// Case 13.5.1 Triangle Number 6
+			mc33Cube.cubeCase = c1351;
+		else
+			FatalErrorInFunction<<"ArrayIndex must not be larger than 2309!"<< exit(FatalError);
+		
 		mc33Cube.cutTriangles = collectTriangles(triangleCase);
 		
 		/*
