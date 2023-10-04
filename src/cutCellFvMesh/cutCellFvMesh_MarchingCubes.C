@@ -4,6 +4,18 @@ inline float invSqrt(float f) {
 	return 1.0/sqrt(f);
 }
 
+inline unsigned int permuteBitPattern(std::array<unsigned short int,8>& permutation, unsigned int bitPattern)
+{
+	unsigned int resPattern = 0;
+	for(int vertI=0;vertI<permutation.size();vertI++)
+	{
+		bool bitSet = getBit(bitPattern,7-permutation[vertI]);
+		if(bitSet)
+			setBit(resPattern,7-vertI);
+	}
+	return resPattern;
+}
+
 void Foam::cutCellFvMesh::MC33::setBit(unsigned short int& bitField, std::uint8_t bitIndex)
 {
     if(bitIndex>15)
@@ -43,8 +55,8 @@ Foam::cutCellFvMesh::MC33::MC33
     cutCellFvMesh& mesh
 ):
 mesh(mesh),
-table
-#include "MC33_LookUpTable.h"
+table(mesh.caseTable),
+permutations(mesh.permutationTable)
 {
 }
 
@@ -187,108 +199,243 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell(in
 		mc33Cube.bitPattern = bitPattern;
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
 		label arrayIndex = triangleCase-table;
-		
-		if(arrayIndex<0)
-			FatalErrorInFunction<<"ArrayIndex must not be smaller than zero!"<< exit(FatalError);
-		else if(arrayIndex<128)
-			FatalErrorInFunction<<"ArrayIndex not a case!"<< exit(FatalError);
-		else if(arrayIndex<136)
-			// Case 1 Triangle Number 1
-			mc33Cube.cubeCase = c1;
-		else if(arrayIndex<160)
-			// Case 2 Triangle Number 2
-			mc33Cube.cubeCase = c2;
-		else if(arrayIndex<184)
-			// Case 3.1 Triangle Number 2
-			mc33Cube.cubeCase = c31;
-		else if(arrayIndex<232)
-			// Case 3.2 Triangle Number 4
-			mc33Cube.cubeCase = c32;
-		else if(arrayIndex<240)
-			// Case 4.1.1 Triangle Number 2
-			mc33Cube.cubeCase = c411;
-		else if(arrayIndex<264)
-			// Case 4.1.2 Triangle Number 6
-			mc33Cube.cubeCase = c412;
-		else if(arrayIndex<336)
-			// Case 5 Triangle Number 3
-			mc33Cube.cubeCase = c5;
-		else if(arrayIndex<408)
-			// Case 6.1.1 Triangle Number 3
-			mc33Cube.cubeCase = c611;
-		else if(arrayIndex<576)
-			// Case 6.1.2 Triangle Number 7
-			mc33Cube.cubeCase = c612;
-		else if(arrayIndex<696)
-			// Case 6.2 Triangle Number 5
-			mc33Cube.cubeCase = c62;
-		else if(arrayIndex<720)
-			// Case 7.1 Triangle Number 3
-			mc33Cube.cubeCase = c71;
-		else if(arrayIndex<840)
-			// Case 7.2 Triangle Number 5
-			mc33Cube.cubeCase = c72;
-		else if(arrayIndex<1056)
-			// Case 7.3 Triangle Number 9
-			mc33Cube.cubeCase = c73;
-		else if(arrayIndex<1096)
-			// Case 7.4.1 Triangle Number 5
-			mc33Cube.cubeCase = c741;
-		else if(arrayIndex<1168)
-			// Case 7.4.2 Triangle Number 9
-			mc33Cube.cubeCase = c742;
-		else if(arrayIndex<1174)
-			// Case 8 Triangle Number 2
-			mc33Cube.cubeCase = c8;
-		else if(arrayIndex<1190)
-			// Case 9 Triangle Number 4
-			mc33Cube.cubeCase = c9;
-		else if(arrayIndex<1214)
-			// Case 10.1.1 Triangle Number 4
-			mc33Cube.cubeCase = c1011;
-		else if(arrayIndex<1262)
-			// Case 10.1.2 Triangle Number 8
-			mc33Cube.cubeCase = c1012;
-		else if(arrayIndex<1310)
-			// Case 10.2 Triangle Number 8
-			mc33Cube.cubeCase = c102;
-		else if(arrayIndex<1334)
-			// Case 11 Triangle Number 4
-			mc33Cube.cubeCase = c11;
-		else if(arrayIndex<1358)
-			// Case 14 Triangle Number 4
-			mc33Cube.cubeCase = c14;
-		else if(arrayIndex<1454)
-			// Case 12.1.1 Triangle Number 4
-			mc33Cube.cubeCase = c1211;
-		else if(arrayIndex<1646)
-			// Case 12.1.2 Triangle Number 8
-			mc33Cube.cubeCase = c1212;
-		else if(arrayIndex<1838)
-			// Case 12.2 Triangle Number 8
-			mc33Cube.cubeCase = c122;
-		else if(arrayIndex<1846)
-			// Case 13.1 Triangle Number 4
-			mc33Cube.cubeCase = c131;
-		else if(arrayIndex<1918)
-			// Case 13.2 Triangle Number 6
-			mc33Cube.cubeCase = c132;
-		else if(arrayIndex<2158)
-			// Case 13.3 Triangle Number 10
-			mc33Cube.cubeCase = c133;
-		else if(arrayIndex<2206)
-			// Case 13.4 Triangle Number 12
-			mc33Cube.cubeCase = c134;
-		else if(arrayIndex<2286)
-			// Case 13.5.2 Triangle Number 10
-			mc33Cube.cubeCase = c1352;
-		else if(arrayIndex<2310)
-			// Case 13.5.1 Triangle Number 6
-			mc33Cube.cubeCase = c1351;
-		else
-			FatalErrorInFunction<<"ArrayIndex must not be larger than 2309!"<< exit(FatalError);
-		
 		mc33Cube.cutTriangles = collectTriangles(triangleCase);
+		
+		std::vector<std::uint8_t> validPermutations;
+		for(label permutInd=0;permutInd<permutations.size();permutInd++)
+		{
+			if(bitPattern==permuteBitPattern(permutations[permutInd],bitPattern))
+				validPermutations.push_back(permutInd);
+		}
+	
+		{
+			if(arrayIndex<0)
+				FatalErrorInFunction<<"ArrayIndex must not be smaller than zero!"<< exit(FatalError);
+			else if(arrayIndex<128)
+				FatalErrorInFunction<<"ArrayIndex not a case!"<< exit(FatalError);
+			else if(arrayIndex<136)
+				// Case 1 Triangle Number 1
+				mc33Cube.cubeCase = c1;
+			else if(arrayIndex<160)
+				// Case 2 Triangle Number 2
+				mc33Cube.cubeCase = c2;
+			else if(arrayIndex<184)
+				// Case 3.1 Triangle Number 2
+				mc33Cube.cubeCase = c31;
+			else if(arrayIndex<232)
+				// Case 3.2 Triangle Number 4
+				mc33Cube.cubeCase = c32;
+			else if(arrayIndex<240)
+				// Case 4.1.1 Triangle Number 2
+				mc33Cube.cubeCase = c411;
+			else if(arrayIndex<264)
+				// Case 4.1.2 Triangle Number 6
+				mc33Cube.cubeCase = c412;
+			else if(arrayIndex<336)
+				// Case 5 Triangle Number 3
+				mc33Cube.cubeCase = c5;
+			else if(arrayIndex<408)
+				// Case 6.1.1 Triangle Number 3
+				mc33Cube.cubeCase = c611;
+			else if(arrayIndex<576)
+				// Case 6.1.2 Triangle Number 7
+				mc33Cube.cubeCase = c612;
+			else if(arrayIndex<696)
+				// Case 6.2 Triangle Number 5
+				mc33Cube.cubeCase = c62;
+			else if(arrayIndex<720)
+				// Case 7.1 Triangle Number 3
+				mc33Cube.cubeCase = c71;
+			else if(arrayIndex<840)
+				// Case 7.2 Triangle Number 5
+				mc33Cube.cubeCase = c72;
+			else if(arrayIndex<1056)
+				// Case 7.3 Triangle Number 9
+				mc33Cube.cubeCase = c73;
+			else if(arrayIndex<1096)
+				// Case 7.4.1 Triangle Number 5
+				mc33Cube.cubeCase = c741;
+			else if(arrayIndex<1168)
+				// Case 7.4.2 Triangle Number 9
+				mc33Cube.cubeCase = c742;
+			else if(arrayIndex<1174)
+				// Case 8 Triangle Number 2
+				mc33Cube.cubeCase = c8;
+			else if(arrayIndex<1190)
+				// Case 9 Triangle Number 4
+				mc33Cube.cubeCase = c9;
+			else if(arrayIndex<1214)
+				// Case 10.1.1 Triangle Number 4
+				mc33Cube.cubeCase = c1011;
+			else if(arrayIndex<1262)
+				// Case 10.1.2 Triangle Number 8
+				mc33Cube.cubeCase = c1012;
+			else if(arrayIndex<1310)
+				// Case 10.2 Triangle Number 8
+				mc33Cube.cubeCase = c102;
+			else if(arrayIndex<1334)
+				// Case 11 Triangle Number 4
+				mc33Cube.cubeCase = c11;
+			else if(arrayIndex<1358)
+				// Case 14 Triangle Number 4
+				mc33Cube.cubeCase = c14;
+			else if(arrayIndex<1454)
+				// Case 12.1.1 Triangle Number 4
+				mc33Cube.cubeCase = c1211;
+			else if(arrayIndex<1646)
+				// Case 12.1.2 Triangle Number 8
+				mc33Cube.cubeCase = c1212;
+			else if(arrayIndex<1838)
+				// Case 12.2 Triangle Number 8
+				mc33Cube.cubeCase = c122;
+			else if(arrayIndex<1846)
+				// Case 13.1 Triangle Number 4
+				mc33Cube.cubeCase = c131;
+			else if(arrayIndex<1918)
+				// Case 13.2 Triangle Number 6
+				mc33Cube.cubeCase = c132;
+			else if(arrayIndex<2158)
+				// Case 13.3 Triangle Number 10
+				mc33Cube.cubeCase = c133;
+			else if(arrayIndex<2206)
+				// Case 13.4 Triangle Number 12
+				mc33Cube.cubeCase = c134;
+			else if(arrayIndex<2286)
+				// Case 13.5.2 Triangle Number 10
+				mc33Cube.cubeCase = c1352;
+			else if(arrayIndex<2310)
+				// Case 13.5.1 Triangle Number 6
+				mc33Cube.cubeCase = c1351;
+			else
+				FatalErrorInFunction<<"ArrayIndex must not be larger than 2309!"<< exit(FatalError);
+			
+			if(mc33Cube.cubeCase==c1){
+				// Case 1 Triangle Number 1
+				if(mc33Cube.cutTriangles.size()!=1)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c2 ){
+				// Case 2 Triangle Number 2
+				if(mc33Cube.cutTriangles.size()!=2)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c31 ){
+				// Case 3.1 Triangle Number 2
+				if(mc33Cube.cutTriangles.size()!=2)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c32 ){
+				// Case 3.2 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c411 ){
+				// Case 4.1.1 Triangle Number 2
+				if(mc33Cube.cutTriangles.size()!=2)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c412 ){
+				// Case 4.1.2 Triangle Number 6
+				if(mc33Cube.cutTriangles.size()!=6)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c5 ){
+				// Case 5 Triangle Number 3
+				if(mc33Cube.cutTriangles.size()!=3)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c611 ){
+				// Case 6.1.1 Triangle Number 3
+				if(mc33Cube.cutTriangles.size()!=3)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c612 ){
+				// Case 6.1.2 Triangle Number 7
+				if(mc33Cube.cutTriangles.size()!=7)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c62 ){
+				// Case 6.2 Triangle Number 5
+				if(mc33Cube.cutTriangles.size()!=5)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c71 ){
+				// Case 7.1 Triangle Number 3
+				if(mc33Cube.cutTriangles.size()!=3)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c72 ){
+				// Case 7.2 Triangle Number 5
+				if(mc33Cube.cutTriangles.size()!=5)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c73 ){
+				// Case 7.3 Triangle Number 9
+				if(mc33Cube.cutTriangles.size()!=9)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c741 ){
+				// Case 7.4.1 Triangle Number 5
+				if(mc33Cube.cutTriangles.size()!=5)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c742 ){
+				// Case 7.4.2 Triangle Number 9
+				if(mc33Cube.cutTriangles.size()!=9)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c8 ){
+				// Case 8 Triangle Number 2
+				if(mc33Cube.cutTriangles.size()!=2)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c9 ){
+				// Case 9 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c1011 ){
+				// Case 10.1.1 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c1012 ){
+				// Case 10.1.2 Triangle Number 8
+				if(mc33Cube.cutTriangles.size()!=8)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c102 ){
+				// Case 10.2 Triangle Number 8
+				if(mc33Cube.cutTriangles.size()!=8)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c11 ){
+				// Case 11 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c14 ){
+				// Case 14 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c1211 ){
+				// Case 12.1.1 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c1212 ){
+				// Case 12.1.2 Triangle Number 8
+				if(mc33Cube.cutTriangles.size()!=8)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c122 ){
+				// Case 12.2 Triangle Number 8
+				if(mc33Cube.cutTriangles.size()!=8)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c131 ){
+				// Case 13.1 Triangle Number 4
+				if(mc33Cube.cutTriangles.size()!=4)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c132 ){
+				// Case 13.2 Triangle Number 6
+				if(mc33Cube.cutTriangles.size()!=6)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c133 ){
+				// Case 13.3 Triangle Number 10
+				if(mc33Cube.cutTriangles.size()!=10)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c134 ){
+				// Case 13.4 Triangle Number 12
+				if(mc33Cube.cutTriangles.size()!=12)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c1352){
+				// Case 13.5.2 Triangle Number 10
+				if(mc33Cube.cutTriangles.size()!=10)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else if(mc33Cube.cubeCase==c1351){
+				// Case 13.5.1 Triangle Number 6
+				if(mc33Cube.cutTriangles.size()!=6)
+					FatalErrorInFunction<<"Error!"<< exit(FatalError);}
+			else
+				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+		}
 		
 		/*
 		const cellList& meshCells = mesh.cells();

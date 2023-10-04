@@ -58,6 +58,15 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar nurbsPara=-1;
         };
         
+        
+        const unsigned short int caseTable[2310] = 
+        #include "MC33_LookUpTable.h"
+        ;
+        const std::array<std::array<unsigned short int,8>,24> permutationTable = {
+        #include "CubePermutations.H"
+        };
+        void checkPermutation();
+        
         class MC33{
             public:
                 enum Case { c0,c1,c2,c31,c32,c411,c412,c5,c611,c612,c62,c71,c72,c73,c741,c742,c8,c9,
@@ -74,6 +83,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
                     Case cubeCase = c0;
+                    label permutationTableEntry;
                 } MC33Cube;
                 
                 MC33Cube computeCutCell(int cellInd);
@@ -82,7 +92,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 
             private:
                 cutCellFvMesh& mesh;
-                const unsigned short int table[2310];
+                const unsigned short int* table;
+                const std::array<std::array<unsigned short int,8>,24>& permutations;
+                
+                //const unsigned short int table[2310];
                 
                 MC33_real v[8];
                 //Procedures
@@ -598,7 +611,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         );
         */
         
-        /*
+        /*Greg Lukianoff
         void groupEdgesToFaces
         (
             List<DynamicList<DynamicList<label>>>& cellNonconnectedEdges,
@@ -643,11 +656,38 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         (
             const cell& thisCell
         );
-
+        
+        std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        (
+            const cell& thisCell,
+            const label cellInd
+        );
+        
+        std::unique_ptr<List<DynamicList<std::pair<label,std::pair<label,label>>>>> compCellFaceEdgeGraph
+        (
+            const cell& oneCell                                                                             
+        );
+        std::unique_ptr<List<List<DynamicList<label>>>> compCellFacePointGraph
+        (
+            const cell& oneCell                                                                                 
+        );
+        
+        bool testCorrectFaceSizes
+        (
+            std::array<label,10>& faceSizeNbrReq,
+            const cell& thisCell
+        );
         
         void agglomerateSmallCells_MC33
         (
             scalar partialThreeshold = 0.01
+        );
+        
+        void nonConvexCellSplitC2
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
         );
         
         /*

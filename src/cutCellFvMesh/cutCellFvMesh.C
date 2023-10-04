@@ -7550,6 +7550,117 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
 }
 */
 
+void checkPermutation()
+{
+    for(int i=0;i<permutationTable.size();i++)
+    {
+        for(int j=0;j<permutationTable.size();j++)
+        {
+            if(i!=j)
+            {
+                if(permutationTable[i]==permutationTable[j])
+                {
+                    FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+                }
+            }
+        }
+    }
+    
+    List<std::unordered_set<label>> verticeToNeighbors(8);
+    verticeToNeighbors[0].insert(1);
+    verticeToNeighbors[0].insert(3);
+    verticeToNeighbors[0].insert(4);
+    
+    verticeToNeighbors[1].insert(0);
+    verticeToNeighbors[1].insert(2);
+    verticeToNeighbors[1].insert(5);
+    
+    verticeToNeighbors[2].insert(1);
+    verticeToNeighbors[2].insert(3);
+    verticeToNeighbors[2].insert(6);
+    
+    verticeToNeighbors[3].insert(0);
+    verticeToNeighbors[3].insert(2);
+    verticeToNeighbors[3].insert(7);
+    
+    verticeToNeighbors[4].insert(0);
+    verticeToNeighbors[4].insert(5);
+    verticeToNeighbors[4].insert(7);
+    
+    verticeToNeighbors[5].insert(1);
+    verticeToNeighbors[5].insert(4);
+    verticeToNeighbors[5].insert(6);
+    
+    verticeToNeighbors[6].insert(2);
+    verticeToNeighbors[6].insert(5);
+    verticeToNeighbors[6].insert(7);
+    
+    verticeToNeighbors[7].insert(3);
+    verticeToNeighbors[7].insert(4);
+    verticeToNeighbors[7].insert(6);
+    
+    for(int i=0;i<permutationTable.size();i++)
+    {
+        label pnt0 = permutationTable[0];
+        label pnt1 = permutationTable[1];
+        label pnt2 = permutationTable[2];
+        label pnt3 = permutationTable[3];
+        label pnt4 = permutationTable[4];
+        label pnt5 = permutationTable[5];
+        label pnt6 = permutationTable[6];
+        label pnt7 = permutationTable[7];
+        
+        // Edge 0,3,8
+        if(verticeToNeighbors[pnt0].find(pnt1)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt0].find(pnt3)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt0].find(pnt4)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge 0,1,9
+        if(verticeToNeighbors[pnt1].find(pnt0)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt1].find(pnt2)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt1].find(pnt5)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge 1,2,A
+        if(verticeToNeighbors[pnt2].find(pnt1)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt2].find(pnt3)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt2].find(pnt6)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge 3,2,B
+        if(verticeToNeighbors[pnt3].find(pnt0)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt3].find(pnt2)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt3].find(pnt7)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge 8,4,7
+        if(verticeToNeighbors[pnt4].find(pnt0)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt4].find(pnt5)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt4].find(pnt7)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge 9,4,5
+        if(verticeToNeighbors[pnt5].find(pnt1)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt5].find(pnt4)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt5].find(pnt6)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge A,5,6
+        if(verticeToNeighbors[pnt6].find(pnt2)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt6].find(pnt5)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt6].find(pnt7)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
+            
+        // Edge B,7,6
+        if(verticeToNeighbors[pnt7].find(pnt3)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt7].find(pnt4)!=verticeToNeighbors.end() ||
+           verticeToNeighbors[pnt7].find(pnt6)!=verticeToNeighbors.end() )
+            FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);       
+    }
+    
+}
+
 void Foam::cutCellFvMesh::triangulateCell
 (
     const cell& thisCell
@@ -7655,6 +7766,199 @@ void Foam::cutCellFvMesh::triangulateCell
         
         std::unordered_map<label,scalar> pointToMinAngle;
         break;
+    }
+}
+
+std::unique_ptr<List<scalar>> Foam::cutCellFvMesh::faceToCellCenterRelation
+(
+    const cell& thisCell,
+    const label cellInd
+)
+{
+    vector thisCellCentre = thisCell.centre(new_points,new_faces);
+    std::unique_ptr<List<scalar>>
+    faceToCenterAngles(new List<scalar>());
+    
+    for(const label faceInd : thisCell)
+    {
+        const face& cellFace = new_faces[faceInd];
+        vector normal = cellFace.normal(new_points);
+        if(new_neighbour[faceInd]!=-1)
+        {
+            if(new_owner[faceInd]==cellInd)
+            {}
+            else if(new_neighbour[faceInd]==cellInd)
+            {
+                normal *= -1;
+            }
+            else
+                FatalErrorInFunction<<"Error in face!"<< exit(FatalError);
+        }
+        vector faceCentre = cellFace.centre(new_points);
+        vector centreToFaceCentre = faceCentre-thisCellCentre;
+        
+        scalar cosAngle = centreToFaceCentre & normal;
+        cosAngle /= (norm2(centreToFaceCentre) * norm2(normal));
+        faceToCenterAngles->append(cosAngle);
+    }
+    return faceToCenterAngles;
+}
+
+std::unique_ptr<List<DynamicList<std::pair<label,std::pair<label,label>>>>> Foam::cutCellFvMesh::compCellFaceEdgeGraph
+(
+    const cell& oneCell                                                                             
+)
+{
+    std::unique_ptr<List<DynamicList<std::pair<label,std::pair<label,label>>>>> cellFaceEdgeGraph(new List<DynamicList<std::pair<label,std::pair<label,label>>>>(oneCell.size()));
+    for(label locFaceInd=0;locFaceInd<oneCell.size();locFaceInd++)
+    {
+        const label oneFaceInd = oneCell[locFaceInd];
+        const face& oneFace = new_faces[oneFaceInd];
+        for(const label pntIni : oneFace)
+        {
+            label locVertInd = oneFace.which(pntIni);
+            if(locVertInd==-1)
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+            label pntNext = oneFace.nextLabel(locVertInd);
+            
+            // Find the face connected to the two points pntIni,pntNext
+            label j_Conn = -1;
+            label smConnPnt = -1;
+            label laConnPnt = -1;
+            for(label j=0;j<oneCell.size();j++)
+            {
+                if(locFaceInd!=j)
+                {
+                    const label otherFaceInd = oneCell[j];
+                    const face& otherFace = new_faces[otherFaceInd];
+                    label otherLocVertInd = otherFace.which(pntIni);
+                    if(otherLocVertInd!=-1)
+                    {
+                        label otherPntNext = otherFace.nextLabel(otherLocVertInd);
+                        label otherPntPrev = otherFace.prevLabel(otherLocVertInd);
+                        if(otherPntNext==pntNext || otherPntPrev==pntNext)
+                        {
+                            if(j_Conn!=-1)
+                            {
+                                Info<<"j_Conn:"<<j_Conn<<Foam::endl;
+                                Info<<"j:"<<j<<Foam::endl;
+                                FatalErrorInFunction<<"Error"<< exit(FatalError);
+                            }
+                            j_Conn = j;
+                            if(pntIni<pntNext)
+                            {
+                                smConnPnt = pntIni;
+                                laConnPnt = pntNext;
+                            }
+                            else if(pntIni>pntNext)
+                            {
+                                smConnPnt = pntNext;
+                                laConnPnt = pntIni;
+                            }
+                            else
+                                FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        }
+                    }
+                }
+            }
+            if(j_Conn==-1)
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+            (*cellFaceEdgeGraph)[locFaceInd].append({j_Conn,{smConnPnt,laConnPnt}});
+        }
+        if((*cellFaceEdgeGraph)[locFaceInd].size()!=oneFace.size())
+            FatalErrorInFunction<<"Error"<< exit(FatalError);
+    }
+    return cellFaceEdgeGraph;
+}
+
+std::unique_ptr<List<List<DynamicList<label>>>> Foam::cutCellFvMesh::compCellFacePointGraph
+(
+    const cell& oneCell                                                                             
+)
+{
+    std::unique_ptr<List<List<DynamicList<label>>>> cellFacePointGraph(new List<List<DynamicList<label>>>(oneCell.size()));
+    for(label locFaceInd=0;locFaceInd<oneCell.size();locFaceInd++)
+    {
+        const label oneFaceInd = oneCell[locFaceInd];
+        const face& oneFace = new_faces[oneFaceInd];
+        (*cellFacePointGraph)[locFaceInd].setSize(oneFace.size());
+        for(label locPntInd=0;locPntInd<oneFace.size();locPntInd++)
+        {
+            label pntIni = oneFace[locPntInd];
+            label locVertInd = oneFace.which(pntIni);
+            if(locVertInd==-1)
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+            
+            for(label j=0;j<oneCell.size();j++)
+            {
+                if(locFaceInd!=j)
+                {
+                    const label otherFaceInd = oneCell[j];
+                    const face& otherFace = new_faces[otherFaceInd];
+                    label otherLocVertInd = otherFace.which(pntIni);
+                    if(otherLocVertInd!=-1)
+                    {
+                        (*cellFacePointGraph)[locFaceInd][locPntInd].append(j);
+                    }
+                }
+            }
+            if((*cellFacePointGraph)[locFaceInd][locPntInd].size()<2)
+                FatalErrorInFunction<<"Error"<< exit(FatalError);
+        }
+    }
+    return cellFacePointGraph;
+}
+
+bool Foam::cutCellFvMesh::testCorrectFaceSizes
+(
+    std::array<label,10>& faceSizeNbrReq,
+    const cell& thisCell
+)
+{
+    if(faceSizeNbrReq[0]!=0 || faceSizeNbrReq[1]!=0 || faceSizeNbrReq[2]!=0)
+        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    
+    std::array<label,10> faceSizeNbrGiven;
+    faceSizeNbrGiven.fill(0);
+    for(const label faceInd : thisCell)
+    {
+        const face& oneFace = new_faces[faceInd];
+        if(oneFace.size()>=faceSizeNbrGiven.size())
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+        faceSizeNbrGiven[oneFace.size()]++;
+    }
+    return faceSizeNbrGiven==faceSizeNbrReq;
+}
+
+void Foam::cutCellFvMesh::nonConvexCellSplitC2
+(
+    const cell& thisCell,
+    const label cellInd,
+    std::unique_ptr<List<scalar>> faceToCellCenterRelation
+)
+{
+    label faceNbrSized3 = 0;
+    label faceNbrSized4 = 0;
+    label faceNbrSized5 = 0;
+    for(const label faceInd : thisCell)
+    {
+        if(new_faces[faceInd].size()==3)
+            faceNbrSized3++;
+        if(new_faces[faceInd].size()==4)
+            faceNbrSized4++;
+        if(new_faces[faceInd].size()==5)
+            faceNbrSized5++;
+    }    
+    if(thisCell.size()==6)
+    {
+        if(faceNbrSized3!=4 || faceNbrSized4!=2 || faceNbrSized5!=0)
+            FatalErrorInFunction<<"Wrong face structure!"<< exit(FatalError);
+
+    }
+    else if(thisCell.size()==8)
+    {
+        if(faceNbrSized3!=2 || faceNbrSized4!=4 || faceNbrSized5!=2)
+            FatalErrorInFunction<<"Wrong face structure!"<< exit(FatalError);
     }
 }
 
@@ -8113,10 +8417,115 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     Info<<"Fix nonconvex cells"<<Foam::endl;
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
     {
-        triangulateCell(new_cells[cellInd]);
+        
+        
+        std::unique_ptr<List<scalar>> faceToCenterAngles = faceToCellCenterRelation(new_cells[cellInd],cellInd);
+        
+        
         if(nonConvexCell[cellInd])
         {
-            
+            label origCellIndex = cellMap[cellInd];
+            MC33::MC33Cube oneCube = mc33CutCellData[origCellIndex];
+            if(oneCube.cubeCase==MC33::c0)
+                // Case 0 Triangle Number 0
+                FatalErrorInFunction<<"Can not be concave!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1)
+                // Case 1 Triangle Number 1
+                FatalErrorInFunction<<"Can not be concave!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c2 )
+                // Case 2 Triangle Number 2
+                
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c31 )
+                // Case 3.1 Triangle Number 2
+                FatalErrorInFunction<<"Can not be concave!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c32 )
+                // Case 3.2 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c411 )
+                // Case 4.1.1 Triangle Number 2
+                FatalErrorInFunction<<"Can not be concave!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c412 )
+                // Case 4.1.2 Triangle Number 6
+                FatalErrorInFunction<<"Can not be concave!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c5 )
+                // Case 5 Triangle Number 3
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c611 )
+                // Case 6.1.1 Triangle Number 3
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c612 )
+                // Case 6.1.2 Triangle Number 7
+                FatalErrorInFunction<<"Can not be concave!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c62 )
+                // Case 6.2 Triangle Number 5
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c71 )
+                // Case 7.1 Triangle Number 3
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c72 )
+                // Case 7.2 Triangle Number 5
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c73 )
+                // Case 7.3 Triangle Number 9
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c741 )
+                // Case 7.4.1 Triangle Number 5
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c742 )
+                // Case 7.4.2 Triangle Number 9
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c8 )
+                // Case 8 Triangle Number 2
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c9 )
+                // Case 9 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1011 )
+                // Case 10.1.1 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1012 )
+                // Case 10.1.2 Triangle Number 8
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c102 )
+                // Case 10.2 Triangle Number 8
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c11 )
+                // Case 11 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c14 )
+                // Case 14 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1211 )
+                // Case 12.1.1 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1212 )
+                // Case 12.1.2 Triangle Number 8
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c122 )
+                // Case 12.2 Triangle Number 8
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c131 )
+                // Case 13.1 Triangle Number 4
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c132 )
+                // Case 13.2 Triangle Number 6
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c133 )
+                // Case 13.3 Triangle Number 10
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c134 )
+                // Case 13.4 Triangle Number 12
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1352)
+                // Case 13.5.2 Triangle Number 10
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else if(oneCube.cubeCase==MC33::c1351)
+                // Case 13.5.1 Triangle Number 6
+                FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
+            else
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+
         }
     }
 
