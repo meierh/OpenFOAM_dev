@@ -7550,11 +7550,11 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
 }
 */
 
-void checkPermutation()
+void Foam::cutCellFvMesh::checkPermutation()
 {
-    for(int i=0;i<permutationTable.size();i++)
+    for(unsigned int i=0;i<permutationTable.size();i++)
     {
-        for(int j=0;j<permutationTable.size();j++)
+        for(unsigned int j=0;j<permutationTable.size();j++)
         {
             if(i!=j)
             {
@@ -7599,63 +7599,63 @@ void checkPermutation()
     verticeToNeighbors[7].insert(4);
     verticeToNeighbors[7].insert(6);
     
-    for(int i=0;i<permutationTable.size();i++)
+    for(unsigned int i=0;i<permutationTable.size();i++)
     {
-        label pnt0 = permutationTable[0];
-        label pnt1 = permutationTable[1];
-        label pnt2 = permutationTable[2];
-        label pnt3 = permutationTable[3];
-        label pnt4 = permutationTable[4];
-        label pnt5 = permutationTable[5];
-        label pnt6 = permutationTable[6];
-        label pnt7 = permutationTable[7];
+        label pnt0 = permutationTable[i][0];
+        label pnt1 = permutationTable[i][1];
+        label pnt2 = permutationTable[i][2];
+        label pnt3 = permutationTable[i][3];
+        label pnt4 = permutationTable[i][4];
+        label pnt5 = permutationTable[i][5];
+        label pnt6 = permutationTable[i][6];
+        label pnt7 = permutationTable[i][7];
         
         // Edge 0,3,8
-        if(verticeToNeighbors[pnt0].find(pnt1)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt0].find(pnt3)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt0].find(pnt4)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt0].find(pnt1)!=verticeToNeighbors[pnt0].end() ||
+           verticeToNeighbors[pnt0].find(pnt3)!=verticeToNeighbors[pnt0].end() ||
+           verticeToNeighbors[pnt0].find(pnt4)!=verticeToNeighbors[pnt0].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge 0,1,9
-        if(verticeToNeighbors[pnt1].find(pnt0)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt1].find(pnt2)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt1].find(pnt5)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt1].find(pnt0)!=verticeToNeighbors[pnt1].end() ||
+           verticeToNeighbors[pnt1].find(pnt2)!=verticeToNeighbors[pnt1].end() ||
+           verticeToNeighbors[pnt1].find(pnt5)!=verticeToNeighbors[pnt1].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge 1,2,A
-        if(verticeToNeighbors[pnt2].find(pnt1)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt2].find(pnt3)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt2].find(pnt6)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt2].find(pnt1)!=verticeToNeighbors[pnt2].end() ||
+           verticeToNeighbors[pnt2].find(pnt3)!=verticeToNeighbors[pnt2].end() ||
+           verticeToNeighbors[pnt2].find(pnt6)!=verticeToNeighbors[pnt2].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge 3,2,B
-        if(verticeToNeighbors[pnt3].find(pnt0)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt3].find(pnt2)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt3].find(pnt7)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt3].find(pnt0)!=verticeToNeighbors[pnt3].end() ||
+           verticeToNeighbors[pnt3].find(pnt2)!=verticeToNeighbors[pnt3].end() ||
+           verticeToNeighbors[pnt3].find(pnt7)!=verticeToNeighbors[pnt3].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge 8,4,7
-        if(verticeToNeighbors[pnt4].find(pnt0)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt4].find(pnt5)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt4].find(pnt7)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt4].find(pnt0)!=verticeToNeighbors[pnt4].end() ||
+           verticeToNeighbors[pnt4].find(pnt5)!=verticeToNeighbors[pnt4].end() ||
+           verticeToNeighbors[pnt4].find(pnt7)!=verticeToNeighbors[pnt4].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge 9,4,5
-        if(verticeToNeighbors[pnt5].find(pnt1)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt5].find(pnt4)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt5].find(pnt6)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt5].find(pnt1)!=verticeToNeighbors[pnt5].end() ||
+           verticeToNeighbors[pnt5].find(pnt4)!=verticeToNeighbors[pnt5].end() ||
+           verticeToNeighbors[pnt5].find(pnt6)!=verticeToNeighbors[pnt5].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge A,5,6
-        if(verticeToNeighbors[pnt6].find(pnt2)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt6].find(pnt5)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt6].find(pnt7)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt6].find(pnt2)!=verticeToNeighbors[pnt6].end() ||
+           verticeToNeighbors[pnt6].find(pnt5)!=verticeToNeighbors[pnt6].end() ||
+           verticeToNeighbors[pnt6].find(pnt7)!=verticeToNeighbors[pnt6].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);
             
         // Edge B,7,6
-        if(verticeToNeighbors[pnt7].find(pnt3)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt7].find(pnt4)!=verticeToNeighbors.end() ||
-           verticeToNeighbors[pnt7].find(pnt6)!=verticeToNeighbors.end() )
+        if(verticeToNeighbors[pnt7].find(pnt3)!=verticeToNeighbors[pnt7].end() ||
+           verticeToNeighbors[pnt7].find(pnt4)!=verticeToNeighbors[pnt7].end() ||
+           verticeToNeighbors[pnt7].find(pnt6)!=verticeToNeighbors[pnt7].end() )
             FatalErrorInFunction<<"Illformed permutation Table!"<< exit(FatalError);       
     }
     

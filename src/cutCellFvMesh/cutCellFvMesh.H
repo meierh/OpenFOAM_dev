@@ -83,7 +83,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
                     Case cubeCase = c0;
-                    label permutationTableEntry;
+                    label permutationTableIndex;
                 } MC33Cube;
                 
                 MC33Cube computeCutCell(int cellInd);
@@ -102,7 +102,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 int face_tests(int *, int) const;
                 int face_test1(int) const;
                 int interior_test(int, int) const;
-          
+
+                unsigned int permuteBitPattern(const std::array<unsigned short int,8>& permutation,unsigned int bitPattern);
                 void setBit(unsigned short int & bitField, std::uint8_t bitIndex);
                 bool  getBit(const unsigned short int  bitField, std::uint8_t bitIndex);
                 const unsigned short int* getTriangleCase(unsigned int verticePattern);
