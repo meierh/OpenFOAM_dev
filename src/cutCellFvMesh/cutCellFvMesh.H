@@ -16,6 +16,7 @@
 #include <chrono>
 #include <queue>
 #include <cassert>
+#include <bitset>
 //#include <sys/types.h>
 //#include <dirent.h>
 //#include <string.h>
@@ -63,8 +64,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         #include "MC33_LookUpTable.h"
         ;
         const std::array<std::array<unsigned short int,8>,24> permutationTable = {
-        #include "CubePermutations.H"
+        #include "CubePointPermutations.H"
         };
+        const std::array<std::uint8_t,12> edgeToPnts = {01,12,23,03,45,56,67,47,04,15,26,37};
+        const std::unordered_map<std::uint8_t,std::uint8_t> pntsToEdge = {{01,0},{12,1},{23,2},{03,3},{45,4},{56,5},{67,6},{47,7},{04,8},{15,9},{26,10},{37,11}};
         void checkPermutation();
         
         class MC33{
@@ -79,11 +82,15 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<edge> edges = List<edge>(12,edge(-1,-1));
                     List<label> edgeGlobalInd = labelList(12,-1);
                     List<label> cutEdgeVerticeIndex = labelList(12,-1);
+                    label centerPointInd = -1;
+                    std::unordered_map<label,label> cutVerticeIndexToEdge;
                     //List<label> faces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
                     Case cubeCase = c0;
                     label permutationTableIndex;
+                    bool redMarkIsPlusSide; //Efficient implementation of Marching Cubes cases with topological guarantees Figure 2
+                    std::array<std::uint8_t,12> edgePermutation;
                 } MC33Cube;
                 
                 MC33Cube computeCutCell(int cellInd);
@@ -94,7 +101,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 cutCellFvMesh& mesh;
                 const unsigned short int* table;
                 const std::array<std::array<unsigned short int,8>,24>& permutations;
-                
+                const std::array<std::uint8_t,12>& edgeToPnts;
+                const std::unordered_map<std::uint8_t,std::uint8_t>& pntsToEdge;                
                 //const unsigned short int table[2310];
                 
                 MC33_real v[8];
@@ -395,6 +403,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList oldCellToPlusCutCell;
         //End
             
+            labelList oldToNewPointInd;
+            
             //New mesh data
             pointField new_points;
             faceList new_faces;
@@ -653,6 +663,45 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold = 0.25
         );
         */
+        
+        typedef struct{
+            labelList originalFaceInds;
+            labelList splittedFaceInds;
+            labelList addedFaceInds;
+        } CellFaces;
+        
+        typedef struct{
+            label originalCell = -1;
+            DynamicList<vector> addedPoints;
+            label addedPointsLimit=-1;
+            // face with possibly added Points as index+addedPointsLimit
+            DynamicList<face> addedFace;
+            // face with reference index for original face
+            DynamicList<std::pair<face,label>> splittedFaces;
+            // new cells with tuple of (original face indexes, splitted faces indexex, added faces indexes)
+            DynamicList<CellFaces> cells;
+        } CellSplitData;
+        
+        label memSecMC33VerticePntInd
+        (
+            label mc33LocalPntInd_I,
+            const MC33::MC33Cube& mc33cube,
+            const std::unordered_set<label>& verticeOfCell
+        );
+        
+        label memSecMC33CutEdgePntInd
+        (
+            label mc33LocalEdgeInd_I,
+            const MC33::MC33Cube& mc33cube,
+            const std::unordered_set<label>& verticeOfCell
+        );
+        
+        label getFaceIndFromPntList
+        (
+            const cell& thisCell,
+            std::vector<label> pointList
+        );
+        
         void triangulateCell
         (
             const cell& thisCell
@@ -675,7 +724,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
         bool testCorrectFaceSizes
         (
-            std::array<label,10>& faceSizeNbrReq,
+            const std::array<label,10> faceSizeNbrReq,
             const cell& thisCell
         );
         
@@ -684,7 +733,98 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold = 0.01
         );
         
-        void nonConvexCellSplitC2
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC2
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC32
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC42
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC5
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC612
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC62
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC72
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC73
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC1211
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC122
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC132
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC133
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC134
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+       std::unique_ptr<CellSplitData> nonConvexCellSplitC14
         (
             const cell& thisCell,
             const label cellInd,

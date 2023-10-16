@@ -71,7 +71,9 @@ Foam::cutCellFvMesh::MC33::MC33
 ):
 mesh(mesh),
 table(mesh.caseTable),
-permutations(mesh.permutationTable)
+permutations(mesh.permutationTable),
+edgeToPnts(mesh.edgeToPnts),
+pntsToEdge(mesh.pntsToEdge)
 {
 }
 
@@ -218,14 +220,9 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
 		label arrayIndex = triangleCase-table;
 		mc33Cube.cutTriangles = collectTriangles(triangleCase);
-		
+
+		unsigned int referenceBitPattern=0;
 		std::vector<std::uint8_t> validPermutations;
-		for(unsigned int permutInd=0;permutInd<permutations.size();permutInd++)
-		{
-			if(bitPattern==permuteBitPattern(permutations[permutInd],bitPattern))
-				validPermutations.push_back(permutInd);
-		}
-	
 		{
 			if(arrayIndex<0)
 				FatalErrorInFunction<<"ArrayIndex must not be smaller than zero!"<< exit(FatalError);
@@ -326,6 +323,82 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				mc33Cube.cubeCase = c1351;
 			else
 				FatalErrorInFunction<<"ArrayIndex must not be larger than 2309!"<< exit(FatalError);
+
+			if(mc33Cube.cubeCase==c1){
+				referenceBitPattern = 0x0008;
+			}
+			else if(mc33Cube.cubeCase==c2){
+				referenceBitPattern = 0x000C;
+			}
+			else if(mc33Cube.cubeCase==c31 || mc33Cube.cubeCase==c32){
+				referenceBitPattern = 0x000A;
+			}
+			else if(mc33Cube.cubeCase==c411 || mc33Cube.cubeCase==c412){
+				referenceBitPattern = 0x0028;
+			}
+			else if(mc33Cube.cubeCase==c5){
+				referenceBitPattern = 0x00C4;
+			}
+			else if(mc33Cube.cubeCase==c611 || mc33Cube.cubeCase==c612 || mc33Cube.cubeCase==c62){
+				referenceBitPattern = 0x002C;
+			}
+			else if(mc33Cube.cubeCase==c71 || mc33Cube.cubeCase==c72 || mc33Cube.cubeCase==c73 || mc33Cube.cubeCase==c741 || mc33Cube.cubeCase==c742){
+				referenceBitPattern = 0x0025;
+			}
+			else if(mc33Cube.cubeCase==c8){
+				referenceBitPattern = 0x00CC;
+			}
+			else if(mc33Cube.cubeCase==c9){
+				referenceBitPattern = 0x00D8;
+			}
+			else if(mc33Cube.cubeCase==c1011 || mc33Cube.cubeCase==c1012 || mc33Cube.cubeCase==c102){
+				referenceBitPattern = 0x0069;
+			}
+			else if(mc33Cube.cubeCase==c11){
+				referenceBitPattern = 0x00E8;
+			}
+			else if(mc33Cube.cubeCase==c1211 || mc33Cube.cubeCase==c1212 || mc33Cube.cubeCase==c122){
+				referenceBitPattern = 0x00C5;
+			}
+			else if(mc33Cube.cubeCase==c131 || mc33Cube.cubeCase==c132 || mc33Cube.cubeCase==c133 || mc33Cube.cubeCase==c134 || mc33Cube.cubeCase==c1351 || mc33Cube.cubeCase==c1352){
+				referenceBitPattern = 0x005A;
+			}
+			else if(mc33Cube.cubeCase==c14){
+				referenceBitPattern = 0x00D4;
+			}
+			else
+				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			
+			std::vector<std::uint8_t> validPermutationsRef;
+			std::vector<std::uint8_t> validPermutationsInvert;
+			for(unsigned int permutInd=0;permutInd<permutations.size();permutInd++)
+			{
+				if(referenceBitPattern==permuteBitPattern(permutations[permutInd],bitPattern))
+				{
+					validPermutationsRef.push_back(permutInd);
+				}
+			}
+			referenceBitPattern = referenceBitPattern^0x00FF;
+			for(unsigned int permutInd=0;permutInd<permutations.size();permutInd++)
+			{
+				if(referenceBitPattern==permuteBitPattern(permutations[permutInd],bitPattern))
+				{
+					validPermutationsInvert.push_back(permutInd);
+				}
+			}
+			if(validPermutationsRef.size()>0 && validPermutationsInvert.size()==0)
+			{
+				mc33Cube.redMarkIsPlusSide = true;
+				validPermutations = validPermutationsRef;
+			}
+			else if(validPermutationsRef.size()==0 && validPermutationsInvert.size()>0)
+			{
+				mc33Cube.redMarkIsPlusSide = false;
+				validPermutations = validPermutationsInvert;
+			}
+			else
+				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			mc33Cube.permutationTableIndex = validPermutations[0];
 			
 			if(mc33Cube.cubeCase==c1){
 				// Case 1 Triangle Number 1
@@ -547,11 +620,35 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			else
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
 		}
-		
-		if(validPermutations.size()<1)
-			FatalErrorInFunction<<"Error!"<< exit(FatalError);
-		mc33Cube.permutationTableIndex = validPermutations[0];
 
+		for(unsigned int edgeInd=0; edgeInd<mc33Cube.edgePermutation.size(); edgeInd++)
+		{
+			std::uint8_t twoPntsInd = edgeToPnts[edgeInd];
+			std::uint8_t smPnt = twoPntsInd / 10;
+			std::uint8_t laPnt = twoPntsInd % 10;
+			std::uint8_t smPntTrans = permutations[mc33Cube.permutationTableIndex][smPnt];
+			std::uint8_t laPntTrans = permutations[mc33Cube.permutationTableIndex][laPnt];
+			
+			if(smPnt > laPnt)
+			{
+				std::uint8_t temp = laPntTrans;
+				laPntTrans = smPntTrans;
+				smPntTrans = temp;
+			}
+			else if(smPnt==laPnt)
+				FatalErrorInFunction<<"Error"<< exit(FatalError);  
+
+			std::uint8_t twoPntsIndTrans = smPntTrans*10 + laPntTrans;
+			auto iter = pntsToEdge.find(twoPntsIndTrans);
+			if(iter==pntsToEdge.end())
+				FatalErrorInFunction<<"Error"<< exit(FatalError);  
+			mc33Cube.edgePermutation[edgeInd] = iter->second;
+		}
+		std::bitset<12> refEdges;
+		for(std::uint8_t permEdg : mc33Cube.edgePermutation)
+			refEdges[permEdg] = true;
+		if(!refEdges.all())
+			FatalErrorInFunction<<"Error"<< exit(FatalError); 
 		
 		/*
 		const cellList& meshCells = mesh.cells();
