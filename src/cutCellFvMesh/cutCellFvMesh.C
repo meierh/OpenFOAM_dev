@@ -8415,7 +8415,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     return newCellDataPtr;
 }
 
-std::unique_ptr<CellSplitData> nonConvexCellSplitC42
+std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC42
 (
     const cell& thisCell,
     const label cellInd,
@@ -8678,7 +8678,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     return newCellDataPtr;
 }
 
-std::unique_ptr<CellSplitData> nonConvexCellSplitC612
+std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC612
 (
     const cell& thisCell,
     const label cellInd,
@@ -8827,7 +8827,7 @@ std::unique_ptr<CellSplitData> nonConvexCellSplitC612
     return newCellDataPtr;
 }
 
-std::unique_ptr<CellSplitData> nonConvexCellSplitC62
+std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC62
 (
     const cell& thisCell,
     const label cellInd,
@@ -9405,6 +9405,92 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
         {
             labelList({face1Ind,face4Ind,cutFaceEdgesAt1Ind}),
             labelList({1}),
+            labelList({0})
+        });
+    }
+    else
+        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    return newCellDataPtr;
+}
+
+std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC1011
+(
+    const cell& thisCell,
+    const label cellInd,
+    std::unique_ptr<List<scalar>> faceToCellCenterRelation
+)
+{
+    label oldCellIndex = cellMap[cellInd];
+    MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
+    if(mc33cube.cell!=oldCellIndex)
+        FatalErrorInFunction<<"Error"<< exit(FatalError);
+    
+    if(mc33cube.cubeCase!=MC33::Case::c1011)
+        FatalErrorInFunction<<"Error"<< exit(FatalError);
+    
+    auto newCellDataPtr = std::unique_ptr<CellSplitData>(new CellSplitData());
+    CellSplitData& newCellData = *newCellDataPtr;
+    newCellData.originalCell = cellInd;
+    
+    std::unordered_set<label> verticeOfCell;
+    for(label vertice : thisCell.labels(new_faces))
+        verticeOfCell.insert(vertice);
+    
+    const std::array<unsigned short int,8>& pntPerm = permutationTable[mc33cube.permutationTableIndex];
+    const std::array<std::uint8_t,12> edgPerm = mc33cube.edgePermutation;
+    
+    label cutPntEdge1Ind = memSecMC33CutEdgePntInd(edgPerm[1],mc33cube,verticeOfCell);
+    label cutPntEdge3Ind = memSecMC33CutEdgePntInd(edgPerm[3],mc33cube,verticeOfCell);
+    label cutPntEdge5Ind = memSecMC33CutEdgePntInd(edgPerm[5],mc33cube,verticeOfCell);
+    label cutPntEdge7Ind = memSecMC33CutEdgePntInd(edgPerm[7],mc33cube,verticeOfCell);
+    
+    label cutFaceEdgesAt8B6Ind = getFaceIndFromPntList(thisCell,{cutPntEdge8Ind,cutPntEdgeBInd,cutPntEdge6Ind});
+    label cutFaceEdgesAt02AInd = getFaceIndFromPntList(thisCell,{cutPntEdge0Ind,cutPntEdge2Ind,cutPntEdgeAInd});
+    label cutFaceEdgesAt846Ind = getFaceIndFromPntList(thisCell,{cutPntEdge8Ind,cutPntEdge4Ind,cutPntEdge6Ind});
+    label cutFaceEdgesAt09AInd = getFaceIndFromPntList(thisCell,{cutPntEdge0Ind,cutPntEdge9Ind,cutPntEdgeAInd});
+
+    if(thisCell.size()==10)
+    {
+        if(!testCorrectFaceSizes({0,0,0,4,4,0,2,0,0,0},thisCell) ||
+           !mc33cube.redMarkIsPlusSide)
+            FatalErrorInFunction<<"Error"<< exit(FatalError);
+            
+        label pnt0Ind = memSecMC33VerticePntInd(pntPerm[0],mc33cube,verticeOfCell);
+        label pnt3Ind = memSecMC33VerticePntInd(pntPerm[3],mc33cube,verticeOfCell);
+        label pnt5Ind = memSecMC33VerticePntInd(pntPerm[5],mc33cube,verticeOfCell);
+        label pnt6Ind = memSecMC33VerticePntInd(pntPerm[6],mc33cube,verticeOfCell);
+        
+        label face0Ind = getFaceIndFromPntList(thisCell,{pnt0Ind,pnt5Ind,cutPntEdge4Ind,cutPntEdge9Ind,cutPntEdge0Ind,cutPntEdge8Ind});
+        label face1Ind = getFaceIndFromPntList(thisCell,{pnt6Ind,pnt5Ind,cutPntEdgeAInd,cutPntEdge9Ind});
+        label face2Ind = getFaceIndFromPntList(thisCell,{pnt3Ind,pnt6Ind,cutPntEdge6Ind,cutPntEdgeAInd,cutPntEdge2Ind,cutPntEdgeBInd});
+        label face3Ind = getFaceIndFromPntList(thisCell,{pnt3Ind,pnt0Ind,cutPntEdge8Ind,cutPntEdgeBInd});
+        label face4Ind = getFaceIndFromPntList(thisCell,{pnt3Ind,pnt0Ind,cutPntEdge2Ind,cutPntEdge0Ind});
+        label face5Ind = getFaceIndFromPntList(thisCell,{pnt6Ind,pnt5Ind,cutPntEdge6Ind,cutPntEdge4Ind});
+
+        face addFace(List<label>({cutPntEdge8Ind,cutPntEdge0Ind,cutPntEdgeAInd,cutPntEdge6Ind}));
+        newCellData.addedFace.append(addFace);
+
+        face splitFace0Face1(List<label>({pnt5Ind,cutPntEdge9Ind,cutPntEdge0Ind,cutPntEdge8Ind,cutPntEdge4Ind}));
+        newCellData.splittedFaces.append({splitFace0Face1,face0Ind});
+        face splitFace0Face2(List<label>({pnt0Ind,cutPntEdge0Ind,cutPntEdge8Ind}));
+        newCellData.splittedFaces.append({splitFace0Face2,face0Ind});
+        
+        face splitFace2Face1(List<label>({pnt6Ind,cutPntEdgeAInd,cutPntEdge6Ind}));
+        newCellData.splittedFaces.append({splitFace2Face1,face2Ind});
+        face splitFace2Face2(List<label>({cutPntEdge6Ind,cutPntEdgeBInd,pnt3Ind,cutPntEdge2Ind,cutPntEdgeAInd}));
+        newCellData.splittedFaces.append({splitFace2Face2,face2Ind});
+        
+        newCellData.cells.append(
+        {
+            labelList({face3Ind,face4Ind,cutFaceEdgesAt8B6Ind,cutFaceEdgesAt02AInd}),
+            labelList({3,1}),
+            labelList({0})
+        });
+        
+        newCellData.cells.append(
+        {
+            labelList({face1Ind,face5Ind,cutFaceEdgesAt846Ind,cutFaceEdgesAt09AInd}),
+            labelList({0,2}),
             labelList({0})
         });
     }

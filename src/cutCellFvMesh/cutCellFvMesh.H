@@ -789,6 +789,20 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             std::unique_ptr<List<scalar>> faceToCellCenterRelation
         );
         
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC8
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC1011
+        (
+            const cell& thisCell,
+            const label cellInd,
+            std::unique_ptr<List<scalar>> faceToCellCenterRelation
+        );
+        
         std::unique_ptr<CellSplitData> nonConvexCellSplitC1211
         (
             const cell& thisCell,
