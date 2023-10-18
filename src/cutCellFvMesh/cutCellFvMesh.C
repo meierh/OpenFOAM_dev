@@ -10562,11 +10562,274 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     return newCellDataPtr;
 }
 
+std::unique_ptr<cellList> Foam::cutCellFvMesh::createCells
+(
+    const faceList& faces,
+    const labelList& owner,
+    const labelList& neighbour 
+)
+{
+    std::unordered_map<label,DynamicList<label>> cellsFacesMap;
+    label cellNbr = -1;
+    for(int faceInd=0; faceInd<faces.size(); faceInd++)
+    {
+        label owner = owner[faceInd];
+        label neighbour = neighbour[faceInd];
+        cellsFacesMap[owner].append(faceInd);
+        if(neighbour!=-1)
+            cellsFacesMap[neighbour].append(faceInd);
+        cellNbr = std::max(owner,cellNbr);
+        cellNbr = std::max(neighbour,cellNbr);
+    }
+    cellNbr++;
+    auto cells = std::unique_ptr<cellList>(new cellList(cellNbr));
+    for(int cellInd=0; cellInd<cells->size(); cellInd++)
+    {
+        auto iter = cellsFacesMap.find(cellInd);
+        if(iter==cellsFacesMap.end())
+            FatalErrorInFunction<<"Missing cell index!"<< exit(FatalError);
+        if(iter->second.size()<4)
+            FatalErrorInFunction<<"Illformed cell has less than four faces!"<< exit(FatalError);
+        
+        (*cells)[cellInd] = cell(iter->second);
+    }
+}
+
+void Foam::cutCellFvMesh::testCellClosure
+(
+    const faceList& faces,
+    const cellList& cells
+)
+{
+    for(const cell& oneCell : cells)
+    {
+        DynamicList<face> cellFaces;
+        for(const label& faceInd : oneCell)
+        {
+            const face& oneFace = faces[faceInd];
+            //Info<<"----------------"<<Foam::endl;
+            //Info<<"oneFace:"<<oneFace<<Foam::endl;
+            for(const label& vertice : faces[faceInd])
+            {
+                label locVertInd = oneFace.which(vertice);
+                //Info<<" locVertInd:"<<locVertInd<<Foam::endl;
+                if(locVertInd==-1)
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                label prevVertice = oneFace.prevLabel(locVertInd);
+                //Info<<" prevVertice:"<<prevVertice<<Foam::endl;
+                bool prevVerticeCon = false;
+                label nextVertice = oneFace.nextLabel(locVertInd);
+                //Info<<" nextVertice:"<<nextVertice<<Foam::endl;
+                bool nextVerticeCon = false;
+                DynamicList<label> cellConFaceInds;
+                for(const label& othFaceInd : oneCell)
+                {
+                    if(othFaceInd == faceInd)
+                        continue;
+                    
+                    const face& othFace = faces[othFaceInd];
+                    if(othFace.which(vertice)!=-1)
+                    {
+                        cellConFaceInds.append(othFaceInd);
+                    }
+                }
+                for(const label& conFaceInd : cellConFaceInds)
+                {
+                    const face& conFace = faces[conFaceInd];
+                    //Info<<" conFace:"<<conFace<<Foam::endl;
+                    label conLocVertInd = conFace.which(vertice);
+                    if(conLocVertInd==-1)
+                    {
+                        Info<<" vertice:"<<vertice<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    }
+                    label conPrevVertice = conFace.prevLabel(conLocVertInd);
+                    label conNextVertice = conFace.nextLabel(conLocVertInd);
+                    
+                    if(prevVertice == conPrevVertice)
+                    {
+                        if(prevVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        prevVerticeCon = true;
+                    }
+                    else if(prevVertice == conNextVertice)
+                    {
+                        if(prevVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        prevVerticeCon = true;
+                    }
+                    
+                    if(nextVertice == conPrevVertice)
+                    {
+                        if(nextVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        nextVerticeCon = true;
+                    }
+                    else if(nextVertice == conNextVertice)
+                    {
+                        if(nextVerticeCon)
+                            FatalErrorInFunction<<"Error"<< exit(FatalError);
+                        nextVerticeCon = true;
+                    }
+                }
+                
+                if(!prevVerticeCon || !nextVerticeCon)
+                {
+                    FatalErrorInFunction<<"Edges connected to vertice are not connected to other face!"<< exit(FatalError);
+                }
+            }
+        }
+    }
+}
+
+void Foam::cutCellFvMesh::correctFaceNormal
+(
+    const faceList& faces,
+    const labelList& owner,
+    const labelList& neighbour,
+    const cellList& cells
+)
+{
+    for(int faceInd=0; faceInd<faces.size(); faceInd++)
+    {
+        label ownerCellInd = owner[faceInd];
+        cell ownerCell = cells[ownerCellInd];
+        //Info<<"ownerCell:"<<ownerCell<<Foam::endl;
+        //Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]]<<Foam::endl;
+        //Info<<"this->cells()[this->owner()[faceInd]]:"<<this->cells()[this->owner()[faceInd]].points(this->faces(),this->points())<<Foam::endl;
+        std::unordered_set<label> ownerCellFaceMap;
+        for(const label& faceInd : ownerCell)
+            ownerCellFaceMap.insert(faceInd);
+        if(ownerCellFaceMap.find(faceInd)==ownerCellFaceMap.end())
+            FatalErrorInFunction<<"Error"<< exit(FatalError);
+        ownerCellFaceMap.erase(faceInd);
+        
+        vector centre = faces[faceInd].centre(new_points);
+        vector normal = faces[faceInd].normal(new_points);        
+        label posNormalHit = 0;
+        DynamicList<vector> posNormalHitPoint;
+        label negNormalHit = 0;
+        DynamicList<vector> negNormalHitPoint;
+        //Info<<"-----------------"<<Foam::endl;
+        //Info<<"faceInd:"<<faceInd<<" -"<<faces[faceInd].points(new_points)<<Foam::endl;
+        //Info<<"centre:"<<centre<<Foam::endl;
+        //Info<<"normal:"<<normal<<Foam::endl;
+        
+        for(auto iter=ownerCellFaceMap.cbegin();
+            iter!=ownerCellFaceMap.cend();
+            iter++)
+        {
+            label othFaceInd = *iter;
+            //Info<<" othFaceInd:"<<othFaceInd<<" "<<faces[othFaceInd].points(new_points)<<Foam::endl;
+            const face& othFace = faces[othFaceInd];
+            
+            pointHit posNormRes= othFace.ray(centre,normal,new_points);
+            if(posNormRes.hit() && posNormRes.distance()>0)
+            {
+                posNormalHit++;
+                posNormalHitPoint.append(posNormRes.hitPoint());
+                //Info<<"     Pos Hits "<<othFaceInd<<" using "<<normal<<" at dist:"<<posNormRes.distance()<<" and point:"<<posNormRes.hitPoint()<<Foam::endl;
+            }
+            
+            pointHit negNormRes= othFace.ray(centre,-1*normal,new_points);
+            if(negNormRes.hit() && negNormRes.distance()>0)
+            {
+                negNormalHit++;
+                negNormalHitPoint.append(negNormRes.hitPoint());
+                //Info<<"     Neg Hits "<<othFaceInd<<" using "<<-1*normal<<" at dist:"<<negNormRes.distance()<<" and point:"<<negNormRes.hitPoint()<<Foam::endl;
+            }
+        }
+        
+        //Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
+        //Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
+        
+        //Info<<"posNormalHitPoint:"<<posNormalHitPoint<<Foam::endl;
+        //Info<<"negNormalHitPoint:"<<negNormalHitPoint<<Foam::endl;
+        
+        List<bool> posEqualTreated(posNormalHitPoint.size(),false);
+        for(label i=0;i<posNormalHitPoint.size();i++)
+        {
+            if(posEqualTreated[i])
+                continue;
+            
+            posEqualTreated[i] = true;
+            label equalsCount = 0;
+            for(int j=i+1;j<posNormalHitPoint.size();j++)
+            {
+                if(posEqualTreated[j])
+                    continue;
+                
+                scalar posHitPointDist = norm2(posNormalHitPoint[i]-posNormalHitPoint[j]);
+                if(posHitPointDist<1e-10)
+                {
+                    if(posEqualTreated[j])
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    equalsCount++;
+                    posEqualTreated[j] = true;
+                }
+            }
+            posNormalHit-=equalsCount;
+        }
+        List<bool> negEqualTreated(negNormalHitPoint.size(),false);
+        for(label i=0;i<negNormalHitPoint.size();i++)
+        {
+            if(negEqualTreated[i])
+                continue;
+            
+            negEqualTreated[i] = true;
+            label equalsCount = 0;
+            for(int j=i+1;j<negNormalHitPoint.size();j++)
+            {
+                if(negEqualTreated[j])
+                    continue;
+                
+                scalar negHitPointDist = norm2(negNormalHitPoint[i]-negNormalHitPoint[j]);
+                if(negHitPointDist<1e-10)
+                {
+                    if(negEqualTreated[j])
+                    {
+                        Info<<"-------------Error------------"<<Foam::endl;
+                        Info<<"i:"<<i<<Foam::endl;
+                        Info<<"j:"<<j<<Foam::endl;
+                        Info<<"negNormalHitPoint:"<<negNormalHitPoint<<Foam::endl;
+                        Info<<"negEqualTreated:"<<negEqualTreated<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    }
+                    equalsCount++;
+                    negEqualTreated[j] = true;
+                }
+            }
+            negNormalHit-=equalsCount;
+        }
+        
+        if(posNormalHit%2==0 && negNormalHit%2!=0)
+        {
+            //Normal direction correct
+        }
+        else if(posNormalHit%2!=0 && negNormalHit%2==0)
+        {
+            //new_faces[faceInd] = new_faces[faceInd].reverseFace();
+        }
+        else
+        {
+            Info<<"posNormalHit:"<<posNormalHit<<Foam::endl;
+            Info<<"negNormalHit:"<<negNormalHit<<Foam::endl;
+            Info<<(negNormalHitPoint[0]==negNormalHitPoint[1])<<Foam::endl;
+            Info<<(negNormalHitPoint[0]-negNormalHitPoint[1])<<Foam::endl;
+            FatalErrorInFunction<<"Error"<< exit(FatalError);
+        }
+        
+    }
+}
+
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 (
     scalar partialThreeshold
 )
 {
+   auto cells = createCells(new_faces,new_owner,new_neighbour);
+   cellList& new_cells = *cells;
+    /*
     Info<<"Correct false cell topologies"<<Foam::endl;
     std::unordered_map<label,DynamicList<label>> cellsFacesMap;
     label cellNbr = -1;
@@ -10592,9 +10855,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         
         new_cells[cellInd] = cell(iter->second);
     }
+    */
+    
     
     Info<<"Test for closed cell!"<<Foam::endl;
     //Testing if the faces of a cell form a closed set
+    /*
     for(const cell& oneCell : new_cells)
     {
         DynamicList<face> cellFaces;
@@ -10674,9 +10940,11 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             }
         }
     }
+    */
     
     Info<<"Test for correct normal direction!"<<Foam::endl;
     //Testing if face normal direction is correct
+    /*
     for(int faceInd=0; faceInd<new_faces.size(); faceInd++)
     {
         label ownerCellInd = new_owner[faceInd];
@@ -10807,7 +11075,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
         
     }
-
+    */
+    
     //Testing for nonconvexivity in cell and correct them
     Info<<"Test for nonconvex cell!"<<Foam::endl;
     class CellEdge
