@@ -728,6 +728,27 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const cell& thisCell
         );
         
+        std::unique_ptr<cellList> createCells
+        (
+            const faceList& faces,
+            const labelList& owner,
+            const labelList& neighbour 
+        );
+        
+        void testCellClosure
+        (
+            const faceList& faces,
+            const cellList& cells
+        );
+        
+        void correctFaceNormal
+        (
+            faceList& faces,
+            const labelList& owner,
+            const labelList& neighbour,
+            const cellList& cells
+        );
+        
         void agglomerateSmallCells_MC33
         (
             scalar partialThreeshold = 0.01
@@ -747,7 +768,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             std::unique_ptr<List<scalar>> faceToCellCenterRelation
         );
         
-        std::unique_ptr<CellSplitData> nonConvexCellSplitC42
+        std::unique_ptr<CellSplitData> nonConvexCellSplitC412
         (
             const cell& thisCell,
             const label cellInd,
