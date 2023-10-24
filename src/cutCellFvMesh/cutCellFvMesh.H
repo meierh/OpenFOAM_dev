@@ -672,7 +672,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         
         typedef struct{
             label originalCell = -1;
-            DynamicList<vector> addedPoints;
+            DynamicList<std::pair<vector,edge>> addedPoints;
             label addedPointsLimit=-1;
             // face with possibly added Points as index+addedPointsLimit
             DynamicList<face> addedFace;
