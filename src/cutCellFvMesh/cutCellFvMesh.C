@@ -11712,8 +11712,107 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             thisFace = face(newFace);
         }
     }
+
+    //std::unordered_set<label> removedFaces;
+    //DynamicList<std::tuple<face,label,label>> addedFaces;
+    //std::unordered_set<label> removedCell;
+    std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByNeighborCell;
+    std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByOwnerCell;
+    std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> originalFacesByNeighborCell;
+    std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> originalFacesByOwnerCell;
+    for(label cellInd=0; cellInd<new_cells.size(); cellInd++)
+    {
+        if(convexCorrectionData[cellInd])
+        {
+            CellSplitData& cellSplit = *(convexCorrectionData[cellInd]);
+            if(cellSplit.originalCell != cellMap[cellInd])
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            
+            for(label locCell=0;locCell<cellSplit.cells.size();locCell++)
+            {
+                CellFaces& oneCell = cellSplit.cells[locCell];
+                for(label locSpFaceInd=0;locSpFaceInd<oneCell.splittedFaceInds.size();locSpFaceInd++)
+                {
+                    label faceInds = oneCell.splittedFaceInds[locSpFaceInd];
+                    std::pair<face,label>& splittedFace = cellSplit.splittedFaces[faceInds];
+                    label origFace = splittedFace.second;
+                    if(new_owner[origFace]==cellInd)
+                    {
+                        splittedFacesByOwnerCell[origFace].append({cellInd,locCell,locSpFaceInd});
+                    }
+                    else if(new_neighbour[origFace]==cellInd)
+                    {
+                        splittedFacesByNeighborCell[origFace].append({cellInd,locCell,locSpFaceInd});
+                    }
+                    else
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                }
+                for(label locOFaceInd=0;locOFaceInd<oneCell.originalFaceInds.size();locOFaceInd++)
+                {
+                    label faceInds = oneCell.originalFaceInds[locOFaceInd];
+                    label oFace = cellSplit.originalFaceInds[faceInds];
+                    if(new_owner[oFace]==cellInd)
+                    {
+                        originalFacesByOwnerCell[oFace].append({cellInd,locCell,locOFaceInd});
+                    }
+                    else if(new_neighbour[oFace]==cellInd)
+                    {
+                        originalFacesByNeighborCell[oFace].append({cellInd,locCell,locOFaceInd});
+                    }
+                    else
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                }
+            }
+        }
+    }
     
-    
+    List<DynamicList<face>> new_faces(this->new_faces.size());
+    List<DynamicList<std::pair<label,label>>> new_owner(this->new_faces.size());
+    List<DynamicList<std::pair<label,label>>> new_neighbour(this->new_faces.size());
+    for(label faceInd=0; faceInd<new_faces.size(); faceInd++)
+    {
+        auto iterSpOwn = splittedFacesByOwnerCell.find(faceInd);
+        auto iterSpNei = splittedFacesByNeighborCell.find(faceInd);
+        auto iterOOwn = originalFacesByOwnerCell.find(faceInd);
+        auto iterONei = originalFacesByNeighborCell.find(faceInd);
+        DynamicList<std::tuple<label,label,label>>* singleSideCut;
+        DynamicList<std::tuple<label,label,label>>* singleSideO;
+        bool iterSpOwnB = iterSpOwn!=splittedFacesByOwnerCell.end();
+        bool iterSpNeiB = iterSpNei!=splittedFacesByNeighborCell.end();
+        bool iterOOwnB = iterOOwn!=originalFacesByOwnerCell.end();
+        bool iterONeiB = iterONei!=originalFacesByNeighborCell.end();        
+            
+        if(!iterSpOwnB && !iterSpNeiB)
+        {
+            new_faces[faceInd].append(this->new_faces[faceInd]);
+            new_owner[faceInd].append({this->new_owner[faceInd],-1});
+            new_neighbour[faceInd].append({this->new_neighbour[faceInd],-1});
+        }
+        else if(iterSpOwnB && iterSpNeiB)
+        {
+        }
+        else
+        {
+            if(iterOwn!=splittedFacesByOwnerCell.end())
+            {
+                singleSideCut = &(iterOwn->second);
+            }
+            else
+            {
+                singleSideCut = &(iterNei->second);
+            }
+            for(std::tuple<label,label,label>& oneSplitFace : *singleSideCut)
+            {
+                label cellInd = std::get<0>(oneSplitFace);
+                label locCell = std::get<1>(oneSplitFace)
+                label locSpFaceInd = std::get<2>(oneSplitFace)
+                CellSplitData& cellSplit = *(convexCorrectionData[cellInd]);
+                CellFaces& oneCell = cellSplit.cells[locCell];
+
+
+            }
+        }
+    }
 
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 
