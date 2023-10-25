@@ -11749,8 +11749,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 }
                 for(label locOFaceInd=0;locOFaceInd<oneCell.originalFaceInds.size();locOFaceInd++)
                 {
-                    label faceInds = oneCell.originalFaceInds[locOFaceInd];
-                    label oFace = cellSplit.originalFaceInds[faceInds];
+                    label oFace = oneCell.originalFaceInds[locOFaceInd];
                     if(new_owner[oFace]==cellInd)
                     {
                         originalFacesByOwnerCell[oFace].append({cellInd,locCell,locOFaceInd});
@@ -11781,35 +11780,125 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         bool iterSpNeiB = iterSpNei!=splittedFacesByNeighborCell.end();
         bool iterOOwnB = iterOOwn!=originalFacesByOwnerCell.end();
         bool iterONeiB = iterONei!=originalFacesByNeighborCell.end();        
-            
+
+        std::pair<label,label> ownCell = {this->new_owner[faceInd],-1};
+        std::pair<label,label> neiCell = {this->new_neighbour[faceInd],-1};
         if(!iterSpOwnB && !iterSpNeiB)
         {
+            if(iterOOwnB)
+            {
+                singleSideO = &(iterOOwn->second);
+                if(singleSideO->size()!=1)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                std::tuple<label,label,label>& oneSideO = (*singleSideO)[0];
+                label cellInd = std::get<0>(oneSideO);
+                if(cellInd!=ownCell.first)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                label locCell = std::get<1>(oneSideO);
+                ownCell.second = locCell;
+            }
+            if(iterONeiB)
+            {
+                singleSideO = &(iterONei->second);
+                if(singleSideO->size()!=1)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                std::tuple<label,label,label>& oneSideO = (*singleSideO)[0];
+                label cellInd = std::get<0>(oneSideO);
+                if(cellInd!=neiCell.first)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                label locCell = std::get<1>(oneSideO);
+                neiCell.second = locCell;
+            }
             new_faces[faceInd].append(this->new_faces[faceInd]);
-            new_owner[faceInd].append({this->new_owner[faceInd],-1});
-            new_neighbour[faceInd].append({this->new_neighbour[faceInd],-1});
+            new_owner[faceInd].append(ownCell);
+            new_neighbour[faceInd].append(neiCell);
         }
         else if(iterSpOwnB && iterSpNeiB)
         {
+            if(iterOOwnB || iterONeiB)
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+
+            //Continue here
+            /*
+            new_faces[faceInd].append(this->new_faces[faceInd]);
+            new_owner[faceInd].append(ownCell);
+            new_neighbour[faceInd].append(neiCell);
+            */
         }
         else
         {
-            if(iterOwn!=splittedFacesByOwnerCell.end())
+            std::pair<label,label> othCell;
+            if(iterSpOwnB)
             {
-                singleSideCut = &(iterOwn->second);
+                othCell = {this->new_neighbour[faceInd],-1};
+                if(iterOOwnB)
+                {
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                }
+                if(iterONeiB)
+                {
+                    singleSideO = &(iterONei->second);
+                    if(singleSideO->size()!=1)
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    std::tuple<label,label,label>& oneSideO = (*singleSideO)[0];
+                    label cellInd = std::get<0>(oneSideO);
+                    if(cellInd!=othCell.first)
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    label locCell = std::get<1>(oneSideO);
+                    othCell.second = locCell;
+                }
+                singleSideCut = &(iterSpOwn->second);
             }
             else
             {
-                singleSideCut = &(iterNei->second);
+                othCell = {this->new_owner[faceInd],-1};
+                if(iterOOwnB)
+                {
+                    singleSideO = &(iterONei->second);
+                    if(singleSideO->size()!=1)
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    std::tuple<label,label,label>& oneSideO = (*singleSideO)[0];
+                    label cellInd = std::get<0>(oneSideO);
+                    if(cellInd!=othCell.first)
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    label locCell = std::get<1>(oneSideO);
+                    othCell.second = locCell;
+                }
+                if(iterONeiB)
+                {
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                }
+                singleSideCut = &(iterSpNei->second);
             }
+
             for(std::tuple<label,label,label>& oneSplitFace : *singleSideCut)
             {
                 label cellInd = std::get<0>(oneSplitFace);
-                label locCell = std::get<1>(oneSplitFace)
-                label locSpFaceInd = std::get<2>(oneSplitFace)
+                label locCell = std::get<1>(oneSplitFace);
+                label locSpFaceInd = std::get<2>(oneSplitFace);
                 CellSplitData& cellSplit = *(convexCorrectionData[cellInd]);
                 CellFaces& oneCell = cellSplit.cells[locCell];
-
-
+                label splitFaceInd = oneCell.splittedFaceInds[locSpFaceInd];
+                std::pair<face,label>& splitFace = cellSplit.splittedFaces[splitFaceInd];
+                if(splitFace.second!=faceInd)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                
+                new_faces[faceInd].append(splitFace.first);
+                new_owner[faceInd].append(ownCell);
+                new_neighbour[faceInd].append(neiCell);
+            
+                std::pair<label,label> ownCell = {this->new_owner[faceInd],-1};
+                std::pair<label,label> neiCell = {this->new_neighbour[faceInd],-1};
+                if(iterSpOwnB)
+                {
+                    ownCell.second = locCell;
+                    neiCell = othCell;
+                }
+                else
+                {
+                    neiCell.second = locCell;
+                    ownCell = othCell;
+                }
             }
         }
     }
