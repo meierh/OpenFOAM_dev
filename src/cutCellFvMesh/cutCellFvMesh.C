@@ -19,6 +19,29 @@ Foam::scalar norm2(Foam::vector pnt)
     return std::sqrt(pnt.x()*pnt.x()+pnt.y()*pnt.y()+pnt.z()*pnt.z());
 }
 
+Foam::scalar det3x3
+(
+    const Foam::vector& c0,
+    const Foam::vector& c1,
+    const Foam::vector& c2
+)
+{
+    return    c0[0]*c1[1]*c2[2]
+           +  c1[0]*c2[1]*c0[2]
+           +  c2[0]*c0[1]*c1[2]
+           -  c0[2]*c1[1]*c2[0]
+           -  c1[2]*c2[1]*c0[0]
+           -  c2[2]*c0[1]*c1[0];
+}
+
+Foam::vector crossProd(const Foam::vector& v1, const Foam::vector& v2)
+{
+    return Foam::vector(v1[1]*v2[2]-v1[2]*v2[1],
+                        v1[2]*v2[0]-v1[0]*v2[2],
+                        v1[0]*v2[1]-v1[1]*v2[0]
+                        );
+}
+
 void Foam::cutCellFvMesh::pointsToSide
 (
 )
@@ -5429,15 +5452,6 @@ void Foam::cutCellFvMesh::printMesh
     }
 }
 
-Foam::vector crossProd(const Foam::vector& v1, const Foam::vector& v2)
-{
-    return Foam::vector(v1[1]*v2[2]-v1[2]*v2[1],
-                        v1[2]*v2[0]-v1[0]*v2[2],
-                        v1[0]*v2[1]-v1[1]*v2[0]
-                        );
-}
-
-
 void Foam::cutCellFvMesh::selfTestMesh()
 {  
     Info<<"START MESH SELF TEST"<<endl;
@@ -10837,6 +10851,51 @@ void Foam::cutCellFvMesh::correctFaceNormal
     }
 }
 
+void Foam::cutCellFvMesh::splitFaceByEdge
+(
+    const face& oneFace,
+    const edge& oneEdge,
+    FixedList<face,2>& splitFaces
+)
+{
+    if(oneFace.which(oneEdge.start())==-1 || oneFace.which(oneEdge.end())==-1)
+        FatalErrorInFunction<<"Edge not in Face"<< exit(FatalError);   
+    label startIndex = oneFace.which(oneEdge.start());
+    if(oneFace.nextLabel(startIndex) == oneEdge.end() ||
+       oneFace.prevLabel(startIndex) == oneEdge.end())
+        FatalErrorInFunction<<"Edge does not split face"<< exit(FatalError);
+    
+    label index = startIndex;    
+    DynamicList<label> face0;
+    while(oneFace[index] != oneEdge.end())
+    {
+        face0.append(oneFace[index]);
+        index = oneFace.fcIndex(index);
+    }
+    face0.append(oneFace[index]);
+    
+    index = startIndex;
+    DynamicList<label> face1;
+    while(oneFace[index] != oneEdge.end())
+    {
+        face1.append(oneFace[index]);
+        index = oneFace.rcIndex(index);
+    }
+    face1.append(oneFace[index]);
+    
+    splitFaces[0] = face(face0);
+    splitFaces[1] = face(face1);
+}
+
+bool Foam::cutCellFvMesh::edgeInFace
+(
+    const face& oneFace,
+    const edge& oneEdge
+)
+{
+    return (oneFace.which(oneEdge.start())!=-1 && oneFace.which(oneEdge.end())!=-1);
+}
+
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 (
     scalar partialThreeshold
@@ -11901,6 +11960,13 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 if(oneEdge.second.size()!=2)
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
             }
+            std::unordered_map<label,face> ownLocCellToCutFace;
+            for(std::pair<face,label>& spFace : ownSpFaces)
+            {
+                if(ownLocCellToCutFace.count(spFace.second)!=0)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                ownLocCellToCutFace[spFace.second]=spFace.first;
+            }
 
 // 2.Teil
             DynamicList<std::pair<face,label>> neiSpFaces;
@@ -11985,7 +12051,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
             }
             
-            List<List<std::pair<bool,vector>>> edgeIntersection(ownEdgesThatCutFaceWithCellNbr.size(),List<std::pair<bool,vector>>(neiEdgesThatCutFaceWithCellNbr.size(),{false,zero()}));
+            List<List<std::tuple<bool,vector,label>>> edgeIntersection(ownEdgesThatCutFaceWithCellNbr.size(),List<std::tuple<bool,vector,label>>(neiEdgesThatCutFaceWithCellNbr.size(),{false,zero(),-1}));
             for(label i=0;i<ownEdgesThatCutFaceWithCellNbr.size();i++)
             {
                 edge& ownEdge = ownEdgesThatCutFaceWithCellNbr[i].first;
@@ -11999,11 +12065,204 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     bool openNei = false;
                     bool closedNei = false;
                     
-                    
+                    label totalFaceIndex = ownStIndexFace;
+                    for(label k=0;k<totalFace.size();k++)
+                    {
+                        auto iter = neiEdgeSet.find(totalFace[ownStIndexFace]);
+                        if(iter!=neiEdgeSet.end())
+                        {
+                            if(openNei)
+                                closedNei=true;
+                            else
+                                openNei=true;
+                            neiEdgeSet.erase(iter);
+                        }
+                        if(totalFace[ownStIndexFace]==neiEdge.end())
+                            closedOwn=true;
+                        if(closedOwn)
+                            break;
+                        totalFaceIndex = totalFace.fcIndex(totalFaceIndex);
+                    }
+                    if(!openOwn || !closedOwn || (closedNei && !openNei))
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    if(openNei && !closedNei)
+                    {
+                        std::tuple<bool,vector,label>& entry = edgeIntersection[i][j];
+                        bool& firstEntry = std::get<0>(entry);
+                        firstEntry=true;
+                        
+                        vector ownEdgeStartVec = new_points[ownEdge.start()];
+                        vector ownEdgeLineVec = ownEdge.vec(new_points);
+                        
+                        vector neiEdgeStartVec = new_points[neiEdge.start()];
+                        vector neiEdgeLineVec = neiEdge.vec(new_points);
+                        
+                        vector n = crossProd(ownEdgeLineVec,neiEdgeLineVec);
+                        vector a = ownEdgeLineVec;
+                        vector a0 = ownEdgeStartVec;
+                        vector b = neiEdgeLineVec;
+                        vector b0 = neiEdgeStartVec;
+                        vector rhs = a0-b0;
+                        //Solve Linear Equation System [b,-a,-n](t,sx,sy)^T = a0-b0
+                        scalar detA = det3x3(b,-a,-n);
+                        if(std::abs(detA)<1e-10)
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        scalar t = det3x3(rhs,-a,-n)/detA;
+                        scalar sx = det3x3(b,rhs,-n)/detA;
+                        //scalar sy = det3x3(b,-a,rhs)/detA;
+                        if(t<0 || t>1 || sx<0 || sx>1)
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        
+                        vector ownEdgeIntPnt = a0 + sx*a;
+                        vector neiEdgeIntPnt = b0 + t*b;
+                        vector newPoint = (ownEdgeIntPnt+neiEdgeIntPnt)/2;
+                        vector& secondEntry = std::get<1>(entry);
+                        secondEntry = newPoint;
+                    }                   
                 }
             }
             
+            std::unordered_map<label,DynamicList<label>> ownCellNbrToEdgeNbr;
+            for(label i=0;i<ownEdgesThatCutFaceWithCellNbr.size();i++)
+            {
+                auto& entry = ownEdgesThatCutFaceWithCellNbr[i];
+                for(label cellInd : entry.second)
+                {
+                    ownCellNbrToEdgeNbr[cellInd].append(i);
+                }
+            }
+            std::unordered_map<label,DynamicList<label>> neiCellNbrToEdgeNbr;
+            for(label i=0;i<neiEdgesThatCutFaceWithCellNbr.size();i++)
+            {
+                auto& entry = neiEdgesThatCutFaceWithCellNbr[i];
+                for(label cellInd : entry.second)
+                {
+                    neiCellNbrToEdgeNbr[cellInd].append(i);
+                }
+            }
             
+            DynamicList<vector> addedPoints;
+            List<bool> neiEdgesTreated(neiEdgesThatCutFace.size(),false);
+            for(auto oneCutFace = ownLocCellToCutFace.begin();
+                oneCutFace!=ownLocCellToCutFace.end();
+                oneCutFace++)
+            {
+                label locCell = oneCutFace->first;
+                face& cutFace = oneCutFace->second;
+                
+                auto iter = ownCellNbrToEdgeNbr.find(locCell);
+                if(iter==ownCellNbrToEdgeNbr.end())
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                DynamicList<label>& ownEdgeInds = iter->second;
+                
+                if(ownEdgeInds.size()==1)
+                {
+                    label ownEdgeInd = ownEdgeInds[0];
+                    if(ownEdgeInd<0 || ownEdgeInd>=edgeIntersection.size() ||
+                       ownEdgeInd>=ownEdgesThatCutFace.size())
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    edge& ownEdge = ownEdgesThatCutFace[ownEdgeInd];
+                    if(cutFace.which(ownEdge.start())==-1 || cutFace.which(ownEdge.end())==-1)
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    
+                    List<std::tuple<bool,vector,label>>& thisEdgeIntersections = edgeIntersection[ownEdgeInd];
+                    
+                    std::list<face> splitFaces({cutFace});
+                    
+                    //Split face by interior nei edges
+                    for(label neiEdgeInd=0; neiEdgeInd<neiEdgesThatCutFace.size(); neiEdgeInd++)
+                    {
+                        edge& neiEdge = neiEdgesThatCutFace[neiEdgeInd];
+                        auto finalIter = splitFaces.end();
+                        auto iter = splitFaces.begin();
+                        while(iter!=splitFaces.end())
+                        {
+                            if(edgeInFace(*iter,neiEdge))
+                            {
+                                if(finalIter!=splitFaces.end())
+                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                finalIter=iter;
+                            }
+                        }
+                        if(finalIter==splitFaces.end())
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            if(std::get<0>(thisEdgeIntersections[neiEdgeInd]) || neiEdgesTreated[neiEdgeInd])
+                                FatalErrorInFunction<<"Can not cut a face"<< exit(FatalError);
+
+                            FixedList<face,2> splitFaceDuo;
+                            splitFaceByEdge(cutFace,neiEdge,splitFaceDuo);
+                            splitFaces.erase(finalIter);
+                            splitFaces.push_back(splitFaceDuo[0]);
+                            splitFaces.push_back(splitFaceDuo[1]);
+                        }
+                    }
+                    
+                  for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
+                    {
+                        edge& neiEdge = neiEdgesThatCutFace[neiEdgeInd];
+                        // Split Edge continue
+                        
+                        /*
+                        auto finalIter = splitFaces.end();
+                        auto iter = splitFaces.begin();
+                        while(iter!=splitFaces.end())
+                        {
+                            if(edgeInFace(*iter,neiEdge))
+                            {
+                                if(finalIter!=splitFaces.end())
+                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                                finalIter=iter;
+                            }
+                        }
+                        if(finalIter==splitFaces.end())
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            if(std::get<0>(thisEdgeIntersections[neiEdgeInd]) || neiEdgesTreated[neiEdgeInd])
+                                FatalErrorInFunction<<"Can not cut a face"<< exit(FatalError);
+
+                            FixedList<face,2> splitFaceDuo;
+                            splitFaceByEdge(cutFace,neiEdge,splitFaceDuo);
+                            splitFaces.erase(finalIter);
+                            splitFaces.push_back(splitFaceDuo[0]);
+                            splitFaces.push_back(splitFaceDuo[1]);
+                        }
+                        */
+                    }
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
+                    {
+                        if(std::get<0>(thisEdgeIntersections[neiEdgeInd]))
+                        {
+                            edge& neiEdge = neiEdgesThatCutFace[neiEdgeInd];
+                        }
+                    }
+                }
+                else if(ownEdgeInds.size()==2)
+                {
+                }
+                else
+                {
+                }
+                
+                for(label ownEdgeInd : ownEdgeInds)
+                {
+
+
+                }
+            }
             //Continue here
             /*
             new_faces[faceInd].append(this->new_faces[faceInd]);

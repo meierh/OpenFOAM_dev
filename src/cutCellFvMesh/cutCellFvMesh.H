@@ -866,6 +866,19 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             std::unique_ptr<List<scalar>> faceToCellCenterRelation
         );
         
+        void splitFaceByEdge
+        (
+            const face& oneFace,
+            const edge& oneEdge,
+            FixedList<face,2>& splitFaces
+        );
+        
+        bool edgeInFace
+        (
+            const face& oneFace,
+            const edge& oneEdge
+        );
+        
         /*
         void agglomerateSmallCells_cutNeg_plus
         (
