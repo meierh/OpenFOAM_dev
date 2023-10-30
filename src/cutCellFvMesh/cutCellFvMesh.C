@@ -10896,6 +10896,107 @@ bool Foam::cutCellFvMesh::edgeInFace
     return (oneFace.which(oneEdge.start())!=-1 && oneFace.which(oneEdge.end())!=-1);
 }
 
+void Foam::cutCellFvMesh::facesEdgesIntersection
+(
+    const face& totalFace,
+    const face& ownFace,
+    const face& neiFace,
+    List<List<bool>>& faceEdgeIntersections
+)
+{
+    faceEdgeIntersections.setSize(ownFace.size(),List<bool>(neiFace.size(),false));
+    for(label o=0; o<ownFace.size(); o++)
+    {
+        label oPnt0 = ownFace[o];
+        label oPnt1 = ownFace[ownFace.fcIndex(o)];
+        label totalFaceIndex = totalFace.which(oPnt0);
+        for(label n=0; n<neiFace.size(); n++)
+        {
+            label nPnt0 = neiFace[n];
+            label nPnt1 = neiFace[neiFace.fcIndex(n)];
+            
+            std::unordered_set<label> neiEdgeSet({nPnt0,nPnt1});
+            bool openOwn = true;
+            bool closedOwn = false;
+            bool openNei = false;
+            bool closedNei = false;
+            
+            label runTotalFaceIndex = totalFaceIndex;
+            for(label k=0;k<totalFace.size();k++)
+            {
+                auto iter = neiEdgeSet.find(totalFace[runTotalFaceIndex]);
+                if(iter!=neiEdgeSet.end())
+                {
+                    if(openNei)
+                        closedNei=true;
+                    else
+                        openNei=true;
+                    neiEdgeSet.erase(iter);
+                }
+                if(totalFace[runTotalFaceIndex]==oPnt1)
+                    closedOwn=true;
+                if(closedOwn)
+                    break;
+                runTotalFaceIndex = totalFace.fcIndex(runTotalFaceIndex);
+            }
+            if(openNei && !closedNei)
+            {
+                faceEdgeIntersections[o][n] = true;
+            }
+        }
+    }
+}
+
+bool Foam::cutCellFvMesh::faceEdgesIntersect
+(
+    const List<List<bool>>& faceEdgeIntersections
+)
+{
+    bool oneIntersection = false;
+    for(const List<bool>& innerList : faceEdgeIntersections)
+    {
+        for(bool val : innerList)
+        {
+            oneIntersection = oneIntersection || val;
+        }
+    }
+    return oneIntersection;
+}
+
+Foam::vector Foam::cutCellFvMesh::computeIntersectionPnt
+(
+    const edge edgeA,
+    const edge edgeB
+)
+{
+    vector AEdgeStartVec = new_points[edgeA.start()];
+    vector AEdgeLineVec = edgeA.vec(new_points);
+
+    vector BEdgeStartVec = new_points[edgeB.start()];
+    vector BEdgeLineVec = edgeB.vec(new_points);
+
+    vector n = crossProd(AEdgeLineVec,BEdgeLineVec);
+    vector a = AEdgeLineVec;
+    vector a0 = AEdgeStartVec;
+    vector b = BEdgeLineVec;
+    vector b0 = BEdgeStartVec;
+    vector rhs = a0-b0;
+    //Solve Linear Equation System [b,-a,-n](t,sx,sy)^T = a0-b0
+    scalar detA = det3x3(b,-a,-n);
+    if(std::abs(detA)<1e-10)
+        FatalErrorInFunction<<"Edges are parrallel!"<< exit(FatalError);
+    scalar t = det3x3(rhs,-a,-n)/detA;
+    scalar sx = det3x3(b,rhs,-n)/detA;
+    //scalar sy = det3x3(b,-a,rhs)/detA;
+    if(t<0 || t>1 || sx<0 || sx>1)
+        FatalErrorInFunction<<"Edges have no inner intersection!"<< exit(FatalError);
+
+    vector AEdgeIntPnt = a0 + sx*a;
+    vector BEdgeIntPnt = b0 + t*b;
+    vector newPoint = (AEdgeIntPnt+BEdgeIntPnt)/2;
+    return newPoint;
+}
+
 List<label> Foam::cutCellFvMesh::faceIntersection
 (
     const face& totalFace,
@@ -10905,6 +11006,41 @@ List<label> Foam::cutCellFvMesh::faceIntersection
     DynamicList<vector> addPnt
 )
 {
+    List<List<bool>> faceEdgeIntersections;
+    facesEdgesIntersection(totalFace,ownFace,neiFace,faceEdgeIntersections);
+    List<List<label>> faceEdgeIntersectionsAddPntInd(ownFace.size(),List<label>(neiFace.size(),-1));
+    label addedPntsIndex = this->new_points.size();
+    for(label o=0; o<ownFace.size(); o++)
+    {
+        for(label n=0; n<neiFace.size(); n++)
+        {
+            if(faceEdgeIntersections[o][n])
+            {
+                faceEdgeIntersectionsAddPntInd[o][n] = addedPntsIndex;
+                addedPntsIndex++;
+            }
+        }
+    }
+    DynamicList<vector> addedPnts;
+    for(label o=0; o<ownFace.size(); o++)
+    {
+        for(label n=0; n<neiFace.size(); n++)
+        {
+            if(faceEdgeIntersections[o][n])
+            {
+                label oPnt0 = ownFace[o];
+                label oPnt1 = ownFace[ownFace.fcIndex(o)];
+                label nPnt0 = neiFace[n];
+                label nPnt1 = neiFace[neiFace.fcIndex(n)];
+                edge oEdge(oPnt0,oPnt1);
+                edge nEdge(nPnt0,nPnt1);
+                addedPnts.append(computeIntersectionPnt(oEdge,nEdge));
+            }
+        }
+    }    
+
+    bool doFacesEdgesIntersect = faceEdgesIntersect(faceEdgeIntersections);
+    
 }
 
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
@@ -12178,6 +12314,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     
                     List<std::tuple<bool,vector,label>>& thisEdgeIntersections = edgeIntersection[ownEdgeInd];
                     
+                    /*
                     std::list<std::tuple<face,label,label>> splitFaces({cutFace});                    
                     //Split face by interior nei edges
                     for(label neiEdgeInd=0; neiEdgeInd<neiEdgesThatCutFace.size(); neiEdgeInd++)
@@ -12230,47 +12367,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     
                     DynamicList<label> ownEdgeInt;
                     
+                    
                     edge
                     for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
                     {
                         edge& neiEdge = neiEdgesThatCutFace[neiEdgeInd];
                         // Split Edge continue
-                        
-                        /*
-                        auto finalIter = splitFaces.end();
-                        auto iter = splitFaces.begin();
-                        while(iter!=splitFaces.end())
-                        {
-                            if(edgeInFace(*iter,neiEdge))
-                            {
-                                if(finalIter!=splitFaces.end())
-                                    FatalErrorInFunction<<"Error"<< exit(FatalError);
-                                finalIter=iter;
-                            }
-                        }
-                        if(finalIter==splitFaces.end())
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            if(std::get<0>(thisEdgeIntersections[neiEdgeInd]) || neiEdgesTreated[neiEdgeInd])
-                                FatalErrorInFunction<<"Can not cut a face"<< exit(FatalError);
 
-                            FixedList<face,2> splitFaceDuo;
-                            splitFaceByEdge(cutFace,neiEdge,splitFaceDuo);
-                            splitFaces.erase(finalIter);
-                            splitFaces.push_back(splitFaceDuo[0]);
-                            splitFaces.push_back(splitFaceDuo[1]);
-                        }
-                        */
                     }
-                    
-                    
-                    
-                    
-                    
-                    
+                    */
                     
                     for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
                     {
