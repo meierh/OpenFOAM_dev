@@ -879,6 +879,25 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const edge& oneEdge
         );
         
+        struct ArrayHasher {
+            std::size_t operator()(const FixedList<label,4>& a) const {
+                std::size_t h = 0;
+                for (label e : a) {
+                    h ^= std::hash<label>{}(e)  + 0x9e3779b9 + (h << 6) + (h >> 2); 
+                }
+                return h;
+            }
+        };
+        using edgToIntPntIndMap = std::unordered_map<FixedList<label,4>,label,ArrayHasher>;
+        List<label> faceIntersection
+        (
+            const face& totalFace,
+            const face& ownFace,
+            const face& neiFace,
+            edgToIntPntIndMap& edgesToAddPntInd,
+            DynamicList<vector> addPnt
+        );
+        
         /*
         void agglomerateSmallCells_cutNeg_plus
         (

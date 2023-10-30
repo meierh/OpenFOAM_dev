@@ -10896,6 +10896,17 @@ bool Foam::cutCellFvMesh::edgeInFace
     return (oneFace.which(oneEdge.start())!=-1 && oneFace.which(oneEdge.end())!=-1);
 }
 
+List<label> Foam::cutCellFvMesh::faceIntersection
+(
+    const face& totalFace,
+    const face& ownFace,
+    const face& neiFace,
+    edgToIntPntIndMap& edgesToAddPntInd,
+    DynamicList<vector> addPnt
+)
+{
+}
+
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 (
     scalar partialThreeshold
@@ -12167,8 +12178,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     
                     List<std::tuple<bool,vector,label>>& thisEdgeIntersections = edgeIntersection[ownEdgeInd];
                     
-                    std::list<face> splitFaces({cutFace});
-                    
+                    std::list<std::tuple<face,label,label>> splitFaces({cutFace});                    
                     //Split face by interior nei edges
                     for(label neiEdgeInd=0; neiEdgeInd<neiEdgesThatCutFace.size(); neiEdgeInd++)
                     {
@@ -12183,16 +12193,18 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                     FatalErrorInFunction<<"Error"<< exit(FatalError);
                                 finalIter=iter;
                             }
+                            iter++;
                         }
                         if(finalIter==splitFaces.end())
                         {
-                            break;
+                            continue;
                         }
                         else
                         {
                             if(std::get<0>(thisEdgeIntersections[neiEdgeInd]) || neiEdgesTreated[neiEdgeInd])
                                 FatalErrorInFunction<<"Can not cut a face"<< exit(FatalError);
-
+                            
+                            neiEdgesTreated[neiEdgeInd] = true;
                             FixedList<face,2> splitFaceDuo;
                             splitFaceByEdge(cutFace,neiEdge,splitFaceDuo);
                             splitFaces.erase(finalIter);
@@ -12201,7 +12213,25 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         }
                     }
                     
-                  for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
+                    auto finalIter = splitFaces.end();
+                    auto iter = splitFaces.begin();
+                    while(iter!=splitFaces.end())
+                    {
+                        if(edgeInFace(*iter,ownEdge))
+                        {
+                            if(finalIter!=splitFaces.end())
+                                FatalErrorInFunction<<"Error"<< exit(FatalError);
+                            finalIter=iter;
+                        }
+                        iter++;
+                    }
+                    if(finalIter==splitFaces.end())
+                        FatalErrorInFunction<<"Such a face must exist"<< exit(FatalError);
+                    
+                    DynamicList<label> ownEdgeInt;
+                    
+                    edge
+                    for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
                     {
                         edge& neiEdge = neiEdgesThatCutFace[neiEdgeInd];
                         // Split Edge continue
