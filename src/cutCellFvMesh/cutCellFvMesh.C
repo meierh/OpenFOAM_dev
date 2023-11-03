@@ -11051,6 +11051,16 @@ List<label> Foam::cutCellFvMesh::faceIntersection
 {
     List<List<bool>> faceEdgeIntersections;
     facesEdgesIntersection(totalFace,ownFace,neiFace,faceEdgeIntersections);
+    for(List<bool> oneEdgeInt : faceEdgeIntersections)
+    {
+        label numIntersec = 0;
+        for(bool intersec : oneEdgeInt)
+            if(intersec)
+                numIntersec++;
+        if(numIntersec>1)
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    }
+    
     List<List<label>> faceEdgeIntersectionsAddPntInd(ownFace.size(),List<label>(neiFace.size(),-1));
     label addedPntsIndex = this->new_points.size()+addPnt.size();
     for(label o=0; o<ownFace.size(); o++)
