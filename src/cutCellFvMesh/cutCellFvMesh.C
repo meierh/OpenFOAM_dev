@@ -10997,31 +10997,62 @@ Foam::vector Foam::cutCellFvMesh::computeIntersectionPnt
     return newPoint;
 }
 
+std::unique_ptr<std::vector<std::pair<label,label>>> matchingPoints
+(
+    const face& ownFace,
+    const face& neiFace
+)
+{
+    auto result = std::unique_ptr<std::vector<std::pair<label,label>>>(new std::vector<std::pair<label,label>>());
+    for(label ownInd=0; ownInd<ownFace.size(); ownInd++)
+    {
+        label neiInd = neiFace.which(ownFace[ownInd]);
+        if(neiInd!=-1)
+        {
+            result->push_back({ownInd,neiInd});
+        }
+    }
+    return result;
+}
+
+std::array<std::pair<label,label>,2> matchingEdge
+(
+    const face& ownFace,
+    const face& neiFace
+)
+{
+    std::unique_ptr<std::vector<std::pair<label,label>>> matchPoints = matchingPoints(ownFace,neiFace);
+    
+    for(unsigned int i=0; i<matchPoints->size(); i++)
+    {
+        label ni = (i+1)%matchPoints->size();
+        label neiFaceLoc_i = (*matchPoints)[i].second;
+        label neiFaceLoc_ni = (*matchPoints)[ni].second;
+        
+        
+        if(neiFaceLoc_ni == neiFace.fcIndex(neiFaceLoc_i) ||
+           neiFaceLoc_ni == neiFace.rcIndex(neiFaceLoc_i))
+        {
+            return {(*matchPoints)[i],(*matchPoints)[ni]};
+        }
+    }
+    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    return {std::make_pair<>(0,0),std::make_pair<>(0,0)};
+}
+
 List<label> Foam::cutCellFvMesh::faceIntersection
 (
     const face& totalFace,
     const face& ownFace,
     const face& neiFace,
     edgToIntPntIndMap& edgesToAddPntInd,
-    DynamicList<vector> addPnt
+    DynamicList<vector>& addPnt
 )
 {
     List<List<bool>> faceEdgeIntersections;
     facesEdgesIntersection(totalFace,ownFace,neiFace,faceEdgeIntersections);
     List<List<label>> faceEdgeIntersectionsAddPntInd(ownFace.size(),List<label>(neiFace.size(),-1));
-    label addedPntsIndex = this->new_points.size();
-    for(label o=0; o<ownFace.size(); o++)
-    {
-        for(label n=0; n<neiFace.size(); n++)
-        {
-            if(faceEdgeIntersections[o][n])
-            {
-                faceEdgeIntersectionsAddPntInd[o][n] = addedPntsIndex;
-                addedPntsIndex++;
-            }
-        }
-    }
-    DynamicList<vector> addedPnts;
+    label addedPntsIndex = this->new_points.size()+addPnt.size();
     for(label o=0; o<ownFace.size(); o++)
     {
         for(label n=0; n<neiFace.size(); n++)
@@ -11030,17 +11061,69 @@ List<label> Foam::cutCellFvMesh::faceIntersection
             {
                 label oPnt0 = ownFace[o];
                 label oPnt1 = ownFace[ownFace.fcIndex(o)];
+                edge oEdge;
+                oEdge[0] = (oPnt0<oPnt1)?oPnt0:oPnt1;
+                oEdge[1] = (oPnt0<oPnt1)?oPnt1:oPnt0;
+               
                 label nPnt0 = neiFace[n];
                 label nPnt1 = neiFace[neiFace.fcIndex(n)];
-                edge oEdge(oPnt0,oPnt1);
-                edge nEdge(nPnt0,nPnt1);
-                addedPnts.append(computeIntersectionPnt(oEdge,nEdge));
+                edge nEdge;             
+                nEdge[0] = (nPnt0<nPnt1)?nPnt0:nPnt1;
+                nEdge[1] = (nPnt0<nPnt1)?nPnt1:nPnt0;
+                
+                FixedList<label,4> key;
+                if(oEdge[0]<nEdge[0])
+                {
+                    key[0] = oEdge[0]; key[1] = oEdge[1]; key[2] = nEdge[0]; key[3] = nEdge[1];
+                }
+                else
+                {
+                    key[0] = nEdge[0]; key[1] = nEdge[1]; key[2] = oEdge[0]; key[3] = oEdge[1];
+                }
+                
+                auto iter = edgesToAddPntInd.find(key);
+                if(iter==edgesToAddPntInd.end())
+                {
+                    edgesToAddPntInd.insert({key,addedPntsIndex});
+                    addPnt.append(computeIntersectionPnt(oEdge,nEdge));
+                    faceEdgeIntersectionsAddPntInd[o][n] = addedPntsIndex;
+                    addedPntsIndex++;
+                }
+                else
+                {
+                    faceEdgeIntersectionsAddPntInd[o][n] = iter->second;
+                }
             }
         }
-    }    
+    }
 
     bool doFacesEdgesIntersect = faceEdgesIntersect(faceEdgeIntersections);
+    std::unique_ptr<std::vector<std::pair<label,label>>> matchingPntsOwnNei = matchingPoints(ownFace,neiFace);
     
+    if(doFacesEdgesIntersect)
+    {
+        
+    }
+    else
+    {
+        if(matchingPntsOwnNei->size()>=3)
+        {
+            face smallerFace = (ownFace.size()<neiFace.size()) ? ownFace : neiFace;
+            face largerFace = (ownFace.size()<neiFace.size()) ? neiFace : ownFace;
+            
+            std::unordered_set<label> largerFaceSet(largerFace.begin(),largerFace.end());
+            for(label pnt : smallerFace)
+            {
+                if(largerFaceSet.find(pnt)==largerFaceSet.end())
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            }
+            return smallerFace;
+        }
+        else
+        { // Intersection is empty
+        }
+    }
+    return {};
 }
 
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33

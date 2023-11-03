@@ -907,6 +907,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 return h;
             }
         };
+        
+        // (pnt0,pnt1),(pnt2,pnt3) as key with (pnt0<pnt1) and (pnt2<pnt3) and pnt0<pnt2
         using edgToIntPntIndMap = std::unordered_map<FixedList<label,4>,label,ArrayHasher>;
         List<label> faceIntersection
         (
@@ -914,7 +916,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const face& ownFace,
             const face& neiFace,
             edgToIntPntIndMap& edgesToAddPntInd,
-            DynamicList<vector> addPnt
+            DynamicList<vector>& addPnt
         );
         
         
