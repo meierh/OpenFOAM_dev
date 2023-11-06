@@ -919,8 +919,24 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<vector>& addPnt
         );
         
+        edge getEdge
+        (
+            const face& theFace,
+            label edgeInd
+        );
         
-        
+        std::unique_ptr<std::vector<std::pair<label,label>>> matchingPoints
+        (
+            const face& ownFace,
+            const face& neiFace
+        );
+
+        std::array<std::pair<label,label>,2> matchingEdge
+        (
+            const face& ownFace,
+            const face& neiFace
+        );
+
         /*
         void agglomerateSmallCells_cutNeg_plus
         (

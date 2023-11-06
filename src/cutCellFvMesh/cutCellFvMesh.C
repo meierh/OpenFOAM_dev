@@ -10997,7 +10997,7 @@ Foam::vector Foam::cutCellFvMesh::computeIntersectionPnt
     return newPoint;
 }
 
-std::unique_ptr<std::vector<std::pair<label,label>>> matchingPoints
+std::unique_ptr<std::vector<std::pair<label,label>>> Foam::cutCellFvMesh::matchingPoints
 (
     const face& ownFace,
     const face& neiFace
@@ -11015,7 +11015,7 @@ std::unique_ptr<std::vector<std::pair<label,label>>> matchingPoints
     return result;
 }
 
-std::array<std::pair<label,label>,2> matchingEdge
+std::array<std::pair<label,label>,2> Foam::cutCellFvMesh::matchingEdge
 (
     const face& ownFace,
     const face& neiFace
@@ -11040,6 +11040,17 @@ std::array<std::pair<label,label>,2> matchingEdge
     return {std::make_pair<>(0,0),std::make_pair<>(0,0)};
 }
 
+Foam::edge Foam::cutCellFvMesh::getEdge
+(
+    const face& theFace,
+    label edgeInd
+)
+{
+    label oPnt0 = theFace[edgeInd];
+    label oPnt1 = theFace[theFace.fcIndex(edgeInd)];
+    return edge(oPnt0,oPnt1);
+}
+
 List<label> Foam::cutCellFvMesh::faceIntersection
 (
     const face& totalFace,
@@ -11049,6 +11060,7 @@ List<label> Foam::cutCellFvMesh::faceIntersection
     DynamicList<vector>& addPnt
 )
 {
+    // Test for face edges intersection and check for correctness
     List<List<bool>> faceEdgeIntersections;
     facesEdgesIntersection(totalFace,ownFace,neiFace,faceEdgeIntersections);
     for(List<bool> oneEdgeInt : faceEdgeIntersections)
@@ -11057,10 +11069,22 @@ List<label> Foam::cutCellFvMesh::faceIntersection
         for(bool intersec : oneEdgeInt)
             if(intersec)
                 numIntersec++;
-        if(numIntersec>1)
+        if(numIntersec>2)
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    }
+    for(label j=0;j<faceEdgeIntersections[0].size();j++)
+    {
+        label numIntersec = 0;
+        for(label i=0;i<faceEdgeIntersections.size();i++)
+        {
+            if(faceEdgeIntersections[i][j])
+                    numIntersec++;
+        }
+        if(numIntersec>2)
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
     }
     
+    // Create new points when necessary
     List<List<label>> faceEdgeIntersectionsAddPntInd(ownFace.size(),List<label>(neiFace.size(),-1));
     label addedPntsIndex = this->new_points.size()+addPnt.size();
     for(label o=0; o<ownFace.size(); o++)
@@ -11110,9 +11134,223 @@ List<label> Foam::cutCellFvMesh::faceIntersection
     bool doFacesEdgesIntersect = faceEdgesIntersect(faceEdgeIntersections);
     std::unique_ptr<std::vector<std::pair<label,label>>> matchingPntsOwnNei = matchingPoints(ownFace,neiFace);
     
+    std::unordered_map<label,DynamicList<label>> pntNeighbors;
+    for(label ownInd=0;ownInd<ownFace.size();ownInd++)
+    {
+        label currPnt = ownFace[ownInd];
+        if(neiFace.which(currPnt)!=-1)
+        {
+            label prevPnt = ownFace.prevLabel(ownInd);
+            if(neiFace.which(prevPnt)!=-1)
+                pntNeighbors[currPnt].append(prevPnt);
+            label nextPnt = ownFace.nextLabel(ownInd);
+            if(neiFace.which(nextPnt)!=-1)
+                pntNeighbors[currPnt].append(nextPnt);
+        }
+    }
+    for(label o=0;o<faceEdgeIntersections.size();o++)
+    {
+        edge ownEdge = getEdge(ownFace,o);
+        for(label n=0;n<faceEdgeIntersections[o].size();n++)
+        {
+            edge neiEdge = getEdge(neiFace,n);
+            if(faceEdgeIntersections[o][n])
+            {
+                label intersecPnt = faceEdgeIntersectionsAddPntInd[o][n];
+                label ownSecondInterse = -1;
+                for(label n2=0;n2<faceEdgeIntersections[o].size();n2++)
+                {
+                    if(n2==n)
+                        continue;
+                    if(faceEdgeIntersections[o][n2])
+                        ownSecondInterse = n2;
+                }
+                if(ownSecondInterse!=-1)
+                {
+                    label secOwnIntersecPnt = faceEdgeIntersectionsAddPntInd[o][ownSecondInterse];
+                    pntNeighbors[intersecPnt].append(secOwnIntersecPnt);
+                }
+                else
+                {
+                    label otherOwnPnt=-1;
+                    if(ownFace.which(ownEdge.start())!=-1 && neiFace.which(ownEdge.start())!=-1)
+                        otherOwnPnt = ownEdge.start();
+                    else if(ownFace.which(ownEdge.end())!=-1 && neiFace.which(ownEdge.end())!=-1)
+                        otherOwnPnt = ownEdge.end();
+                    else
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    pntNeighbors[intersecPnt].append(otherOwnPnt);
+                }
+                
+                label neiSecondIntersec = -1;
+                for(label o2=0;o2<faceEdgeIntersections.size();o2++)
+                {
+                    if(o2==o)
+                        continue;
+                    if(faceEdgeIntersections[o2][n])
+                        neiSecondIntersec = o2;
+                }
+                if(neiSecondIntersec!=-1)
+                {
+                    label secNeiIntersecPnt = faceEdgeIntersectionsAddPntInd[neiSecondIntersec][n];
+                    pntNeighbors[intersecPnt].append(secNeiIntersecPnt);
+                }
+                else
+                {
+                    label otherNeiPnt=-1;
+                    if(ownFace.which(neiEdge.start())!=-1 && neiFace.which(neiEdge.start())!=-1)
+                        otherNeiPnt = neiEdge.start();
+                    else if(ownFace.which(neiEdge.end())!=-1 && neiFace.which(neiEdge.end())!=-1)
+                        otherNeiPnt = neiEdge.end();
+                    else
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    pntNeighbors[intersecPnt].append(otherNeiPnt);
+                }
+            }
+        }
+    }
+    
+    std::unordered_set<label> treatedPnts;
+    DynamicList<label> facePnts;
+    auto iter = pntNeighbors.begin();
+    if(iter->second.size()!=2)
+        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    facePnts.append(iter->first);
+    treatedPnts.insert(iter->first);
+    facePnts.append(iter->second[0]);
+    treatedPnts.insert(iter->second[0]);
+    
+    while(true)
+    {
+        label currPnt = facePnts[facePnts.size()-1];
+        label prevPnt = facePnts[facePnts.size()-2];
+        
+        iter = pntNeighbors.find(currPnt);
+        if(iter==pntNeighbors.end())
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+        label nextPnt = -1;
+        if(iter->second[0]==currPnt)
+            nextPnt = iter->second[1];
+        else if(iter->second[1]==currPnt)
+            nextPnt = iter->second[0];
+        else
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+        
+        if(nextPnt==facePnts[0])
+        {
+            break;
+        }
+        else
+        {
+            if(treatedPnts.find(nextPnt)!=treatedPnts.end())
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            if(facePnts.size()>20)
+                FatalErrorInFunction<<"Face too large something is wrong here!"<< exit(FatalError);
+            facePnts.append(nextPnt);
+            treatedPnts.insert(nextPnt);
+        }
+    }
+    
+    for(label pnt : facePnts)
+    {
+        auto iterTr = treatedPnts.find(pnt);
+        if(iterTr==treatedPnts.end())
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+        treatedPnts.erase(iterTr);
+        
+        auto iterMap = pntNeighbors.find(pnt);
+        if(iterMap==pntNeighbors.end())
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+        pntNeighbors.erase(iterMap);
+    }
+    
+    if(pntNeighbors.size()!=0 || treatedPnts.size()!=0)
+        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+    
+    /*
     if(doFacesEdgesIntersect)
     {
+        DynamicList<label> facePnts;
+        std::unordered_set<label> facePntsSet;
+        List<List<bool>> visitedIntersec(ownFace.size(),List<bool>(neiFace.size(),false));
+        label currIntersecEdgeOwn = -1;
+        enum EdgeType {OwnEdgeInt, NeiEdgeInt, NoIntEdge};
+        EdgeType currentEdge = EdgeType::OwnEdgeInt;
+        bool endIntersec = false;
+        for(label o=0;o<faceEdgeIntersections.size();o++)
+        {
+            label numIntersec = 0;
+            for(bool intersec : faceEdgeIntersections[o])
+                if(intersec)
+                    numIntersec++;
+            if(numIntersec>0)
+            {
+                if(numIntersec==1)
+                    endIntersec=true;
+                else
+                    endIntersec=false;
+                currIntersecEdgeOwn = o;
+                break;
+            }
+        }
+        if(currIntersecEdgeOwn==-1)
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
         
+        label currIntersecEdgeNei = -1;
+        for(label n=0;n<faceEdgeIntersections[currIntersecEdgeOwn].size();n++)
+        {
+            if(faceEdgeIntersections[currIntersecEdgeOwn][n])
+            {
+                currIntersecEdgeNei = n;
+                visitedIntersec[currIntersecEdgeOwn][n] = true;
+            }
+        }
+        if(currIntersecEdgeNei==-1)
+            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+        
+        label pnt = faceEdgeIntersectionsAddPntInd[currIntersecEdgeOwn][currIntersecEdgeNei];
+        facePnts.append(pnt);
+        facePntsSet.insert(pnt);
+        
+        
+        
+        if(currentEdge != EdgeType::NoIntEdge)
+        {
+            if(endIntersec)
+            {
+                edge thisEdge;
+                if(currentEdge==EdgeType::OwnEdgeInt)
+                {
+                    thisEdge = getEdge(ownFace,currIntersecEdgeOwn);
+                }
+                else
+                {
+                    thisEdge = getEdge(neiEdge,currIntersecEdgeNei);
+                }
+                if(ownFace.which(thisEdge.start())!=-1 &&
+                   neiFace.which(thisEdge.start())!=-1)
+                {
+                    pnt = thisEdge.start();
+                }
+                else if(ownFace.which(thisEdge.end())!=-1 &&
+                        neiFace.which(thisEdge.end())!=-1)
+                {
+                    pnt = thisEdge.end();
+                }
+                else
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                facePnts.append(pnt);
+                facePntsSet.insert(pnt);
+                
+            }
+            else
+            {
+            }
+        }
+        else
+        {
+            
+        }
     }
     else
     {
@@ -11133,7 +11371,8 @@ List<label> Foam::cutCellFvMesh::faceIntersection
         { // Intersection is empty
         }
     }
-    return {};
+    */
+    return facePnts;
 }
 
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
@@ -11816,8 +12055,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
     
     //correct added points indices in CellSplitData
-    pointField new_points;
-    new_points.append(this->new_points);
+    //pointField new_points;
+    DynamicList<vector> new_points_List;
+    new_points_List.append(this->new_points);
     DynamicList<vector> added_points;
     std::unordered_map<label,DynamicList<std::pair<label,edge>>> faceToAddedPnts;    
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
@@ -11957,7 +12197,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
     
-    new_points.append(added_points);    
+    new_points_List.append(added_points);    
     for(label faceInd=0;faceInd<new_faces.size();faceInd++)
     {
         auto iter = faceToAddedPnts.find(faceInd);
@@ -12117,7 +12357,59 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             if(iterOOwnB || iterONeiB)
                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
             
-            face totalFace = this->new_faces[faceInd];
+            edgToIntPntIndMap edgesToAddPntInd;
+            
+            const face& totalFace = this->new_faces[faceInd];
+            
+            if(iterSpOwn->first!=faceInd || iterSpNei->first!=faceInd)
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);            
+            DynamicList<std::tuple<label,label,label>>& sideOwnSp = iterSpOwn->second;
+            DynamicList<std::tuple<label,label,label>>& sideNeiSp = iterSpNei->second;
+
+            for(std::tuple<label,label,label> spOwn : sideOwnSp)
+            {
+                label cellInd = std::get<0>(spOwn);
+                if(cellInd!=this->new_owner[faceInd])
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                
+                CellSplitData& cellSplitOwn = *(convexCorrectionData[cellInd]);
+                label locCellOwn = std::get<1>(spOwn);
+                CellFaces& oneCellOwn = cellSplitOwn.cells[locCellOwn];
+                label locSpFaceIndOwn = std::get<2>(spOwn);
+                label splitFaceIndOwn = oneCellOwn.splittedFaceInds[locSpFaceIndOwn];
+                if(cellSplitOwn.splittedFaces[splitFaceIndOwn].second!=faceInd)
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                
+                const face& spOwnFace = cellSplitOwn.splittedFaces[splitFaceIndOwn].first;
+                
+                for(std::tuple<label,label,label> spNei : sideNeiSp)
+                {
+                    label cellInd = std::get<0>(spOwn);
+                    if(cellInd!=this->new_neighbour[faceInd])
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    
+                    CellSplitData& cellSplitNei = *(convexCorrectionData[cellInd]);
+                    label locCellNei = std::get<1>(spNei);
+                    CellFaces& oneCellNei = cellSplitNei.cells[locCellNei];
+                    label locSpFaceIndNei = std::get<2>(spNei);
+                    label splitFaceIndNei = oneCellNei.splittedFaceInds[locSpFaceIndNei];
+                    if(cellSplitNei.splittedFaces[splitFaceIndNei].second!=faceInd)
+                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    
+                    const face& spNeiFace = cellSplitNei.splittedFaces[splitFaceIndNei].first;
+                    
+                    List<label> intersecFacePnts = faceIntersection(totalFace,spOwnFace,spNeiFace,edgesToAddPntInd,new_points_List);
+                    face intersecFace(intersecFacePnts);                    
+                    
+                    new_faces[faceInd].append(intersecFace);
+                    std::pair<label,label> ownCell = {this->new_owner[faceInd],locCellOwn};
+                    std::pair<label,label> neiCell = {this->new_neighbour[faceInd],locCellNei};
+                    new_owner[faceInd].append(ownCell);
+                    new_neighbour[faceInd].append(neiCell);
+                }
+            }
+            
+            /*
 //1.Teil
             DynamicList<std::pair<face,label>> ownSpFaces;
             DynamicList<std::tuple<label,label,label>>& sideOwnSp = iterSpOwn->second;
@@ -12407,7 +12699,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     
                     List<std::tuple<bool,vector,label>>& thisEdgeIntersections = edgeIntersection[ownEdgeInd];
                     
-                    /*
                     std::list<std::tuple<face,label,label>> splitFaces({cutFace});                    
                     //Split face by interior nei edges
                     for(label neiEdgeInd=0; neiEdgeInd<neiEdgesThatCutFace.size(); neiEdgeInd++)
@@ -12468,7 +12759,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         // Split Edge continue
 
                     }
-                    */
+                    
                     
                     for(label neiEdgeInd=0; neiEdgeInd<thisEdgeIntersections.size(); neiEdgeInd++)
                     {
@@ -12491,6 +12782,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 
                 }
             }
+            */
             //Continue here
             /*
             new_faces[faceInd].append(this->new_faces[faceInd]);
@@ -12574,6 +12866,18 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             }
         }
     }
+    
+    pointField new_points;
+    new_points.append(new_points_List);
+    
+    std::unordered_map<
+
+    DynamicList<face> new_faces_flat;
+    DynamicList<label> new_owner_flat;
+    DynamicList<label> new_neighbour_flat;
+    
+    label cellCount;
+
 
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 
