@@ -936,6 +936,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const face& ownFace,
             const face& neiFace
         );
+        
+        scalar computeCellSizeAndSizeLimit
+        (
+            const List<cell>& cells,
+            List<bool> tooSmallCells,
+            scalar limitPercentage = 0.1,
+            scalar tooSmallFraction = 0.1
+        );
 
         /*
         void agglomerateSmallCells_cutNeg_plus

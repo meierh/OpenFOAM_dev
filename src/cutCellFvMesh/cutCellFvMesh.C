@@ -11375,6 +11375,96 @@ List<label> Foam::cutCellFvMesh::faceIntersection
     return facePnts;
 }
 
+scalar Foam::cutCellFvMesh::computeCellSizeAndSizeLimit
+(
+    const List<cell>& cells,
+    List<bool> tooSmallCells,
+    const scalar limitPercentage,
+    const scalar tooSmallFraction
+)
+{
+    tooSmallCells.clear();
+    tooSmallCells.resize(cells.size(),false);
+    std::vector<scalar> cellSize(cells.size());
+    for(label cellInd=0;cellInd<cells.size();cellInd++)
+    {
+        const cell& oneCell = cells[cellInd];
+        cellSize[cellInd] = oneCell.mag(new_points,new_faces);
+    }
+    std::sort(cellSize.begin(),cellSize.end());
+    
+    scalar locMinCellSize = cellSize[cellSize.size()*limitPercentage];
+    locMinCellSize *= tooSmallFraction;
+    
+    struct scalar_min
+    {
+        scalar operator()(const scalar a, const scalar b) const
+        {
+            return std::min<scalar>(a,b);
+        }
+    };
+    scalar_min op;
+    Pstream::gather(locMinCellSize,op);
+    Pstream::scatter(locMinCellSize);
+    
+    for(label cellInd=0;cellInd<cells.size();cellInd++)
+    {
+        const cell& oneCell = cells[cellInd];
+        scalar cellSize = oneCell.mag(new_points,new_faces);
+        if(cellSize<locMinCellSize)
+            tooSmallCells[cellInd]=true;
+    }
+    return locMinCellSize;
+}
+
+void Foam::cutCellFvMesh::findSmallCellMergeCandidate
+(
+    const List<cell>& cells,
+    const List<bool> smallCell,
+    List<DynamicList<std::pair<label,label>>>& smallCellMergeCand
+)
+{
+    smallCellMergeCand.clear();
+    smallCellMergeCand.resize(new_cells.size(),);
+    for(label cellInd=0;cellInd<new_cells.size();cellInd++)
+    {
+        const cell& oneCell = new_cells[cellInd];
+        scalar cellSize = oneCell.mag(new_points,new_faces);
+        if(cellSize<locMinCellSize)
+        {
+            smallCell[cellInd] = true;
+            for(label locFaceInd=0; locFaceInd<oneCell.size(); locFaceInd++)
+            {
+                label faceInd = oneCell[locFaceInd];
+                if(faceInd>=new_neighbour.size() || faceInd>=new_owner.size())
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+
+                label faceNeighborCell=-1;
+                if(new_owner[faceInd]==cellInd)
+                {
+                    faceNeighborCell=new_neighbour[faceInd];
+                }
+                else if(new_neighbour[faceInd]==cellInd)
+                {
+                    faceNeighborCell=new_owner[faceInd];
+                }
+                else
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+                
+                if(faceNeighborCell!=-1)
+                {
+                    const cell& neighborCell = new_cells[faceNeighborCell];
+                    scalar neighborCellSize = neighborCell.mag(new_points,new_faces);
+                    if((neighborCellSize+cellSize)>=locMinCellSize)
+                    {
+                        smallCellMergeCand[cellInd].append({locFaceInd,faceNeighborCell});
+                    }
+                }
+            }
+        }
+    }
+}
+
 void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
 (
     scalar partialThreeshold
@@ -11634,21 +11724,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     //Testing for nonconvexivity in cell and correct them
     Info<<"Test for nonconvex cell!"<<Foam::endl;    
     List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>> cellFaceEdgeGraph(new_cells.size());
-    std::vector<scalar> cellSize(new_cells.size());
     List<bool> nonConvexCell(new_cells.size(),false);
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
     {
         const cell& oneCell = new_cells[cellInd];
-        cellSize[cellInd] = oneCell.mag(new_points,new_faces);
-        /*
-        Info<<cellInd<<"-----------------------------------------------------------"<<Foam::endl;
-        for(label i=0;i<oneCell.size();i++)
-        {
-            const label oneFaceInd = oneCell[i];
-            const face& oneFace = new_faces[oneFaceInd];
-            Info<<"i:"<<i<<" pnts:"<<oneFace.points(new_points)<<Foam::endl;
-        }
-        */
         List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>& faceEdgeGraph = cellFaceEdgeGraph[cellInd];
         faceEdgeGraph.setSize(oneCell.size());
         for(label locFaceInd=0;locFaceInd<oneCell.size();locFaceInd++)
@@ -11772,22 +11851,12 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 FatalErrorInFunction<<"Error"<< exit(FatalError);
         }
     }
-    std::sort(cellSize.begin(),cellSize.end());
-    scalar locMinCellSize = cellSize[cellSize.size()/10]/10;
-    struct scalar_min
-    {
-        scalar operator()(const scalar a, const scalar b) const
-        {
-            return std::min<scalar>(a,b);
-        }
-    };
-    scalar_min op;
-    Pstream::gather(locMinCellSize,op);
-    Pstream::scatter(locMinCellSize);
+    
+    List<bool> smallCell;
+    scalar locMinCellSize = computeCellSizeAndSizeLimit(new_cells,smallCell); 
     
     Info<<"Test for too small cell and find merge candidates"<<Foam::endl;
     List<DynamicList<std::pair<label,label>>> smallCellMergeCand(new_cells.size());
-    List<bool> smallCell(new_cells.size(),false);
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
     {
         const cell& oneCell = new_cells[cellInd];
@@ -12255,12 +12324,14 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     //std::unordered_set<label> removedFaces;
     //DynamicList<std::tuple<face,label,label>> addedFaces;
     //std::unordered_set<label> removedCell;
+    DynamicList<label> cellIndStart({0});
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByNeighborCell;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByOwnerCell;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> originalFacesByNeighborCell;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> originalFacesByOwnerCell;
     for(label cellInd=0; cellInd<new_cells.size(); cellInd++)
     {
+        label cellMultiple = 1;
         if(convexCorrectionData[cellInd])
         {
             CellSplitData& cellSplit = *(convexCorrectionData[cellInd]);
@@ -12301,7 +12372,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         FatalErrorInFunction<<"Error!"<< exit(FatalError);
                 }
             }
+            cellMultiple = cellSplit.cells.size();
         }
+        cellIndStart.append(cellIndStart.last()+cellMultiple);
     }
     
     List<DynamicList<face>> new_faces(this->new_faces.size());
@@ -12870,14 +12943,39 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     pointField new_points;
     new_points.append(new_points_List);
     
-    std::unordered_map<
-
     DynamicList<face> new_faces_flat;
     DynamicList<label> new_owner_flat;
     DynamicList<label> new_neighbour_flat;
     
-    label cellCount;
+    for(label i=0; i<new_faces.size(); i++)
+    {
+        for(label j=0; j<new_faces[i].size(); j++)
+        {
+            new_faces_flat.append(new_faces[i][j]);
+            
+            std::pair<label,label>& owner_dual = new_owner[i][j];
+            label owner = cellIndStart[owner_dual.first];
+            if(owner_dual.second!=-1)
+            {
+                owner+=owner_dual.second;
+            }
+            new_owner_flat.append(owner);
+            
+            std::pair<label,label>& neighbour_dual = new_neighbour[i][j];
+            label neighbour = cellIndStart[neighbour_dual.first];
+            if(neighbour_dual.second!=-1)
+            {
+                neighbour+=neighbour_dual.second;
+            }
+            new_neighbour_flat.append(neighbour);
+        }
+    }
+    
+    cellsPtr = createCells(new_faces_flat,new_owner_flat,new_neighbour_flat);
+    new_cells = *cellsPtr;
 
+    testCellClosure(new_faces_flat,new_cells);
+    correctFaceNormal(new_faces_flat,new_owner_flat,new_neighbour_flat,new_cells);
 
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 
