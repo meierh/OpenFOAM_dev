@@ -941,10 +941,25 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         (
             const List<cell>& cells,
             List<bool> tooSmallCells,
+            List<scalar> cellSizes,
             scalar limitPercentage = 0.1,
             scalar tooSmallFraction = 0.1
         );
+        
+        void findSmallCellMergeCandidate
+        (
+            const List<cell>& cells,
+            const List<bool> smallCell,
+            List<DynamicList<std::pair<label,label>>>& smallCellMergeCand
+        );
 
+        void testCellConvexity
+        (
+            const List<cell>& cells,
+            List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>> cellFaceEdgeGraph,
+            List<bool> nonConvexCell
+        );
+        
         /*
         void agglomerateSmallCells_cutNeg_plus
         (
