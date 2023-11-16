@@ -68,12 +68,15 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         };
         const std::array<std::uint8_t,12> edgeToPnts = {01,12,23,03,45,56,67,47,04,15,26,37};
         const std::unordered_map<std::uint8_t,std::uint8_t> pntsToEdge = {{01,0},{12,1},{23,2},{03,3},{45,4},{56,5},{67,6},{47,7},{04,8},{15,9},{26,10},{37,11}};
+        const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>> faceToEdges = {{0,{0,1,4,5}},{1,{1,5,9,10}},{2,{2,6,10,11}},{3,{3,7,8,11}},{4,{0,1,2,3}},{5,{4,5,6,7}}};
+        
         void checkPermutation();
         
         class MC33{
             public:
-                enum Case { c0,c1,c2,c31,c32,c411,c412,c5,c611,c612,c62,c71,c72,c73,c741,c742,c8,c9,
-                            c1011,c1012,c102,c11,c1211,c1212,c122,c131,c132,c133,c134,c1351,c1352,c14};
+                enum Case { c0=0,c1=1,c2=2,c31=3,c32=4,c411=5,c412=6,c5=7,c611=8,c612=9,c62=10,c71=11,c72=12,
+                            c73=13,c741=14,c742=15,c8=16,c9=17,c1011=18,c1012=19,c102=20,c11=21,
+                            c1211=22,c1212=23,c122=24,c131=25,c132=26,c133=27,c134=28,c1351=29,c1352=30,c14=31};
                 explicit MC33(cutCellFvMesh& mesh);
                 
                 typedef struct{
@@ -102,7 +105,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 const unsigned short int* table;
                 const std::array<std::array<unsigned short int,8>,24>& permutations;
                 const std::array<std::uint8_t,12>& edgeToPnts;
-                const std::unordered_map<std::uint8_t,std::uint8_t>& pntsToEdge;                
+                const std::unordered_map<std::uint8_t,std::uint8_t>& pntsToEdge;
+                const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>>& faceToEdges;                
                 //const unsigned short int table[2310];
                 
                 MC33_real v[8];
@@ -122,6 +126,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 MC33Cube generateMC33Cube(int cellInd);
                 unsigned int computeSignBitPattern(const MC33Cube& cell);
                 bool cellIsCut(int cellInd);
+                bool detectInFaceTriangles(std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& triangle);
         };
 
     //Private Attributes
@@ -725,7 +730,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         bool testCorrectFaceSizes
         (
             const std::array<label,10> faceSizeNbrReq,
-            const cell& thisCell
+            const cell& thisCell,
+            bool print=false
         );
         
         std::unique_ptr<cellList> createCells
@@ -956,8 +962,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void testCellConvexity
         (
             const List<cell>& cells,
-            List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>> cellFaceEdgeGraph,
-            List<bool> nonConvexCell
+            List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>>& cellFaceEdgeGraph,
+            List<bool>& nonConvexCell
         );
         
         /*
@@ -1020,6 +1026,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         );
         */
         
+        /*
         List<DynamicList<label>> assignMergeFaces
         (
             const labelList& owner,
@@ -1032,6 +1039,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<DynamicList<scalar>>& possibleMergeCellsPartialSize,
             scalar partialThreeshold
         );
+        */
         
         //test data for new Mesh creation
         void testNewMeshData
@@ -1043,6 +1051,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const labelList& patchSizes
         );
         
+        /*
         void testForCellSize
         (
             DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
@@ -1053,6 +1062,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList& mergeFaceOfCell,
             scalar partialThreeshold
         );
+        */
         
         void checkForHexCellsInCutArea();
                 

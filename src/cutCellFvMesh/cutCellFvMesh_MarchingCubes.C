@@ -4,6 +4,36 @@ inline float invSqrt(float f) {
 	return 1.0/sqrt(f);
 }
 
+bool Foam::cutCellFvMesh::MC33::detectInFaceTriangles
+(
+	std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& triangle
+)
+{
+	bool allInOneFace = false;
+	for(auto iter=faceToEdges.cbegin(); iter!=faceToEdges.cend(); iter++)
+	{
+		std::uint8_t edge0 = std::get<0>(triangle);
+		std::uint8_t edge1 = std::get<1>(triangle);
+		std::uint8_t edge2 = std::get<2>(triangle);
+		
+		const std::unordered_set<std::uint8_t>& faceEdges = iter->second;
+		
+		bool vertice0In = faceEdges.find(edge0)==faceEdges.end();
+		bool vertice1In = faceEdges.find(edge1)==faceEdges.end();
+		bool vertice2In = faceEdges.find(edge2)==faceEdges.end();
+		
+		if(vertice0In && vertice1In && vertice2In)
+		{
+			if(allInOneFace)
+				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			else
+				allInOneFace = true;
+		}
+	}
+	return allInOneFace;
+}
+
+
 unsigned int Foam::cutCellFvMesh::MC33::permuteBitPattern
 (
 	const std::array<unsigned short int,8>& permutation,
@@ -73,7 +103,8 @@ mesh(mesh),
 table(mesh.caseTable),
 permutations(mesh.permutationTable),
 edgeToPnts(mesh.edgeToPnts),
-pntsToEdge(mesh.pntsToEdge)
+pntsToEdge(mesh.pntsToEdge),
+faceToEdges(mesh.faceToEdges)
 {
 }
 
@@ -224,6 +255,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 		unsigned int referenceBitPattern=0;
 		std::vector<std::uint8_t> validPermutations;
 		{
+		// Get starting array index in MC33 list
 			if(arrayIndex<0)
 				FatalErrorInFunction<<"ArrayIndex must not be smaller than zero!"<< exit(FatalError);
 			else if(arrayIndex<128)
@@ -324,6 +356,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			else
 				FatalErrorInFunction<<"ArrayIndex must not be larger than 2309!"<< exit(FatalError);
 
+		// Getting referenceBitPattern for every MC33 case
 			if(mc33Cube.cubeCase==c1){
 				referenceBitPattern = 0x0008;
 			}
@@ -369,6 +402,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			else
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
 			
+		//Compute permutations for MC33 case and assign the correct one
 			std::vector<std::uint8_t> validPermutationsRef;
 			std::vector<std::uint8_t> validPermutationsInvert;
 			for(unsigned int permutInd=0;permutInd<permutations.size();permutInd++)
@@ -396,8 +430,28 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				mc33Cube.redMarkIsPlusSide = false;
 				validPermutations = validPermutationsInvert;
 			}
+			else if(validPermutationsRef.size()>0 && validPermutationsInvert.size()>0)
+			{
+				if(mc33Cube.cubeCase==c8 ||
+				   mc33Cube.cubeCase==c9 ||
+				   mc33Cube.cubeCase==c1011 || mc33Cube.cubeCase==c1012 || mc33Cube.cubeCase==c102 ||
+				   mc33Cube.cubeCase==c11 ||
+				   mc33Cube.cubeCase==c1211 || mc33Cube.cubeCase==c1212 || mc33Cube.cubeCase==c122 ||
+				   mc33Cube.cubeCase==c131 || mc33Cube.cubeCase==c132 || mc33Cube.cubeCase==c133 || mc33Cube.cubeCase==c134 || mc33Cube.cubeCase==c1351 || mc33Cube.cubeCase==c1352 ||
+				   mc33Cube.cubeCase==c14)
+				{
+					mc33Cube.redMarkIsPlusSide = true;
+					validPermutations = validPermutationsRef;
+				}
+			}
 			else
+			{
+				Info<<"mc33Cube.cubeCase:"<<mc33Cube.cubeCase<<Foam::endl;
+				Info<<"referenceBitPattern:"<<referenceBitPattern<<Foam::endl;
+				Info<<"validPermutationsRef.size():"<<validPermutationsRef.size()<<Foam::endl;
+				Info<<"validPermutationsInvert.size():"<<validPermutationsInvert.size()<<Foam::endl;
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			}
 			mc33Cube.permutationTableIndex = validPermutations[0];
 			
 			if(mc33Cube.cubeCase==c1){
@@ -405,217 +459,217 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				if(mc33Cube.cutTriangles.size()!=1)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=3)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c2 ){
 				// Case 2 Triangle Number 2
 				if(mc33Cube.cutTriangles.size()!=2)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
-				if(validPermutations.size()!=3)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+				if(validPermutations.size()!=2)
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c31 ){
 				// Case 3.1 Triangle Number 2
 				if(mc33Cube.cutTriangles.size()!=2)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=2)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c32 ){
 				// Case 3.2 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=2)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c411 ){
 				// Case 4.1.1 Triangle Number 2
 				if(mc33Cube.cutTriangles.size()!=2)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=3)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c412 ){
 				// Case 4.1.2 Triangle Number 6
 				if(mc33Cube.cutTriangles.size()!=6)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=3)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c5 ){
 				// Case 5 Triangle Number 3
 				if(mc33Cube.cutTriangles.size()!=3)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c611 ){
 				// Case 6.1.1 Triangle Number 3
 				if(mc33Cube.cutTriangles.size()!=3)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c612 ){
 				// Case 6.1.2 Triangle Number 7
 				if(mc33Cube.cutTriangles.size()!=7)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c62 ){
 				// Case 6.2 Triangle Number 5
 				if(mc33Cube.cutTriangles.size()!=5)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c71 ){
 				// Case 7.1 Triangle Number 3
 				if(mc33Cube.cutTriangles.size()!=3)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c72 ){
 				// Case 7.2 Triangle Number 5
 				if(mc33Cube.cutTriangles.size()!=5)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c73 ){
 				// Case 7.3 Triangle Number 9
 				if(mc33Cube.cutTriangles.size()!=9)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c741 ){
 				// Case 7.4.1 Triangle Number 5
 				if(mc33Cube.cutTriangles.size()!=5)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c742 ){
 				// Case 7.4.2 Triangle Number 9
 				if(mc33Cube.cutTriangles.size()!=9)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c8 ){
 				// Case 8 Triangle Number 2
 				if(mc33Cube.cutTriangles.size()!=2)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c9 ){
 				// Case 9 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=3)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c1011 ){
 				// Case 10.1.1 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c1012 ){
 				// Case 10.1.2 Triangle Number 8
 				if(mc33Cube.cutTriangles.size()!=8)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c102 ){
 				// Case 10.2 Triangle Number 8
 				if(mc33Cube.cutTriangles.size()!=8)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c11 ){
 				// Case 11 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c14 ){
 				// Case 14 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c1211 ){
 				// Case 12.1.1 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c1212 ){
 				// Case 12.1.2 Triangle Number 8
 				if(mc33Cube.cutTriangles.size()!=8)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c122 ){
 				// Case 12.2 Triangle Number 8
 				if(mc33Cube.cutTriangles.size()!=8)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=1)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c131 ){
 				// Case 13.1 Triangle Number 4
 				if(mc33Cube.cutTriangles.size()!=4)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c132 ){
 				// Case 13.2 Triangle Number 6
 				if(mc33Cube.cutTriangles.size()!=6)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c133 ){
 				// Case 13.3 Triangle Number 10
 				if(mc33Cube.cutTriangles.size()!=10)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c134 ){
 				// Case 13.4 Triangle Number 12
 				if(mc33Cube.cutTriangles.size()!=12)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c1352){
 				// Case 13.5.2 Triangle Number 10
 				if(mc33Cube.cutTriangles.size()!=10)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else if(mc33Cube.cubeCase==c1351){
 				// Case 13.5.1 Triangle Number 6
 				if(mc33Cube.cutTriangles.size()!=6)
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				if(validPermutations.size()!=4)
-					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+					FatalErrorInFunction<<"Error! validPermutations.size():"<<validPermutations.size()<< exit(FatalError);
 			}
 			else
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
@@ -629,45 +683,59 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			std::uint8_t smPntTrans = permutations[mc33Cube.permutationTableIndex][smPnt];
 			std::uint8_t laPntTrans = permutations[mc33Cube.permutationTableIndex][laPnt];
 			
-			if(smPnt > laPnt)
+			if(smPntTrans > laPntTrans)
 			{
 				std::uint8_t temp = laPntTrans;
 				laPntTrans = smPntTrans;
 				smPntTrans = temp;
 			}
-			else if(smPnt==laPnt)
+			else if(smPnt==laPnt || smPntTrans==laPntTrans)
 				FatalErrorInFunction<<"Error"<< exit(FatalError);  
 
 			std::uint8_t twoPntsIndTrans = smPntTrans*10 + laPntTrans;
 			auto iter = pntsToEdge.find(twoPntsIndTrans);
 			if(iter==pntsToEdge.end())
-				FatalErrorInFunction<<"Error"<< exit(FatalError);  
+			{
+				Info<<"[";
+				for(std::uint8_t tP :  edgeToPnts)
+					Info<<" "<<tP<<" ";
+				Info<<"]"<<Foam::endl;
+				Info<<"edgeInd:"<<edgeInd<<Foam::endl;
+				Info<<"twoPntsInd:"<<twoPntsInd<<Foam::endl;
+				Info<<"smPnt:"<<smPnt<<Foam::endl;
+				Info<<"laPnt:"<<laPnt<<Foam::endl;
+				Info<<"smPntTrans:"<<smPntTrans<<Foam::endl;
+				Info<<"laPntTrans:"<<laPntTrans<<Foam::endl;				
+				FatalErrorInFunction<<"Error twoPntsIndTrans:"<<twoPntsIndTrans<< exit(FatalError);
+			}
 			mc33Cube.edgePermutation[edgeInd] = iter->second;
 		}
 		std::bitset<12> refEdges;
 		for(std::uint8_t permEdg : mc33Cube.edgePermutation)
 			refEdges[permEdg] = true;
 		if(!refEdges.all())
-			FatalErrorInFunction<<"Error"<< exit(FatalError); 
+			FatalErrorInFunction<<"Error"<< exit(FatalError);
 		
-		/*
-		const cellList& meshCells = mesh.cells();
-		const faceList& meshFaces = mesh.faces();
-		const labelList& cellPoints = meshCells[cellInd].labels(meshFaces);
-		Info<<"cellInd:"<<cellInd<<Foam::endl<<"(";
-		for(label vertice: cellPoints)
-			Info<<" | "<<mesh.pointDist[vertice];
-		Info<<")"<<Foam::endl;
-		Info<<"bitPattern:"<<getBitPattern(bitPattern)<<Foam::endl;
-		Info<<"Triangle number:"<<mc33Cube.cutTriangles.size()<<Foam::endl;
-		*/
+		std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>>& triangles = mc33Cube.cutTriangles;
+		for(auto iter=triangles.begin(); iter!=triangles.end(); )
+		{
+			std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& triangle = *iter;
+			if(detectInFaceTriangles(triangle))
+			{
+				if(mc33Cube.cubeCase!=c612 && mc33Cube.cubeCase!=c742)
+					FatalErrorInFunction<<"Triangles in face in case where not possible: "<<mc33Cube.cubeCase<< exit(FatalError);
+				iter = triangles.erase(iter);
+			}
+			else
+				iter++;
+		}
 		
 		return mc33Cube;
 	}
 	else
 	{
 		mc33Cube.cell=-1;
-		return mc33Cube;		
+		return mc33Cube;
 	}
 	
 }

@@ -745,22 +745,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
     }
     pointMap = provisional_pointMap;
     
-    /*
-    newMeshPoints_ = pointField(pointMap.size());
-    label newInd=0;
-    for(;newInd<pointMap.size() && pointMap[newInd]!=-1; newInd++)
-    {
-        newMeshPoints_[newInd] = newMeshPointsInFunc[pointMap[newInd]];
-    }
-    if((pointMap.size()-newInd) != (newMeshPointsInFunc.size()-nOldPoints))
-    {
-        FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
-    }
-    for(label i=0; newInd<pointMap.size(); i++,newInd++)
-    {
-        newMeshPoints_[newInd] = newMeshPointsInFunc[nOldPoints+i];
-    }
-    */
     newMeshPoints_ = newMeshPointsInFunc;
     
     purePointMap = pointMap;
@@ -779,40 +763,6 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
     
     pointToEgde_.setCapacity(pointToEgde_.size());
-    
-    
-    // Test section
-    /*
-    Info<<"basisPoints:"<<basisPoints.size()<<Foam::endl;
-    Info<<"newMeshPoints_:"<<newMeshPoints_.size()<<Foam::endl;
-    Info<<"pointMap:"<<pointMap.size()<<Foam::endl;
-    Info<<"reversePointMap:"<<reversePointMap.size()<<Foam::endl;
-    Info<<"addedPointsStartInd:"<<addedPointsStartInd<<Foam::endl;
-    
-    for(int newInd=0;newInd<addedPointsStartInd;newInd++)
-    {
-        label oldInd = purePointMap[newInd];
-        if(reversePointMap[oldInd] != newInd)
-        {
-            Info<<"oldInd:"<<oldInd<<Foam::endl;
-            Info<<"newInd:"<<newInd<<Foam::endl;
-            Info<<"reversePointMap[oldInd]:"<<reversePointMap[oldInd]<<Foam::endl;
-            FatalErrorInFunction<<"Error in Index!"<< exit(FatalError);
-        }
-        if(basisPoints[oldInd] != newMeshPoints_[newInd])
-            FatalErrorInFunction<<"Error in Coordinates!"<< exit(FatalError);
-    }
-    for(int newInd=addedPointsStartInd;newInd<purePointMap.size();newInd++)
-    {
-        label oldInd = purePointMap[newInd];
-        if(oldInd!=-1)
-        {
-            Info<<"oldInd:"<<oldInd<<Foam::endl;
-            Info<<"newInd:"<<newInd<<Foam::endl;
-            FatalErrorInFunction<<"Error in Index!"<< exit(FatalError);
-        }
-    }
-    */
 }
 
 void Foam::cutCellFvMesh::printAddedPoints
@@ -1303,6 +1253,7 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
     labelList thisFacePoints;
     for(int faceInd=0;faceInd<basisFaces.size();faceInd++)
     {
+        const face& thisFace = basisFaces[faceInd];
         const labelList thisFaceEdges = faceToEdge[faceInd];
         std::unordered_map<label,label> edgesOfFace;
         for(int j=0;j<thisFaceEdges.size();j++)
@@ -1332,23 +1283,30 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
         for(unsigned int j=0;j<cellsOfThisFace.size();j++)
         {
             label cellInd = cellsOfThisFace[j];
-            MC33::MC33Cube& thisCellCube = mc33CutCellData[cellInd];
+            const MC33::MC33Cube& thisCellCube = mc33CutCellData[cellInd];
             if(thisCellCube.cell!=-1)
             {
                 if(cellInd != thisCellCube.cell)
                     FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                 for(unsigned int k=0;k<thisCellCube.cutTriangles.size();k++)
                 {
-                    label localFaceEdgeInd1 = std::get<0>(mc33CutCellData[cellInd].cutTriangles[k]);
-                    label faceCutEdge1 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd1];
-                    label localFaceEdgeInd2 = std::get<1>(mc33CutCellData[cellInd].cutTriangles[k]);
-                    label faceCutEdge2 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd2];
-                    label localFaceEdgeInd3 = std::get<2>(mc33CutCellData[cellInd].cutTriangles[k]);
-                    label faceCutEdge3 = mc33CutCellData[cellInd].edgeGlobalInd[localFaceEdgeInd3];
+                    label localFaceEdgeInd1 = std::get<0>(thisCellCube.cutTriangles[k]);
+                    label faceCutEdge1 = thisCellCube.edgeGlobalInd[localFaceEdgeInd1];
+                    label cutEdge1VerticeInd = thisCellCube.cutEdgeVerticeIndex[localFaceEdgeInd1];
+                    
+                    label localFaceEdgeInd2 = std::get<1>(thisCellCube.cutTriangles[k]);
+                    label faceCutEdge2 = thisCellCube.edgeGlobalInd[localFaceEdgeInd2];
+                    label cutEdge2VerticeInd = thisCellCube.cutEdgeVerticeIndex[localFaceEdgeInd2];
+                    
+                    label localFaceEdgeInd3 = std::get<2>(thisCellCube.cutTriangles[k]);
+                    label faceCutEdge3 = thisCellCube.edgeGlobalInd[localFaceEdgeInd3];
+                    label cutEdge3VerticeInd = thisCellCube.cutEdgeVerticeIndex[localFaceEdgeInd3];
                     
                     bool foundCutFaceEdges=false;
                     label loc_edg_Ind1 = -1;
                     label loc_edg_Ind2 = -1;
+                    label edge_Vert_Ind1 = -1;
+                    label edge_Vert_Ind2 = -1;
                     label which_Triangle_Vertice = -1;
                     if(edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end() &&
                        edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end())
@@ -1359,6 +1317,8 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                             FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                         foundCutFaceEdges=true;
                         which_Triangle_Vertice=0;
+                        edge_Vert_Ind1 = cutEdge1VerticeInd;
+                        edge_Vert_Ind2 = cutEdge2VerticeInd;
                     }
                     if(edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end() &&
                        edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end())
@@ -1369,6 +1329,8 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                             FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                         foundCutFaceEdges=true;
                         which_Triangle_Vertice=1;
+                        edge_Vert_Ind1 = cutEdge2VerticeInd;
+                        edge_Vert_Ind2 = cutEdge3VerticeInd;
                     }
                     if(edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end() &&
                        edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end())
@@ -1379,7 +1341,56 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                             FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
                         foundCutFaceEdges=true;
                         which_Triangle_Vertice=2;
+                        edge_Vert_Ind1 = cutEdge3VerticeInd;
+                        edge_Vert_Ind2 = cutEdge1VerticeInd;
                     }
+                    
+                    label locCutEdge1VerticeInd = thisFace.which(cutEdge1VerticeInd);
+                    label locCutEdge2VerticeInd = thisFace.which(cutEdge2VerticeInd);
+                    label locCutEdge3VerticeInd = thisFace.which(cutEdge3VerticeInd);
+                    
+                    if(locCutEdge1VerticeInd!=-1 && locCutEdge2VerticeInd!=-1)
+                    {
+                        if(thisFace.fcIndex(locCutEdge1VerticeInd) == locCutEdge2VerticeInd ||
+                           thisFace.rcIndex(locCutEdge1VerticeInd) == locCutEdge2VerticeInd)
+                        {
+                            if(foundCutFaceEdges)
+                                FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
+                            foundCutFaceEdges=true;
+                            which_Triangle_Vertice=0;
+                            edge_Vert_Ind1 = cutEdge1VerticeInd;
+                            edge_Vert_Ind2 = cutEdge2VerticeInd;
+                        }
+                    }
+                    
+                    if(locCutEdge2VerticeInd!=-1 && locCutEdge3VerticeInd!=-1)
+                    {
+                        if(thisFace.fcIndex(locCutEdge2VerticeInd) == locCutEdge3VerticeInd ||
+                           thisFace.rcIndex(locCutEdge2VerticeInd) == locCutEdge3VerticeInd)
+                        {
+                            if(foundCutFaceEdges)
+                                FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
+                            foundCutFaceEdges=true;
+                            which_Triangle_Vertice=1;
+                            edge_Vert_Ind1 = cutEdge2VerticeInd;
+                            edge_Vert_Ind2 = cutEdge3VerticeInd;
+                        }
+                    }
+                    
+                    if(locCutEdge3VerticeInd!=-1 && locCutEdge1VerticeInd!=-1)
+                    {
+                        if(thisFace.fcIndex(locCutEdge3VerticeInd) == locCutEdge1VerticeInd ||
+                           thisFace.rcIndex(locCutEdge3VerticeInd) == locCutEdge1VerticeInd)
+                        {
+                            if(foundCutFaceEdges)
+                                FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
+                            foundCutFaceEdges=true;
+                            which_Triangle_Vertice=2;
+                            edge_Vert_Ind1 = cutEdge3VerticeInd;
+                            edge_Vert_Ind2 = cutEdge1VerticeInd;
+                        }
+                    }
+
                     if(foundCutFaceEdges)
                     {
                         std::pair<std::pair<label,label>,std::pair<label,label>> keyValue =       
@@ -1524,51 +1535,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
         }
     }
     
-    /*
-    edgeToCells_.setSize(newMeshEdges_.size());
-    const labelList& owner = this->faceOwner();
-    const labelList& neighbour = this->faceNeighbour();
-    const labelListList& edgeCells = this->edgeCells();
-    for(int i=0;i<newMeshEdges_.size();i++)
-    {
-        if(edgeToFaces_[i].size() != 0)
-        {
-            if(i<nbrOfPrevEdges)
-            {
-                edgeToCells_[i] = edgeCells[i];
-            }
-            else
-            {
-                if(edgeToFaces_[i].size() != 1)
-                {
-                    FatalErrorInFunction
-                    << "Added Edge has  "<< edgeToFaces_[i].size()
-                    << " neighboring faces instead of one neighboring face! "
-                    << exit(FatalError);
-                }
-                label thisFace = edgeToFaces_[i][0];
-                edgeToCells_[i].append(owner[thisFace]);
-                if(thisFace < neighbour.size())
-                    edgeToCells_[i].append(neighbour[thisFace]);
-            }
-        }
-    }
-    */
-    
-    /*
-    cellToEdges_.setCapacity(meshCells.size());
-    for(int i=0;i<newMeshEdges_.size();i++)
-    {
-        if(edgeToCells_[i].size() != 0)
-        {
-            for(int k=0;k<edgeToCells_[i].size();k++)
-            {
-                cellToEdges_[edgeToCells_[i][k]].append(i);
-            }
-        }
-    }
-    */
-    
     newMeshEdges_.setCapacity(newMeshEdges_.size());
     edgesToSide_.setCapacity(edgesToSide_.size());
     edgeToFaces_.setCapacity(edgeToFaces_.size());
@@ -1681,6 +1647,7 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
     cellToFaces_.setSize(meshCells.size());
     for(int cellInd=0;cellInd<meshCells.size();cellInd++)
     {
+        const cell& thisCell = meshCells[cellInd];
         MC33::MC33Cube& thisCellCube = mc33CutCellData[cellInd];
         if(thisCellCube.cell==cellInd)
         {
@@ -1721,16 +1688,36 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
                 }
                 
                 face addedFace(List<label>({vertice0,vertice1,vertice2}));
-            
-                newMeshFaces_.append(addedFace);
+                
+                bool triangleInOneFace = false;
+                for(label faceInd : thisCell)
+                {
+                    const face& oneFace = basisFaces[faceInd];
+                    bool vertice0InFace = oneFace.which(vertice0)!=-1;
+                    bool vertice1InFace = oneFace.which(vertice1)!=-1;
+                    bool vertice2InFace = oneFace.which(vertice2)!=-1;
+                    
+                    if(vertice0InFace && vertice1InFace && vertice2InFace)
+                    {
+                        if(triangleInOneFace)
+                            FatalErrorInFunction<<"Triangle completely in multiple faces!"<< exit(FatalError);
+                        else
+                            triangleInOneFace = true;
+                    }
+                }
+                
+                if(!triangleInOneFace)
+                {
+                    newMeshFaces_.append(addedFace);
         
-                facesToSide_.append(+2);
+                    facesToSide_.append(+2);
         
-                DynamicList<label> newFaceCell;;
-                newFaceCell.append(cellInd);
-                faceToCells_.append(newFaceCell);
+                    DynamicList<label> newFaceCell;;
+                    newFaceCell.append(cellInd);
+                    faceToCells_.append(newFaceCell);
         
-                cellToFaces_[cellInd].append(newMeshFaces_.size()-1);
+                    cellToFaces_[cellInd].append(newMeshFaces_.size()-1);
+                }
             }
         }
     }
@@ -1972,7 +1959,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
                     edge nextEdge = newMeshEdges_[nextEdgeInd];
                     label interVert = currEdge.commonVertex(nextEdge);
                     if(interVert==-1)
-                        FatalErrorInFunction<<"Can not happen. Edges must be in order"                       << exit(FatalError);
+                        FatalErrorInFunction<<"Can not happen. Edges must be in order"<<exit(FatalError);
                     if(edgeToPoint_[currEdgeInd]!=-1)
                     {
                         augmentedFace.push_back(edgeToPoint_[currEdgeInd]);
@@ -2026,27 +2013,6 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
             }
         }
     }
-    
-    /*
-    for(const face& oneFace : cutFaces_)
-    {
-        for(const label* iter=oneFace.cbegin(); iter!=oneFace.cend(); iter++)
-        {
-            label vertice = *iter;
-            if(vertice<nOldPoints)
-            {
-                if(reversePointMap[vertice]==-1)
-                {
-                    Info<<"vertice:"<<vertice<<" was deleted!"<<Foam::endl;    
-                    FatalErrorInFunction<<"Error Stop!"<< exit(FatalError);
-                }
-            }
-        }
-    }
-    Info<<"newMeshFaces_.size():"<<newMeshFaces_.size()<<Foam::endl;
-    Info<<"nOldFaces:"<<nOldFaces<<Foam::endl;    
-    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
-    */
 }
 
 void Foam::cutCellFvMesh::printCutFaces
@@ -4613,1646 +4579,6 @@ Barrier(true);
 
 }
 
-/*
-void Foam::cutCellFvMesh::agglomerateSmallCells_cutNeg
-(
-    scalarList& newCellVolume,
-    scalarList& oldCellVolume,
-    scalar partialThreeshold
-)
-{
-    std::chrono::high_resolution_clock::time_point t1;
-    std::chrono::high_resolution_clock::time_point t2;
-    std::chrono::duration<double> time_span;
-    
-    Info<<endl;
-    Info<<"Preprocessing of small cells ";
-    t1 = std::chrono::high_resolution_clock::now();
-
-    scalarList partialVolumeScale = scalarList(newCellVolume.size());
-    //Info<<"new Cell Size: "<<newCellVolume.size()<<endl;
-
-    label deletedCellsCount = 0;
-    for(int i=0;i<deletedCell.size();i++)
-    {
-        if(deletedCell[i])
-            deletedCellsCount++;
-    }
-    Info<<"1"<<endl;
-    if(newCellVolume.size()+deletedCellsCount != oldCellVolume.size())
-    {
-        FatalErrorInFunction
-        << "Must not happen!"
-        << exit(FatalError); 
-    }
-    Info<<"2"<<endl;
-    
-    
-    Info<<endl<<"deletedCellsList: "<<deletedCell<<endl;
-    Info<<endl<<"oldSplittedCellToNewPlusCell: "<<oldSplittedCellToNewPlusCell<<endl;
-
-
-    Info<<"3"<<endl;
-    
-    if(newCellVolume.size() != mapNewCellsToOldCells.size())
-        FatalErrorInFunction<< "Must not happen!"<< exit(FatalError);
-    
-    for(int i=0;i<newCellVolume.size();i++)
-    {
-        if(mapNewCellsToOldCells[i] == -1)
-            partialVolumeScale[i] = 1;
-        else
-            partialVolumeScale[i] = newCellVolume[i]/oldCellVolume[mapNewCellsToOldCells[i]];
-    }
-    Info<<"4"<<endl;
-
-    
-    const cellList& newCells = this->cells();
-    const faceList& faces = this->faces();
-    const labelList& owner   = this->faceOwner();
-    const labelList& neighbour = this->faceNeighbour();
-    const pointField& points = this->points();
-    
-    DynamicList<DynamicList<DynamicList<label>>> possibleMergeFaces;
-    possibleMergeFaces.setSize(newCellVolume.size());
-    DynamicList<DynamicList<DynamicList<label>>> possibleMergeCells;
-    possibleMergeCells.setSize(newCellVolume.size());
-    DynamicList<DynamicList<scalar>> possibleMergeFaceArea;
-    possibleMergeFaceArea.setSize(newCellVolume.size());
-    DynamicList<DynamicList<bool>> possibleMergeFaceSufficient;
-    possibleMergeFaceSufficient.setSize(newCellVolume.size());
-    DynamicList<bool> oneMergeFaceSufficient;
-    oneMergeFaceSufficient.setSize(newCellVolume.size());
-    DynamicList<bool> mergeNecessary;
-    mergeNecessary.setSize(newCellVolume.size());
-    DynamicList<label> MergeCell;
-    label neighbourCell = -1;
-    scalar neighbourCellPartialVolume;
-    Info<<"Create merge Cells"<<endl;
-    for(int i=0;i<newCellVolume.size();i++)
-    {
-        Info<<i<<endl;
-        mergeNecessary[i] = false;
-        if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
-        {
-            mergeNecessary[i] = true;
-
-            Info<<"1-1"<<endl;
-            for(int k=0;k<newCells[i].size();k++)
-            {
-                if(newCells[i][k] < neighbour.size())
-                {
-                    if(owner[newCells[i][k]] == i)
-                        neighbourCell = neighbour[newCells[i][k]];
-                    else if(neighbour[newCells[i][k]] == i)
-                        neighbourCell = owner[newCells[i][k]];
-                    else
-                        FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);
-                    
-                    neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
-                    
-                    if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
-                    {
-                        DynamicList<label> temp;
-                        temp.append(newCells[i][k]);
-                        possibleMergeFaces[i].append(temp);
-                        
-                        temp.setSize(0);
-                        temp.append(neighbourCell);
-                        possibleMergeCells[i].append(temp);
-
-                        possibleMergeFaceArea[i].append(faces[possibleMergeFaces[i][possibleMergeCells[i].size()-1][0]].mag(points));
-                        
-                        possibleMergeFaceSufficient[i].append(true);
-                    }
-                }
-            }
-            
-
-            Info<<"1-4"<<endl;
-            for(int a=0;a<newCells[i].size();a++)
-            {
-                if(newCells[i][a] < neighbour.size())
-                {
-                    for(int b=a+1;b<newCells[i].size();b++)
-                    {
-                        if(newCells[i][b] < neighbour.size())
-                        {
-                            Info<<"Try at :"<<a<<" "<<b<<endl;
-                            label face_a,face_b;
-                            DynamicList<label> mergeFace;
-                            label neighbour_a,neighbour_b,fourthCell_a,fourthCell_b,fourthCell_F;
-                            
-                            neighbour_a=-1;
-                            neighbour_b=-1;
-                            fourthCell_a=-1;
-                            fourthCell_b=-1;
-                            fourthCell_F=-1;
-                            face_a = newCells[i][a];
-                            face_b = newCells[i][b];
-                            
-                            if(owner[face_a] == i)
-                                neighbour_a = neighbour[face_a];
-                            else if(neighbour[face_a] == i)
-                                neighbour_a = owner[face_a];
-                            else
-                                FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);  
-
-                            if(owner[face_b] == i)
-                                neighbour_b = neighbour[face_b];
-                            else if(neighbour[face_b] == i)
-                                neighbour_b = owner[face_b];
-                            else
-                                FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);  
-
-                            Info<<"Cell "<<i<<" has neighbours:"<<neighbour_a<<" "<<neighbour_b<<endl;
-                            for(int x=0;x<newCells[neighbour_a].size();x++)
-                            {
-                                Info<<"x:"<<x<<endl;
-                                if(newCells[neighbour_a][x]==face_a ||
-                                   newCells[neighbour_a][x] >= neighbour.size())
-                                    continue;
-                                    
-                                if(owner[newCells[neighbour_a][x]]==neighbour_a)
-                                    fourthCell_a = neighbour[newCells[neighbour_a][x]];
-                                else if(neighbour[newCells[neighbour_a][x]]==neighbour_a)
-                                    fourthCell_a = owner[newCells[neighbour_a][x]];
-                                else
-                                    FatalErrorInFunction<< "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);
-                                
-                                for(int y=0;y<newCells[neighbour_b].size();y++)
-                                {
-                                    Info<<"y:"<<y<<endl;
-                                    if(newCells[neighbour_b][y]==face_b ||
-                                       newCells[neighbour_b][y] >= neighbour.size())
-                                        continue;
-                                        
-                                    if(owner[newCells[neighbour_b][y]]==neighbour_b)
-                                        fourthCell_b = neighbour[newCells[neighbour_b][y]];
-                                    else if(neighbour[newCells[neighbour_b][y]]==neighbour_b)
-                                        fourthCell_b = owner[newCells[neighbour_b][y]];
-                                    else
-                                        FatalErrorInFunction<< "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<< exit(FatalError);  
-
-                                    Info<<"Fourth cell candidates: "<<fourthCell_a<<" "<<fourthCell_b<<endl;
-                                    if(fourthCell_a==fourthCell_b)
-                                    {
-                                        mergeFace.append(newCells[neighbour_a][x]);
-                                        mergeFace.append(newCells[neighbour_b][y]);
-                                        fourthCell_F = fourthCell_a;
-                                    }
-                                }
-                            }
-                            Info<<mergeFace<<endl;
-                            if(mergeFace.size()==0)
-                                continue;
-                            if(mergeFace.size()!=2)
-                            {
-                                FatalErrorInFunction
-                                << "Agglomeration cell not found for fourthCell_F!"
-                                << exit(FatalError);
-                            }
-                            if(fourthCell_F==-1)
-                            {
-                                FatalErrorInFunction
-                                << "Agglomeration cell not found for all cells!"
-                                << exit(FatalError);
-                            }
-                            DynamicList<label> mergeCells;
-                            mergeCells.append(neighbour_a);
-                            mergeCells.append(neighbour_b);
-                            mergeCells.append(fourthCell_F);
-                            DynamicList<label> temp;
-                            temp.append(face_a);
-                            temp.append(face_b);
-                            temp.append(mergeFace);
-                            
-                            neighbourCellPartialVolume = 0;
-                            for(int p=0;p<mergeCells.size();p++)
-                            {
-                                neighbourCellPartialVolume += partialVolumeScale[mergeCells[p]];
-                            }
-                    
-                            if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
-                            {                         
-                                possibleMergeFaces[i].append(temp);
-                                possibleMergeCells[i].append(mergeCells);
-                                possibleMergeFaceArea[i].append(0.0); // Set to zero to make the merge last priority
-                                possibleMergeFaceSufficient[i].append(true);
-                            }
-                        }
-                    }
-                }
-            }
-
-            Info<<"1-8"<<endl;
-            for(int a=0;a<newCells[i].size();a++)
-            {
-                if(newCells[i][a] < neighbour.size())
-                {
-                    for(int b=a+1;b<newCells[i].size();b++)
-                    {
-                        if(newCells[i][b] < neighbour.size())
-                        {
-                            for(int c=b+1;c<newCells[i].size();c++)
-                            {
-                                if(newCells[i][c] < neighbour.size())
-                                {
-                                    Info<<"Try at :"<<a<<" "<<b<<" "<<c<<endl;
-                                    label face_a,face_b,face_c;
-                                    DynamicList<label> mergeFace;
-                                    label neighbour_a,neighbour_b,fourthCell_a,fourthCell_b,
-                                          fourthCell_F,neighbour_c,sixthCell_a,sixthCell_b,sixthCell_F,
-                                          seventhCell_a,seventhCell_b,seventhCell_F,
-                                          eightCell_a,eightCell_b,eightCell_c,eightCell_F;
-                                    fourthCell_a=-1;
-                                    fourthCell_b=-1;
-                                    sixthCell_a=-1;
-                                    sixthCell_b=-1;
-                                    seventhCell_a=-1;
-                                    seventhCell_b=-1;
-                                    seventhCell_F=-1;
-                                    sixthCell_F=-1;
-                                    neighbour_c=-1;
-                                    fourthCell_F=-1;
-                                    neighbour_a=-1;
-                                    neighbour_b=-1;
-                                    eightCell_a=-1;
-                                    eightCell_b=-1;
-                                    eightCell_c=-1;
-                                    eightCell_F=-1;
-                                    
-                                    face_a = newCells[i][a];
-                                    face_b = newCells[i][b];
-                                    face_c = newCells[i][c];                               
-                            
-                                    if(owner[face_a] == i)
-                                        neighbour_a = neighbour[face_a];
-                                    else if(neighbour[face_a] == i)
-                                        neighbour_a = owner[face_a];
-                                    else
-                                        FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-
-                                    if(owner[face_b] == i)
-                                        neighbour_b = neighbour[face_b];
-                                    else if(neighbour[face_b] == i) 
-                                        neighbour_b = owner[face_b];
-                                    else
-                                        FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
-                                    
-                                    if(neighbour_a==-1||neighbour_b==-1)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for neighbour_a and neighbour_b!"
-                                        << exit(FatalError);
-                                    }
-                                    
-                                    for(int x=0;x<newCells[neighbour_a].size();x++)
-                                    {
-                                        if(newCells[neighbour_a][x]==face_a ||
-                                           newCells[neighbour_a][x] >= neighbour.size())
-                                            continue;
-                                        if(owner[newCells[neighbour_a][x]]==neighbour_a)
-                                        {
-                                            fourthCell_a = neighbour[newCells[neighbour_a][x]];
-                                        }
-                                        else if(neighbour[newCells[neighbour_a][x]]==neighbour_a)
-                                        {   
-                                            fourthCell_a = owner[newCells[neighbour_a][x]];
-                                        }
-                                        else
-                                        {
-                                            FatalErrorInFunction
-                                            << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
-                                            << exit(FatalError);  
-                                        }                                
-                                        for(int y=0;y<newCells[neighbour_b].size();y++)
-                                        {                                
-                                            if(newCells[neighbour_b][y]==face_b ||
-                                               newCells[neighbour_b][y] >= neighbour.size())
-                                                continue;
-                                            if(owner[newCells[neighbour_b][y]]==neighbour_b)
-                                            {
-                                                fourthCell_b = neighbour[newCells[neighbour_b][y]];
-                                            }
-                                            else if(neighbour[newCells[neighbour_b][y]]==neighbour_b)
-                                            {   
-                                                fourthCell_b = owner[newCells[neighbour_b][y]];
-                                            }
-                                            else
-                                            {
-                                                FatalErrorInFunction
-                                                << "Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"
-                                                << exit(FatalError);  
-                                            }
-                                            if(fourthCell_a==fourthCell_b)
-                                            {
-                                                mergeFace.append(newCells[neighbour_a][x]);
-                                                mergeFace.append(newCells[neighbour_b][y]);
-                                                fourthCell_F = fourthCell_a;
-                                            }
-                                        }
-                                    }
-                                    if(mergeFace.size()==0)
-                                        continue;
-                                    if(mergeFace.size()!=2)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for all cells!"
-                                        << exit(FatalError);
-                                    }
-                                    if(fourthCell_F==-1)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for fourthCell_F!"
-                                        << exit(FatalError);
-                                    }   
-                                    
-                                    DynamicList<label> mergeCells;
-                                    mergeCells.append(neighbour_a);
-                                    mergeCells.append(neighbour_b);
-                                    mergeCells.append(fourthCell_F);
-                                    DynamicList<label> mergeFaces;
-                                    mergeFaces.append(face_a);
-                                    mergeFaces.append(face_b);
-                                    mergeFaces.append(mergeFace);
-                                    
-                                    Info<<"newCells["<<i<<"]: "<<newCells[i]<<endl;
-                                    Info<<"i:"<<i<<endl;
-                                    Info<<"owner["<<face_c<<"]:"<<owner[face_c]<<endl;
-                                    Info<<"neighbour["<<face_c<<"]:"<<neighbour[face_c]<<endl;
-                                    if(owner[face_c] == i)
-                                        neighbour_c = neighbour[face_c];
-                                    else if(neighbour[face_c] == i)
-                                        neighbour_c = owner[face_c];
-                                    else
-                                        FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
-                                    
-                                    if(neighbour_c==-1)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for neighbour_c!"
-                                        << exit(FatalError);
-                                    }   
-                                    
-                                    mergeCells.append(neighbour_c);
-                                    mergeFaces.append(face_c);
-                                    
-
-                                    mergeFace.setSize(0);
-                                    for(int x=0;x<newCells[neighbour_a].size();x++)
-                                    {
-                                        if(newCells[neighbour_a][x]==face_a ||
-                                           newCells[neighbour_a][x] >= neighbour.size())
-                                            continue;
-                                            
-                                        if(owner[newCells[neighbour_a][x]]==neighbour_a)
-                                            sixthCell_a = neighbour[newCells[neighbour_a][x]];
-                                        else if(neighbour[newCells[neighbour_a][x]]==neighbour_a) 
-                                            sixthCell_a = owner[newCells[neighbour_a][x]];
-                                        else
-                                            FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-                            
-                                        for(int y=0;y<newCells[neighbour_c].size();y++)
-                                        {                                
-                                            if(newCells[neighbour_c][y]==face_b ||
-                                               newCells[neighbour_c][y] >= neighbour.size())
-                                                continue;
-                                                
-                                            if(owner[newCells[neighbour_c][y]]==neighbour_c)
-                                                sixthCell_b = neighbour[newCells[neighbour_c][y]];
-                                            else if(neighbour[newCells[neighbour_c][y]]==neighbour_c) 
-                                                sixthCell_b = owner[newCells[neighbour_c][y]];
-                                            else
-                                                FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-                                            
-                                            if(sixthCell_a==sixthCell_b)
-                                            {
-                                                mergeFace.append(newCells[neighbour_a][x]);
-                                                mergeFace.append(newCells[neighbour_c][y]);
-                                                sixthCell_F = sixthCell_a;
-                                            }
-                                        }
-                                    }
-                                    if(mergeFace.size()==0)
-                                        continue;
-                                    if(mergeFace.size()!=2)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for all cells!"
-                                        << exit(FatalError);
-                                    }
-                                    if(sixthCell_F==-1)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for sixthCell_F!"
-                                        << exit(FatalError);
-                                    }
-                                    mergeCells.append(sixthCell_F);
-                                    mergeFaces.append(mergeFace);
-
-                                    mergeFace.setSize(0);
-                                    for(int x=0;x<newCells[neighbour_b].size();x++)
-                                    {
-                                        if(newCells[neighbour_b][x]==face_b ||
-                                           newCells[neighbour_b][x] >= neighbour.size())
-                                            continue;
-                                            
-                                        if(owner[newCells[neighbour_b][x]]==neighbour_b)
-                                            seventhCell_a = neighbour[newCells[neighbour_b][x]];
-                                        else if(neighbour[newCells[neighbour_b][x]]==neighbour_b) 
-                                            seventhCell_a = owner[newCells[neighbour_b][x]];
-                                        else
-                                            FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-                            
-                                        for(int y=0;y<newCells[neighbour_c].size();y++)
-                                        {                                
-                                            if(newCells[neighbour_c][y]==face_b ||
-                                               newCells[neighbour_c][y] >= neighbour.size())
-                                                continue;
-                                                
-                                            if(owner[newCells[neighbour_c][y]]==neighbour_c)
-                                                seventhCell_b = neighbour[newCells[neighbour_c][y]];
-                                            else if(neighbour[newCells[neighbour_c][y]]==neighbour_c) 
-                                                seventhCell_b = owner[newCells[neighbour_c][y]];
-                                            else
-                                                FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-                                            
-                                            if(seventhCell_a==seventhCell_b)
-                                            {
-                                                mergeFace.append(newCells[neighbour_b][x]);
-                                                mergeFace.append(newCells[neighbour_c][y]);
-                                                seventhCell_F = seventhCell_a;
-                                            }
-                                        }
-                                    }
-                                    if(mergeFace.size()==0)
-                                        continue;
-                                    if(mergeFace.size()!=2)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for all cells!"
-                                        << exit(FatalError);
-                                    }
-                                    if(seventhCell_F==-1)
-                                    {
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for seventhCell_F!"
-                                        << exit(FatalError);
-                                    }                                    
-                                    mergeCells.append(seventhCell_F);
-                                    mergeFaces.append(mergeFace);
-                                    
-                                    
-                                    mergeFace.setSize(0);
-                                    for(int x=0;x<newCells[fourthCell_F].size();x++)
-                                    {
-                                        if(newCells[fourthCell_F][x] >= neighbour.size())
-                                            continue;
-                                        
-                                        Info<<"newCells["<<fourthCell_F<<"]: "<<newCells[fourthCell_F]<<endl;
-                                        Info<<"i:"<<fourthCell_F<<endl;
-                                        Info<<"owner["<<newCells[fourthCell_F][x]<<"]:"<<owner[newCells[fourthCell_F][x]]<<endl;
-                                        Info<<"neighbour["<<newCells[fourthCell_F][x]<<"]:"<<neighbour[newCells[fourthCell_F][x]]<<endl;
-                                        
-                                        if(owner[newCells[fourthCell_F][x]]==fourthCell_F)
-                                            eightCell_a = neighbour[newCells[fourthCell_F][x]];
-                                        else if(neighbour[newCells[fourthCell_F][x]]==fourthCell_F) 
-                                            eightCell_a = owner[newCells[fourthCell_F][x]];
-                                        else
-                                            FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-                            
-                                        for(int y=0;y<newCells[sixthCell_F].size();y++)
-                                        {                                
-                                            if(newCells[sixthCell_F][y] >= neighbour.size())
-                                                continue;
-                                                
-                                            if(owner[newCells[sixthCell_F][y]]==sixthCell_F)
-                                                eightCell_b = neighbour[newCells[sixthCell_F][y]];
-                                            else if(neighbour[newCells[sixthCell_F][y]]==sixthCell_F) 
-                                                eightCell_b = owner[newCells[sixthCell_F][y]];
-                                            else
-                                                FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);
-                                            
-                                            for(int z=0;z<newCells[seventhCell_F].size();z++)
-                                            {                                
-                                                if(newCells[seventhCell_F][y] >= neighbour.size())
-                                                    continue;
-                                                
-                                                if(owner[newCells[seventhCell_F][z]]==seventhCell_F)
-                                                    eightCell_c = neighbour[newCells[seventhCell_F][z]];
-                                                else if(neighbour[newCells[seventhCell_F][z]]==seventhCell_F) 
-                                                    eightCell_c = owner[newCells[seventhCell_F][z]];
-                                                else
-                                                    FatalErrorInFunction<<"Agglomeration face does not belong to the agglomerated cell. Something is wrong here!"<<exit(FatalError);  
-                                            
-                                                
-                                            
-                                                if(eightCell_a==eightCell_b && eightCell_b==eightCell_c)
-                                                {
-                                                    mergeFace.append(newCells[fourthCell_F][x]);
-                                                    mergeFace.append(newCells[sixthCell_F][y]);
-                                                    mergeFace.append(newCells[seventhCell_F][z]);
-                                                    eightCell_F = eightCell_a;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if(mergeFace.size()==0)
-                                        continue;
-                            //Problem here
-                                    if(mergeFace.size()!=3)
-                                    {
-                                        Info<<"mergeFace.size():"<<mergeFace.size()<<endl;
-                                        FatalErrorInFunction
-                                        << "Agglomeration cell not found for all cells!"
-                                        << exit(FatalError);
-                                    }
-                                    mergeCells.append(eightCell_F);
-                                    mergeFaces.append(mergeFace);
-                                    
-                                    neighbourCellPartialVolume = 0;
-                                    for(int p=0;p<mergeCells.size();p++)
-                                    {
-                                        neighbourCellPartialVolume += partialVolumeScale[mergeCells[p]];
-                                    }
-                    
-                                    if(neighbourCellPartialVolume + partialVolumeScale[i] >= partialThreeshold)
-                                    { 
-                                        Info<<"Merge Cells at :"<<a<<" "<<b<<" "<<c<<endl;
-                                        possibleMergeFaces[i].append(mergeFaces);
-                                        possibleMergeCells[i].append(mergeCells);
-                                        possibleMergeFaceArea[i].append(0.0); // Set to zero to make the merge last priority
-                                        possibleMergeFaceSufficient[i].append(true);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if(possibleMergeCells[i].size() == 0)
-            {
-                Info<<endl<<"Problem in cell "<<i<<" with partial volume "<< partialVolumeScale[i]<<endl;
-                Info<<"\tNeighbours are:"<<endl;
-                for(int k=0;k<newCells[i].size();k++)
-                {
-                    if(newCells[i][k] < neighbour.size())
-                    {
-                        if(owner[newCells[i][k]] == i)
-                        {
-                            neighbourCell = neighbour[newCells[i][k]];
-                        }
-                        else if(neighbour[newCells[i][k]] == i)
-                        {   
-                            neighbourCell = owner[newCells[i][k]];
-                        }
-                        neighbourCellPartialVolume = partialVolumeScale[neighbourCell];
-                        
-                        Info<<"\tCell:"<<neighbourCell<<" partialVol:"<<neighbourCellPartialVolume<<
-                            " combinedPartialVol:"<<(neighbourCellPartialVolume + partialVolumeScale[i])<<" with threshold:"<<partialThreeshold
-                            <<endl;
-                    }
-                }
-                FatalErrorInFunction
-                << "Agglomeration cell not found for all cells!"
-                << exit(FatalError);
-            }
-        }
-    }
-    
-    Info<<"Created merge Cells"<<endl;
-    for(int i=0;i<newCellVolume.size();i++)
-    {
-        for(int j=0;j<possibleMergeFaces[i].size();j++)
-        {
-            label numCellMerge=-1;
-            if(possibleMergeFaces[i][j].size() == 1)
-                numCellMerge = 2;
-            else if(possibleMergeFaces[i][j].size() == 4)
-                numCellMerge = 4;
-            else if(possibleMergeFaces[i][j].size() == 12)
-                numCellMerge = 8;
-            else
-                FatalErrorInFunction<<"Wrong number of merge faces"<< exit(FatalError);
-            
-            if(possibleMergeCells[i][j].size()+1 != numCellMerge)
-            {
-                Info<<"numCellMerge: "<<numCellMerge<<endl;
-                Info<<"possibleMergeCells[i][j].size(): "<<possibleMergeCells[i][j].size()<<endl;
-                Info<<"possibleMergeFaces[i][j].size(): "<<possibleMergeFaces[i][j].size()<<endl;
-                Info<<"possibleMergeCells[i][j]: "<<possibleMergeCells[i][j]<<endl;
-                Info<<"possibleMergeFaces[i][j]: "<<possibleMergeFaces[i][j]<<endl;
-                FatalErrorInFunction<<"Number of merge cells does not match"<< exit(FatalError);
-            }
-
-
-            std::unordered_multiset<label> cellSet;
-            for(int k=0;k<possibleMergeFaces[i][j].size();k++)
-            {
-                cellSet.insert(owner[possibleMergeFaces[i][j][k]]);
-                cellSet.insert(neighbour[possibleMergeFaces[i][j][k]]);
-            }
-            
-            label cellDuplicationNum=-1;
-            if(numCellMerge==2) cellDuplicationNum = 1;
-            else if(numCellMerge==4) cellDuplicationNum = 2;
-            else if(numCellMerge==8) cellDuplicationNum = 3;
-            else FatalErrorInFunction<<"Somethings wrong here"<< exit(FatalError);
-            
-            for(int k=0;k<possibleMergeCells[i][j].size();k++)
-            {
-                if(cellSet.count(possibleMergeCells[i][j][k])!=static_cast<long unsigned int>(cellDuplicationNum))
-                    FatalErrorInFunction<<"Merge Cells and Faces do not match!"<< exit(FatalError);
-            }
-        }
-    }
-    
-    // Sort possible merging cell by respect to face area biggest to smallest
-    for(int i=0;i<possibleMergeFaceArea.size();i++)
-    {
-        int j;
-        scalar keyArea;
-        DynamicList<label> keyFaces,keyCells;
-        bool keySuff;
-        for(int k=1;k<possibleMergeFaceArea[i].size();k++)
-        {
-            keyArea = possibleMergeFaceArea[i][k];
-            keyFaces = possibleMergeFaces[i][k];
-            keyCells = possibleMergeCells[i][k];
-            keySuff = possibleMergeFaceSufficient[i][k];
-            j = k-1;
-            while(j>=0 && possibleMergeFaceArea[i][j] < keyArea)
-            {
-                possibleMergeFaceArea[i][j+1] = possibleMergeFaceArea[i][j];
-                possibleMergeFaces[i][j+1] = possibleMergeFaces[i][j];
-                possibleMergeCells[i][j+1] = possibleMergeCells[i][j];
-                possibleMergeFaceSufficient[i][j+1] = possibleMergeFaceSufficient[i][j];
-                j--;
-            }
-            possibleMergeFaceArea[i][j+1] = keyArea;
-            possibleMergeFaces[i][j+1] = keyFaces;
-            possibleMergeCells[i][j+1] = keyCells;
-            possibleMergeFaceSufficient[i][j+1] = keySuff;
-        }
-    }
-    Info<<"Sorted merge Cells"<<endl;
-    
-    for(int i=0;i<possibleMergeFaces.size();i++)
-    {
-        for(int j=1;j<possibleMergeFaces[i].size();j++)
-        {
-            if(possibleMergeFaces[i][j-1].size() > possibleMergeFaces[i][j].size())
-                FatalErrorInFunction<<"Invalid sorting"<<exit(FatalError);
-        }
-    }
-    
-//Test for correct merge candidates
-    scalar factor = 1/partialThreeshold;
-    scalar minCellVol = newCells[0].mag(points,faces);
-    label minCellInd = 0;
-    scalar maxCellVol = newCells[0].mag(points,faces);
-    label maxCellInd = 0;
-    scalar CellVolAvg = 0;
-    
-    scalar vol,neighborVol;
-    for(int i=0;i<newCells.size();i++)
-    {
-        vol = newCells[i].mag(points,faces);
-        CellVolAvg += vol;
-        if(vol > maxCellVol)
-        {
-            maxCellVol = vol;
-            maxCellInd = i;
-        }
-        if(vol < minCellVol)
-        {
-            minCellVol = vol;
-            minCellInd = i;
-        }
-    }
-    CellVolAvg /= newCells.size();
-
-    
-    Info<<endl<<"Minimum cell "<<minCellInd<<" vol:"<<minCellVol
-    <<endl<<"Maximum cell "<<maxCellInd<<" vol:"<<maxCellVol<<endl;
-    Info<<" Average vol was:"<<CellVolAvg<<endl;    
-    
-    for(int i=0;i<newCells.size();i++)
-    {
-        vol = newCells[i].mag(points,faces); 
-        if((vol*factor) < maxCellVol)
-        {
-            if(mergeNecessary[i] == false)
-            {
-                FatalErrorInFunction
-                << "Not to merge but necessary"
-                << exit(FatalError);
-            }
-            if(possibleMergeCells[i].size() == 0)
-            {
-                FatalErrorInFunction
-                << "No merge data available"
-                << exit(FatalError);
-            }            
-            for(int k=0;k<possibleMergeCells[i].size();k++)
-            {
-                neighborVol = 0;
-                for(int s=0;s<possibleMergeCells[i][k].size();s++)
-                {
-                    neighborVol += newCells[possibleMergeCells[i][k][s]].mag(points,faces);
-                }
-                if((neighborVol+vol)*factor < maxCellVol)
-                {
-                    FatalErrorInFunction
-                    << "Not sufficient merge data"
-                    << exit(FatalError);
-                }
-            }
-        }
-    }
-    
-    scalar partialVol;
-    for(int i=0;i<newCells.size();i++)
-    {
-        if((partialVolumeScale[i] < 1) && (partialVolumeScale[i] < partialThreeshold))
-        {
-            if(possibleMergeCells[i].size()==0)
-            {
-                FatalErrorInFunction
-                << "Merge Face "<<i<<" with no merge partners!"
-                << exit(FatalError);  
-            }
-            if( (possibleMergeFaces[i].size()!=possibleMergeCells[i].size())&&
-                (possibleMergeCells[i].size()!=possibleMergeFaceArea[i].size()))
-            {
-                FatalErrorInFunction
-                << "Data error"
-                << exit(FatalError);  
-            }
-            for(int k=0;k<possibleMergeCells[i].size();k++)
-            {
-                partialVol = partialVolumeScale[i];
-                for(int s=0;s<possibleMergeCells[i][k].size();s++)
-                {
-                    partialVol += partialVolumeScale[possibleMergeCells[i][k][s]];
-                }
-                if(partialVol < partialThreeshold)
-                {
-                    FatalErrorInFunction
-                    << "Data 2 error"
-                    << exit(FatalError);  
-                }
-            }
-        }
-    }
-    
-    for(int i=0;i<possibleMergeFaces.size();i++)
-    {
-        for(int j=0;j<possibleMergeFaces[i].size();j++)
-        {
-            // Test one option
-            std::unordered_multiset<label> optionMergeCellsSet;
-            DynamicList<label> optionMergeCellsList;
-            for(int k=0;k<possibleMergeFaces[i][j].size();k++)
-            {
-                if(possibleMergeFaces[i][j][k] >= neighbour.size())
-                {
-                    FatalErrorInFunction<<"Boundary face is merge face"<<exit(FatalError);
-                }
-                label ownerCell = owner[possibleMergeFaces[i][j][k]];
-                label neighborCell = neighbour[possibleMergeFaces[i][j][k]];
-                if(optionMergeCellsSet.find(ownerCell) == optionMergeCellsSet.end())
-                    optionMergeCellsList.append(ownerCell);
-                if(optionMergeCellsSet.find(neighborCell) == optionMergeCellsSet.end())
-                    optionMergeCellsList.append(neighborCell);
-                optionMergeCellsSet.insert(ownerCell);
-                optionMergeCellsSet.insert(neighborCell);
-            }
-            if(optionMergeCellsList.size()<=0)
-                FatalErrorInFunction<<"Merging option with no cells!"<<exit(FatalError);
-            
-            label mergeCellMult = optionMergeCellsSet.count(optionMergeCellsList[0]);
-            for(int k=1;k<optionMergeCellsList.size();k++)
-            {
-                if(optionMergeCellsSet.count(optionMergeCellsList[k]) != static_cast<long unsigned int>(mergeCellMult))
-                {
-                    FatalErrorInFunction<<"Different multiplcity of cells in "<<
-                    optionMergeCellsList.size()<<" cell merging "<<exit(FatalError);
-                }
-            }
-            
-            if(mergeCellMult==1 && optionMergeCellsList.size() == 2)
-            {
-                //2 Cell merging
-                if(possibleMergeFaces[i][j].size() != 1)
-                    FatalErrorInFunction<<"Error in 2 Cell merging! "<<exit(FatalError);
-            }
-            else if(mergeCellMult==2 && optionMergeCellsList.size() == 4)
-            {
-                //4 Cell merging
-                if(possibleMergeFaces[i][j].size() != 4)
-                    FatalErrorInFunction<<"Error in 4 Cell merging! "<<exit(FatalError);
-            }
-            else if(mergeCellMult==3 && optionMergeCellsList.size() == 8)
-            {
-                //4 Cell merging
-                if(possibleMergeFaces[i][j].size() != 12)
-                    FatalErrorInFunction<<"Error in 8 Cell merging! "<<exit(FatalError);
-            }
-            else
-            {
-                Info<<"mergeCellMult: "<<mergeCellMult<<endl;
-                Info<<"optionMergeCellsList.size() == "<<optionMergeCellsList.size()<<endl;
-                Info<<"possibleMergeFaces[i][j].size() == "<<possibleMergeFaces[i][j].size()<<endl;
-                FatalErrorInFunction<<"Inconsistent merge Option!"<<exit(FatalError);
-            }
-            std::unordered_set<label> avoidCellDuplicates;
-            for(int k=0;k<possibleMergeCells[i][j].size();k++)
-            {
-                if(avoidCellDuplicates.find(possibleMergeCells[i][j][k]) == avoidCellDuplicates.end())
-                    avoidCellDuplicates.insert(possibleMergeCells[i][j][k]);
-                else
-                    FatalErrorInFunction<<"Duplicate cell in Merge option!"<<exit(FatalError);
-            }
-            for(int k=0;k<possibleMergeCells[i][j].size();k++)
-            {
-                if(optionMergeCellsSet.count(possibleMergeCells[i][j][k]) != static_cast<long unsigned int>(mergeCellMult))
-                    FatalErrorInFunction<<"Non matching mergeCell in Merge option!"<<exit(FatalError);
-            }
-        }
-    }
-//End: Test for correct merge candidates
-
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-    
-    Info<<"Processing of small cells ";
-    t1 = std::chrono::high_resolution_clock::now(); 
-
-    
-    List<DynamicList<label>> mergeFaceOfCell = searchDown_iter_preBlock(owner,neighbour,
-                                                possibleMergeFaceArea, possibleMergeFaces,
-                                                possibleMergeCells,oneMergeFaceSufficient,
-                                                mergeNecessary
-                                               );
-    
-    
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
-    
-    Info<<"Test for duplicate merging selection ";
-    t1 = std::chrono::high_resolution_clock::now();
-    
-    std::unordered_set<label> usedFace;
-    for(int i=0;i<mergeFaceOfCell.size();i++)
-    {
-        if(mergeFaceOfCell[i].size() == 0)
-        {
-            FatalErrorInFunction
-            << "Cell with unwanted results"
-            << exit(FatalError);  
-        }
-        if(mergeFaceOfCell[i][0] == -3)
-        {
-            FatalErrorInFunction
-            << "Too small cell was not treated by backtracking algorithm"
-            << exit(FatalError);  
-        }
-        if(mergeFaceOfCell[i][0] == -4)
-        {
-            FatalErrorInFunction
-            << "Cell with unwanted results"
-            << exit(FatalError);  
-        }
-        if(mergeFaceOfCell[i][0] < 0)
-            continue;
-        
-        for(int s=0;s<mergeFaceOfCell[i].size();s++)
-        {
-            if(usedFace.find(mergeFaceOfCell[i][s]) == usedFace.end())
-                usedFace.insert(mergeFaceOfCell[i][s]);
-            else
-            {
-                Info<<endl<<endl;
-                label fc = mergeFaceOfCell[i][s];
-                label wnr = owner[fc];
-                label nghbr = neighbour[fc];
-            
-                Info<<"Face "<<fc<<" merging of cell:"<<wnr<<" with Vol:"<<newCellVolume[wnr]<<
-                "cell:"<<nghbr<<" with Vol:"<<newCellVolume[nghbr];
-                FatalErrorInFunction
-                << "Merge Face used twice!"
-                << exit(FatalError);  
-            }
-        }
-    }
-
-    label selectedFace;
-    std::unordered_set<label> usedCells;
-    for(int i=0;i<mergeFaceOfCell.size();i++)
-    {
-        for(int s=0;s<mergeFaceOfCell[i].size();s++)
-        {
-            selectedFace = mergeFaceOfCell[i][s];
-            if(selectedFace == -3)
-            {
-                Info<<"Face is: "<<selectedFace<<endl;
-            
-                FatalErrorInFunction
-                << "One cell not treated by algorithm"
-                << exit(FatalError);  
-            }
-        
-            // Test that each cell to merge is merged
-            if(selectedFace == -1 && mergeNecessary[i])
-            {
-                Info<<"Selected Face is: "<<selectedFace<<" but mergeNecessary["<<i<<"]"<<mergeNecessary[i]<<endl;
-            
-                FatalErrorInFunction
-                << "Agglomeration cell not found but necessary!"
-                << exit(FatalError);  
-            }
-            
-            if((selectedFace == -1 || selectedFace == -2) && mergeFaceOfCell[i].size() != 1)
-            {
-                FatalErrorInFunction
-                << "Not merged or merged by other cell but size of mergeList is not one!"
-                << exit(FatalError);  
-            }
-        }
-        
-        if(mergeFaceOfCell[i][0] == -1 || mergeFaceOfCell[i][0] == -2)
-        {
-            continue;
-        }
-        
-        for(int s=0;s<mergeFaceOfCell[i].size();s++)
-        {
-            selectedFace = mergeFaceOfCell[i][s];
-            //Test that merge faces are legit faces
-            if(selectedFace > neighbour.size() || selectedFace < 0)
-            {
-                Info<<endl<<"Merging Face: "<<selectedFace<<endl;
-                FatalErrorInFunction
-                << "Merging face is not an existing face!"
-                << exit(FatalError);
-            }
-        }
-        
-        bool selectedFaceExists = false;
-        for(int s=0;s<possibleMergeFaces[i].size();s++)
-        {
-            if(possibleMergeFaces[i][s] == mergeFaceOfCell[i])
-                selectedFaceExists = true;
-        }
-        if(!selectedFaceExists)
-        {
-            FatalErrorInFunction
-            << "Merging face is not in the mergingFace list!"
-            << exit(FatalError);
-        }
-        
-        label numMergFaces = mergeFaceOfCell[i].size();
-        if(numMergFaces!=1 && numMergFaces!=4 && numMergFaces!=12)
-        {
-            Info<<endl<<"numMergFaces["<<i<<"]:"<<numMergFaces<<endl;
-            FatalErrorInFunction
-            << "Number of merging faces does not match!"
-            << exit(FatalError);
-        }
-        
-        //Test that merging faces are the correct ones
-        std::unordered_multiset<label> cellSet;
-        DynamicList<label> allCells;
-        for(int s=0;s<mergeFaceOfCell[i].size();s++)
-        {
-            selectedFace = mergeFaceOfCell[i][s];
-            if(neighbour.size() <= selectedFace)
-            {
-                Info<<"mergeFaceOfCell["<<i<<"]["<<s<<"]="<<mergeFaceOfCell[i][s]<<endl;
-                Info<<"neighbour.size():"<<neighbour.size()<<endl;
-                FatalErrorInFunction
-                << "Merge via boundary face not possible "
-                << exit(FatalError);
-            }
-            if(cellSet.count(neighbour[selectedFace]) == 0)
-                allCells.append(neighbour[selectedFace]);
-            if(cellSet.count(owner[selectedFace]) == 0)
-                allCells.append(owner[selectedFace]);
-            cellSet.insert(neighbour[selectedFace]);
-            cellSet.insert(owner[selectedFace]);
-        }
-        
-        if(allCells.size()!=2 && allCells.size()!=4 && allCells.size()!=8)
-        {
-            Info<<endl<<allCells<<endl;
-            FatalErrorInFunction
-            << "Number of merging cells does not match!"
-            << exit(FatalError);
-        }
-        
-        label cellMult=-1;
-        if(numMergFaces==1)
-        {
-            cellMult = 1; //two cell merge
-        }
-        else if(numMergFaces==4)
-        {
-            cellMult = 2; //four cell merge
-        }
-        else if(numMergFaces==12)
-        {
-            cellMult = 3; //eight cell merge
-        }
-        else
-            FatalErrorInFunction<<"Number of merge faces is wrong: "<<numMergFaces<<"! "<< exit(FatalError);
-        
-        for(int s=0;s<allCells.size();s++)
-        {
-            if(cellSet.count(allCells[s])!=static_cast<long unsigned int>(cellMult))
-            {
-                FatalErrorInFunction
-                << "Wrong number of cell count "
-                << exit(FatalError);
-            }
-        }
-        
-        Info<<endl;
-        bool cellsMatch = false;
-        bool partMatch;
-        for(int s=0;s<possibleMergeCells[i].size();s++)
-        {
-            partMatch = false;
-            if(possibleMergeCells[i][s].size() == allCells.size()-1)
-            {
-                partMatch = true;
-                bool match=false;
-                for(int w=0;w<allCells.size();w++)
-                {
-                    Info<<allCells[w]<<"|"<<match<<"|"<<partMatch<<endl;
-                    match = false;
-                    if(allCells[w] == i)
-                    {
-                        match = true;
-                        continue;
-                    }
-                    for(int x=0;x<possibleMergeCells[i][s].size();x++)
-                    {
-                        if(possibleMergeCells[i][s][x] == allCells[w])
-                            match = true;                            
-                    }
-                    if(match == false)
-                        partMatch = false;
-                }
-            }
-            if(partMatch)
-                cellsMatch = true;
-        }
-        if(!cellsMatch)
-        {
-            Info<<endl<<"i:"<<i<<endl;
-            Info<<"possibleMergeCells["<<i<<"]:"<<possibleMergeCells[i]<<endl;
-            Info<<"allCells["<<i<<"]:"<<allCells<<endl;
-            FatalErrorInFunction
-            << "Cells do not match "
-            << exit(FatalError);
-        }
-        
-        for(int s=0;s<allCells.size();s++)
-        {
-            if(usedCells.find(allCells[s]) == usedCells.end())
-                usedCells.insert(allCells[s]);
-            else
-            {
-                Info<<"All Cells:"<<allCells<<endl;
-                Info<<"Cell: "<<allCells[s]<<" used twice"<<endl;
-                FatalErrorInFunction
-                << "Merge Cell used twice!"
-                << exit(FatalError);
-            }
-        }
-    }
-    
-//TestSection
-    {
-        scalar factor = 1/partialThreeshold;
-        const cellList& cell = this->cells();
-        const faceList& face = this->faces();
-        const pointField& point = this->points();
-        const labelList& owner   = this->faceOwner();
-        const labelList& neighbour = this->faceNeighbour();
-    
-        scalar minCellVol = cell[0].mag(point,face);
-        label minCellInd = 0;
-        scalar maxCellVol = cell[0].mag(point,face);
-        label maxCellInd = 0;
-        scalar CellVolAvg = 0;
-    
-        scalar vol,neighbourVol;
-        for(int i=0;i<cell.size();i++)
-        {
-            vol = cell[i].mag(point,face);
-            CellVolAvg += vol;
-            if(vol > maxCellVol)
-            {
-                maxCellVol = vol;
-                maxCellInd = i;
-            }
-            if(vol < minCellVol)
-            {
-                minCellVol = vol;
-                minCellInd = i;
-            }
-        }
-        CellVolAvg /= cell.size();
-        
-        Info<<endl;
-        Info<<"MinCell "<<minCellInd<<" vol: "<<minCellVol<<endl;
-        Info<<"MaxCell "<<maxCellInd<<" vol: "<<maxCellVol<<endl;
-        Info<<"Average cell vol "<<CellVolAvg<<endl;
-        scalar MAXCELLVOL = maxCellVol;
-        minCellVol = cell[0].mag(point,face);
-        minCellInd = 0;
-        maxCellVol = cell[0].mag(point,face);
-        maxCellInd = 0;
-        CellVolAvg = 0;
-        Info<<"di dumm"<<endl;
-        //label mergeFace,mergeCell;
-        for(int i=0;i<cell.size();i++)
-        {
-            if(mergeFaceOfCell[i][0] < 0)
-                continue;
-
-            Info<<"i:"<<i<<endl;
-            vol = cell[i].mag(points,faces);
-            if((vol*factor) < maxCellVol)
-            {
-                std::unordered_multiset<label> cellSet;
-                DynamicList<label> allCells;
-                for(int s=0;s<mergeFaceOfCell[i].size();s++)
-                {
-                    selectedFace = mergeFaceOfCell[i][s];
-                    if(neighbour.size() <= selectedFace)
-                    {
-                        FatalErrorInFunction
-                        << "Merge via boundary face not possible "
-                        << exit(FatalError);
-                    }
-                    if(cellSet.count(neighbour[selectedFace]) == 0)
-                        allCells.append(neighbour[selectedFace]);
-                    if(cellSet.count(owner[selectedFace]) == 0)
-                        allCells.append(owner[selectedFace]);
-                    cellSet.insert(neighbour[selectedFace]);
-                    cellSet.insert(owner[selectedFace]);
-                }
-                Info<<">->"<<endl;
-                neighbourVol = 0;
-                Info<<mergeFaceOfCell[i]<<endl;
-                Info<<allCells<<endl;
-                Info<<cell.size()<<endl;
-                for(int s=0;s<allCells.size();s++)
-                {
-                    neighbourVol += cell[allCells[s]].mag(points,faces);
-                }
-                Info<<"<ö.a"<<endl;
-                
-                if((neighbourVol+vol)*factor < MAXCELLVOL)
-                {
-                    Info<<endl;
-                    Info<<"Cell "<<i<<" merged with "<<allCells<<" but not sufficient"<<
-                    " because vol cell:"<<vol<<" and vol neighbor:"<<neighbourVol<<endl;
-                    FatalErrorInFunction
-                    << "Not sufficient merge data"
-                    << exit(FatalError);
-                }
-                CellVolAvg += neighbourVol+vol;
-                if(neighbourVol+vol > maxCellVol)
-                {
-                    maxCellVol = neighbourVol+vol;
-                    maxCellInd = i;
-                }
-                if(neighbourVol+vol < minCellVol)
-                {
-                    minCellVol = neighbourVol+vol;
-                    minCellInd = i;
-                }
-            }
-            else
-            {
-                CellVolAvg += vol;
-                if(vol > maxCellVol)
-                {
-                    maxCellVol = vol;
-                    maxCellInd = i;
-                }
-                if(vol < minCellVol)
-                {
-                    minCellVol = vol;
-                    minCellInd = i;
-                }
-            }
-        }
-        CellVolAvg /= cell.size();
-        Info<<"MinCell "<<minCellInd<<" vol: "<<minCellVol<<endl;
-        Info<<"MaxCell "<<maxCellInd<<" vol: "<<maxCellVol<<endl;
-        Info<<"Average cell vol "<<CellVolAvg<<endl;
-    }
-//End:TestSection
-    Info<<"--"<<endl;
-    t2 = std::chrono::high_resolution_clock::now();
-    Info<<"---"<<endl;
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<<"-"<<endl;
-    Info<< "took \t\t" << time_span.count() << " seconds."<<endl;
-    
-    Info<<"Test for -1 merging selection ";
-    t1 = std::chrono::high_resolution_clock::now();
-    
-    // Remove function
-    
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-    
-    
-    if(mergeFaceOfCell.size() == 0)
-    {
-        FatalErrorInFunction
-        << "Agglomeration cell not found for all cells!"
-        << abort(FatalError);  
-    }
-    if(mergeFaceOfCell.size() != newCells.size())
-    {
-        FatalErrorInFunction
-        << "Agglomeration cell list size unequal to cell list size!"
-        << abort(FatalError);  
-    }    
-    
-    Info<<"Remove merged cell from list ";
-    t1 = std::chrono::high_resolution_clock::now();
-    // Remove agglomerated cell with too low volume for merging
-    faceList newFaces_ = faces;
-    labelList newOwner_ = owner;
-    labelList newNeighbour_ = neighbour;
-    Info<<"-----------------------_"<<endl;
-
-    
-    DynamicList<label> oldCellNumToNewCellNum;
-    oldCellNumToNewCellNum.setSize(newCells.size(),-1);
-    
-    labelList deletedCells(newCells.size());
-    for(int i=0;i<deletedCells.size();i++)
-    {
-        deletedCells[i] = 0;
-    }
-    int countDeleteFaces = 0;
-    for(int i=0;i<newCells.size();i++)
-    {
-        //Info<<"newCell:"<<i<<endl;
-        //if(mergeFaceOfCell[i] != -1 && mergeFaceOfCell[i] != -2)
-        if(mergeFaceOfCell[i].size() > 1)
-        {
-            std::unordered_multiset<label> cellSet;
-            DynamicList<label> mergeCells;
-            for(int s=0;s<mergeFaceOfCell[i].size();s++)
-            {
-                selectedFace = mergeFaceOfCell[i][s];
-                if(selectedFace >= neighbour.size())
-                {
-                    Info<<"selectedFace:"<<selectedFace<<endl;
-                    Info<<"Merging faces of cell: "<<i<<" :"<<mergeFaceOfCell[i]<<endl;
-                    Info<<"neighbour.size()="<<neighbour.size()<<endl;
-                    Info<<"Bool:"<<(neighbour.size() >= selectedFace)<<endl;
-                    FatalErrorInFunction
-                    << "Merge via boundary face not possible "
-                    << exit(FatalError);
-                }
-                if(cellSet.count(neighbour[selectedFace]) == 0 && neighbour[selectedFace] != i)
-                    mergeCells.append(neighbour[selectedFace]);
-                if(cellSet.count(owner[selectedFace]) == 0 && owner[selectedFace] != i)
-                    mergeCells.append(owner[selectedFace]);
-                cellSet.insert(neighbour[selectedFace]);
-                cellSet.insert(owner[selectedFace]);
-            }
-            
-            countDeleteFaces += mergeFaceOfCell[i].size();
-            label myCell = i;
-            
-            //label viaFace = mergeFaceOfCell[i];
-
-            if(oldCellNumToNewCellNum[i] != -1)
-            {
-                FatalErrorInFunction
-                << "oldCell to new Cell already taken: own"
-                << exit(FatalError);
-            }
-            oldCellNumToNewCellNum[i] = i;
-            for(int s=0;s<mergeCells.size();s++)
-            {
-                if(oldCellNumToNewCellNum[mergeCells[s]] != -1 && 
-                   oldCellNumToNewCellNum[mergeCells[s]] != mergeCells[s])
-                {
-                    FatalErrorInFunction
-                    << "oldCell already used to new Cell already taken: own"
-                    << exit(FatalError);
-                }
-                oldCellNumToNewCellNum[mergeCells[s]] = i;
-            
-                if(deletedCells[mergeCells[s]] == 1)
-                {
-                    FatalErrorInFunction
-                    << "Cell is multiple times deleted!"
-                    << exit(FatalError);
-                }
-                else
-                {
-                    deletedCells[mergeCells[s]] = 1;
-                }
-            }
-
-            // set informations of faces to delete to -1
-            for(int s=0;s<mergeFaceOfCell[i].size();s++)
-            {
-                newFaces_[mergeFaceOfCell[i][s]] = face(); // Only viable if empty face is doable
-                if(newOwner_[mergeFaceOfCell[i][s]] == -1)
-                {
-                    FatalErrorInFunction
-                    << "Deletion Face has already owner -1!"
-                    << exit(FatalError);
-                }
-                newOwner_[mergeFaceOfCell[i][s]] = -1;
-                if(mergeFaceOfCell[i][s] >= newNeighbour_.size())
-                {
-                    FatalErrorInFunction
-                    << "Merge Face is has no neighbour that can not happen!"
-                    << exit(FatalError);
-                }
-                newNeighbour_[mergeFaceOfCell[i][s]] = -1;
-            }
-            
-            std::unordered_set<label> mergeFaces;
-            for(int s=0;s<mergeFaceOfCell[i].size();s++)
-            {
-                mergeFaces.insert(mergeFaceOfCell[i][s]);
-            }
-            // Renumber faces of main Cell
-            labelList facesMyCell = newCells[myCell];
-            for(int k=0;k<facesMyCell.size();k++)
-            {
-                if(mergeFaces.count(facesMyCell[k]) != 0)
-                    continue;
-
-                if(owner[facesMyCell[k]] == myCell)
-                    newOwner_[facesMyCell[k]] = myCell;
-                else if(neighbour[facesMyCell[k]] == myCell)
-                    newNeighbour_[facesMyCell[k]] = myCell;
-                else
-                {
-                    FatalErrorInFunction
-                    << "Face of merging cells is neither in owner nor in neighbour cell!"
-                    << exit(FatalError);
-                }
-            }
-            
-            for(int s=0;s<mergeCells.size();s++)
-            {
-                labelList facesMergeCell = newCells[mergeCells[s]];
-                for(int k=0;k<facesMergeCell.size();k++)
-                {
-                    if(mergeFaces.count(facesMergeCell[k]) != 0)
-                        continue;
-                
-                    if(owner[facesMergeCell[k]] == mergeCells[s])
-                        newOwner_[facesMergeCell[k]] = myCell;
-                    else if(neighbour[facesMergeCell[k]] == mergeCells[s])
-                        newNeighbour_[facesMergeCell[k]] = myCell;
-                    else
-                    {
-                        FatalErrorInFunction
-                        << "Face of merging cells is neither in owner nor in neighbour cell!"
-                        << exit(FatalError);
-                    }                    
-                }
-            }
-        }
-        else
-        {
-            if(oldCellNumToNewCellNum[i] == -1)
-                oldCellNumToNewCellNum[i] = i;
-        }
-    }
-    
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-
-    Info<<"Recompute faces, owner, neighbor ";
-    t1 = std::chrono::high_resolution_clock::now();
-    
-    faceList newFaces__(newFaces_.size()-countDeleteFaces);
-    labelList newOwner__(newOwner_.size()-countDeleteFaces);
-    labelList newNeighbour__(newNeighbour_.size()-countDeleteFaces);
-    //Info<<"Created Data Struc"<<endl;
-
-    
-    int countDel = 0;
-    for(int i=0;i<newFaces_.size();i++)
-        if(newOwner_[i] == -1)
-            countDel++;
-        
-    if(countDel != countDeleteFaces)
-    {
-        FatalErrorInFunction
-        << countDel<<"!="<<countDeleteFaces
-        << exit(FatalError);
-    }
-    
-    int insertCounter = 0;
-    for(int i = 0;i<newFaces_.size();i++)
-    {
-
-        if(newOwner_[i] != -1)
-        {
-            //Info<<"0"<<endl;
-            newFaces__[insertCounter] = newFaces_[i];
-            //Info<<"1"<<endl;
-            newOwner__[insertCounter] = newOwner_[i];
-            //Info<<"2"<<endl;
-            if(newOwner__[insertCounter] == -1)
-            {            
-                FatalErrorInFunction
-                << "newOwner["<<insertCounter<<"]: "<<newOwner__[insertCounter]
-                <<" from "<<newOwner_[i]
-                << exit(FatalError);
-            }
-            //Info<<"3"<<endl;
-            if(i < newNeighbour_.size())
-                newNeighbour__[insertCounter] = newNeighbour_[i];
-            insertCounter++;
-        }
-    }
-    
-
-    
-    const polyBoundaryMesh& boundMesh = this->boundaryMesh();
-    patchStarts = labelList(boundMesh.size());
-    patchSizes = labelList(boundMesh.size());
-    for(int i=0;i<boundMesh.size();i++)
-    {
-        patchStarts[i] = boundMesh[i].start()-countDeleteFaces;
-        patchSizes[i] = boundMesh[i].faceCentres().size();
-    }
-    
-    
-    labelList cellReductionNumb(newCells.size());
-    label count = 0;
-    for(int i=0;i<cellReductionNumb.size();i++)
-    {
-        if(deletedCells[i] == 1)
-        {
-            count++;
-            cellReductionNumb[i] = -1;
-        }
-        else
-        {
-            //Info<<"One none deleted"<<endl;
-            cellReductionNumb[i] = count;
-        }
-    }
-    label delNum = 0;
-    for(int i=0;i<oldCellNumToNewCellNum.size();i++)
-    {
-        if(cellReductionNumb[i] != -1)
-        {
-            oldCellNumToNewCellNum[i] -= cellReductionNumb[i];
-        }
-        else
-        {
-            oldCellNumToNewCellNum[i] -= cellReductionNumb[oldCellNumToNewCellNum[i]];
-            delNum++;
-        }
-    }
-    Info<<"delNum:"<<delNum<<endl;
-    label numDeletedCells = 0;
-    for(int i=0;i<deletedCells.size();i++)
-    {
-        if(deletedCells[i] == 1)
-            numDeletedCells++;
-    }
-    Info<<"numDeletedCells: "<<numDeletedCells<<endl;
-    
-    for(int i=0;i<newNeighbour__.size();i++)
-    {
-        if(cellReductionNumb[newOwner__[i]] != -1 &&
-           cellReductionNumb[newNeighbour__[i]] != -1)
-        {
-            int temp = newOwner__[i];
-            newOwner__[i] -= cellReductionNumb[newOwner__[i]];
-            if(newOwner__[i] == -1)
-            {
-                FatalErrorInFunction
-                << "Owner original "<<temp<<endl
-                << "newOwner "<<newOwner__[i]<<endl
-                << "because of reduction "<<cellReductionNumb[temp]
-                << exit(FatalError);
-            }
-            newNeighbour__[i] -= cellReductionNumb[newNeighbour__[i]];
-        }
-        else
-        {
-
-            
-            FatalErrorInFunction
-            << "Face neighbors or ownes deleted cell. This can not happen."
-            << exit(FatalError);
-        }
-    }
-    for(int i=newNeighbour__.size();i<newFaces__.size();i++)
-    {
-        if(cellReductionNumb[newOwner__[i]] != -1)
-        {
-            int temp = newOwner__[i];
-            newOwner__[i] -= cellReductionNumb[newOwner__[i]];
-            if(newOwner__[i] == -1)
-            {
-                FatalErrorInFunction
-                << "Owner original "<<temp<<endl
-                << "newOwner "<<newOwner__[i]<<endl
-                << "because of reduction "<<cellReductionNumb[temp]
-                << exit(FatalError);
-            }
-        }
-        else
-        {
-            FatalErrorInFunction
-            << "Face neighbors or ownes deleted cell. This can not happen."
-            << exit(FatalError);
-        }
-    }
-    
-    Info<<"cellReductionNumb.size() ="<<cellReductionNumb.size()<<endl;
-    DynamicList<DynamicList<label>> newCellNumToOldCellNum;
-    label numberDeletedCells = -1;
-    for(int i=cellReductionNumb.size()-1;i>=0;i--)
-    {
-        if(cellReductionNumb[i] != -1)
-        {
-            Info<<"Non deleted:"<<i<<endl;
-            numberDeletedCells = cellReductionNumb[i];
-            Info<<"numberDeletedCells:"<<numberDeletedCells<<endl;
-            break;
-        }
-    }
-    if(numberDeletedCells == -1)
-    {
-        FatalErrorInFunction
-        << "All cells deleted!"
-        << exit(FatalError);  
-    }
-    newCellNumToOldCellNum.setSize(newCells.size()-numberDeletedCells);
-    for(int i=0;i<oldCellNumToNewCellNum.size();i++)
-    {
-        if(oldCellNumToNewCellNum[i] >= newCellNumToOldCellNum.size())
-        {
-            Info<<"oldCellNumToNewCellNum["<<i<<"]:"<<oldCellNumToNewCellNum[i]<<" newCellNumToOldCellNum.size():"<<newCellNumToOldCellNum.size()<<endl;
-            FatalErrorInFunction
-            << "Wrong assignment!"
-            << exit(FatalError); 
-        }
-        else
-        {
-            newCellNumToOldCellNum[oldCellNumToNewCellNum[i]].append(i);
-        }
-    }
-    
-    
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t" << time_span.count() << " seconds."<<endl;
-    
-    Info<<"Test reset and test ";
-    t1 = std::chrono::high_resolution_clock::now();
-    
-    testNewMeshData(newFaces__,newOwner__,newNeighbour__,patchStarts,patchSizes);
-    
-    resetPrimitives(Foam::clone(points),
-                    Foam::clone(newFaces__),
-                    Foam::clone(newOwner__),
-                    Foam::clone(newNeighbour__),
-                    patchSizes,
-                    patchStarts,
-                    true);    
-    
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    Info<< "took \t\t\t\t" << time_span.count() << " seconds."<<endl;
-}
-*/
-
 void Foam::cutCellFvMesh::checkPermutation()
 {
     for(unsigned int i=0;i<permutationTable.size();i++)
@@ -6615,7 +4941,8 @@ std::unique_ptr<List<List<DynamicList<label>>>> Foam::cutCellFvMesh::compCellFac
 bool Foam::cutCellFvMesh::testCorrectFaceSizes
 (
     const std::array<label,10> faceSizeNbrReq,
-    const cell& thisCell
+    const cell& thisCell,
+    bool print
 )
 {
     if(faceSizeNbrReq[0]!=0 || faceSizeNbrReq[1]!=0 || faceSizeNbrReq[2]!=0)
@@ -6629,6 +4956,13 @@ bool Foam::cutCellFvMesh::testCorrectFaceSizes
         if(static_cast<unsigned int>(oneFace.size())>=faceSizeNbrGiven.size())
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
         faceSizeNbrGiven[oneFace.size()]++;
+    }
+    if(print)
+    {
+        Info<<"{";
+        for(label nbr : faceSizeNbrGiven)
+            Info<<" "<<nbr;
+        Info<<" }"<<Foam::endl;
     }
     return faceSizeNbrGiven==faceSizeNbrReq;
 }
@@ -6658,8 +4992,8 @@ label Foam::cutCellFvMesh::memSecMC33CutEdgePntInd
     const std::unordered_set<label>& verticeOfCell
 )
 {
-    if(mc33LocalEdgeInd_I<0 || mc33LocalEdgeInd_I>=8)
-        FatalErrorInFunction<<"Error"<< exit(FatalError);
+    if(mc33LocalEdgeInd_I<0 || mc33LocalEdgeInd_I>=12)
+        FatalErrorInFunction<<"Edge index out of range:"<<mc33LocalEdgeInd_I<< exit(FatalError);
     label cutPntEdgeOldInd_I = mc33cube.cutEdgeVerticeIndex[mc33LocalEdgeInd_I];
     if(cutPntEdgeOldInd_I==-1 || cutPntEdgeOldInd_I>=oldToNewPointInd.size())
         FatalErrorInFunction<<"Error"<< exit(FatalError);
@@ -6676,15 +5010,17 @@ label Foam::cutCellFvMesh::getFaceIndFromPntList
 )
 {
     label matchingFaceInd = -1;
-    for(label faceInd=0; faceInd<thisCell.size(); faceInd++)
+    for(label locFaceInd=0; locFaceInd<thisCell.size(); locFaceInd++)
     {
         bool allInside = true;
+        label faceInd = thisCell[locFaceInd];
         const face& thisFace = new_faces[faceInd];
         for(label pntInd : pointList)
         {
             if(thisFace.which(pntInd)==-1)
                 allInside=false;
         }
+        Info<<thisFace<<" "<<allInside<<Foam::endl;
         if(allInside)
         {
             if(matchingFaceInd!=-1)
@@ -6693,7 +5029,22 @@ label Foam::cutCellFvMesh::getFaceIndFromPntList
         }
     }
     if(matchingFaceInd==-1)
+    {
+        Info<<"pointList: "<<Foam::endl;
+        for(label pnt : pointList)
+        {
+            Info<<" "<<pnt;
+        }
+        Info<<Foam::endl;
+        
+        Info<<"thisCellFaces:"<<Foam::endl;
+        for(label faceInd : thisCell)
+        {
+            Info<<this->new_faces[faceInd]<<Foam::endl;
+        }
+        Info<<Foam::endl;
         FatalErrorInFunction<<"Points match to no face!"<< exit(FatalError);
+    }
     return matchingFaceInd;
 }
 
@@ -6704,6 +5055,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C2"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -6934,7 +5287,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     const label cellInd,
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
-{
+{   
+    Info<<"Nonconvex correction C32"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7044,6 +5399,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C412"<<Foam::endl;
+
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7209,6 +5566,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C5"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7307,6 +5666,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C612"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7456,6 +5817,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C62"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7605,6 +5968,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C72"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7724,6 +6089,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C73"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7925,6 +6292,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C8"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -7956,7 +6325,19 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     {
         if(!testCorrectFaceSizes({0,0,0,2,5,0,0,0,0,0},thisCell) ||
            !mc33cube.redMarkIsPlusSide)
+        {
+            Info<<"nbrOfPrevPoints:"<<nbrOfPrevPoints<<Foam::endl;
+            Info<<"---------"<<Foam::endl;
+            for(label faceInd : thisCell)
+            {
+                Info<<this->new_faces[faceInd]<<Foam::endl;
+            }
+            Info<<"---------"<<Foam::endl;
+            Info<<"testCorrectFaceSizes({0,0,0,2,5,0,0,0,0,0},thisCell):"<<testCorrectFaceSizes({0,0,0,2,5,0,0,0,0,0},thisCell)<<Foam::endl;
+            testCorrectFaceSizes({0,0,0,2,5,0,0,0,0,0},thisCell,true);
+            Info<<"mc33cube.redMarkIsPlusSide:"<<mc33cube.redMarkIsPlusSide<<Foam::endl;
             FatalErrorInFunction<<"Error"<< exit(FatalError);
+        }
             
         label pnt0Ind = memSecMC33VerticePntInd(pntPerm[0],mc33cube,verticeOfCell);
         label pnt1Ind = memSecMC33VerticePntInd(pntPerm[1],mc33cube,verticeOfCell);
@@ -8042,6 +6423,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C1011"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -8137,6 +6520,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C1211"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -8241,10 +6626,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     const label cellInd,
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
-{
+{   
+    Info<<"Nonconvex correction C122"<<Foam::endl;
+    
     FatalErrorInFunction<<"Not yet implemented!"<< exit(FatalError);
 
-    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -8481,6 +6867,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C132"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -8601,6 +6989,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C133"<<Foam::endl;
+
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -8815,6 +7205,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C134"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -9053,6 +7445,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     std::unique_ptr<List<scalar>> faceToCellCenterRelation
 )
 {
+    Info<<"Nonconvex correction C14"<<Foam::endl;
+    
     label oldCellIndex = cellMap[cellInd];
     MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
@@ -10073,8 +8467,8 @@ void Foam::cutCellFvMesh::findSmallCellMergeCandidate
 void Foam::cutCellFvMesh::testCellConvexity
 (
     const List<cell>& cells,
-    List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>> cellFaceEdgeGraph,
-    List<bool> nonConvexCell
+    List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>>& cellFaceEdgeGraph,
+    List<bool>& nonConvexCell
 )
 {
     cellFaceEdgeGraph.clear();
@@ -10228,34 +8622,51 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     List<List<DynamicList<std::tuple<label,std::pair<label,label>,bool,scalar>>>> cellFaceEdgeGraph;
     List<bool> nonConvexCell;
     testCellConvexity(new_cells,cellFaceEdgeGraph,nonConvexCell);
-    
+        
+    Info<<"Test for cell sizes!"<<Foam::endl;
+    Info<<"new_cells.size():"<<new_cells.size()<<Foam::endl;
     List<bool> smallCell;
     List<scalar> cellSizes;
     scalar locMinCellSize = computeCellSizeAndSizeLimit(new_cells,smallCell,cellSizes); 
-    
+        
+    Info<<"Find merge cell candidates!"<<Foam::endl;
     List<DynamicList<std::pair<label,label>>> smallCellMergeCand;
     findSmallCellMergeCandidate(new_cells,smallCell,smallCellMergeCand);
-
     
     Info<<"Fix nonconvex cells"<<Foam::endl;
     List<std::unique_ptr<CellSplitData>> convexCorrectionData(new_cells.size());
     for(label cellInd=0;cellInd<new_cells.size();cellInd++)
     {
+        Info<<"cellInd:"<<cellInd<<Foam::endl;
+
         label origCellIndex = cellMap[cellInd];
         if(origCellIndex==-1)
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
         
+        Info<<"  origCellIndex:"<<origCellIndex<<Foam::endl;
+        
         cell& thisCell = new_cells[cellInd];
-        std::unique_ptr<List<scalar>> faceToCenterAngles = faceToCellCenterRelation(new_cells[cellInd],cellInd);        
+        std::unique_ptr<List<scalar>> faceToCenterAngles = faceToCellCenterRelation(new_cells[cellInd],cellInd);
+        
+        Info<<"Got faceToCellCenterRelation"<<Foam::endl;
 
-        MC33::MC33Cube oneCube = mc33CutCellData[origCellIndex];
+        MC33::MC33Cube& oneCube = mc33CutCellData[origCellIndex];
+        
+        Info<<"oneCube.cubeCase:"<<oneCube.cubeCase<<Foam::endl;
+        
         if(oneCube.cell==-1)
             continue;
+        
+        Info<<"oneCube.cell:"<<oneCube.cell<<Foam::endl;
         
         if(oneCube.cell!=origCellIndex)
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
         
+        Info<<"nonConvexCell.size():"<<nonConvexCell.size()<<Foam::endl;
+        
         bool isNonConvex = nonConvexCell[cellInd];
+        
+        Info<<"Cases"<<Foam::endl;
 
         if(oneCube.cubeCase==MC33::c0)
             // Case 0 Triangle Number 0
@@ -10455,6 +8866,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         else
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
     }
+
+    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
     
     std::unordered_map<label,DynamicList<label>> pointFaces;
     for(label faceInd=0; faceInd<new_faces.size(); faceInd++)
@@ -11084,327 +9497,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     }
 
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
-
-}
-
-List<DynamicList<label>> Foam::cutCellFvMesh::assignMergeFaces
-(
-    const labelList& owner,
-    const labelList& neighbour,
-    DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
-    DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
-    DynamicList<bool>& oneMergeFaceSufficient,
-    DynamicList<bool>& mergeNecessary,
-    DynamicList<DynamicList<scalar>>& possibleMergeCellsPartialSize,
-    scalar partialThreeshold
-)
-{
-    if(possibleMergeFaceArea.size() != possibleMergeFaces.size() || possibleMergeCells.size() != possibleMergeFaces.size())
-        FatalErrorInFunction<<"Invalid input parameters!"<<exit(FatalError);
-        
-    List<DynamicList<label>> assignList(possibleMergeCells.size());
-    List<label> usedCellsMultiplicity(possibleMergeCells.size(),0);
-    List<label> cellRequestedMultiplicity(possibleMergeCells.size(),0);
-    for(int i=0;i<cellRequestedMultiplicity.size();i++)
-    {
-        if((mergeNecessary[i] && possibleMergeCells[i].size()==0) || (!mergeNecessary[i] && possibleMergeCells[i].size()!=0))
-        {
-            Info<<endl;
-            Info<<"mergeNecessary["<<i<<"]:"<<mergeNecessary[i]<<endl;
-            Info<<"possibleMergeCells["<<i<<"]:"<<possibleMergeCells[i]<<endl;
-            FatalErrorInFunction<<"Invalid input parameters!"<<exit(FatalError);
-        }
-
-        for(int j=0;j<possibleMergeCells[i].size();j++)
-        {
-            if(possibleMergeCells[i][j].size()!=1)
-                FatalErrorInFunction<<"Invalid input parameters!"<<exit(FatalError);
-            
-            cellRequestedMultiplicity[possibleMergeCells[i][j][0]]++;
-        }
-    }
-    
-    labelList faceUsedByCell(owner.size(),-1);
-    for(int count=0;count<possibleMergeCells.size();count++)
-    {   
-        if(mergeNecessary[count])
-        /* Decision A: Enters if block if merge is necessary and the cell is not already used for
-         * a merge with another cell
-         */
-        {
-            if(usedCellsMultiplicity[count]==0)
-            {
-                DynamicList<label> largeEnoughMergeCells;
-                for(int j=0;j<possibleMergeCells[count].size();j++)
-                {
-                    if(possibleMergeCells[count][j].size()!=1)
-                        FatalErrorInFunction<<"More than one merge cell in one option!"<<exit(FatalError);
-                
-                    if(possibleMergeCellsPartialSize[count][j]>=partialThreeshold)
-                        largeEnoughMergeCells.append(j);
-                }
-                if(largeEnoughMergeCells.size()>0)
-                {
-                    DynamicList<label> nonTakenMergeCells;
-                    for(int j=0;j<largeEnoughMergeCells.size();j++)
-                    {
-                        int ind = largeEnoughMergeCells[j];
-                        if(usedCellsMultiplicity[possibleMergeCells[count][ind][0]]==0)
-                            nonTakenMergeCells.append(ind);
-                    }
-                    if(nonTakenMergeCells.size()>0)
-                    {
-                        label minimumRequestedCell = possibleMergeCells.size()+1;
-                        label minimumRequestedCellInd = -1;
-                        for(int j=0;j<nonTakenMergeCells.size();j++)
-                        {
-                            if(minimumRequestedCell>cellRequestedMultiplicity[possibleMergeCells[count][nonTakenMergeCells[j]][0]])
-                            {
-                                minimumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][nonTakenMergeCells[j]][0]];
-                                minimumRequestedCellInd = nonTakenMergeCells[j];
-                            }
-                        }
-                        if(minimumRequestedCellInd==-1 || minimumRequestedCell==possibleMergeCells.size()+1)
-                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
-                
-                        assignList[count].append(possibleMergeFaces[count][minimumRequestedCellInd][0]);
-                        usedCellsMultiplicity[possibleMergeCells[count][minimumRequestedCellInd][0]]++;
-                    
-                        if(faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] != -1)
-                        {
-                            Info<<endl;
-                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]];
-                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]]][0];
-                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
-
-                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumRequestedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumRequestedCellInd][0]<<endl;
-                            Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
-                        
-                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
-                        }
-                        faceUsedByCell[possibleMergeFaces[count][minimumRequestedCellInd][0]] = count;
-                    }
-                    else
-                    {
-                        label minimumUsedCell = possibleMergeCells.size()+1;
-                        label minimumUsedCellInd = -1;
-                        for(int j=0;j<largeEnoughMergeCells.size();j++)
-                        {                
-                            if(minimumUsedCell>usedCellsMultiplicity[possibleMergeCells[count][largeEnoughMergeCells[j]][0]])
-                            {
-                                minimumUsedCell=usedCellsMultiplicity[possibleMergeCells[count][largeEnoughMergeCells[j]][0]];
-                                minimumUsedCellInd=largeEnoughMergeCells[j];
-                            }
-                        }
-                        assignList[count].append(possibleMergeFaces[count][minimumUsedCellInd][0]);
-                        usedCellsMultiplicity[possibleMergeCells[count][minimumUsedCellInd][0]]++;
-                    
-                        if(faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] != -1)
-                        {
-                            Info<<endl;
-                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]];
-                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]]][0];
-                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
-
-                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][minimumUsedCellInd][0]<<" via face: "<<possibleMergeFaces[count][minimumUsedCellInd][0]<<endl;
-                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
-                        }                    
-                        faceUsedByCell[possibleMergeFaces[count][minimumUsedCellInd][0]] = count;
-                    }
-                }
-                else
-                {
-                    DynamicList<label> largerThanOneTenthPartialThreeshold;
-                    for(int j=0;j<possibleMergeCells[count].size();j++)
-                    {
-                        if(possibleMergeCellsPartialSize[count][j]>=0.1*partialThreeshold)
-                            largerThanOneTenthPartialThreeshold.append(j);
-                    }
-                    if(largerThanOneTenthPartialThreeshold.size()>0)
-                    {
-                        scalar largestCell = 0;
-                        label largestCellInd = -1;
-                        for(int j=0;j<largerThanOneTenthPartialThreeshold.size();j++)
-                        {
-                            if(largestCell<possibleMergeCellsPartialSize[count][largerThanOneTenthPartialThreeshold[j]])
-                            {
-                                largestCell=possibleMergeCellsPartialSize[count][largerThanOneTenthPartialThreeshold[j]];
-                                largestCellInd = largerThanOneTenthPartialThreeshold[j];
-                            }
-                        }
-                        if(largestCell==0 || largestCellInd==-1)
-                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
-                
-                        assignList[count].append(possibleMergeFaces[count][largestCellInd][0]);
-                        usedCellsMultiplicity[possibleMergeCells[count][largestCellInd][0]]++;
-                    
-                        if(faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]] != -1)
-                        {
-                            Info<<endl;
-                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]];
-                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]]][0];
-                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
-
-                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][largestCellInd][0]<<" via face: "<<possibleMergeFaces[count][largestCellInd][0]<<endl;
-                            Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
-                        
-                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
-                        }
-                        faceUsedByCell[possibleMergeFaces[count][largestCellInd][0]] = count;
-                    }
-                    else
-                    {
-                        label maximumRequestedCell = -1;
-                        label maximumRequestedCellInd = -1;
-                        for(int j=0;j<possibleMergeCells[count].size();j++)
-                        {
-                            if(maximumRequestedCell<cellRequestedMultiplicity[possibleMergeCells[count][j][0]])
-                            {
-                                maximumRequestedCell=cellRequestedMultiplicity[possibleMergeCells[count][j][0]];
-                                maximumRequestedCellInd = j;
-                            }
-                        }
-                        if(maximumRequestedCellInd==-1 || maximumRequestedCell==-1)
-                            FatalErrorInFunction<<"Can not happen!"<<exit(FatalError);
-                
-                        assignList[count].append(possibleMergeFaces[count][maximumRequestedCellInd][0]);
-                        usedCellsMultiplicity[possibleMergeCells[count][maximumRequestedCellInd][0]]++;
-                    
-                        if(faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]] != -1)
-                        {
-                            Info<<endl;
-                            Info<<"cell "<<faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]];
-                            label face = assignList[faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]]][0];
-                            Info<<" to merge: "<<owner[face]<<" and "<<neighbour[face]<<" via "<<face<<endl;
-
-                            Info<<"cell "<<count<<" merged with "<<possibleMergeCells[count][maximumRequestedCellInd][0]<<" via face: "<<possibleMergeFaces[count][maximumRequestedCellInd][0]<<endl;
-                            Info<<"usedCellsMultiplicity["<<count<<"]:"<<usedCellsMultiplicity[count]<<endl;
-                        
-                            FatalErrorInFunction<<"Face used twice!"<<exit(FatalError);
-                        }
-                        faceUsedByCell[possibleMergeFaces[count][maximumRequestedCellInd][0]] = count;
-                    }
-                }
-            }
-            else
-            {
-                assignList[count].append(-2);
-            }
-        }
-        else
-        /* Decision A: Enters else block for cells that are not too small. The assignList is
-         * filled with -1 for these cells.
-         */
-        {
-            assignList[count].append(-1);
-        }
-    }
-    
-    Info<<"Fin"<<endl;
-    
-//Test
-    for(int i=0;i<assignList.size();i++)
-    {
-        if(mergeNecessary[i])
-        {
-            if(assignList[i].size()==0)
-            {
-                FatalErrorInFunction
-                << " Error empty assign List at i:"<<i<<endl
-                << exit(FatalError);
-            }
-            if(assignList[i][0] == -1)
-            {
-                FatalErrorInFunction
-                << " Too small cell was not treated by backtracking algorithm!"<<endl
-                << exit(FatalError);
-            }            
-            
-            std::unordered_multiset<label> mergeCellsSet;
-            DynamicList<label> mergeCellsList;
-            for(int k=0;k<assignList[i].size();k++)
-            {
-                if(assignList[i][k] >= neighbour.size())
-                {
-                    FatalErrorInFunction<<"Boundary face is merge face"<<exit(FatalError);
-                }
-                label ownerCell = owner[assignList[i][k]];
-                label neighborCell = neighbour[assignList[i][k]];
-                if(mergeCellsSet.find(ownerCell) == mergeCellsSet.end())
-                    mergeCellsList.append(ownerCell);
-                if(mergeCellsSet.find(neighborCell) == mergeCellsSet.end())
-                    mergeCellsList.append(neighborCell);
-                mergeCellsSet.insert(ownerCell);
-                mergeCellsSet.insert(neighborCell);
-            }
-            if(mergeCellsList.size()<=0)
-                FatalErrorInFunction<<"Merging option with no cells!"<<exit(FatalError);
-            
-            label mergeCellMult = mergeCellsSet.count(mergeCellsList[0]);
-            for(int k=1;k<mergeCellsList.size();k++)
-            {
-                if(mergeCellsSet.count(mergeCellsList[k]) != static_cast<long unsigned int>(mergeCellMult))
-                {
-                    FatalErrorInFunction<<"Different multiplcity of cells in "<<
-                    mergeCellsList.size()<<" cell merging "<<exit(FatalError);
-                }
-            }
-            
-            if(mergeCellMult==1 && mergeCellsList.size() == 2)
-            {
-                //2 Cell merging
-                if(assignList[i].size() != 1)
-                    FatalErrorInFunction<<"Error in 2 Cell merging! "<<exit(FatalError);
-            }
-            else
-            {
-                Info<<"mergeCellMult: "<<mergeCellMult<<endl;
-                Info<<"optionMergeCellsList.size() == "<<mergeCellsList.size()<<endl;
-                Info<<"possibleMergeFaces[i][j].size() == "<<assignList[i].size()<<endl;
-                FatalErrorInFunction<<"Inconsistent merge Option!"<<exit(FatalError);
-            }
-        }
-        else
-        {
-            if(assignList[i].size()==0)
-            {
-                FatalErrorInFunction
-                << " Error empty assign List at i:"<<i<<endl
-                << exit(FatalError);
-            }
-            if(assignList[i][0] != -1)
-            {
-                FatalErrorInFunction
-                << " Backtracking algorithm wrote inside large enough cell. Something is wrong here!"<<endl
-                << exit(FatalError);
-            }
-            assignList[i][0] = -1;
-        }
-    }
-//Ende Test
-    
-    /*
-    labelList assList(assignList.size());
-    for(int i=0;i<assignList.size();i++)
-    {
-        if(assignList[i].size() != 1)
-        {
-            FatalErrorInFunction
-            << " Error!"<<endl
-            << exit(FatalError);
-        }
-        assList[i] = assignList[i][0];
-    }
-    return assList;
-    */
-    return assignList;
-    /*
-    Label index
-    -1 : Cell is not too small
-    -2 : cell is already merged by other cell
-    -3 : No assignment
-    */
 }
 
 void Foam::cutCellFvMesh::testNewMeshData
@@ -11470,6 +9562,7 @@ void Foam::cutCellFvMesh::testNewMeshData
     }    
 }
 
+/*
 void Foam::cutCellFvMesh::testForCellSize
 (
     DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
@@ -11551,34 +9644,12 @@ void Foam::cutCellFvMesh::testForCellSize
                     " combinedPartialVol:"<<(neighbourCellVolume + smallCellVolume)<<endl;
             }
         }
-        /*
-        scalar vol;
-
-        Info<<"The following cells are too small:"<<endl;
-        for(int i=0;i<cell.size();i++)
-        {
-            vol = cell[i].mag(point,face);
-            if(4*vol < maxCellVol)
-            {
-                Info<<"\tCell "<<i<<" with vol:"<<vol<<endl;
-            }
-        }
-        
-        Info<<"The following cells are too large:"<<endl;
-        for(int i=0;i<cell.size();i++)
-        {
-            vol = cell[i].mag(point,face);
-            if(0.25*vol > minCellVol)
-            {
-                Info<<"\tCell "<<i<<" with vol:"<<vol<<endl;
-            }
-        }
-        */
         FatalErrorInFunction
         << "Cell size problem"
         << exit(FatalError);  
     }
 }
+*/
 
 void Foam::cutCellFvMesh::correctFaceNormalDir
 (
