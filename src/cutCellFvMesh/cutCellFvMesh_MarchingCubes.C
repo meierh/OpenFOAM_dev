@@ -18,14 +18,19 @@ bool Foam::cutCellFvMesh::MC33::detectInFaceTriangles
 		
 		const std::unordered_set<std::uint8_t>& faceEdges = iter->second;
 		
-		bool vertice0In = faceEdges.find(edge0)==faceEdges.end();
-		bool vertice1In = faceEdges.find(edge1)==faceEdges.end();
-		bool vertice2In = faceEdges.find(edge2)==faceEdges.end();
+		bool vertice0In = faceEdges.find(edge0)!=faceEdges.end();
+		bool vertice1In = faceEdges.find(edge1)!=faceEdges.end();
+		bool vertice2In = faceEdges.find(edge2)!=faceEdges.end();
 		
 		if(vertice0In && vertice1In && vertice2In)
 		{
 			if(allInOneFace)
+			{
+				Info<<"edge0:"<<edge0<<Foam::endl;
+				Info<<"edge1:"<<edge1<<Foam::endl;
+				Info<<"edge2:"<<edge2<<Foam::endl;
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			}
 			else
 				allInOneFace = true;
 		}
