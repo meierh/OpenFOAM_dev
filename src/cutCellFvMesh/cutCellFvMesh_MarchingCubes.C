@@ -109,6 +109,8 @@ table(mesh.caseTable),
 permutations(mesh.permutationTable),
 edgeToPnts(mesh.edgeToPnts),
 pntsToEdge(mesh.pntsToEdge),
+faceToPnts(mesh.faceToPnts),
+pntsToFace(mesh.pntsToFace),
 faceToEdges(mesh.faceToEdges)
 {
 }
@@ -680,38 +682,32 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
 		}
 
+		mc33Cube.pointPermutation = permutations[mc33Cube.permutationTableIndex];
+		std::bitset<8> refPoints;
+		for(short unsigned int permPnt : mc33Cube.pointPermutation)
+			refPoints[permPnt] = true;
+		if(!refPoints.all())
+			FatalErrorInFunction<<"Mismatch point permutations"<< exit(FatalError);
+
 		for(unsigned int edgeInd=0; edgeInd<mc33Cube.edgePermutation.size(); edgeInd++)
 		{
-			std::uint8_t twoPntsInd = edgeToPnts[edgeInd];
-			std::uint8_t smPnt = twoPntsInd / 10;
-			std::uint8_t laPnt = twoPntsInd % 10;
-			std::uint8_t smPntTrans = permutations[mc33Cube.permutationTableIndex][smPnt];
-			std::uint8_t laPntTrans = permutations[mc33Cube.permutationTableIndex][laPnt];
-			
-			if(smPntTrans > laPntTrans)
+			std::array<uint,2> edgePnts = edgeToPnts[edgeInd];
+			for(uint& pnt : edgePnts)
 			{
-				std::uint8_t temp = laPntTrans;
-				laPntTrans = smPntTrans;
-				smPntTrans = temp;
+				pnt = mc33Cube.pointPermutation[pnt];
 			}
-			else if(smPnt==laPnt || smPntTrans==laPntTrans)
-				FatalErrorInFunction<<"Error"<< exit(FatalError);  
-
-			std::uint8_t twoPntsIndTrans = smPntTrans*10 + laPntTrans;
-			auto iter = pntsToEdge.find(twoPntsIndTrans);
-			if(iter==pntsToEdge.end())
+			std::sort(edgePnts.begin(),edgePnts.end());
+			
+			uint num = 0;
+			for(uint decInd=0; decInd<edgePnts.size(); decInd++)
 			{
-				Info<<"[";
-				for(std::uint8_t tP :  edgeToPnts)
-					Info<<" "<<tP<<" ";
-				Info<<"]"<<Foam::endl;
-				Info<<"edgeInd:"<<edgeInd<<Foam::endl;
-				Info<<"twoPntsInd:"<<twoPntsInd<<Foam::endl;
-				Info<<"smPnt:"<<smPnt<<Foam::endl;
-				Info<<"laPnt:"<<laPnt<<Foam::endl;
-				Info<<"smPntTrans:"<<smPntTrans<<Foam::endl;
-				Info<<"laPntTrans:"<<laPntTrans<<Foam::endl;				
-				FatalErrorInFunction<<"Error twoPntsIndTrans:"<<twoPntsIndTrans<< exit(FatalError);
+				num *= 10;
+				num += edgePnts[decInd];
+			}
+			auto iter = pntsToEdge.find(num);
+			if(iter==pntsToEdge.end())
+			{				
+				FatalErrorInFunction<<"Error num:"<<num<< exit(FatalError);
 			}
 			mc33Cube.edgePermutation[edgeInd] = iter->second;
 		}
@@ -719,7 +715,47 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 		for(std::uint8_t permEdg : mc33Cube.edgePermutation)
 			refEdges[permEdg] = true;
 		if(!refEdges.all())
-			FatalErrorInFunction<<"Error"<< exit(FatalError);
+			FatalErrorInFunction<<"Mismatch edge permutations"<< exit(FatalError);
+		
+		for(unsigned int faceInd=0; faceInd<mc33Cube.facePermutation.size(); faceInd++)
+		{
+			std::array<uint,4> facePnts = faceToPnts[faceInd];
+			for(uint& pnt : facePnts)
+			{
+				pnt = mc33Cube.pointPermutation[pnt];
+			}
+			std::sort(facePnts.begin(),facePnts.end());
+			
+			uint num = 0;
+			for(uint decInd=0; decInd<facePnts.size(); decInd++)
+			{
+				num *= 10;
+				num += facePnts[decInd];
+			}
+			auto iter = pntsToFace.find(num);
+			if(iter==pntsToFace.end())
+			{
+				for(auto iter=pntsToEdge.begin(); iter!=pntsToEdge.end(); iter++)
+					Info<<iter->first<<"/"<<iter->second<<Foam::endl;
+				Info<<"---------"<<Foam::endl;
+				for(auto iter=pntsToFace.begin(); iter!=pntsToFace.end(); iter++)
+					Info<<iter->first<<"/"<<iter->second<<Foam::endl;
+				FatalErrorInFunction<<"Error num:"<<num<< exit(FatalError);
+			}
+			mc33Cube.facePermutation[faceInd] = iter->second;
+		}
+		std::bitset<6> refFaces;
+		for(short unsigned int permFace : mc33Cube.facePermutation)
+			refFaces[permFace] = true;
+		if(!refFaces.all())
+		{
+			Info<<"[";
+			for(label perm : mc33Cube.facePermutation)
+				Info<<perm<<",";
+			Info<<"]"<<Foam::endl;
+			std::cout<<refFaces<<std::endl;
+			FatalErrorInFunction<<"Mismatch face permutations"<< exit(FatalError);
+		}
 		
 		std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>>& triangles = mc33Cube.cutTriangles;
 		for(auto iter=triangles.begin(); iter!=triangles.end(); )

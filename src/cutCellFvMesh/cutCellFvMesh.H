@@ -66,11 +66,15 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         const std::array<std::array<unsigned short int,8>,24> permutationTable = {
         #include "CubePointPermutations.H"
         };
-        const std::array<std::uint8_t,12> edgeToPnts = {01,12,23,03,45,56,67,47,04,15,26,37};
-        const std::unordered_map<std::uint8_t,std::uint8_t> pntsToEdge = {{01,0},{12,1},{23,2},{03,3},{45,4},{56,5},{67,6},{47,7},{04,8},{15,9},{26,10},{37,11}};
+        const std::array<std::array<uint,2>,12> edgeToPnts = {{{0,1},{1,2},{2,3},{0,3},{4,5},{5,6},{6,7},{4,7},{0,4},{1,5},{2,6},{3,7}}};
+        const std::unordered_map<uint,uint> pntsToEdge = {{1,0},{12,1},{23,2},{3,3},{45,4},{56,5},{67,6},{47,7},{4,8},{15,9},{26,10},{37,11}};
+        const std::array<std::array<uint,4>,6> faceToPnts = {{{0,1,4,5},{1,2,5,6},{2,3,6,7},{0,3,4,7},{0,1,2,3},{4,5,6,7}}};
+        const std::unordered_map<std::uint32_t,std::uint32_t> pntsToFace = {{145,0},{1256,1},{2367,2},{347,3},{123,4},{4567,5}};
         const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>> faceToEdges = {{0,{0,1,4,5}},{1,{1,5,9,10}},{2,{2,6,10,11}},{3,{3,7,8,11}},{4,{0,1,2,3}},{5,{4,5,6,7}}};
         
         void checkPermutation();
+        
+        #include "ConvexCorrection.H"
         
         class MC33{
             public:
@@ -93,7 +97,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     Case cubeCase = c0;
                     label permutationTableIndex;
                     bool redMarkIsPlusSide; //Efficient implementation of Marching Cubes cases with topological guarantees Figure 2
+                    std::array<unsigned short int,8> pointPermutation;
                     std::array<std::uint8_t,12> edgePermutation;
+                    std::array<std::uint8_t,6> facePermutation;
                 } MC33Cube;
                 
                 MC33Cube computeCutCell(int cellInd);
@@ -104,9 +110,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 cutCellFvMesh& mesh;
                 const unsigned short int* table;
                 const std::array<std::array<unsigned short int,8>,24>& permutations;
-                const std::array<std::uint8_t,12>& edgeToPnts;
-                const std::unordered_map<std::uint8_t,std::uint8_t>& pntsToEdge;
-                const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>>& faceToEdges;                
+                const std::array<std::array<uint,2>,12> edgeToPnts;
+                const std::unordered_map<uint,uint>& pntsToEdge;
+                const std::array<std::array<uint,4>,6>& faceToPnts;
+                const std::unordered_map<std::uint32_t,std::uint32_t>& pntsToFace;
+                const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>>& faceToEdges;
                 //const unsigned short int table[2310];
                 
                 MC33_real v[8];
