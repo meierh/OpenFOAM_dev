@@ -368,6 +368,20 @@ void Foam::cutCellFvMesh::executeMarchingCubes()
         {
             mc33CutCellData.append(oneCube);
         }
+        if(i==144059)
+        {
+            Info<<"----------------------------"<<Foam::endl;
+            Info<<"oneCube.bitPattern:"<<oneCube.bitPattern<<Foam::endl;
+            Info<<"oneCube.vertices:"<<oneCube.vertices<<Foam::endl;
+            Info<<"oneCube.cubeCase:"<<oneCube.cubeCase<<Foam::endl;
+            for(auto tuple : oneCube.cutTriangles)
+            {
+                Info<<"("<<std::get<0>(tuple)<<","<<std::get<1>(tuple)<<","<<std::get<2>(tuple)<<")"<<"  ";
+            }
+            Info<<Foam::endl;
+            Info<<"oneCube.cutEdgeVerticeIndex:"<<oneCube.cutEdgeVerticeIndex<<Foam::endl;
+            Info<<"----------------------------"<<Foam::endl;
+        }
     }
 
     //Assign global edge Index to MC33Cube cell
@@ -1284,6 +1298,7 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
     const labelListList& edgeFaces = this->edgeFaces();
 
     labelList thisFacePoints;
+    Info<<"basisFaces.size():"<<basisFaces.size()<<Foam::endl;
     for(int faceInd=0;faceInd<basisFaces.size();faceInd++)
     {
         const face& thisFace = basisFaces[faceInd];
@@ -1348,141 +1363,47 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                         Info<<"cutEdge3VerticeInd:"<<cutEdge3VerticeInd<<Foam::endl;
                         FatalErrorInFunction<<"Triangle with duplicate points!"<< exit(FatalError);
                     }
-                        
+                    
+                    face triangleLocEdges(List<label>({localFaceEdgeInd1,localFaceEdgeInd2,localFaceEdgeInd3}));
+                    face triangleEdges(List<label>({faceCutEdge1,faceCutEdge2,faceCutEdge3}));
+                    face triangleVertices(List<label>({cutEdge1VerticeInd,cutEdge2VerticeInd,cutEdge3VerticeInd}));
                     
                     bool foundCutFaceEdges=false;
-                    label loc_edg_Ind1 = -1;
-                    label loc_edg_Ind2 = -1;
-                    label edge_Vert_Ind1 = -1;
-                    label edge_Vert_Ind2 = -1;
                     label which_Triangle_Vertice = -1;
-                    if(edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end() &&
-                       edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end())
+                    label cutEdgeVertice0 = -1;
+                    label cutEdgeVertice1 = -1;
+                    for(label ip0=0; ip0<triangleLocEdges.size(); ip0++)
                     {
-                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge1)->second;
-                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge2)->second;
-                        if(foundCutFaceEdges)
-                            FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
-                        foundCutFaceEdges=true;
-                        which_Triangle_Vertice=0;
-                        edge_Vert_Ind1 = cutEdge1VerticeInd;
-                        edge_Vert_Ind2 = cutEdge2VerticeInd;
-                    }
-                    if(edgesOfFace.find(faceCutEdge2)!=edgesOfFace.end() &&
-                       edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end())
-                    {
-                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge2)->second;
-                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge3)->second;
-                        if(foundCutFaceEdges)
-                            FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
-                        foundCutFaceEdges=true;
-                        which_Triangle_Vertice=1;
-                        edge_Vert_Ind1 = cutEdge2VerticeInd;
-                        edge_Vert_Ind2 = cutEdge3VerticeInd;
-                    }
-                    if(edgesOfFace.find(faceCutEdge3)!=edgesOfFace.end() &&
-                       edgesOfFace.find(faceCutEdge1)!=edgesOfFace.end())
-                    {
-                        loc_edg_Ind1 = edgesOfFace.find(faceCutEdge3)->second;
-                        loc_edg_Ind2 = edgesOfFace.find(faceCutEdge1)->second;
-                        if(foundCutFaceEdges)
-                            FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
-                        foundCutFaceEdges=true;
-                        which_Triangle_Vertice=2;
-                        edge_Vert_Ind1 = cutEdge3VerticeInd;
-                        edge_Vert_Ind2 = cutEdge1VerticeInd;
-                    }
-                    
-                    label locCutEdge1VerticeInd = thisFace.which(cutEdge1VerticeInd);
-                    label locCutEdge2VerticeInd = thisFace.which(cutEdge2VerticeInd);
-                    label locCutEdge3VerticeInd = thisFace.which(cutEdge3VerticeInd);
-                    
-                    if(locCutEdge1VerticeInd!=-1 && locCutEdge2VerticeInd!=-1)
-                    {
-                        if(thisFace.fcIndex(locCutEdge1VerticeInd) != locCutEdge2VerticeInd &&
-                           thisFace.rcIndex(locCutEdge1VerticeInd) != locCutEdge2VerticeInd)
+                        bool zeroPnt0InFace = thisFace.which(triangleVertices[ip0])!=-1;
+                        bool cutEdgeInFacePnt0 = edgesOfFace.find(triangleEdges[ip0])!=edgesOfFace.end();
+                        
+                        label ip1 = triangleLocEdges.fcIndex(ip0);
+                        bool zeroPnt1InFace = thisFace.which(triangleVertices[ip1])!=-1;
+                        bool cutEdgeInFacePnt1 = edgesOfFace.find(triangleEdges[ip1])!=edgesOfFace.end();
+                        
+                        if((zeroPnt0InFace || cutEdgeInFacePnt0) && (zeroPnt1InFace || cutEdgeInFacePnt1))
                         {
                             if(foundCutFaceEdges)
-                            {
-                                Info<<"thisFace:"<<thisFace<<Foam::endl;
-                                Info<<"localFaceEdgeInd1:"<<localFaceEdgeInd1<<Foam::endl;
-                                Info<<"localFaceEdgeInd2:"<<localFaceEdgeInd2<<Foam::endl;
-                                Info<<"localFaceEdgeInd3:"<<localFaceEdgeInd3<<Foam::endl;
-                                Info<<"cutEdge1VerticeInd:"<<cutEdge1VerticeInd<<Foam::endl;
-                                Info<<"cutEdge2VerticeInd:"<<cutEdge2VerticeInd<<Foam::endl;
-                                Info<<"cutEdge3VerticeInd:"<<cutEdge3VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge1VerticeInd:"<<locCutEdge1VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge2VerticeInd:"<<locCutEdge2VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge3VerticeInd:"<<locCutEdge3VerticeInd<<Foam::endl;
-                                FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
-                            }
-                            foundCutFaceEdges=true;
-                            which_Triangle_Vertice=0;
-                            edge_Vert_Ind1 = cutEdge1VerticeInd;
-                            edge_Vert_Ind2 = cutEdge2VerticeInd;
+                                FatalErrorInFunction<<"Multiple edges cut one face!"<< exit(FatalError);
+                            foundCutFaceEdges = true;
+                            which_Triangle_Vertice = ip0;
+                            cutEdgeVertice0 = triangleVertices[ip0];
+                            cutEdgeVertice1 = triangleVertices[ip1];
                         }
                     }
-                    
-                    if(locCutEdge2VerticeInd!=-1 && locCutEdge3VerticeInd!=-1)
-                    {
-                        if(thisFace.fcIndex(locCutEdge2VerticeInd) != locCutEdge3VerticeInd &&
-                           thisFace.rcIndex(locCutEdge2VerticeInd) != locCutEdge3VerticeInd)
-                        {
-                            if(foundCutFaceEdges)
-                            {
-                                Info<<"thisFace:"<<thisFace<<Foam::endl;
-                                Info<<"localFaceEdgeInd1:"<<localFaceEdgeInd1<<Foam::endl;
-                                Info<<"localFaceEdgeInd2:"<<localFaceEdgeInd2<<Foam::endl;
-                                Info<<"localFaceEdgeInd3:"<<localFaceEdgeInd3<<Foam::endl;
-                                Info<<"cutEdge1VerticeInd:"<<cutEdge1VerticeInd<<Foam::endl;
-                                Info<<"cutEdge2VerticeInd:"<<cutEdge2VerticeInd<<Foam::endl;
-                                Info<<"cutEdge3VerticeInd:"<<cutEdge3VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge1VerticeInd:"<<locCutEdge1VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge2VerticeInd:"<<locCutEdge2VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge3VerticeInd:"<<locCutEdge3VerticeInd<<Foam::endl;
-                                FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
-                            }
-                            foundCutFaceEdges=true;
-                            which_Triangle_Vertice=1;
-                            edge_Vert_Ind1 = cutEdge2VerticeInd;
-                            edge_Vert_Ind2 = cutEdge3VerticeInd;
-                        }
-                    }
-                    
-                    if(locCutEdge3VerticeInd!=-1 && locCutEdge1VerticeInd!=-1)
-                    {
-                        if(thisFace.fcIndex(locCutEdge3VerticeInd) != locCutEdge1VerticeInd &&
-                           thisFace.rcIndex(locCutEdge3VerticeInd) != locCutEdge1VerticeInd)
-                        {
-                            if(foundCutFaceEdges)
-                            {
-                                Info<<"thisFace:"<<thisFace<<Foam::endl;
-                                Info<<"localFaceEdgeInd1:"<<localFaceEdgeInd1<<Foam::endl;
-                                Info<<"localFaceEdgeInd2:"<<localFaceEdgeInd2<<Foam::endl;
-                                Info<<"localFaceEdgeInd3:"<<localFaceEdgeInd3<<Foam::endl;
-                                Info<<"cutEdge1VerticeInd:"<<cutEdge1VerticeInd<<Foam::endl;
-                                Info<<"cutEdge2VerticeInd:"<<cutEdge2VerticeInd<<Foam::endl;
-                                Info<<"cutEdge3VerticeInd:"<<cutEdge3VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge1VerticeInd:"<<locCutEdge1VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge2VerticeInd:"<<locCutEdge2VerticeInd<<Foam::endl;
-                                Info<<"locCutEdge3VerticeInd:"<<locCutEdge3VerticeInd<<Foam::endl;
-                                FatalErrorInFunction<<"More than two edges!"<< exit(FatalError);
-                            }
-                            foundCutFaceEdges=true;
-                            which_Triangle_Vertice=2;
-                            edge_Vert_Ind1 = cutEdge3VerticeInd;
-                            edge_Vert_Ind2 = cutEdge1VerticeInd;
-                        }
-                    }
-
                     if(foundCutFaceEdges)
                     {
                         std::pair<std::pair<label,label>,std::pair<label,label>> keyValue =       
-                                    {std::pair<label,label>(loc_edg_Ind1,loc_edg_Ind2),
+                                    {std::pair<label,label>(cutEdgeVertice0,cutEdgeVertice1),
                                      std::pair<label,label>(k,which_Triangle_Vertice)};
                         addedEdgesFromSide[j].insert(keyValue);
-                                                      
                         areThereCutsInFace[j] = true;
+                    }
+                    
+                    if(faceInd==803686)
+                    {
+                        Info<<"localFaceEdgesInd:("<<localFaceEdgeInd1<<","<<localFaceEdgeInd2<<","<<localFaceEdgeInd3<<")  "<<foundCutFaceEdges<<Foam::endl;
+                        Info<<"cutEdge1VerticeInd:"<<cutEdge1VerticeInd<<"   cutEdge2VerticeInd:"<<cutEdge2VerticeInd<<"   cutEdge3VerticeInd:"<<cutEdge3VerticeInd<<Foam::endl;
                     }
                 }
             }
@@ -1543,12 +1464,6 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                 cutEdgeIter0!=addedEdgesFromSide[0].cend();
                 cutEdgeIter0++)
             {
-                label loc_edgInd1 = cutEdgeIter0->first.first;
-                label loc_edgInd2 = cutEdgeIter0->first.second;
-                if(loc_edgInd1>=thisFaceEdges.size() || loc_edgInd1<0 || 
-                   loc_edgInd2>=thisFaceEdges.size() || loc_edgInd2<0)
-                    FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
-                
                 label triangleNbr = cutEdgeIter0->second.first;
                 label verticeNbr = cutEdgeIter0->second.second;
                 
@@ -1561,6 +1476,10 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                 
                 label mc33_edg_vert1 = thisCellCube.cutEdgeVerticeIndex[mc33_loc_edg1];
                 label mc33_edg_vert2 = thisCellCube.cutEdgeVerticeIndex[mc33_loc_edg2];
+                
+                if(!((cutEdgeIter0->first.first==mc33_edg_vert1 || cutEdgeIter0->first.first==mc33_edg_vert2) &&
+                    (cutEdgeIter0->first.second==mc33_edg_vert1 || cutEdgeIter0->first.second==mc33_edg_vert2)))
+                    FatalErrorInFunction<<"Invalid!"<< exit(FatalError);
                 
                 if(mc33_edg_vert1 != mc33_edg_vert2)
                 //Avoid null triangles
@@ -1604,7 +1523,16 @@ void Foam::cutCellFvMesh::newMeshEdges_MC33
                         edgeToFaces_[edgeToFaces_.size()-1].append(faceInd);
                     }
                 }
+                
             }
+        }
+        
+        if(faceInd==803686)
+        {
+            Info<<"cellsOfThisFace.size():"<<cellsOfThisFace.size()<<Foam::endl;
+            Info<<"thisFace:"<<thisFace<<Foam::endl;
+            Info<<"areThereCutsInFace[0]:"<<areThereCutsInFace[0]<<Foam::endl;
+            
         }
     }
 
@@ -1804,6 +1732,20 @@ void Foam::cutCellFvMesh::newMeshFaces_MC33
                     cellToFaces_[cellInd].append(newMeshFaces_.size()-1);
                 }
             }
+            if(cellInd==144059)
+            {
+                Info<<"----------------------------"<<Foam::endl;
+                Info<<"thisCellCube.bitPattern:"<<thisCellCube.bitPattern<<Foam::endl;
+                Info<<"thisCellCube.vertices:"<<thisCellCube.vertices<<Foam::endl;
+                Info<<"thisCellCube.cubeCase:"<<thisCellCube.cubeCase<<Foam::endl;
+                for(auto tuple : thisCellCube.cutTriangles)
+                {
+                    Info<<"("<<std::get<0>(tuple)<<","<<std::get<1>(tuple)<<","<<std::get<2>(tuple)<<")"<<"  ";
+                }
+                Info<<Foam::endl;
+                Info<<"thisCellCube.cutEdgeVerticeIndex:"<<thisCellCube.cutEdgeVerticeIndex<<Foam::endl;
+                Info<<"----------------------------"<<Foam::endl;
+            }
         }
     }
     
@@ -1915,6 +1857,7 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
 
     oldFacesToCutFaces_.setSize(meshFaces.size());
     Info<<"cutFaces_.size():"<<cutFaces_.size()<<Foam::endl;
+    Info<<"oldFacesToCutFaces_.size():"<<oldFacesToCutFaces_.size()<<Foam::endl;
     
     for(int i=0;i<meshFaces.size();i++)
     {
@@ -2096,6 +2039,14 @@ void Foam::cutCellFvMesh::cutOldFaces_MC33
                 cutFacesToSide_.append(signFace2);
                 oldFacesToCutFaces_[i].append(cutFaces_.size()-1);
             }
+        }
+        
+        if(i==803686)
+        {
+            Info<<"neighborCell:"<<neighborCell<<Foam::endl;
+            Info<<"ownerCell:"<<ownerCell<<Foam::endl;
+            Info<<"faceToEdges_["<<i<<"]:"<<faceToEdges_[i]<<Foam::endl;
+            Info<<"oldFacesToCutFaces_["<<i<<"].size():"<<oldFacesToCutFaces_[i].size()<<Foam::endl;
         }
     }
 }
@@ -3443,6 +3394,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
             }
             else if(facesToSide_[i] == 0)
             {
+                Info<<"oldFacesToCutFaces_["<<i<<"].size():"<<oldFacesToCutFaces_[i].size()<<Foam::endl;
                 Info<<"meshFaces["<<i<<"]:"<<meshFaces[i]<<Foam::endl;
                 for(label vert : meshFaces[i])
                     Info<<"("<<pointsToSide_[vert]<<","<<pointDist[vert]<<")"<<Foam::endl;
