@@ -73,9 +73,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>> faceToEdges = {{0,{0,1,4,5}},{1,{1,5,9,10}},{2,{2,6,10,11}},{3,{3,7,8,11}},{4,{0,1,2,3}},{5,{4,5,6,7}}};
         
         void checkPermutation();
-        
-        #include "ConvexCorrection.H"
-        
+
         class MC33{
             public:
                 enum Case { c0=0,c1=1,c2=2,c31=3,c32=4,c411=5,c412=6,c5=7,c611=8,c612=9,c62=10,c71=11,c72=12,
@@ -136,6 +134,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 bool cellIsCut(int cellInd);
                 bool detectInFaceTriangles(std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& triangle);
         };
+        
+        #include "ConvexCorrection.H"
 
     //Private Attributes
     private:
