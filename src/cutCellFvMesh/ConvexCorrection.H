@@ -1,9 +1,19 @@
 enum VType {cubePnt=0,cutEdge=1,centerPnt=2,edgePntAdded=3};
+class addedPointPos
+{
+public:
+    std::pair<VType,std::uint8_t> distStart;
+    std::pair<VType,std::uint8_t> distEnd;
+    std::pair<VType,std::uint8_t> measureStart;
+    std::pair<VType,std::uint8_t> measureEnd;
+};
 class corrFaceVertice
 {
 public:
     VType type;
     std::uint8_t value;
+    addedPointPos position;
+    corrFaceVertice(VType type,std::uint8_t value,addedPointPos position):type(type),value(value),position(position){}
     corrFaceVertice(VType type,std::uint8_t value):type(type),value(value){}
     corrFaceVertice(){}
 };
@@ -131,6 +141,7 @@ void createConvexCorrectionData()
         corrFace addedAtEdge1to4={FType::added,{{VType::cutEdge,1} ,{VType::cubePnt,1},{VType::cutEdge,4}},-1};//12
         corrFace addedAtEdge1to8={FType::added,{{VType::cutEdge,1} ,{VType::cubePnt,1},{VType::cutEdge,8}},-1};
 
+/*
         //Cell 0 {14,15}
         corrFace split1Part1= {FType::,{},1};
         corrFace split5Part1= {FType::,{},5};
@@ -162,6 +173,7 @@ void createConvexCorrectionData()
                                             };
         
     convexCorrectionData[MC33::Case::c32] = {{{{}},{}},nonRedMarkSide};
+*/
 }
 
 // Case c5

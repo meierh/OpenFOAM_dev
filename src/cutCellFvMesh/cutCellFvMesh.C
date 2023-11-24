@@ -5088,6 +5088,116 @@ label Foam::cutCellFvMesh::getFaceIndFromPntList
     return matchingFaceInd;
 }
 
+bool Foam::cutCellFvMesh::verticesAreIdentical
+(
+    const corrFaceVertice& vert1,
+    const corrFaceVertice& vert2,
+    const MC33::MC33Cube& mc33cube,
+    corrFaceVertice& vertResult
+)
+{
+    corrFaceVertice match;
+    
+    label globalPnt1;
+    label globalPnt2;
+    if(vert1.type==VType::cubePnt)
+    {
+        globalPnt1 = mc33cube.vertices[vert1.value];
+        if(vert2.type==VType::cubePnt)
+        {
+            if(vert1.value==vert2.value)
+            {
+                vertResult.type = vert1.type;
+                vertResult.value = vert1.value;
+                return true;
+            }
+            else
+                return false;
+        }
+        else if(vert2.type==VType::cutEdge)
+        {
+            globalPnt2 = mc33cube.cutEdgeVerticeIndex[vert2.value];
+            if(globalPnt1==-1 || globalPnt2==-1)
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            if(globalPnt1==globalPnt2)
+            {
+                vertResult.type = vert1.type;
+                vertResult.value = vert1.value;
+                return true;
+            }
+            else
+                return false;
+        }
+        else
+            FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+    }
+    else if(vert1.type==VType::cutEdge)
+    {
+        globalPnt1 = mc33cube.cutEdgeVerticeIndex[vert1.value];
+        if(vert2.type==VType::cubePnt)
+        {
+            globalPnt2 = mc33cube.vertices[vert2.value];
+            if(globalPnt1==-1 || globalPnt2==-1)
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            if(globalPnt1==globalPnt2)
+            {
+                vertResult.type = vert2.type;
+                vertResult.value = vert2.value;
+                return true;
+            }
+            else
+                return false;
+        }
+        else if(vert2.type==VType::cutEdge)
+        {
+            globalPnt2 = mc33cube.cutEdgeVerticeIndex[vert2.value];
+            if(globalPnt1==-1 || globalPnt2==-1)
+                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            if(globalPnt1==globalPnt2)
+            {
+                vertResult.type = vert2.type;
+                vertResult.value = vert2.value;
+                return true;
+            }
+            else
+                return false;
+        }
+        else
+            FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+    }
+    else
+        FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+    return false;
+}
+
+void Foam::cutCellFvMesh::getGlobalPoint
+(
+    const corrFaceVertice& vert,
+    const MC33::MC33Cube& mc33cube,
+    const pointField& points,
+    label& verticeInd,
+    vector& verticePoint
+)
+{   
+    label globalPnt=-1;
+    if(vert.type==VType::cubePnt)
+        globalPnt = mc33cube.vertices[vert.value];
+    else if(vert.type==VType::cutEdge)
+        globalPnt = mc33cube.cutEdgeVerticeIndex[vert.value];
+    else if(vert.type==VType::centerPnt)
+        globalPnt = mc33cube.centerPointInd;
+    else
+        FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+    
+    if(globalPnt==-1)
+        FatalErrorInFunction<<"Point does not exist in mc33Cube"<< exit(FatalError);
+    
+    verticeInd = globalPnt;
+    verticePoint = points[globalPnt];
+}
+
+
+
 std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC2
 (
     const cell& thisCell,
@@ -5098,16 +5208,119 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
     Info<<"Nonconvex correction C2"<<Foam::endl;
     
     label oldCellIndex = cellMap[cellInd];
-    MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
+    const MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
         FatalErrorInFunction<<"Error"<< exit(FatalError);
     
     if(mc33cube.cubeCase!=MC33::Case::c2)
         FatalErrorInFunction<<"Error"<< exit(FatalError);
-    
+        
     auto newCellDataPtr = std::unique_ptr<CellSplitData>(new CellSplitData());
     CellSplitData& newCellData = *newCellDataPtr;
     newCellData.originalCell = cellInd;
+    
+    const markSide& c2convexCorr = convexCorrectionData[MC33::Case::c2];
+    corrConcaveCellData corrData;
+    if(mc33cube.redMarkIsPlusSide)
+        corrData = c2convexCorr.redMarkPlus;
+    else
+        corrData = c2convexCorr.redMarkNotPlus;
+    
+    //Process possible added point
+    bool addedPntsInConvexCorr = false;
+    std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
+    for(corrFace& oneFace : corrData.faces)
+    {
+        for(corrFaceVertice& oneVert : oneFace.faceData)
+        {
+            if(oneVert.type==VType::edgePntAdded)
+            {
+                addedPntsInConvexCorr=true;
+                
+                const addedPointPos& position = oneVert.position;
+                const std::pair<VType,std::uint8_t> distStart = position.distStart;
+                const std::pair<VType,std::uint8_t> distEnd = position.distEnd;
+                const std::pair<VType,std::uint8_t> measureStart = position.measureStart;
+                const std::pair<VType,std::uint8_t> measureEnd = position.measureEnd;
+                corrFaceVertice distStartVert = {distStart.first,distStart.second};
+                corrFaceVertice distEndVert = {distEnd.first,distEnd.second};
+                corrFaceVertice measureStartVert = {measureStart.first,measureStart.second};
+                corrFaceVertice measureEndVert = {measureEnd.first,measureEnd.second};
+                corrFaceVertice match;
+                if(verticesAreIdentical(distStartVert,distEndVert,mc33cube,match))
+                {
+                    if(match.type!=VType::cubePnt)
+                        FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    oneVert = {position.measureStart.first,position.measureStart.second};
+                }
+                else
+                {
+                    label distStartInd;
+                    vector distStartVec;
+                    getGlobalPoint(oneVert,mc33cube,new_points,distStartInd,distStartVec);
+                    label distEndInd;
+                    vector distEndVec;
+                    getGlobalPoint(oneVert,mc33cube,new_points,distEndInd,distEndVec);
+                    label measureStartInd;
+                    vector measureStartVec;
+                    getGlobalPoint(oneVert,mc33cube,new_points,measureStartInd,measureStartVec);
+                    label measureEndInd;
+                    vector measureEndVec;
+                    getGlobalPoint(oneVert,mc33cube,new_points,measureEndInd,measureEndVec);
+                    
+                    scalar distLen = norm2(distStartVec-distEndVec);
+                    scalar measureLen = norm2(measureStartVec-measureEndVec);
+                    
+                    vector addedPoint = (distLen/measureLen) * (measureEndVec-measureStartVec) + measureStartVec;
+                    
+                    if(edgeToAddedPntInd.find(oneVert.value)!=edgeToAddedPntInd.end())
+                    {
+                        edgeToAddedPntInd[oneVert.value] = newCellData.addedPoints.size();
+                        newCellData.addedPoints.append({addedPoint,edge(measureStartInd,measureEndInd)});
+                    }
+                }
+            }
+        }
+    }
+    
+    //Reduce duplicate vertices in faces
+    for(corrFace& oneFace : corrData.faces)
+    {
+        DynamicList<corrFaceVertice> faceData;
+        label vertInd0 = 0;
+        corrFaceVertice& vert0 = oneFace.faceData[vertInd0];
+        faceData.append(vert0);
+        do
+        {
+            label vertInd1 = (vertInd0+1)%oneFace.faceData.size();
+            corrFaceVertice& vert1 = oneFace.faceData[vertInd1];
+            corrFaceVertice match;
+            if(!verticesAreIdentical(vert0,vert1,mc33cube,match))
+            {
+                faceData.append(vert1);
+            }
+            vert0 = vert1;
+            vertInd0++;
+        }
+        while(vertInd0<oneFace.faceData.size());
+        oneFace.faceData = faceData;
+    }
+    
+    //Remove empty faces from cells
+    for(List<label>& oneCell : corrData.cells)
+    {
+        DynamicList<label> reducedCell;
+        for(label oneFaceInd : oneCell)
+        {
+            const corrFace& oneFace = corrData.faces[oneFaceInd];
+            if(oneFace.faceData.size()>2)
+                reducedCell.append(oneFaceInd);
+        }
+        oneCell = reducedCell;
+    }
+
+    
+    
     
     std::unordered_set<label> verticeOfCell;
     for(label vertice : thisCell.labels(new_faces))

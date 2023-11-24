@@ -768,6 +768,23 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             scalar partialThreeshold = 0.01
         );
         
+        bool verticesAreIdentical
+        (
+            const corrFaceVertice& vert1,
+            const corrFaceVertice& vert2,
+            const MC33::MC33Cube& mc33cube,
+            corrFaceVertice& vertResult
+        );
+        
+        void getGlobalPoint
+        (
+            const corrFaceVertice& vert,
+            const MC33::MC33Cube& mc33cube,
+            const pointField& points,
+            label& verticeInd,
+            vector& verticePoint
+        );
+        
         std::unique_ptr<CellSplitData> nonConvexCellSplitC2
         (
             const cell& thisCell,
