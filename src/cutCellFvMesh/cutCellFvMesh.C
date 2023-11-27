@@ -5196,36 +5196,143 @@ void Foam::cutCellFvMesh::getGlobalPoint
     verticePoint = points[globalPnt];
 }
 
+label Foam::cutCellFvMesh::getGlobalPoint
+(
+    const corrFaceVertice& vert,
+    const MC33::MC33Cube& mc33cube,
+    const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
+    const pointField& points
+)
+{
+    label globalPnt=-1;
+    if(vert.type!=VType::edgePntAdded)
+    {
+        vector globalPntVec;
+        getGlobalPoint(vert,mc33cube,points,globalPnt,globalPntVec);
+    }
+    else
+    {
+        auto iter = edgeToAddedPntInd.find(vert.value);
+        if(iter==edgeToAddedPntInd.end())
+            FatalErrorInFunction<<"Point does not exist"<< exit(FatalError);
+        globalPnt = iter->second;
+    }
+    if(globalPnt==-1)
+        FatalErrorInFunction<<"Invalid point label!"<< exit(FatalError);
+    return globalPnt;    
+}
 
+face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
+(
+    const corrFace& abstrFace,
+    const MC33::MC33Cube& mc33cube,
+    const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
+    const pointField& points
+)
+{
+    DynamicList<label> globalVertices;
+    for(const corrFaceVertice& vert : abstrFace.faceData)
+    {
+        globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
+    }
+    return face(globalVertices);
+}
 
-std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC2
+Foam::cutCellFvMesh::FaceRelation Foam::cutCellFvMesh::facesOverlay
+(
+    const face& face1,
+    const face& face2
+)
+{
+    std::unordered_set<label> face1Set(face1.begin(),face1.end());
+    std::unordered_set<label> face2Set(face2.begin(),face2.end());
+    
+    if(face1.size()==face2.size())
+    {
+        bool allMatch = true;
+        label matching=0;
+        for(label vert1 : face1)
+        {
+            auto iter =  face2Set.find(vert1);
+            if(iter==face2Set.end())
+                allMatch = false;
+            else
+                matching++;
+        }
+        if(allMatch)
+            return FaceRelation::Ident;
+        else
+        {
+            if(matching>2)
+                return FaceRelation::mixedOverlay;
+            else
+                return FaceRelation::none;
+        }
+    }
+    else if(face1.size()>face2.size())
+    {
+        bool allMatch = true;
+        label matching=0;
+        for(label vert2 : face2)
+        {
+            auto iter =  face1Set.find(vert2);
+            if(iter==face1Set.end())
+                allMatch = false;
+            else
+                matching++;
+        }
+        if(allMatch)
+            return FaceRelation::twoInOne;
+        else
+        {
+            if(matching>2)
+                return FaceRelation::mixedOverlay;
+            else
+                return FaceRelation::none;
+        }
+    }
+    else if(face2.size()>face1.size())
+    {
+        bool allMatch = true;
+        label matching=0;
+        for(label vert1 : face1)
+        {
+            auto iter =  face2Set.find(vert1);
+            if(iter==face2Set.end())
+                allMatch = false;
+            else
+                matching++;
+        }
+        if(allMatch)
+            return FaceRelation::oneInTwo;
+        else
+        {
+            if(matching>2)
+                return FaceRelation::mixedOverlay;
+            else
+                return FaceRelation::none;
+        }
+    }
+    return FaceRelation::none;
+}
+
+std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generateCellSplitData
 (
     const cell& thisCell,
     const label cellInd,
-    std::unique_ptr<List<scalar>> faceToCellCenterRelation
+    corrConcaveCellData& corrData,
+    std::function<bool(const corrConcaveCellData&, const List<face>&, label)> isCellValid
 )
 {
-    Info<<"Nonconvex correction C2"<<Foam::endl;
-    
     label oldCellIndex = cellMap[cellInd];
     const MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
-        FatalErrorInFunction<<"Error"<< exit(FatalError);
-    
-    if(mc33cube.cubeCase!=MC33::Case::c2)
         FatalErrorInFunction<<"Error"<< exit(FatalError);
         
     auto newCellDataPtr = std::unique_ptr<CellSplitData>(new CellSplitData());
     CellSplitData& newCellData = *newCellDataPtr;
     newCellData.originalCell = cellInd;
-    
-    const markSide& c2convexCorr = convexCorrectionData[MC33::Case::c2];
-    corrConcaveCellData corrData;
-    if(mc33cube.redMarkIsPlusSide)
-        corrData = c2convexCorr.redMarkPlus;
-    else
-        corrData = c2convexCorr.redMarkNotPlus;
-    
+
     //Process possible added point
     bool addedPntsInConvexCorr = false;
     std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
@@ -5251,6 +5358,10 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
                 {
                     if(match.type!=VType::cubePnt)
                         FatalErrorInFunction<<"Error"<< exit(FatalError);
+                    if(edgeToAddedPntInd.find(oneVert.value)!=edgeToAddedPntInd.end())
+                    {
+                        edgeToAddedPntInd[oneVert.value] = measureStartVert.value;
+                    }
                     oneVert = {position.measureStart.first,position.measureStart.second};
                 }
                 else
@@ -5318,218 +5429,139 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConv
         }
         oneCell = reducedCell;
     }
-
     
-    
-    
-    std::unordered_set<label> verticeOfCell;
-    for(label vertice : thisCell.labels(new_faces))
-        verticeOfCell.insert(vertice);
-    
-    const std::array<unsigned short int,8>& pntPerm = permutationTable[mc33cube.permutationTableIndex];
-    const std::array<std::uint8_t,12> edgPerm = mc33cube.edgePermutation;
-    
-    label cutPntEdge5Ind = memSecMC33CutEdgePntInd(edgPerm[5],mc33cube,verticeOfCell);
-    label cutPntEdge7Ind = memSecMC33CutEdgePntInd(edgPerm[7],mc33cube,verticeOfCell);
-    label cutPntEdge8Ind = memSecMC33CutEdgePntInd(edgPerm[8],mc33cube,verticeOfCell);
-    label cutPntEdge9Ind = memSecMC33CutEdgePntInd(edgPerm[9],mc33cube,verticeOfCell);
-
-    label cutFaceUpperInd = getFaceIndFromPntList(thisCell,{cutPntEdge7Ind,cutPntEdge5Ind,cutPntEdge9Ind});
-    label cutFaceLowerInd = getFaceIndFromPntList(thisCell,{cutPntEdge7Ind,cutPntEdge8Ind,cutPntEdge9Ind});
-    
-    if(thisCell.size()==5)
+    //Create cell in newCellData
+    List<face> nonConvexCellFaces(corrData.faces.size());
+    for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
-        if(!testCorrectFaceSizes({0,0,0,3,2,0,0,0,0,0},thisCell) ||
-           mc33cube.redMarkIsPlusSide)
-            FatalErrorInFunction<<"Error"<< exit(FatalError);
-        FatalErrorInFunction<<"Can not be nonconvex!"<< exit(FatalError);
-    }
-    if(thisCell.size()==6)
-    {
-        if(!testCorrectFaceSizes({0,0,0,4,2,0,0,0,0,0},thisCell))
-            FatalErrorInFunction<<"Error"<< exit(FatalError);
-        
-        if(mc33cube.redMarkIsPlusSide)
+        face& globFace = nonConvexCellFaces[faceInd];
+        const corrFace& abstrFace = corrData.faces[faceInd];
+        if(abstrFace.faceData.size()>2)
         {
-            label pnt4Ind = memSecMC33VerticePntInd(pntPerm[4],mc33cube,verticeOfCell);        
-            label pnt5Ind = memSecMC33VerticePntInd(pntPerm[5],mc33cube,verticeOfCell);
-            
-            label face1Ind = getFaceIndFromPntList(thisCell,{cutPntEdge5Ind,cutPntEdge9Ind,pnt5Ind});
-            label face3Ind = getFaceIndFromPntList(thisCell,{cutPntEdge7Ind,cutPntEdge8Ind,pnt4Ind});
-
-            label face0Ind = getFaceIndFromPntList(thisCell,{cutPntEdge8Ind,cutPntEdge9Ind,pnt4Ind,pnt5Ind});
-            scalar face0Size = new_faces[face0Ind].mag(new_points);
-            label face5Ind = getFaceIndFromPntList(thisCell,{cutPntEdge5Ind,cutPntEdge7Ind,pnt4Ind,pnt5Ind});
-            scalar face5Size = new_faces[face5Ind].mag(new_points);
-            
-            if(face0Size > face5Size)
+            globFace = abstrFaceToGlobalFaceTransfer(abstrFace,mc33cube,edgeToAddedPntInd,new_points);
+        }
+    }
+    List<bool> validCells(corrData.cells.size(),false);
+    for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
+    {
+        validCells[cellInd] = isCellValid(corrData,nonConvexCellFaces,cellInd);
+    }
+    List<bool> usedFace(corrData.faces.size(),false);
+    for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
+    {
+        const List<label>& oneCell = corrData.cells[cellInd];
+        if(validCells[cellInd])
+        {
+            for(label faceInd : oneCell)
+                usedFace[faceInd] = true;
+        }
+    }
+    
+    enum FaceType{original=0,splitted=1,added=2};
+    List<std::pair<FaceType,label>> facesStoreInfo(nonConvexCellFaces.size());
+    for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
+    {
+        const corrFace& oneFace = corrData.faces[faceInd];
+        const face& globFace = nonConvexCellFaces[faceInd];
+        switch(oneFace.type)
+        {
+            case FType::mc33Triangle:
+            {}
+            case FType::old:
+            {}
+            case FType::orig:
             {
-                face addFace(List<label>({cutPntEdge9Ind,cutPntEdge7Ind,pnt4Ind}));
-                newCellData.addedFace.append(addFace);
-                
-                face splitFace1(List<label>({pnt4Ind,cutPntEdge9Ind,cutPntEdge8Ind}));
-                newCellData.splittedFaces.append({splitFace1,face0Ind});
-                face splitFace2(List<label>({pnt4Ind,pnt5Ind,cutPntEdge9Ind}));
-                newCellData.splittedFaces.append({splitFace2,face0Ind});
-                
-                newCellData.cells.append(
-                    {
-                        labelList({face3Ind,cutFaceLowerInd}),
-                        labelList({0}),
-                        labelList({0})
-                    });            
-                newCellData.cells.append(
-                    {
-                        labelList({face1Ind,cutFaceUpperInd,face5Ind}),
-                        labelList({1}),
-                        labelList({0})
-                    });
+                label faceInd = oneFace.origFace;
+                // face Ind Transformation necessary
+                facesStoreInfo[faceInd] = {FaceType::original,faceInd};
+                break;
             }
-            else
+            case FType::splitOld:
+            {}
+            case FType::splitOrig:
             {
-                face addFace(List<label>({cutPntEdge7Ind,pnt5Ind,cutPntEdge9Ind}));
-                newCellData.addedFace.append(addFace);
-                
-                face splitFace1(List<label>({cutPntEdge7Ind,pnt5Ind,cutPntEdge5Ind}));
-                newCellData.splittedFaces.append({splitFace1,face0Ind});
-                face splitFace2(List<label>({pnt4Ind,pnt5Ind,cutPntEdge7Ind}));
-                newCellData.splittedFaces.append({splitFace2,face0Ind});
-                
-                newCellData.cells.append(
-                    {
-                        labelList({face1Ind,cutFaceUpperInd}),
-                        labelList({0}),
-                        labelList({0})
-                    });            
-                newCellData.cells.append(
-                    {
-                        labelList({face3Ind,cutFaceLowerInd,face0Ind}),
-                        labelList({1}),
-                        labelList({0})
-                    });
+                facesStoreInfo[faceInd] = {FaceType::splitted,newCellData.splittedFaces.size()};
+                label faceInd = oneFace.origFace;
+                // face Ind Transformation necessary
+                newCellData.splittedFaces.append({globFace,faceInd});
+                break;
+            }
+            case FType::added:
+            {
+                facesStoreInfo[faceInd] = {FaceType::added,newCellData.addedFace.size()};
+                newCellData.addedFace.append(globFace);
+                break;
             }
         }
-        else
-        {
-            // Can only happen if cut points are orignal points
-            FatalErrorInFunction<<"Can not be nonconvex!"<< exit(FatalError);
-        }
     }
-    else if(thisCell.size()==8)
+    
+    for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
-        if(mc33cube.redMarkIsPlusSide)
-            FatalErrorInFunction<<"Error"<< exit(FatalError);
-
-        label pnt0Ind = memSecMC33VerticePntInd(pntPerm[0],mc33cube,verticeOfCell);
-        label pnt1Ind = memSecMC33VerticePntInd(pntPerm[1],mc33cube,verticeOfCell);
-        label pnt2Ind = memSecMC33VerticePntInd(pntPerm[2],mc33cube,verticeOfCell);        
-        label pnt3Ind = memSecMC33VerticePntInd(pntPerm[3],mc33cube,verticeOfCell);
-        label pnt6Ind = memSecMC33VerticePntInd(pntPerm[6],mc33cube,verticeOfCell);
-        label pnt7Ind = memSecMC33VerticePntInd(pntPerm[7],mc33cube,verticeOfCell);
-
-        label face1Ind = getFaceIndFromPntList(thisCell,{cutPntEdge5Ind,cutPntEdge9Ind,pnt2Ind});        
-        label face3Ind = getFaceIndFromPntList(thisCell,{cutPntEdge7Ind,cutPntEdge8Ind,pnt3Ind});
-
-        label face0Ind = -1;
-        if(cutPntEdge8Ind!=pnt0Ind && cutPntEdge9Ind!=pnt1Ind)
+        if(validCells[cellInd])
         {
-            face0Ind = getFaceIndFromPntList(thisCell,{cutPntEdge8Ind,cutPntEdge9Ind,pnt0Ind,pnt1Ind});
-        }
-        label face2Ind = getFaceIndFromPntList(thisCell,{pnt2Ind,pnt3Ind,pnt6Ind,pnt7Ind});
-        
-        label face5Ind = -1;
-        if(cutPntEdge7Ind!=pnt7Ind && cutPntEdge7Ind!=pnt6Ind)
-        {
-            face5Ind = getFaceIndFromPntList(thisCell,{cutPntEdge5Ind,cutPntEdge7Ind,pnt6Ind,pnt7Ind});
-        }
-        label face4Ind = getFaceIndFromPntList(thisCell,{pnt0Ind,pnt1Ind,pnt2Ind,pnt3Ind});
-
-        scalar edge7Len = norm2(new_points[cutPntEdge7Ind]-new_points[pnt7Ind]);
-        //scalar edge9Len = norm2(new_points[cutPntEdge9Ind]-new_points[pnt1Ind]);
-            
-        scalar edge3Len = norm2(new_points[pnt0Ind]-new_points[pnt3Ind]);
-        //scalar edgeALen = norm2(new_points[pnt6Ind]-new_points[pnt2Ind]);
-        
-        bool pnt7IsZero = (cutPntEdge7Ind==pnt7Ind);
-        bool pnt1IsZero = (cutPntEdge9Ind==pnt1Ind);
-        
-        vector addedPointAtEdge3;
-        DynamicList<label> addFaceLis({pnt1Ind});
-        DynamicList<label> splitFace4Face1Lis;
-        DynamicList<label> splitFace4Face2Lis;
-        if(!pnt7IsZero)
-        {
-            addedPointAtEdge3 = (edge7Len/edge3Len) * (new_points[pnt0Ind]-new_points[pnt3Ind]) + new_points[pnt3Ind];
-            newCellData.addedPoints.append({addedPointAtEdge3,edge(pnt0Ind,pnt3Ind)});
-            newCellData.addedPointsLimit = new_points.size();
-            
-            addFaceLis.append(newCellData.addedPointsLimit);
-            addFaceLis.append(cutPntEdge7Ind);
-            
-            face splitFace3Face1(List<label>({pnt3Ind,pnt7Ind,cutPntEdge7Ind,newCellData.addedPointsLimit}));
-            newCellData.splittedFaces.append({splitFace3Face1,face3Ind});
-            face splitFace3Face2(List<label>({cutPntEdge7Ind,cutPntEdge8Ind,pnt0Ind,newCellData.addedPointsLimit}));
-            newCellData.splittedFaces.append({splitFace3Face2,face3Ind});
-            
-            splitFace4Face1Lis = {newCellData.addedPointsLimit,pnt0Ind,pnt1Ind};
-            splitFace4Face2Lis = {pnt1Ind,pnt2Ind,pnt3Ind,newCellData.addedPointsLimit};
-        }
-        else
-        {
-            addFaceLis.append(pnt3Ind);
-            addFaceLis.append(pnt7Ind);
-            
-            splitFace4Face1Lis = {pnt3Ind,pnt0Ind,pnt1Ind};
-            splitFace4Face2Lis = {pnt1Ind,pnt2Ind,pnt3Ind};
-        }
-        if(!pnt1IsZero)
-        {
-            addFaceLis.append(cutPntEdge9Ind);
-        }
-        else
-        {
-        }
-        
-        face addFace(addFaceLis);
-        newCellData.addedFace.append(addFace);
-                    
-        newCellData.splittedFaces.append({face(splitFace4Face1Lis),face4Ind});
-        newCellData.splittedFaces.append({face(splitFace4Face2Lis),face4Ind});
-        
-        newCellData.cells.append(
+            const List<label>& oneCell = corrData.cells[cellInd];
+            CellFaces oneCellData;
+            DynamicList<label> originalFaceInds;
+            DynamicList<label> splittedFaceInds;
+            DynamicList<label> addedFaceInds;
+            for(label cellFaceInd : oneCell)
             {
-                labelList({face2Ind,cutFaceUpperInd,face1Ind}),
-                labelList({}),
-                labelList({0})
-            });            
-        newCellData.cells.append(
-            {
-                labelList({cutFaceLowerInd}),
-                labelList({}),
-                labelList({0})
-            });
-        if(face0Ind!=-1)
-            newCellData.cells[1].originalFaceInds.append(face0Ind);
-        
-        if(face5Ind!=-1)
-            newCellData.cells[0].originalFaceInds.append(face5Ind);
-        
-        if(!pnt7IsZero)
-        {
-            newCellData.cells[0].splittedFaceInds.append(0);
-            newCellData.cells[0].splittedFaceInds.append(3);
-            newCellData.cells[1].splittedFaceInds.append(1);
-            newCellData.cells[1].splittedFaceInds.append(2);
-        }
-        else
-        {
-            newCellData.cells[1].originalFaceInds.append(face3Ind);
-            newCellData.cells[0].splittedFaceInds.append(1);
-            newCellData.cells[1].splittedFaceInds.append(0);
+                const std::pair<FaceType,label>& info = facesStoreInfo[cellFaceInd];
+                switch(info.first)
+                {
+                    case FaceType::original:
+                    {
+                        originalFaceInds.append(info.second);
+                        break;
+                    }
+                    case FaceType::splitted:
+                    {
+                        splittedFaceInds.append(info.second);
+                        break;
+                    }
+                    case FaceType::added:
+                    {
+                        addedFaceInds.append(info.second);
+                        break;
+                    }
+                }
+            }
+            oneCellData.originalFaceInds = originalFaceInds;
+            oneCellData.splittedFaceInds = splittedFaceInds;
+            oneCellData.addedFaceInds = addedFaceInds;
+
+            newCellData.cells.append(oneCellData);
         }
     }
-    else
+    
+    return newCellDataPtr;
+}
+
+std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC2
+(
+    const cell& thisCell,
+    const label cellInd,
+    std::unique_ptr<List<scalar>> faceToCellCenterRelation
+)
+{
+    Info<<"Nonconvex correction C2"<<Foam::endl;
+    
+    label oldCellIndex = cellMap[cellInd];
+    const MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
+    if(mc33cube.cell!=oldCellIndex)
         FatalErrorInFunction<<"Error"<< exit(FatalError);
+    
+    if(mc33cube.cubeCase!=MC33::Case::c2)
+        FatalErrorInFunction<<"Error"<< exit(FatalError);
+
+    const markSide& c2convexCorr = convexCorrectionData[MC33::Case::c2];
+    corrConcaveCellData corrData;
+    if(mc33cube.redMarkIsPlusSide)
+        corrData = c2convexCorr.redMarkPlus;
+    else
+        corrData = c2convexCorr.redMarkNotPlus;
+    
+    std::unique_ptr<CellSplitData> newCellDataPtr = generateCellSplitData(thisCell,cellInd,corrData);
 
     return newCellDataPtr;
 }

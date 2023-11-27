@@ -784,6 +784,46 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             label& verticeInd,
             vector& verticePoint
         );
+
+        label getGlobalPoint
+        (
+            const corrFaceVertice& vert,
+            const MC33::MC33Cube& mc33cube,
+            const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
+            const pointField& points
+        );
+
+        face abstrFaceToGlobalFaceTransfer
+        (
+            const corrFace& abstrFace,
+            const MC33::MC33Cube& mc33cube,
+            const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
+            const pointField& points
+        );
+        
+        enum FaceRelation{Ident=0,oneInTwo=1,twoInOne=2,mixedOverlay=3,none=4};
+        FaceRelation facesOverlay
+        (
+            const face& face1,
+            const face& face2
+        );
+        
+        std::unique_ptr<CellSplitData> generateCellSplitData
+        (
+            const cell& thisCell,
+            const label cellInd,
+            corrConcaveCellData& corrData,
+            std::function<bool(const corrConcaveCellData&, const List<face>&, label)> isCellValid =
+                [] (const corrConcaveCellData& corrData, const List<face>& nonConvexCellFaces, label cellInd)
+                {
+                    const List<label>& oneCell = corrData.cells[cellInd];
+                    List<corrFace> oneCellAbstrFaces(oneCell.size());
+                    std::transform(oneCell.begin(),oneCell.end(),oneCellAbstrFaces.begin(),[&](label faceInd){return corrData.faces[faceInd];});
+                    List<face> oneCellGlobFaces(oneCell.size());
+                    std::transform(oneCell.begin(),oneCell.end(),oneCellGlobFaces.begin(),[&](label faceInd){return nonConvexCellFaces[faceInd];});
+                    return true;
+                }
+        );
         
         std::unique_ptr<CellSplitData> nonConvexCellSplitC2
         (
