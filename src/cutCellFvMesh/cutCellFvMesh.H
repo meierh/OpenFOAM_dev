@@ -89,7 +89,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<label> cutEdgeVerticeIndex = labelList(12,-1);
                     label centerPointInd = -1;
                     std::unordered_map<label,label> cutVerticeIndexToEdge;
-                    //List<label> faces = List<label>(6);
+                    List<label> origFaces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
                     Case cubeCase = c0;

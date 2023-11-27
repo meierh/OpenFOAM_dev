@@ -5187,10 +5187,13 @@ void Foam::cutCellFvMesh::getGlobalPoint
     else if(vert.type==VType::centerPnt)
         globalPnt = mc33cube.centerPointInd;
     else
-        FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
-    
+        FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);    
     if(globalPnt==-1)
         FatalErrorInFunction<<"Point does not exist in mc33Cube"<< exit(FatalError);
+    
+    globalPnt = oldToNewPointInd[globalPnt];
+    if(globalPnt==-1)
+        FatalErrorInFunction<<"Point does not exist as new point"<< exit(FatalError);
     
     verticeInd = globalPnt;
     verticePoint = points[globalPnt];
@@ -5231,10 +5234,66 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
 )
 {
     DynamicList<label> globalVertices;
-    for(const corrFaceVertice& vert : abstrFace.faceData)
+    switch (abstrFace.type)
     {
-        globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
+        case FType::mc33Triangle:
+            if(abstrFace.faceData.size()!=3)
+                FatalErrorInFunction<<"MC33 triangle must be sized 3!"<< exit(FatalError);
+            if(abstrFace.origFace!=-2)
+                FatalErrorInFunction<<"MC33 triangle have a original face of -2!"<< exit(FatalError);
+            for(const corrFaceVertice& vert : abstrFace.faceData)
+            {
+                globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
+            }
+            break;
+        case FType::old:
+            if(abstrFace.origFace<0 || abstrFace.origFace>=nbrOfPrevFaces)
+                FatalErrorInFunction<<"MC33 triangle have a valid original face number!"<< exit(FatalError);
+            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[abstrFace.origFace];
+            if(cutFaceInds.size()<2)
+                FatalErrorInFunction<<"Old face must have more cutFaces!"<< exit(FatalError);
+            DynamicList<label> posCutFaceInds;
+            for(label cutFaceInd : cutFaceInds)
+            {
+                label signFace = cutFacesToSide_[cutFaceInd];
+                if(signFace>=0)
+                    posCutFaceInds.append(signFace);
+            }
+            DynamicList<face> posCutFace
+            for(label posCutFaceInd : posCutFaceInds)
+            {
+                const face& thisFace = cutFaces_[posCutFaceInd];
+                DynamicList<label> thisFaceNewPntsList;
+                for(label oldVerticeInd : thisFace)
+                {
+                    label newVerticeInd = oldToNewPointInd[oldVerticeInd];
+                    if(newVerticeInd==-1)
+                        FatalErrorInFunction<<"Invalid new point indices!"<< exit(FatalError);
+                    thisFaceNewPntsList.append(newVerticeInd);
+                }
+                posCutFace.append(face(thisFaceNewPntsList));
+            }
+            if(abstrFace.faceData.size()==0)
+            {
+                if(posCutFace.size()==1 && 
+                {
+                }
+            }
+            else
+            {
+            }
+            break;
+        case FType::orig:
+            break;
+        case FType::splitOld:
+            break;
+        case FType::splitOrig:
+            break;
+        case FType::added:
+            break;
     }
+    
+
     return face(globalVertices);
 }
 

@@ -220,7 +220,37 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	faceVertices[1] = {oneCube.vertices[1],oneCube.vertices[2],oneCube.vertices[5],oneCube.vertices[6]};
 	faceVertices[2] = {oneCube.vertices[2],oneCube.vertices[3],oneCube.vertices[6],oneCube.vertices[7]};
 	faceVertices[3] = {oneCube.vertices[0],oneCube.vertices[3],oneCube.vertices[4],oneCube.vertices[7]};
-
+	
+	for(uint mc33faceInd=0; mc33faceInd<faceVertices.size(); mc33faceInd++)
+	{
+		uint matchMc33FaceInd = -1;
+		for(uint locFaceInd=0; locFaceInd<thisCell.size(); locFaceInd++)
+		{
+			const face& thisFace = meshFaces[thisCell[locFaceInd]];
+			bool allIn = true;
+			for(label vertice : thisFace)
+			{
+				auto iter=faceVertices[mc33faceInd].find(vertice);
+				if(iter==faceVertices[mc33faceInd].end())
+					allIn = false;
+			}
+			if(allIn)
+			{
+				if(matchMc33FaceInd!=-1)
+					FatalErrorInFunction<<"Duplicate face assignment!"<< exit(FatalError);
+				matchMc33FaceInd = locFaceInd;
+			}
+		}
+		origFaces[mc33faceInd] = thisCell[matchMc33FaceInd];
+	}
+	std::unordered_set<label> globFaces;
+	for(label oFace : origFaces)
+	{
+		auto iter = globFaces.find(oFace)
+		if(iter!=globFaces.end())
+			FatalErrorInFunction<<"Duplicate face assignment!"<< exit(FatalError);
+		globFaces.insert(oFace);
+	}
 	return oneCube;
 }
 
