@@ -798,6 +798,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const corrFace& abstrFace,
             const MC33::MC33Cube& mc33cube,
             const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
+            const faceList& faces,
             const pointField& points
         );
         
