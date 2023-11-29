@@ -826,6 +826,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 }
         );
         
+        void testCellSplitData
+        (
+            const cell& thisCell,
+            const faceList& faces,
+            const pointField& points,
+            const CellSplitData& data
+        );
+        
         std::unique_ptr<CellSplitData> nonConvexCellSplitC2
         (
             const cell& thisCell,

@@ -5761,6 +5761,88 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     return newCellDataPtr;
 }
 
+void Foam::cutCellFvMesh::testCellSplitData
+(
+    const cell& thisCell,
+    const faceList& faces,
+    const pointField& points,
+    const CellSplitData& data
+)
+{
+    std::unordered_set<label> facesSet(thisCell.begin(),thisCell.end());
+    std::unordered_set<label> pointsSet;
+    for(label faceInd : thisCell)
+    {
+        for(label pointInd : faces[faceInd])
+        {
+            pointsSet.insert(pointInd);
+        }
+    }
+    
+    if(data.addedPoints.size()>0)
+    {
+        if(data.addedPointsLimit!=nbrOfPrevPoints)
+            FatalErrorInFunction<<"Mismatch in CellSplit Data structure!"<< exit(FatalError);
+    }    
+    std::unordered_set<label> pointSetAdded;
+    for(label i=0;i<data.addedPoints.size();i++)
+    {
+        pointSetAdded.insert(i+data.addedPointsLimit);
+    }
+    
+    for(const CellFaces& oneCell : data.cells)
+    {
+        for(label originalFace : oneCell.originalFaceInds)
+        {
+            if(facesSet.find(originalFace)!=facesSet.end())
+                FatalErrorInFunction<<"Original face is not in cell!"<< exit(FatalError);
+        }
+        for(label splittedFaceInd : oneCell.splittedFaceInds)
+        {
+            const std::pair<face,label>& oneSplittedFace = data.splittedFaces[splittedFaceInd];
+            if(facesSet.find(oneSplittedFace.second)!=facesSet.end())
+                FatalErrorInFunction<<"Original face of splitted face is not in cell!"<< exit(FatalError);
+            for(label pointInd : oneSplittedFace.first)
+                if(pointsSet.find(pointInd)!=pointsSet.end() &&
+                   pointSetAdded.find(pointInd)!=pointSetAdded.end())
+                    FatalErrorInFunction<<"Split face point is not in cell!"<< exit(FatalError);
+        }
+        for(label addedFaceInd : oneCell.addedFaceInds)
+        {
+            const face& addedFace = data.addedFace[addedFaceInd];
+            for(label pointInd : addedFace)
+            {
+                if(pointsSet.find(pointInd)!=pointsSet.end() &&
+                   pointSetAdded.find(pointInd)!=pointSetAdded.end())
+                    FatalErrorInFunction<<"Added point is not in cell!"<< exit(FatalError);
+            }
+        }        
+    }
+    
+    for(const std::pair<vector,edge>& addedPoint : data.addedPoints)
+    {
+        label edgeStart = addedPoint.second.start();
+        if(pointsSet.find(edgeStart)!=pointsSet.end())
+            FatalErrorInFunction<<"Edge point is not in cell!"<< exit(FatalError);
+        label edgeEnd = addedPoint.second.end();
+        if(pointsSet.find(edgeEnd)!=pointsSet.end())
+            FatalErrorInFunction<<"Edge point is not in cell!"<< exit(FatalError);
+        vector addedPointVec = addedPoint.first;
+
+        vector edgeVec = points[edgeEnd] - points[edgeStart];
+        scalar edgeLen = norm2(edgeVec);
+        
+        vector partEdgeStart = addedPointVec - points[edgeStart];
+        scalar partEdgeStartLen = norm2(partEdgeStart);
+    
+        vector partEdgeEnd = addedPointVec - points[edgeEnd];
+        scalar partEdgeEndLen = norm2(partEdgeEnd);
+        
+        if(std::abs(edgeLen - (partEdgeStartLen+partEdgeEndLen))>=1e-8)
+            FatalErrorInFunction<<"Added point not in edge!"<< exit(FatalError);
+    }
+}
+
 std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC2
 (
     const cell& thisCell,
@@ -9375,7 +9457,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         else
             FatalErrorInFunction<<"Error!"<< exit(FatalError);
     }
-
+    
     FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
     
     std::unordered_map<label,DynamicList<label>> pointFaces;
