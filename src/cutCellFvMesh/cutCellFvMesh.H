@@ -1145,6 +1145,6 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void Barrier(bool stop=false);
 };
 void UnitTest_cutCellFvMesh(int argc, char *argv[], Time& runtime);
-}
+};
 
 #endif
