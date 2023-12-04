@@ -76,9 +76,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
 
         class MC33{
             public:
-                enum Case { c0=0,c1=1,c2=2,c31=3,c32=4,c411=5,c412=6,c5=7,c611=8,c612=9,c62=10,c71=11,c72=12,
-                            c73=13,c741=14,c742=15,c8=16,c9=17,c1011=18,c1012=19,c102=20,c11=21,
-                            c1211=22,c1212=23,c122=24,c131=25,c132=26,c133=27,c134=28,c1351=29,c1352=30,c14=31};
+                enum Case { c0=0,c1=1,c2=2,c31=3,c32=4,c411=5,c412=6,c5=7,c611=8,c612=9,c62=10,
+                            c71=11,c72_720=12,c72_760=13,c72_800=14,c73_840=15,c73_912=16,c73_984=17,
+                            c73=18,c741=19,c742=20,c8=21,c9=22,c1011_1190=23,c1011_1202=24,c1012_1214=25,
+                            c1012_1238=26,c102_1262=27,c102_1286=28,c11=29,c1211_1358=30,c1211_1406=31,
+                            c1212_1454=32,c1212_1550=33,c122_1646=34,c122_1742=35,c131=36,c132=37,c133=38,
+                            c134=39,c1351=40,c1352_2206=41,c1352_2246=42,c14=43
+                            };
+                enum permutationMethod{Point,Face,Both};
                 explicit MC33(cutCellFvMesh& mesh);
                 
                 typedef struct{
@@ -92,9 +97,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<label> origFaces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
+                    std::array<unsigned short int,6> facePattern;
                     Case cubeCase = c0;
                     label permutationTableIndex;
                     bool redMarkIsPlusSide; //Efficient implementation of Marching Cubes cases with topological guarantees Figure 2
+                    permutationMethod permMeth;
                     std::array<unsigned short int,8> pointPermutation;
                     std::array<std::uint8_t,12> edgePermutation;
                     std::array<std::uint8_t,6> facePermutation;
@@ -108,6 +115,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 cutCellFvMesh& mesh;
                 const unsigned short int* table;
                 const std::array<std::array<unsigned short int,8>,24>& permutations;
+                std::array<std::array<unsigned short int,6>,24> facePermutations;
                 const std::array<std::array<uint,2>,12> edgeToPnts;
                 const std::unordered_map<uint,uint>& pntsToEdge;
                 const std::array<std::array<uint,4>,6>& faceToPnts;
@@ -133,6 +141,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 unsigned int computeSignBitPattern(const MC33Cube& cell);
                 bool cellIsCut(int cellInd);
                 bool detectInFaceTriangles(std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& triangle);
+                void computeFacePermutations();
         };
         
         #include "ConvexCorrection.H"
