@@ -5841,6 +5841,26 @@ void Foam::cutCellFvMesh::testCellSplitData
         if(std::abs(edgeLen - (partEdgeStartLen+partEdgeEndLen))>=1e-8)
             FatalErrorInFunction<<"Added point not in edge!"<< exit(FatalError);
     }
+}:-1
+
+bool Foam::cutCellFvMesh::redMarkSide(const MC33::MC33Cube& mc33cube)
+{
+    const std::array<unsigned short int,8>& permut = permutationTable[mc33cube.permutationTableIndex];
+    const std::array<std::int8_t,8>& refSign = refSignVertice[mc33cube.cubeCase];
+    std::array<std::int8_t,8> thisCellPattern;
+    for(uint i=0;i<mc33cube.vertices.size();i++)
+    {
+        unsigned short int permInd = permut[i];
+        label realVertIndPrevMesh = mc33cube.vertices[permInd];
+        thisCellPattern[i] = (pointToSide[realVertIndPrevMesh]>=0)?+1:-1;
+    }
+    if(refSign == thisCellPattern)
+        return true;
+    for(std::int8_t& sign : thisCellPattern)
+        sign = sign*-1;
+    if(refSign == thisCellPattern)
+        return false;
+    FatalErrorInFunction<<"Non matching pattern!"<< exit(FatalError);
 }
 
 std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::nonConvexCellSplitC2

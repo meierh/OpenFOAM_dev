@@ -49,7 +49,8 @@ public:
     corrConcaveCellData redMarkNotPlus;
 };
 
-List<markSide> convexCorrectionData = List<markSide>(32);
+List<markSide> convexCorrectionData = List<markSide>(47);
+List<std::array<std::int8_t,8>> refSignVertice = List<std::array<std::int8_t,8>>(47);
 
 void createConvexCorrectionData()
 {
@@ -89,6 +90,7 @@ void createConvexCorrectionData()
         corrConcaveCellData nonRedMarkSide = {{{0,2,3,4,5,6,7},{1,2,8,9,10}},{mc33TriUp,mc33TriLow,addedNonRedMark,split3Up,split4Up,old2,old5,old1,split3Low,split4Low,old0}};
         
     convexCorrectionData[MC33::Case::c2] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c2] = {-1,-1,-1,-1,+1,+1,-1,-1};
 }
 // Case c31
 //---
@@ -119,6 +121,8 @@ void createConvexCorrectionData()
                                             };
         
     convexCorrectionData[MC33::Case::c32] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c32] = {-1,-1,-1,-1,+1,-1,+1,-1};
+
 }
 // Case c411
 //---
@@ -172,7 +176,8 @@ void createConvexCorrectionData()
                                             }
                                             };
         
-    convexCorrectionData[MC33::Case::c32] = {{{{}},{}},nonRedMarkSide};
+    convexCorrectionData[MC33::Case::c412] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c412] = {-1,-1,+1,-1,+1,-1,-1,-1};
 }
 // Case c5
 {
@@ -210,6 +215,7 @@ void createConvexCorrectionData()
                                              };
         
     convexCorrectionData[MC33::Case::c5] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c5] = {+1,+1,-1,-1,-1,+1,-1,-1};
 }
 // Case c611
 {
@@ -242,6 +248,7 @@ void createConvexCorrectionData()
         corrConcaveCellData nonRedMarkSide = {{{0,2,3,4,5,6,7,11},{1,2,8,9,10}},{mc33TriUp,mc33TriLow,addedNonRedMark,split3Up,split4Up,old2,old5,old1,split3Low,split4Low,old0,mc33TriOther}};
         
     convexCorrectionData[MC33::Case::c611] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c611] = {-1,-1,+1,-1,+1,+1,-1,-1};
 }
 // Case c612
 {
@@ -283,6 +290,7 @@ void createConvexCorrectionData()
                             }};
         
     convexCorrectionData[MC33::Case::c612] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c612] = {-1,-1,+1,-1,+1,+1,-1,-1};
 }
 // Case c62
 {
@@ -324,6 +332,7 @@ void createConvexCorrectionData()
                             }};
         
     convexCorrectionData[MC33::Case::c62] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c62] = {-1,-1,+1,-1,+1,+1,-1,-1};
 }
 // Case c71
 //---
@@ -354,6 +363,7 @@ void createConvexCorrectionData()
                                                 old1,old2,split4Top,old3,old0,split4Down}};
         
     convexCorrectionData[MC33::Case::c72_720] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c72_720] = {-1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c72_760
 {
@@ -382,6 +392,7 @@ void createConvexCorrectionData()
                                                 old2,old5,split3Front,old0,old4,split3Back}};
         
     convexCorrectionData[MC33::Case::c72_760] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c72_760] = {-1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c72_800
 {
@@ -409,6 +420,7 @@ void createConvexCorrectionData()
                                                 old1,old5,split0Front,old3,old4,split0Back}};
         
     convexCorrectionData[MC33::Case::c72_800] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c72_800] = {-1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c73_840
 {
@@ -469,6 +481,7 @@ void createConvexCorrectionData()
                             }};
         
     convexCorrectionData[MC33::Case::c73_840] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c73_840] = {-1,-1,+1,-1,-1,+1,-1,+1};
 }
 //Case c73_912
 {
@@ -528,7 +541,8 @@ void createConvexCorrectionData()
                              old2Front,old5Right,split1Front,old3,old4,old0,old5Left,old2Back,split1Back
                             }};
         
-    convexCorrectionData[MC33::Case::c73_840] = {redMarkSide,nonRedMarkSide};
+    convexCorrectionData[MC33::Case::c73_912] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c73_912] = {-1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c73_984
 {
@@ -588,6 +602,7 @@ void createConvexCorrectionData()
                             }};
         
     convexCorrectionData[MC33::Case::c73_984] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c73_984] = {-1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c741
 //---
@@ -634,6 +649,7 @@ void createConvexCorrectionData()
                                      old3,old5,split2Front,old1,old4,split2Back}};
 
     convexCorrectionData[MC33::Case::c8] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c8] = {+1,+1,-1,-1,+1,+1,-1,-1};
 }
 // Case c9
 //---
@@ -736,6 +752,7 @@ void createConvexCorrectionData()
                             }};
         
     convexCorrectionData[MC33::Case::c102_1262] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c102_1262] = {+1,-1,-1,+1,-1,+1,+1,-1};
 }
 // Case c102_1286
 {
@@ -796,6 +813,7 @@ void createConvexCorrectionData()
                     }};
                     
     convexCorrectionData[MC33::Case::c102_1286] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c102_1286] = {+1,-1,-1,+1,-1,+1,+1,-1};
 }
 // Case c11
 {
@@ -849,6 +867,7 @@ void createConvexCorrectionData()
                                             };
         
     convexCorrectionData[MC33::Case::c11] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c11] = {+1,+1,+1,-1,+1,-1,-1,-1};
 }
 // Case c1211_1358
 {
@@ -889,6 +908,7 @@ void createConvexCorrectionData()
                                              };
         
     convexCorrectionData[MC33::Case::c1211_1358] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c1211_1358] = {+1,+1,-1,-1,-1,+1,-1,+1};
 }
 // Case c1211_1406
 {
@@ -930,6 +950,7 @@ void createConvexCorrectionData()
                                              };
         
     convexCorrectionData[MC33::Case::c1211_1406] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c1211_1406] = {+1,+1,-1,-1,-1,+1,-1,+1};
 }
 // Case c1212_1454
 {
@@ -961,6 +982,7 @@ void createConvexCorrectionData()
                                              };
         
     convexCorrectionData[MC33::Case::c1212_1454] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c1212_1454] = {+1,+1,-1,-1,-1,+1,-1,+1};
 }
 // Case c1212_1550
 {
@@ -992,6 +1014,7 @@ void createConvexCorrectionData()
                                              };
         
     convexCorrectionData[MC33::Case::c1212_1550] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c1212_1550] = {+1,+1,-1,-1,-1,+1,-1,+1};
 }
 // Case c122_1646
 {
@@ -1045,6 +1068,7 @@ void createConvexCorrectionData()
                     }};
         
     convexCorrectionData[MC33::Case::c122_1646] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c122_1646] = {+1,+1,-1,-1,-1,+1,-1,+1};
 }
 // Case c122_1742
 {
@@ -1098,6 +1122,7 @@ void createConvexCorrectionData()
                     }};
         
     convexCorrectionData[MC33::Case::c122_1742] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c122_1742] = {+1,+1,-1,-1,-1,+1,-1,+1};
 }
 // Case c131
 //---
@@ -1133,6 +1158,7 @@ void createConvexCorrectionData()
                          old1,old5,split0Front,old2Front,old3,old4,split0Back,old2Back}};
         
     convexCorrectionData[MC33::Case::c132_MostNeg] = {{{{}},{}},nonRedMarkSide};
+    refSignVertice[MC33::Case::c132_MostNeg] = {+1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c132_MostPos
 {
@@ -1164,6 +1190,7 @@ void createConvexCorrectionData()
     // RedMarkNotPlus
         // ---
     convexCorrectionData[MC33::Case::c132_MostPos] = {redMarkSide,{{{}},{}}};
+    refSignVertice[MC33::Case::c132_MostPos] = {+1,-1,+1,-1,-1,+1,-1,+1};
 }
 // Case c133_MostPos
 {
@@ -1225,6 +1252,7 @@ void createConvexCorrectionData()
                     }};
         
     convexCorrectionData[MC33::Case::c133_MostPos] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c133_MostPos] = {-1,+1,-1,+1,+1,-1,+1,-1};
 }
 // Case c133_MostNeg
 {
@@ -1286,6 +1314,7 @@ void createConvexCorrectionData()
                     }};
         
     convexCorrectionData[MC33::Case::c133_MostNeg] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c133_MostNeg] = {-1,+1,-1,+1,+1,-1,+1,-1};
 }
 // Case c134
 {
@@ -1352,6 +1381,7 @@ void createConvexCorrectionData()
                     }};
         
     convexCorrectionData[MC33::Case::c134] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c134] = {-1,+1,-1,+1,+1,-1,+1,-1};
 }
 // Case c1351
 //---
@@ -1411,5 +1441,7 @@ void createConvexCorrectionData()
                                      old0,split5Down,old3,split5Up,split2Left,old1,old4,split2Right}};    
             
     convexCorrectionData[MC33::Case::c14] = {redMarkSide,nonRedMarkSide};
+    refSignVertice[MC33::Case::c14] = {+1,+1,-1,+1,-1,+1,-1,-1};
 }
 };
+

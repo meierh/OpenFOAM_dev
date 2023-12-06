@@ -832,6 +832,42 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     std::transform(oneCell.begin(),oneCell.end(),oneCellAbstrFaces.begin(),[&](label faceInd){return corrData.faces[faceInd];});
                     List<face> oneCellGlobFaces(oneCell.size());
                     std::transform(oneCell.begin(),oneCell.end(),oneCellGlobFaces.begin(),[&](label faceInd){return nonConvexCellFaces[faceInd];});
+                    
+                    std::unordered_set<label> uniquePoints;
+                    for(face& oneGlobFace : oneCellGlobFaces)
+                        for(label globVert : oneGlobFace)
+                            uniquePoints.insert(globVert);
+                    
+                    List<DynamicList<label>> faceInFace(oneCellGlobFaces.size());
+                    List<DynamicList<label>> faceIdent(oneCellGlobFaces.size());
+                    for(uint baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
+                    {
+                        face baseFace = oneCellGlobFaces[baseInd];
+                        std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
+                        for(uint compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
+                        {
+                            face compFace = oneCellGlobFaces[compareInd];
+                            std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
+                            if(baseInd==compareInd)
+                                continue;
+                            bool allIn=true;
+                            for(label compVert : compFace)
+                            {
+                                if(baseFaceSet.find(compVert)==baseFaceSet.end())
+                                    allIn=false;
+                            }
+                            if(allIn)
+                            {
+                                if(baseFace.size()==compFace.size())
+                                    faceIdent[baseInd].append(compareInd);
+                                else
+                                    faceInFace[baseInd].append(compareInd);
+                            }
+                        }
+                    }
+                    DynamicList<label> faceCells
+                    DynamicList<face>
+                    
                     return true;
                 }
         );
@@ -843,6 +879,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const pointField& points,
             const CellSplitData& data
         );
+        
+        bool redMarkSide(const MC33::MC33Cube& mc33cube);
         
         std::unique_ptr<CellSplitData> nonConvexCellSplitC2
         (
