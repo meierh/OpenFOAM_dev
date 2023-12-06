@@ -80,10 +80,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                             c71=11,c72_720=12,c72_760=13,c72_800=14,c73_840=15,c73_912=16,c73_984=17,
                             c73=18,c741=19,c742=20,c8=21,c9=22,c1011_1190=23,c1011_1202=24,c1012_1214=25,
                             c1012_1238=26,c102_1262=27,c102_1286=28,c11=29,c1211_1358=30,c1211_1406=31,
-                            c1212_1454=32,c1212_1550=33,c122_1646=34,c122_1742=35,c131=36,c132=37,c133=38,
-                            c134=39,c1351=40,c1352_2206=41,c1352_2246=42,c14=43
+                            c1212_1454=32,c1212_1550=33,c122_1646=34,c122_1742=35,c131=36,c132_MostNeg=37,
+                            c132_MostPos=38,c133_MostPos=39,c133_MostNeg=40,c134=41,c1351=42,c1352_2206=43,
+                            c1352_2246=45,c14=46
                             };
-                enum permutationMethod{Point,Face,Both};
+                enum permutationMethod{Point,Face,Both,FaceInversion};
                 explicit MC33(cutCellFvMesh& mesh);
                 
                 typedef struct{

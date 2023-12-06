@@ -703,17 +703,17 @@ void Foam::cutCellFvMesh::newMeshPoints_MC33()
                 if(countCutEdges!=9)
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
             }
-            else if(cube.cubeCase==MC33::Case::c102)
+            else if(cube.cubeCase==MC33::Case::c102_1262 || cube.cubeCase==MC33::Case::c102_1286)
             {
                 if(countCutEdges!=8)
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
             }
-            else if(cube.cubeCase==MC33::Case::c122)
+            else if(cube.cubeCase==MC33::Case::c122_1742 || cube.cubeCase==MC33::Case::c122_1646)
             {
                 if(countCutEdges!=8)
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
             }
-            else if(cube.cubeCase==MC33::Case::c133)
+            else if(cube.cubeCase==MC33::Case::c133_MostPos || cube.cubeCase==MC33::Case::c133_MostNeg)
             {
                 if(countCutEdges!=9)
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);

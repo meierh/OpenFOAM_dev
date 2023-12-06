@@ -336,6 +336,24 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 	{
 		mc33Cube.bitPattern = bitPattern;
 		mc33Cube.facePattern = computeFacePattern();
+		auto dominantSign = [](std::array<std::int8_t,6> facePattern)
+		{
+			std::uint8_t posCount=0;
+			std::uint8_t negCount=0;
+			for(std::uint8_t ind : posCount)
+			{
+				if(ind>0)
+					posCount++;
+				if(ind<0)
+					negCount++;
+			}
+			if(negCount>posCount)
+				return -1;
+			else if(posCount>negCount)
+				return +1;
+			else
+				return 0;
+		};
 		const unsigned short int* triangleCase = getTriangleCase(bitPattern);
 		label arrayIndex = triangleCase-table;
 		mc33Cube.cutTriangles = collectTriangles(triangleCase);
@@ -458,11 +476,29 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				// Case 13.1 Triangle Number 4
 				mc33Cube.cubeCase = c131;
 			else if(arrayIndex<1918)
+			{
 				// Case 13.2 Triangle Number 6
-				mc33Cube.cubeCase = c132;
+				//mc33Cube.cubeCase = c132;
+				std::int8_t domSign = dominantSign(mc33Cube.facePattern);
+				if(domSign==+1)
+					mc33Cube.cubeCase = c132_MostPos;
+				else if(domSign==-1)
+					mc33Cube.cubeCase = c132_MostNeg;
+				else
+					FatalErrorInFunction<<"False Sign!"<< exit(FatalError);
+			}
 			else if(arrayIndex<2158)
+			{
 				// Case 13.3 Triangle Number 10
-				mc33Cube.cubeCase = c133;
+				//mc33Cube.cubeCase = c133;
+				std::int8_t domSign = dominantSign(mc33Cube.facePattern);
+				if(domSign==+1)
+					mc33Cube.cubeCase = c133_MostPos;
+				else if(domSign==-1)
+					mc33Cube.cubeCase = c133_MostNeg;
+				else
+					FatalErrorInFunction<<"False Sign!"<< exit(FatalError);
+			}
 			else if(arrayIndex<2206)
 				// Case 13.4 Triangle Number 12
 				mc33Cube.cubeCase = c134;
@@ -593,12 +629,12 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			}
 			else if(mc33Cube.cubeCase==c132){
 				referenceBitPattern = 0x00A5;
-				mc33Cube.permMeth = permutationMethod::Face;
+				mc33Cube.permMeth = permutationMethod::FaceInversion;
 				referenceFacePattern = {-1,-1,+1,-1,-1,-1};
 			}
 			else if(mc33Cube.cubeCase==c133){
 				referenceBitPattern = 0x00A5;
-				mc33Cube.permMeth = permutationMethod::Face;
+				mc33Cube.permMeth = permutationMethod::FaceInversion;
 				referenceFacePattern = {+1,+1,-1,-1,+1,+1};
 			}
 			else if(mc33Cube.cubeCase==c134){
@@ -708,7 +744,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			{
 				permutationTableIndex = findPointPermutation();
 			}
-			else
+			else if(mc33Cube.permMeth == permutationMethod::Face)
 			{
 				permutationTableIndex = findFacePermutation();
 				unsigned int referenceBitPatternInv = referenceBitPattern^0x00FF;
@@ -722,6 +758,10 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				}
 				else
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			}
+			else
+			{
+				
 			}
 			mc33Cube.permutationTableIndex = permutationTableIndex;
 			
