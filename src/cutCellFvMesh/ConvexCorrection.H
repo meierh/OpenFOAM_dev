@@ -127,7 +127,7 @@ void createConvexCorrectionData()
 // Case c411
 //---
 
-// Case c412 Further work necessary
+// Case c412
 {
     corrFace mc33TriA27 = {FType::mc33Triangle,{{VType::cutEdge,10},{VType::cutEdge,2},{VType::cutEdge,7}},-2};
     corrFace mc33Tri74A = {FType::mc33Triangle,{{VType::cutEdge,7},{VType::cutEdge,4},{VType::cutEdge,10}},-2};
