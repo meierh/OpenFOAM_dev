@@ -5665,6 +5665,38 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             globFace = abstrFaceToGlobalFaceTransfer(abstrFace,mc33cube,edgeToAddedPntInd,new_faces,new_points);
         }
     }
+
+    //Compute equal faces and faces as face subsets
+    List<std::unordered_set<label>> equalFaces(nonConvexCellFaces.size());
+    List<std::unordered_set<label>> faceSubsets(nonConvexCellFaces.size());
+    for(uint baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
+    {
+        face baseFace = oneCellGlobFaces[baseInd];
+        std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
+        for(uint compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
+        {
+            face compFace = oneCellGlobFaces[compareInd];
+            std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
+            if(baseInd==compareInd)
+                continue;
+            bool allIn=true;
+            for(label compVert : compFace)
+            {
+                if(baseFaceSet.find(compVert)==baseFaceSet.end())
+                    allIn=false;
+            }
+            if(allIn)
+            {
+                if(baseFace.size()==compFace.size())
+                    equalFaces[baseInd].insert(compareInd);
+                else if(baseFace.size()>compFace.size())
+                    faceSubsets[baseInd].insert(compareInd);
+                else
+                    FatalErrorInFunction<<"Error"<< exit(FatalError);
+            }
+        }
+    }    
+    
     List<bool> validCells(corrData.cells.size(),false);
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
