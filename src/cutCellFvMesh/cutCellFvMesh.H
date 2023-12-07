@@ -98,7 +98,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<label> origFaces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
-                    std::array<unsigned short int,6> facePattern;
+                    std::array<std::int8_t,6> facePattern;
                     Case cubeCase = c0;
                     label permutationTableIndex;
                     bool redMarkIsPlusSide; //Efficient implementation of Marching Cubes cases with topological guarantees Figure 2
@@ -124,6 +124,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>>& faceToEdges;
                 //const unsigned short int table[2310];
                 
+                std::array<std::int8_t,6> computeFacePattern();
+
                 MC33_real v[8];
                 //Procedures
                 int face_tests(int *, int) const;
@@ -825,51 +827,86 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const label cellInd,
             corrConcaveCellData& corrData,
             std::function<bool(const corrConcaveCellData&, const List<face>&, label)> isCellValid =
-                [] (const corrConcaveCellData& corrData, const List<face>& nonConvexCellFaces, label cellInd)
+            [] (const corrConcaveCellData& corrData, const List<face>& nonConvexCellFaces, label cellInd)
+            {
+                const List<label>& oneCell = corrData.cells[cellInd];
+                List<corrFace> oneCellAbstrFaces(oneCell.size());
+                std::transform(oneCell.begin(),oneCell.end(),oneCellAbstrFaces.begin(),[&](label faceInd){return corrData.faces[faceInd];});
+                List<face> oneCellGlobFaces(oneCell.size());
+                std::transform(oneCell.begin(),oneCell.end(),oneCellGlobFaces.begin(),[&](label faceInd){return nonConvexCellFaces[faceInd];});
+                
+                List<DynamicList<label>> faceInFace(oneCellGlobFaces.size());
+                List<DynamicList<label>> faceIdent(oneCellGlobFaces.size());
+                for(uint baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
                 {
-                    const List<label>& oneCell = corrData.cells[cellInd];
-                    List<corrFace> oneCellAbstrFaces(oneCell.size());
-                    std::transform(oneCell.begin(),oneCell.end(),oneCellAbstrFaces.begin(),[&](label faceInd){return corrData.faces[faceInd];});
-                    List<face> oneCellGlobFaces(oneCell.size());
-                    std::transform(oneCell.begin(),oneCell.end(),oneCellGlobFaces.begin(),[&](label faceInd){return nonConvexCellFaces[faceInd];});
-                    
-                    std::unordered_set<label> uniquePoints;
-                    for(face& oneGlobFace : oneCellGlobFaces)
-                        for(label globVert : oneGlobFace)
-                            uniquePoints.insert(globVert);
-                    
-                    List<DynamicList<label>> faceInFace(oneCellGlobFaces.size());
-                    List<DynamicList<label>> faceIdent(oneCellGlobFaces.size());
-                    for(uint baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
+                    face baseFace = oneCellGlobFaces[baseInd];
+                    std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
+                    for(uint compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
                     {
-                        face baseFace = oneCellGlobFaces[baseInd];
-                        std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
-                        for(uint compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
+                        face compFace = oneCellGlobFaces[compareInd];
+                        std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
+                        if(baseInd==compareInd)
+                            continue;
+                        bool allIn=true;
+                        for(label compVert : compFace)
                         {
-                            face compFace = oneCellGlobFaces[compareInd];
-                            std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
-                            if(baseInd==compareInd)
-                                continue;
-                            bool allIn=true;
-                            for(label compVert : compFace)
-                            {
-                                if(baseFaceSet.find(compVert)==baseFaceSet.end())
-                                    allIn=false;
-                            }
-                            if(allIn)
-                            {
-                                if(baseFace.size()==compFace.size())
-                                    faceIdent[baseInd].append(compareInd);
-                                else
-                                    faceInFace[baseInd].append(compareInd);
-                            }
+                            if(baseFaceSet.find(compVert)==baseFaceSet.end())
+                                allIn=false;
+                        }
+                        if(allIn)
+                        {
+                            if(baseFace.size()==compFace.size())
+                                faceIdent[baseInd].append(compareInd);
+                            else if(baseFace.size()==compFace.size())
+                                faceInFace[baseInd].append(compareInd);
                         }
                     }
-                    DynamicList<label> faceCells
-                    DynamicList<face>
-                    
-                    return true;
                 }
+                std::unordered_set<label> facesInFaceSet;
+                for(DynamicList<label> inFaceList : faceInFace)
+                {
+                    for(label inFace : inFaceList)
+                    {
+                        if(facesInFaceSet.find(inFace)!=facesInFaceSet.end())
+                            FatalErrorInFunction<<"Face can not be in two base faces!"<< exit(FatalError);
+                        facesInFaceSet.insert(inFace);
+                    }
+                }
+                
+                DynamicList<face> reducedOneCell;
+                for(label ind=0; ind<oneCellGlobFaces.size(); ind++)
+                {
+                    face oneFace = oneCellGlobFaces[ind];
+                    if(facesInFaceSet.find(ind)==facesInFaceSet.end())
+                    {
+                        DynamicList<label>& ident = faceIdent[ind];
+                        if(ident.size()>0)
+                        {
+                            std::sort(ident.begin(),ident.end());
+                            if(ind<ident[0])
+                                reducedOneCell.append(oneFace);
+                        }
+                        else
+                            reducedOneCell.append(oneFace);
+                    }
+                }
+                                    
+                std::unordered_set<label> uniquePoints;
+                for(face& oneGlobFace : reducedOneCell)
+                    for(label globVert : oneGlobFace)
+                        uniquePoints.insert(globVert);
+                
+                if(reducedOneCell.size()<4)
+                    return false;
+                List<label> reducedOneCellFaceSize(reducedOneCell.size());
+                std::transform(reducedOneCell.begin(),reducedOneCell.end(),reducedOneCellFaceSize.begin(),
+                               [&](const face& oneFace){return oneFace.size();});
+                std::sort(reducedOneCellFaceSize.begin(),reducedOneCellFaceSize.end(),std::greater<label>());
+                
+                if(reducedOneCell.size() < reducedOneCellFaceSize[0]+1)
+                    return false;
+                return true;
+            }
         );
         
         void testCellSplitData

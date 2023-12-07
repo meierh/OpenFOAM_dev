@@ -38,7 +38,6 @@ bool Foam::cutCellFvMesh::MC33::detectInFaceTriangles
 	return allInOneFace;
 }
 
-
 unsigned int Foam::cutCellFvMesh::MC33::permuteBitPattern
 (
 	const std::array<unsigned short int,8>& permutation,
@@ -53,6 +52,20 @@ unsigned int Foam::cutCellFvMesh::MC33::permuteBitPattern
 			setBit(resPattern,7-vertI);
 	}
 	return resPattern;
+}
+
+std::array<std::int8_t,6> permuteFacePattern
+(
+	const std::array<unsigned short int,6>& permutation,
+	const std::array<std::int8_t,6>& facePattern
+)
+{
+	std::array<std::int8_t,6> permutedFacePattern;
+	for(uint faceInd=0; faceInd<facePattern.size(); faceInd++)
+	{
+		permutedFacePattern[faceInd] = facePattern[permutation[faceInd]];
+	}
+	return permutedFacePattern;
 }
 
 void Foam::cutCellFvMesh::MC33::setBit
@@ -325,6 +338,63 @@ unsigned int Foam::cutCellFvMesh::MC33::computeSignBitPattern
 	return bitPattern;
 }
 
+std::array<std::int8_t,6> Foam::cutCellFvMesh::MC33::computeFacePattern()
+{
+	auto crossedFace = [](std::array<MC33_real,4> facePnts)
+	{
+		std::bitset<4> signs;
+		label count=0;
+		for(int i=0; i<signs.size(); i++)
+		{
+			signs[i] = (facePnts[i]>=0)?true:false;
+		}
+		if(signs[0]==signs[2] && signs[1]==signs[3])
+		{
+			if(signs[0]!=signs[1] && signs[2]!=signs[3])
+				return true;
+			else
+				return false;
+		}
+		else
+			return false;
+	};
+	std::bitset<8> signs;
+	for(int i=0; i<signs.size(); i++)
+	{
+		signs[i] = (v[i]>=0)?true:false;
+	}
+	
+	std::array<std::int8_t,6> pattern;
+
+	std::array<std::array<MC33_real,4>,6> faceV;
+	faceV[0] = {v[4],v[5],v[1],v[0]};
+	faceV[1] = {v[5],v[6],v[2],v[1]};
+	faceV[2] = {v[3],v[2],v[6],v[7]};
+	faceV[3] = {v[0],v[3],v[7],v[4]};
+	faceV[4] = {v[0],v[1],v[2],v[3]};
+	faceV[5] = {v[5],v[4],v[7],v[6]};
+
+	if (signs[0]){ //i&0x80) { //vertex 0
+		pattern[0] = (crossedFace(faceV[0])? (v[0]*v[5] < v[1]*v[4]? -1: 1): 0);//vertices 0 and 5
+		pattern[3] = (crossedFace(faceV[3])? (v[0]*v[7] < v[3]*v[4]? -1: 1): 0);//vertices 0 and 7
+		pattern[4] = (crossedFace(faceV[4])? (v[0]*v[2] < v[1]*v[3]? -1: 1): 0);//vertices 0 and 2
+	} else {
+		pattern[0] = (crossedFace(faceV[0])? (v[0]*v[5] < v[1]*v[4]? 1: -1): 0);//vertices 1 and 4
+		pattern[3] = (crossedFace(faceV[3])? (v[0]*v[7] < v[3]*v[4]? 1: -1): 0);//vertices 3 and 4
+		pattern[4] = (crossedFace(faceV[4])? (v[0]*v[2] < v[1]*v[3]? 1: -1): 0);//vertices 1 and 3
+	}
+	if (signs[6]){//i&0x02) { //vertex 6
+		pattern[1] = (crossedFace(faceV[1])? (v[1]*v[6] < v[2]*v[5]? -1: 1): 0);//vertices 1 and 6
+		pattern[2] = (crossedFace(faceV[2])? (v[3]*v[6] < v[2]*v[7]? -1: 1): 0);//vertices 3 and 6
+		pattern[5] = (crossedFace(faceV[5])? (v[4]*v[6] < v[5]*v[7]? -1: 1): 0);//vertices 4 and 6
+	} else {
+		pattern[1] = (crossedFace(faceV[1])? (v[1]*v[6] < v[2]*v[5]? 1: -1): 0);//vertices 2 and 5
+		pattern[2] = (crossedFace(faceV[2])? (v[3]*v[6] < v[2]*v[7]? 1: -1): 0);//vertices 2 and 7
+		pattern[5] = (crossedFace(faceV[5])? (v[4]*v[6] < v[5]*v[7]? 1: -1): 0);//vertices 5 and 7
+	}
+	return pattern;
+}
+
 Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 (
 	int cellInd
@@ -340,7 +410,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 		{
 			std::uint8_t posCount=0;
 			std::uint8_t negCount=0;
-			for(std::uint8_t ind : posCount)
+			for(std::uint8_t ind : facePattern)
 			{
 				if(ind>0)
 					posCount++;
@@ -369,121 +439,121 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				FatalErrorInFunction<<"ArrayIndex not a case!"<< exit(FatalError);
 			else if(arrayIndex<136)
 				// Case 1 Triangle Number 1
-				mc33Cube.cubeCase = c1;
+				mc33Cube.cubeCase = MC33::Case::c1;
 			else if(arrayIndex<160)
 				// Case 2 Triangle Number 2
-				mc33Cube.cubeCase = c2;
+				mc33Cube.cubeCase = MC33::Case::c2;
 			else if(arrayIndex<184)
 				// Case 3.1 Triangle Number 2
-				mc33Cube.cubeCase = c31;
+				mc33Cube.cubeCase = MC33::Case::c31;
 			else if(arrayIndex<232)
 				// Case 3.2 Triangle Number 4
-				mc33Cube.cubeCase = c32;
+				mc33Cube.cubeCase = MC33::Case::c32;
 			else if(arrayIndex<240)
 				// Case 4.1.1 Triangle Number 2
-				mc33Cube.cubeCase = c411;
+				mc33Cube.cubeCase = MC33::Case::c411;
 			else if(arrayIndex<264)
 				// Case 4.1.2 Triangle Number 6
-				mc33Cube.cubeCase = c412;
+				mc33Cube.cubeCase = MC33::Case::c412;
 			else if(arrayIndex<336)
 				// Case 5 Triangle Number 3
-				mc33Cube.cubeCase = c5;
+				mc33Cube.cubeCase = MC33::Case::c5;
 			else if(arrayIndex<408)
 				// Case 6.1.1 Triangle Number 3
-				mc33Cube.cubeCase = c611;
+				mc33Cube.cubeCase = MC33::Case::c611;
 			else if(arrayIndex<576)
 				// Case 6.1.2 Triangle Number 7
-				mc33Cube.cubeCase = c612;
+				mc33Cube.cubeCase = MC33::Case::c612;
 			else if(arrayIndex<696)
 				// Case 6.2 Triangle Number 5
-				mc33Cube.cubeCase = c62;
+				mc33Cube.cubeCase = MC33::Case::c62;
 			else if(arrayIndex<720)
 				// Case 7.1 Triangle Number 3
-				mc33Cube.cubeCase = c71;
+				mc33Cube.cubeCase = MC33::Case::c71;
 			else if(arrayIndex<760)
 				// Case 7.2 Triangle Number 5
-				mc33Cube.cubeCase = c72_720;
+				mc33Cube.cubeCase = MC33::Case::c72_720;
 			else if(arrayIndex<800)
 				// Case 7.2 Triangle Number 5
-				mc33Cube.cubeCase = c72_760;
+				mc33Cube.cubeCase = MC33::Case::c72_760;
 			else if(arrayIndex<840)
 				// Case 7.2 Triangle Number 5
-				mc33Cube.cubeCase = c72_800;
+				mc33Cube.cubeCase = MC33::Case::c72_800;
 			else if(arrayIndex<912)
 				// Case 7.3 Triangle Number 9
-				mc33Cube.cubeCase = c73_840;
+				mc33Cube.cubeCase = MC33::Case::c73_840;
 			else if(arrayIndex<984)
 				// Case 7.3 Triangle Number 9
-				mc33Cube.cubeCase = c73_912;
+				mc33Cube.cubeCase = MC33::Case::c73_912;
 			else if(arrayIndex<1056)
 				// Case 7.3 Triangle Number 9
-				mc33Cube.cubeCase = c73_984;
+				mc33Cube.cubeCase = MC33::Case::c73_984;
 			else if(arrayIndex<1096)
 				// Case 7.4.1 Triangle Number 5
-				mc33Cube.cubeCase = c741;
+				mc33Cube.cubeCase = MC33::Case::c741;
 			else if(arrayIndex<1168)
 				// Case 7.4.2 Triangle Number 9
-				mc33Cube.cubeCase = c742;
+				mc33Cube.cubeCase = MC33::Case::c742;
 			else if(arrayIndex<1174)
 				// Case 8 Triangle Number 2
-				mc33Cube.cubeCase = c8;
+				mc33Cube.cubeCase = MC33::Case::c8;
 			else if(arrayIndex<1190)
 				// Case 9 Triangle Number 4
-				mc33Cube.cubeCase = c9;
+				mc33Cube.cubeCase = MC33::Case::c9;
 			else if(arrayIndex<1202)
 				// Case 10.1.1 Triangle Number 4
-				mc33Cube.cubeCase = c1011_1190;
+				mc33Cube.cubeCase = MC33::Case::c1011_1190;
 			else if(arrayIndex<1214)
 				// Case 10.1.1 Triangle Number 4
-				mc33Cube.cubeCase = c1011_1202;
+				mc33Cube.cubeCase = MC33::Case::c1011_1202;
 			else if(arrayIndex<1238)
 				// Case 10.1.2 Triangle Number 8
-				mc33Cube.cubeCase = c1012_1214;
+				mc33Cube.cubeCase = MC33::Case::c1012_1214;
 			else if(arrayIndex<1262)
 				// Case 10.1.2 Triangle Number 8
-				mc33Cube.cubeCase = c1012_1238;
+				mc33Cube.cubeCase = MC33::Case::c1012_1238;
 			else if(arrayIndex<1286)
 				// Case 10.2 Triangle Number 8
-				mc33Cube.cubeCase = c102_1262;
+				mc33Cube.cubeCase = MC33::Case::c102_1262;
 			else if(arrayIndex<1310)
 				// Case 10.2 Triangle Number 8
-				mc33Cube.cubeCase = c102_1286;
+				mc33Cube.cubeCase = MC33::Case::c102_1286;
 			else if(arrayIndex<1334)
 				// Case 11 Triangle Number 4
-				mc33Cube.cubeCase = c11;
+				mc33Cube.cubeCase = MC33::Case::c11;
 			else if(arrayIndex<1358)
 				// Case 14 Triangle Number 4
-				mc33Cube.cubeCase = c14;
+				mc33Cube.cubeCase = MC33::Case::c14;
 			else if(arrayIndex<1406)
 				// Case 12.1.1 Triangle Number 4
-				mc33Cube.cubeCase = c1211_1358;
+				mc33Cube.cubeCase = MC33::Case::c1211_1358;
 			else if(arrayIndex<1454)
 				// Case 12.1.1 Triangle Number 4
-				mc33Cube.cubeCase = c1211_1406;
+				mc33Cube.cubeCase = MC33::Case::c1211_1406;
 			else if(arrayIndex<1550)
 				// Case 12.1.2 Triangle Number 8
-				mc33Cube.cubeCase = c1212_1454;
+				mc33Cube.cubeCase = MC33::Case::c1212_1454;
 			else if(arrayIndex<1646)
 				// Case 12.1.2 Triangle Number 8
-				mc33Cube.cubeCase = c1212_1550;
+				mc33Cube.cubeCase = MC33::Case::c1212_1550;
 			else if(arrayIndex<1742)
 				// Case 12.2 Triangle Number 8
-				mc33Cube.cubeCase = c122_1646;
+				mc33Cube.cubeCase = MC33::Case::c122_1646;
 			else if(arrayIndex<1838)
 				// Case 12.2 Triangle Number 8
-				mc33Cube.cubeCase = c122_1742;
+				mc33Cube.cubeCase = MC33::Case::c122_1742;
 			else if(arrayIndex<1846)
 				// Case 13.1 Triangle Number 4
-				mc33Cube.cubeCase = c131;
+				mc33Cube.cubeCase = MC33::Case::c131;
 			else if(arrayIndex<1918)
 			{
 				// Case 13.2 Triangle Number 6
 				//mc33Cube.cubeCase = c132;
 				std::int8_t domSign = dominantSign(mc33Cube.facePattern);
 				if(domSign==+1)
-					mc33Cube.cubeCase = c132_MostPos;
+					mc33Cube.cubeCase = MC33::Case::c132_MostPos;
 				else if(domSign==-1)
-					mc33Cube.cubeCase = c132_MostNeg;
+					mc33Cube.cubeCase = MC33::Case::c132_MostNeg;
 				else
 					FatalErrorInFunction<<"False Sign!"<< exit(FatalError);
 			}
@@ -493,164 +563,174 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				//mc33Cube.cubeCase = c133;
 				std::int8_t domSign = dominantSign(mc33Cube.facePattern);
 				if(domSign==+1)
-					mc33Cube.cubeCase = c133_MostPos;
+					mc33Cube.cubeCase = MC33::Case::c133_MostPos;
 				else if(domSign==-1)
-					mc33Cube.cubeCase = c133_MostNeg;
+					mc33Cube.cubeCase = MC33::Case::c133_MostNeg;
 				else
 					FatalErrorInFunction<<"False Sign!"<< exit(FatalError);
 			}
 			else if(arrayIndex<2206)
 				// Case 13.4 Triangle Number 12
-				mc33Cube.cubeCase = c134;
+				mc33Cube.cubeCase = MC33::Case::c134;
 			else if(arrayIndex<2246)
 				// Case 13.5.2 Triangle Number 10
-				mc33Cube.cubeCase = c1352_2206;
+				mc33Cube.cubeCase = MC33::Case::c1352_2206;
 			else if(arrayIndex<2286)
 				// Case 13.5.2 Triangle Number 10
-				mc33Cube.cubeCase = c1352_2246;
+				mc33Cube.cubeCase = MC33::Case::c1352_2246;
 			else if(arrayIndex<2310)
 				// Case 13.5.1 Triangle Number 6
-				mc33Cube.cubeCase = c1351;
+				mc33Cube.cubeCase = MC33::Case::c1351;
 			else
 				FatalErrorInFunction<<"ArrayIndex must not be larger than 2309!"<< exit(FatalError);
 
 		// Getting referenceBitPattern for every MC33 case
-			if(mc33Cube.cubeCase==c1){
+			if(mc33Cube.cubeCase==MC33::Case::c1){
 				referenceBitPattern = 0x0008;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c2){
+			else if(mc33Cube.cubeCase==MC33::Case::c2){
 				referenceBitPattern = 0x000C;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c31 || mc33Cube.cubeCase==c32){
+			else if(mc33Cube.cubeCase==MC33::Case::c31 || mc33Cube.cubeCase==MC33::Case::c32){
 				referenceBitPattern = 0x000A;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c411 || mc33Cube.cubeCase==c412){
+			else if(mc33Cube.cubeCase==MC33::Case::c411 || mc33Cube.cubeCase==MC33::Case::c412){
 				referenceBitPattern = 0x0028;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c5){
+			else if(mc33Cube.cubeCase==MC33::Case::c5){
 				referenceBitPattern = 0x00C4;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c611 || mc33Cube.cubeCase==c612 || mc33Cube.cubeCase==c62){
+			else if(mc33Cube.cubeCase==MC33::Case::c611 || mc33Cube.cubeCase==MC33::Case::c612 || mc33Cube.cubeCase==MC33::Case::c62){
 				referenceBitPattern = 0x002C;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c71 || mc33Cube.cubeCase==c72_720 || mc33Cube.cubeCase==c72_760 || mc33Cube.cubeCase==c72_800){
+			else if(mc33Cube.cubeCase==MC33::Case::c71 || mc33Cube.cubeCase==MC33::Case::c72_720 || mc33Cube.cubeCase==MC33::Case::c72_760 || mc33Cube.cubeCase==MC33::Case::c72_800){
 				referenceBitPattern = 0x0025;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c72_720)
+				if(mc33Cube.cubeCase==MC33::Case::c72_720)
 					referenceFacePattern = {0,-1,-1,0,0,+1};
-				else if(mc33Cube.cubeCase==c72_760)
+				else if(mc33Cube.cubeCase==MC33::Case::c72_760)
 					referenceFacePattern = {0,+1,-1,0,0,-1};
-				else if(mc33Cube.cubeCase==c72_800)
+				else if(mc33Cube.cubeCase==MC33::Case::c72_800)
 					referenceFacePattern = {0,-1,+1,0,0,-1};
 			}
-			else if(mc33Cube.cubeCase==c73_840 || mc33Cube.cubeCase==c73_912 || mc33Cube.cubeCase==c73_984){
+			else if(mc33Cube.cubeCase==MC33::Case::c73_840 || mc33Cube.cubeCase==MC33::Case::c73_912 || mc33Cube.cubeCase==MC33::Case::c73_984){
 				referenceBitPattern = 0x0025;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c73_840)
+				if(mc33Cube.cubeCase==MC33::Case::c73_840)
 					referenceFacePattern = {0,+1,-1,0,0,+1};
-				else if(mc33Cube.cubeCase==c73_912)
+				else if(mc33Cube.cubeCase==MC33::Case::c73_912)
 					referenceFacePattern = {0,-1,+1,0,0,+1};
-				else if(mc33Cube.cubeCase==c73_984)
+				else if(mc33Cube.cubeCase==MC33::Case::c73_984)
 					referenceFacePattern = {0,+1,+1,0,0,-1};
 			}
-			else if(mc33Cube.cubeCase==c741 || mc33Cube.cubeCase==c742){
+			else if(mc33Cube.cubeCase==MC33::Case::c741 || mc33Cube.cubeCase==MC33::Case::c742){
 				referenceBitPattern = 0x0025;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c8){
+			else if(mc33Cube.cubeCase==MC33::Case::c8){
 				referenceBitPattern = 0x00CC;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c9){
+			else if(mc33Cube.cubeCase==MC33::Case::c9){
 				referenceBitPattern = 0x00D8;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c1011_1190 || mc33Cube.cubeCase==c1011_1202){
+			else if(mc33Cube.cubeCase==MC33::Case::c1011_1190 || mc33Cube.cubeCase==MC33::Case::c1011_1202){
 				referenceBitPattern = 0x0096;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c1011_1190)
+				if(mc33Cube.cubeCase==MC33::Case::c1011_1190)
 					referenceFacePattern = {-1,0,-1,0,0,0};
-				else if(mc33Cube.cubeCase==c1011_1202)
+				else if(mc33Cube.cubeCase==MC33::Case::c1011_1202)
 					referenceFacePattern = {+1,0,+1,0,0,0};
 			}
-			else if(mc33Cube.cubeCase==c1012_1214 || mc33Cube.cubeCase==c1012_1238){
+			else if(mc33Cube.cubeCase==MC33::Case::c1012_1214 || mc33Cube.cubeCase==MC33::Case::c1012_1238){
 				referenceBitPattern = 0x0096;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c1012_1214)
+				if(mc33Cube.cubeCase==MC33::Case::c1012_1214)
 					referenceFacePattern = {-1,0,-1,0,0,0};
-				else if(mc33Cube.cubeCase==c1012_1238)
+				else if(mc33Cube.cubeCase==MC33::Case::c1012_1238)
 					referenceFacePattern = {+1,0,+1,0,0,0};
 			}
-			else if(mc33Cube.cubeCase==c102_1262 || mc33Cube.cubeCase==c102_1286){
+			else if(mc33Cube.cubeCase==MC33::Case::c102_1262 || mc33Cube.cubeCase==MC33::Case::c102_1286){
 				referenceBitPattern = 0x0096;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c102_1262)
+				if(mc33Cube.cubeCase==MC33::Case::c102_1262)
 					referenceFacePattern = {+1,0,-1,0,0,0};
-				else if(mc33Cube.cubeCase==c102_1286)
+				else if(mc33Cube.cubeCase==MC33::Case::c102_1286)
 					referenceFacePattern = {-1,0,+1,0,0,0};
 			}
-			else if(mc33Cube.cubeCase==c11){
+			else if(mc33Cube.cubeCase==MC33::Case::c11){
 				referenceBitPattern = 0x00E8;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
-			else if(mc33Cube.cubeCase==c1211_1358 || mc33Cube.cubeCase==c1211_1406){
+			else if(mc33Cube.cubeCase==MC33::Case::c1211_1358 || mc33Cube.cubeCase==MC33::Case::c1211_1406){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c1211_1358)
+				if(mc33Cube.cubeCase==MC33::Case::c1211_1358)
 					referenceFacePattern = {0,0,0,-1,0,-1};
-				else if(mc33Cube.cubeCase==c1211_1406)
+				else if(mc33Cube.cubeCase==MC33::Case::c1211_1406)
 					referenceFacePattern = {0,0,0,+1,0,+1};
 			}
-			else if(mc33Cube.cubeCase==c1212_1454 || mc33Cube.cubeCase==c1212_1550){
+			else if(mc33Cube.cubeCase==MC33::Case::c1212_1454 || mc33Cube.cubeCase==MC33::Case::c1212_1550){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c1212_1454)
+				if(mc33Cube.cubeCase==MC33::Case::c1212_1454)
 					referenceFacePattern = {0,0,0,-1,0,-1};
-				else if(mc33Cube.cubeCase==c1212_1550)
+				else if(mc33Cube.cubeCase==MC33::Case::c1212_1550)
 					referenceFacePattern = {0,0,0,+1,0,+1};
 			}
-			else if(mc33Cube.cubeCase==c122_1646 || mc33Cube.cubeCase==c122_1742){
+			else if(mc33Cube.cubeCase==MC33::Case::c122_1646 || mc33Cube.cubeCase==MC33::Case::c122_1742){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Both;
-				if(mc33Cube.cubeCase==c1212_1454)
+				if(mc33Cube.cubeCase==MC33::Case::c1212_1454)
 					referenceFacePattern = {0,0,0,+1,0,-1};
-				else if(mc33Cube.cubeCase==c1212_1550)
+				else if(mc33Cube.cubeCase==MC33::Case::c1212_1550)
 					referenceFacePattern = {0,0,0,-1,0,+1};
 			}
-			else if(mc33Cube.cubeCase==c131){
+			else if(mc33Cube.cubeCase==MC33::Case::c131){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Point; // False but irrelavant
 			}
-			else if(mc33Cube.cubeCase==c132){
+			else if(mc33Cube.cubeCase==MC33::Case::c132_MostNeg){
 				referenceBitPattern = 0x00A5;
-				mc33Cube.permMeth = permutationMethod::FaceInversion;
+				mc33Cube.permMeth = permutationMethod::Face;
 				referenceFacePattern = {-1,-1,+1,-1,-1,-1};
 			}
-			else if(mc33Cube.cubeCase==c133){
+			else if(mc33Cube.cubeCase==MC33::Case::c132_MostPos){
 				referenceBitPattern = 0x00A5;
-				mc33Cube.permMeth = permutationMethod::FaceInversion;
+				mc33Cube.permMeth = permutationMethod::Face;
+				referenceFacePattern = {+1,+1,-1,+1,+1,+1};
+			}
+			else if(mc33Cube.cubeCase==MC33::Case::c133_MostPos){
+				referenceBitPattern = 0x00A5;
+				mc33Cube.permMeth = permutationMethod::Face;
 				referenceFacePattern = {+1,+1,-1,-1,+1,+1};
 			}
-			else if(mc33Cube.cubeCase==c134){
+			else if(mc33Cube.cubeCase==MC33::Case::c133_MostNeg){
+				referenceBitPattern = 0x00A5;
+				mc33Cube.permMeth = permutationMethod::Face;
+				referenceFacePattern = {-1,-1,+1,+1,-1,-1};
+			}
+			else if(mc33Cube.cubeCase==MC33::Case::c134){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Face;
 				referenceFacePattern = {-1,-1,+1,+1,-1,+1};
 			}
-			else if(mc33Cube.cubeCase==c1351){
+			else if(mc33Cube.cubeCase==MC33::Case::c1351){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Point; // False but irrelevant
 			}
-			else if(mc33Cube.cubeCase==c1352_2206  || mc33Cube.cubeCase==c1352_2246){
+			else if(mc33Cube.cubeCase==MC33::Case::c1352_2206  || mc33Cube.cubeCase==MC33::Case::c1352_2246){
 				referenceBitPattern = 0x00A5;
 				mc33Cube.permMeth = permutationMethod::Point; // False but irrelevant
 			}
-			else if(mc33Cube.cubeCase==c14){
+			else if(mc33Cube.cubeCase==MC33::Case::c14){
 				referenceBitPattern = 0x00D4;
 				mc33Cube.permMeth = permutationMethod::Point;
 			}
@@ -693,12 +773,15 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 					mc33Cube.cubeCase==c9 ||
 					mc33Cube.cubeCase==c1011_1190 || mc33Cube.cubeCase==c1011_1202 || 
 					mc33Cube.cubeCase==c1012_1214 || mc33Cube.cubeCase==c1012_1238 ||
-					mc33Cube.cubeCase==c102_1262 || mc33Cube.cubeCase==c102_1286
+					mc33Cube.cubeCase==c102_1262 || mc33Cube.cubeCase==c102_1286 ||
 					mc33Cube.cubeCase==c11 ||
 					mc33Cube.cubeCase==c1211_1358 || mc33Cube.cubeCase==c1211_1406 ||
 					mc33Cube.cubeCase==c1212_1454 || mc33Cube.cubeCase==c1212_1550|| 
 					mc33Cube.cubeCase==c122_1646 || mc33Cube.cubeCase==c122_1742 ||
-					mc33Cube.cubeCase==c131 || mc33Cube.cubeCase==c132 || mc33Cube.cubeCase==c133 || mc33Cube.cubeCase==c134 || mc33Cube.cubeCase==c1351 ||
+					mc33Cube.cubeCase==c131 || mc33Cube.cubeCase==c132_MostNeg || 
+					mc33Cube.cubeCase==c132_MostPos || mc33Cube.cubeCase==c133_MostNeg ||
+					mc33Cube.cubeCase==c133_MostPos ||
+					mc33Cube.cubeCase==c134 || mc33Cube.cubeCase==c1351 ||
 					mc33Cube.cubeCase==c1352_2206 || mc33Cube.cubeCase==c1352_2246 ||
 					mc33Cube.cubeCase==c14)
 					{
@@ -716,7 +799,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				}
 				return validPermutations[0];
 			};
-			auto findFacePermutation = []()
+			auto findFacePermutation = [&]()
 			{
 				std::vector<std::uint8_t> validPermutations;
 				for(unsigned int permutInd=0;permutInd<permutations.size();permutInd++)
@@ -759,12 +842,9 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 				else
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 			}
-			else
-			{
-				
-			}
 			mc33Cube.permutationTableIndex = permutationTableIndex;
 			
+			/*
 			if(mc33Cube.cubeCase==c1){
 				// Case 1 Triangle Number 1
 				if(mc33Cube.cutTriangles.size()!=1)
@@ -984,6 +1064,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			}
 			else
 				FatalErrorInFunction<<"Error!"<< exit(FatalError);
+			*/
 		}
 
 		mc33Cube.pointPermutation = permutations[mc33Cube.permutationTableIndex];
