@@ -5669,16 +5669,18 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     //Compute equal faces and faces as face subsets
     List<std::unordered_set<label>> equalFaces(nonConvexCellFaces.size());
     List<std::unordered_set<label>> faceSubsets(nonConvexCellFaces.size());
+    List<std::unordered_set<label>> faceSupersets(nonConvexCellFaces.size());
     for(uint baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
     {
         face baseFace = oneCellGlobFaces[baseInd];
         std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
         for(uint compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
         {
-            face compFace = oneCellGlobFaces[compareInd];
-            std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
             if(baseInd==compareInd)
                 continue;
+
+            face compFace = oneCellGlobFaces[compareInd];
+            std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
             bool allIn=true;
             for(label compVert : compFace)
             {
@@ -5688,14 +5690,50 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             if(allIn)
             {
                 if(baseFace.size()==compFace.size())
+                {
                     equalFaces[baseInd].insert(compareInd);
+                }
                 else if(baseFace.size()>compFace.size())
+                {
                     faceSubsets[baseInd].insert(compareInd);
+                    faceSupersets[compareInd].insert(baseInd);
+                }
                 else
                     FatalErrorInFunction<<"Error"<< exit(FatalError);
             }
         }
-    }    
+    }
+    for(uint faceInd=0; faceInd<oneCellGlobFaces.size(); faceInd++)
+    {
+        for(auto iter=equalFaces[faceInd].begin(); iter!=equalFaces[faceInd].end(); iter++)
+        {
+            if(equalFaces[*iter].find(faceInd)==equalFaces[*iter])
+                FatalErrorInFunction<<"Inconsistent"<< exit(FatalError);
+        }
+    }
+    
+    List<bool> validFaces(nonConvexCellFaces.size());
+    List<std::pair<bool,DynamicList<label>>> faceReplacedByFaces;
+    for(uint faceInd=0; faceInd<validFaces.size(); faceInd++)
+    {
+        bool invalidBcEqual = false;
+        if(equalFaces[faceInd].size()>0)
+        {
+            std::vector<label> equalFacesToThis(equalFaces[faceInd].begin(),equalFaces[faceInd].end());
+            std::sort(equalFacesToThis.begin(),equalFacesToThis.end());
+            if(equalFacesToThis[0]<faceInd)
+            {
+                validFaces[faceInd] = false;
+                faceReplacedByFaces[faceInd].first = true;
+                faceReplacedByFaces[faceInd].second.append(equalFacesToThis[0]);
+            }
+        }
+        if(faceSubsets[faceInd].size()>0)
+        {
+            std::vector<label> faceSubsetsToThis(faceSubsets[faceInd].begin(),faceSubsets[faceInd].end());
+            
+        }
+    }
     
     List<bool> validCells(corrData.cells.size(),false);
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
