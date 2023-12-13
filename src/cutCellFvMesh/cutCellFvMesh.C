@@ -5722,6 +5722,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             FatalErrorInFunction<<"Face must be equal, a superset or a subset but not both!"<< exit(FatalError);
     }
     
+    //Compute splitted faces for subsets
     List<bool> faceSubsetIsFilling(nonConvexCellFaces.size(),false);
     List<DynamicList<face>> faceSubsetsRemain(nonConvexCellFaces.size());
     for(uint faceInd=0; faceInd<faceSubsets.size(); faceInd++)
@@ -5861,14 +5862,35 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
         
+        std::unordered_set<label> subFaceSet;
+        for(auto faceIndIter=subFaces.begin(); faceIndIter!=subFaces.end();)
+        {
+            const face& oneSubFace = nonConvexCellFaces[*faceIndIter];
+            for(label vert : oneSubFace)
+                subFaceSet.insert(vert);
+        }
+        bool mustBeNonFilling = false;
+        for(label vert : baseFace)
+        {
+            if(subFaceSet.find(vert)==subFaceSet.end())
+                mustBeNonFilling = true;
+        }
+        
         if(remainingFaces.size()==0)
+        {
             faceSubsetIsFilling[faceInd] = true;
+            if(mustBeNonFilling)
+                FatalErrorInFunction<<"Filling mismatch!"<< exit(FatalError);
+        }
         else
         {
+            if(!mustBeNonFilling)
+                FatalErrorInFunction<<"Filling mismatch!"<< exit(FatalError);
             faceSubsetsRemain[faceInd].append(remainingFaces);
         }
     }
 
+    // Redirect faces
     List<bool> validFaces(nonConvexCellFaces.size());
     List<std::pair<bool,DynamicList<label>>> faceReplacedByFaces;
     for(uint faceInd=0; faceInd<validFaces.size(); faceInd++)
@@ -5887,8 +5909,14 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
         if(faceSubsets[faceInd].size()>0)
         {
-            std::vector<label> faceSubsetsToThis(faceSubsets[faceInd].begin(),faceSubsets[faceInd].end());
-            
+            validFaces[faceInd] = false;
+            faceReplacedByFaces[faceInd].first = true;
+            for(auto iter=faceSubsets[faceInd].begin(); iter!=faceSubsets[faceInd].end(); iter++)
+            {
+                if(faceSubsets[*iter].size()>0)
+                    FatalErrorInFunction<<"Recursive face subset!"<< exit(FatalError);
+                faceReplacedByFaces[faceInd].second.append(*iter);
+            }
         }
     }
     
