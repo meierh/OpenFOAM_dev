@@ -5920,11 +5920,91 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    // Reduce valid cells
     List<bool> validCells(corrData.cells.size(),false);
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
-        validCells[cellInd] = isCellValid(corrData,nonConvexCellFaces,cellInd);
+        const List<label>& oneCellFaceInds = corrData.cells[cellInd];
+        DynamicList<label> oneCellValidFaces;
+        for(label faceInd : oneCellFaceInds)
+            if(validFaces[faceInd])
+                oneCellValidFaces.append(faceInd);
+        List<std::unordered_set<label>> neighborFaceOnEdge(oneCellValidFaces.size());
+        List<bool> inCellFace(oneCellValidFaces.size(),true);
+        DynamicList<label> removedFaces;
+        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        // for all faces in cell
+        {
+            label oneFaceInd = oneCellValidFaces[iCell];
+            const face& oneFace = nonConvexCellFaces[oneFaceInd];
+            for(label i0Face=0; i0Face<oneFace.size(); i0Face++)
+            // for all edges
+            {
+                label i1Face = oneFace.fcIndex(i0Face);
+                label i0Vert = oneFace[i0Face];
+                label i1Vert = oneFace[i1Face];
+                bool edgeConnected=false;
+                
+                for(label iCellNei=0; iCellNei<oneCellValidFaces.size(); iCellNei++)
+                {
+                    if(iCell==iCellNei)
+                        continue;
+                    label oneFaceIndNei = oneCellValidFaces[iCellNei];
+                    const face& oneFaceNei = nonConvexCellFaces[oneFaceIndNei];
+                    
+                    label neiFacei0 = oneFaceNei.which(i0Vert);
+                    if(neiFacei0!=-1)
+                    {
+                        if(oneFaceNei.prevLabel(neiFacei0)==i1Vert ||
+                           oneFaceNei.nextLabel(neiFacei0)==i1Vert)
+                        {
+                            if(neighborFaceOnEdge[iCell].find(oneFaceIndNei)!=neighborFaceOnEdge[iCell].end())
+                                FatalErrorInFunction<<"Face borders same face twice!"<< exit(FatalError);
+                            neighborFaceOnEdge[iCell].insert(oneFaceIndNei);
+                        }
+                    }
+                }
+            }
+            if(neighborFaceOnEdge[iCell].size()<oneFace.size())
+            {
+                inCellFace[iCell] = false;
+                removedFaces.append(oneFaceInd);
+            }
+        }
+        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        // for all faces in cell
+        {
+            label oneFaceInd = oneCellValidFaces[iCell];
+            const face& oneFace = nonConvexCellFaces[oneFaceInd];
+            for(label removedFace : removedFaces)
+            {
+                auto iter = neighborFaceOnEdge[iCell].find(removedFace);
+                if(iter!=neighborFaceOnEdge[iCell].end())
+                    neighborFaceOnEdge[iCell].erase(iter);
+            }
+            if(inCellFace[iCell])
+            {
+                if(neighborFaceOnEdge[iCell].size()<oneFace.size())
+                {
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                }
+            }
+        }
+        
+        DynamicList<label> trueCell;
+        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        {
+            if(inCellFace[iCell])
+                trueCell.append(oneCellValidFaces[iCell]);
+        }
+        
+        if(trueCell.size()>=4)
+            validCells[cellInd]=true;
     }
+    
+    //continue here
+    
+    
     List<bool> usedFace(corrData.faces.size(),false);
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
