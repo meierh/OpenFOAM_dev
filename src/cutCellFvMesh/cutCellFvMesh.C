@@ -5922,6 +5922,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     
     // Reduce valid cells
     List<bool> validCells(corrData.cells.size(),false);
+    DynamicList<List<label>> trueCells;
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
         const List<label>& oneCellFaceInds = corrData.cells[cellInd];
@@ -5999,7 +6000,27 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
         
         if(trueCell.size()>=4)
+        {
+            trueCells.append(trueCell);
             validCells[cellInd]=true;
+        }
+    }
+    
+    List<DynamicList<label>> trueCellsTrueFaces(trueCells.size());
+    for(label cellInd=0; cellInd<trueCells.size(); cellInd++)
+    {
+        const List<label>& cell = trueCells[cellInd];
+        for(label faceInd : cell)
+        {
+            if(faceReplacedByFaces[faceInd].first)
+            {
+                trueCellsTrueFaces[cellInd].append(faceReplacedByFaces[faceInd].second);
+            }
+            else
+            {
+                trueCellsTrueFaces[cellInd].append(faceInd);
+            }
+        }
     }
     
     //continue here
