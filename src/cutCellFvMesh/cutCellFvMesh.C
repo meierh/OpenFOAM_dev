@@ -6023,9 +6023,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
-    //continue here
-    
-    
+    /*
     List<bool> usedFace(corrData.faces.size(),false);
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
@@ -6036,6 +6034,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 usedFace[faceInd] = true;
         }
     }
+    */
     
     enum FaceType{original=0,splitted=1,added=2};
     List<std::pair<FaceType,label>> facesStoreInfo(nonConvexCellFaces.size());
@@ -6074,7 +6073,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
-    
+    /*
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
         if(validCells[cellInd])
@@ -6112,6 +6111,43 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
 
             newCellData.cells.append(oneCellData);
         }
+    }
+    */
+    
+    for(label cellInd=0; cellInd<trueCellsTrueFaces.size(); cellInd++)
+    {
+        const List<label>& oneCell = trueCellsTrueFaces[cellInd];
+        CellFaces oneCellData;
+        DynamicList<label> originalFaceInds;
+        DynamicList<label> splittedFaceInds;
+        DynamicList<label> addedFaceInds;
+        for(label cellFaceInd : oneCell)
+        {
+            const std::pair<FaceType,label>& info = facesStoreInfo[cellFaceInd];
+            switch(info.first)
+            {
+                case FaceType::original:
+                {
+                    originalFaceInds.append(info.second);
+                    break;
+                }
+                case FaceType::splitted:
+                {
+                    splittedFaceInds.append(info.second);
+                    break;
+                }
+                case FaceType::added:
+                {
+                    addedFaceInds.append(info.second);
+                    break;
+                }
+            }
+        }
+        oneCellData.originalFaceInds = originalFaceInds;
+        oneCellData.splittedFaceInds = splittedFaceInds;
+        oneCellData.addedFaceInds = addedFaceInds;
+
+        newCellData.cells.append(oneCellData);
     }
     
     return newCellDataPtr;
@@ -8138,7 +8174,6 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             }
         }
     }
-    
     new_points_List.append(added_points);    
     for(label faceInd=0;faceInd<new_faces.size();faceInd++)
     {
@@ -8194,6 +8229,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
 
+    //Assign split and original faces to own and neighbor faces
     //std::unordered_set<label> removedFaces;
     //DynamicList<std::tuple<face,label,label>> addedFaces;
     //std::unordered_set<label> removedCell;
@@ -8250,6 +8286,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         cellIndStart.append(cellIndStart.last()+cellMultiple);
     }
     
+    //
     List<DynamicList<face>> new_faces(this->new_faces.size());
     List<DynamicList<std::pair<label,label>>> new_owner(this->new_faces.size());
     List<DynamicList<std::pair<label,label>>> new_neighbour(this->new_faces.size());
