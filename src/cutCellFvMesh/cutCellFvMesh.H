@@ -692,6 +692,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         typedef struct{
             labelList originalFaceInds;
             labelList splittedFaceInds;
+            labelList replacingFaceInds;
+            labelList replacingResidualFaceInds;
             labelList addedFaceInds;
         } CellFaces;
         
@@ -703,6 +705,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<face> addedFace;
             // face with reference index for original face
             DynamicList<std::pair<face,label>> splittedFaces;
+            // face with reference index for replaced face
+            DynamicList<std::tuple<face,label,bool>> replacingFaces;
+            // face with reference index for replaced face
+            DynamicList<std::pair<face,label>> replacingRediualFaces;
             // new cells with tuple of (original face indexes, splitted faces indexex, added faces indexes)
             DynamicList<CellFaces> cells;
         } CellSplitData;

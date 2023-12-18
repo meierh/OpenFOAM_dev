@@ -5921,7 +5921,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     }
     
     // Reduce valid cells
-    List<bool> validCells(corrData.cells.size(),false);
+    //List<bool> validCells(corrData.cells.size(),false);
     DynamicList<List<label>> trueCells;
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
@@ -5930,9 +5930,10 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         for(label faceInd : oneCellFaceInds)
             if(validFaces[faceInd])
                 oneCellValidFaces.append(faceInd);
+        
+        //Compute neighborhood set for valid faces
         List<std::unordered_set<label>> neighborFaceOnEdge(oneCellValidFaces.size());
-        List<bool> inCellFace(oneCellValidFaces.size(),true);
-        DynamicList<label> removedFaces;
+        List<bool> removed(oneCellValidFaces.size(),false);
         for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
         // for all faces in cell
         {
@@ -5959,17 +5960,29 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         if(oneFaceNei.prevLabel(neiFacei0)==i1Vert ||
                            oneFaceNei.nextLabel(neiFacei0)==i1Vert)
                         {
-                            if(neighborFaceOnEdge[iCell].find(oneFaceIndNei)!=neighborFaceOnEdge[iCell].end())
+                            if(neighborFaceOnEdge[iCell].find(iCellNei)!=neighborFaceOnEdge[iCell].end())
                                 FatalErrorInFunction<<"Face borders same face twice!"<< exit(FatalError);
-                            neighborFaceOnEdge[iCell].insert(oneFaceIndNei);
+                            neighborFaceOnEdge[iCell].insert(iCellNei);
                         }
                     }
                 }
             }
             if(neighborFaceOnEdge[iCell].size()<oneFace.size())
             {
-                inCellFace[iCell] = false;
-                removedFaces.append(oneFaceInd);
+                removed[iCell] = true;
+            }
+        }
+        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        // for all faces in cell
+        {
+            std::unordered_set<label>& neighborFaceOnEdgeSingle = neighborFaceOnEdge[iCell];
+            for(label iCell1=0; iCell1<oneCellValidFaces.size(); iCell1++)
+            {
+                if(removed[iCell1])
+                {
+                    auto iter = neighborFaceOnEdgeSingle.find(iCell1);
+                    neighborFaceOnEdgeSingle.erase(iter);
+                }
             }
         }
         for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
@@ -5977,13 +5990,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         {
             label oneFaceInd = oneCellValidFaces[iCell];
             const face& oneFace = nonConvexCellFaces[oneFaceInd];
-            for(label removedFace : removedFaces)
-            {
-                auto iter = neighborFaceOnEdge[iCell].find(removedFace);
-                if(iter!=neighborFaceOnEdge[iCell].end())
-                    neighborFaceOnEdge[iCell].erase(iter);
-            }
-            if(inCellFace[iCell])
+            if(!removed[iCell])
             {
                 if(neighborFaceOnEdge[iCell].size()<oneFace.size())
                 {
@@ -5992,17 +5999,54 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
         
-        DynamicList<label> trueCell;
-        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
-        {
-            if(inCellFace[iCell])
-                trueCell.append(oneCellValidFaces[iCell]);
-        }
+        //List valid faces
+        std::unordered_set<label> validFaceLocInd;
+        for(label i=0;i<removed.size();i++)
+            if(!removed[i])
+                validFaceLocInd.insert(i);
         
-        if(trueCell.size()>=4)
+        //Collect valid cells from valid faces
+        List<std::unordered_set<label>> neighborFaceOnEdgeCopy = neighborFaceOnEdge;
+        List<bool> treatedFace(neighborFaceOnEdgeCopy.size(),false);
+        DynamicList<label> edgeFaceFront;
+        DynamicList<label> trueCell;
+        
+        while(!validFaceLocInd.empty())
+        // over all cells
         {
-            trueCells.append(trueCell);
-            validCells[cellInd]=true;
+            if(edgeFaceFront.size()==0)
+            {
+                if(trueCell.size()>0)
+                {
+                    trueCells.append(trueCell);
+                    trueCell.clear();
+                }
+                auto iter = validFaceLocInd.begin();
+                edgeFaceFront.append(*iter);
+                treatedFace[*iter] = true;
+                validFaceLocInd.erase(iter);
+            }
+            
+            // advance front
+            DynamicList<label> new_edgeFaceFront;
+            for(label locInd : edgeFaceFront)
+            {
+                trueCell.append(locInd);
+                std::unordered_set<label>& neighborFaceOnEdgeSingle = neighborFaceOnEdgeCopy[locInd];
+                for(auto iterNei=neighborFaceOnEdgeSingle.begin(); iterNei!=neighborFaceOnEdgeSingle.end(); iterNei++)
+                {
+                    if(!treatedFace[*iterNei])
+                    {
+                        new_edgeFaceFront.append(*iterNei);
+                        treatedFace[*iterNei] = true;
+                        auto iterValidFace = validFaceLocInd.find(*iterNei);
+                        if(iterValidFace == validFaceLocInd.end())
+                            FatalErrorInFunction<<"Must not happen!"<< exit(FatalError);
+                        validFaceLocInd.erase(iterValidFace);
+                    }
+                }
+            }
+            edgeFaceFront = new_edgeFaceFront;
         }
     }
     
@@ -6022,19 +6066,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
-    
-    /*
-    List<bool> usedFace(corrData.faces.size(),false);
-    for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
-    {
-        const List<label>& oneCell = corrData.cells[cellInd];
-        if(validCells[cellInd])
-        {
-            for(label faceInd : oneCell)
-                usedFace[faceInd] = true;
-        }
-    }
-    */
     
     enum FaceType{original=0,splitted=1,added=2};
     List<std::pair<FaceType,label>> facesStoreInfo(nonConvexCellFaces.size());
@@ -6073,46 +6104,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
-    /*
-    for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
-    {
-        if(validCells[cellInd])
-        {
-            const List<label>& oneCell = corrData.cells[cellInd];
-            CellFaces oneCellData;
-            DynamicList<label> originalFaceInds;
-            DynamicList<label> splittedFaceInds;
-            DynamicList<label> addedFaceInds;
-            for(label cellFaceInd : oneCell)
-            {
-                const std::pair<FaceType,label>& info = facesStoreInfo[cellFaceInd];
-                switch(info.first)
-                {
-                    case FaceType::original:
-                    {
-                        originalFaceInds.append(info.second);
-                        break;
-                    }
-                    case FaceType::splitted:
-                    {
-                        splittedFaceInds.append(info.second);
-                        break;
-                    }
-                    case FaceType::added:
-                    {
-                        addedFaceInds.append(info.second);
-                        break;
-                    }
-                }
-            }
-            oneCellData.originalFaceInds = originalFaceInds;
-            oneCellData.splittedFaceInds = splittedFaceInds;
-            oneCellData.addedFaceInds = addedFaceInds;
-
-            newCellData.cells.append(oneCellData);
-        }
-    }
-    */
     
     for(label cellInd=0; cellInd<trueCellsTrueFaces.size(); cellInd++)
     {
