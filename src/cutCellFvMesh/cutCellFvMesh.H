@@ -323,9 +323,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInteriorPatchInd;
             // added interior split faces old Index
             DynamicList<label> splitAndUnsplitFacesInteriorOldInd;
-            // faceInd to sub list index
-            //std::unordered_map<label,label> sAUFI_NewToOldMap;
-            //std::unordered_multimap<label,label> sAUFI_OldToNewMap;
+            DynamicList<label> splitAndUnsplitFacesInteriorOriginInd;
             
             //insert interior to boundary splitted faces
             // added interior to boundary split faces
@@ -338,9 +336,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryPatchInd;
             // added interior to boundary split faces old Index
             DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryOldInd;
-            // faceInd to sub list index
-            //std::unordered_map<label,label> sAUFITB_NewToOldMap;
-            //std::unordered_multimap<label,label> sAUFITB_OldToNewMap;
+            DynamicList<label> splitAndUnsplitFacesInteriorToBoundaryOriginInd;
             
             //insert boundary splitted faces
             // added boundary split faces
@@ -353,9 +349,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesBoundaryPatchInd;
             // added boundary split faces old index
             DynamicList<label> splitAndUnsplitFacesBoundaryOldInd;
-            // faceInd to sub list index
-            //std::unordered_map<label,label> sAUFB_NewToOldMap;
-            //std::unordered_multimap<label,label> sAUFB_OldToNewMap;
+            DynamicList<label> splitAndUnsplitFacesBoundaryOriginInd;
             
             //insert interface splitted faces
             // added interface split faces
@@ -368,9 +362,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<label> splitAndUnsplitFacesInterfacePatchInd;
             // added interface split faces old Ind
             DynamicList<label>  splitAndUnsplitFacesInterfaceOldInd;
-            // faceInd to sub list index
-            //std::unordered_map<label,label> sAUFIf_NewToOldMap;
-            //std::unordered_multimap<label,label> sAUFIf_OldToNewMap;
+            DynamicList<label>  splitAndUnsplitFacesInterfaceOriginInd;
+            
+            //old face index to new face index
+            std::unordered_map<label,DynamicList<label>> oldFaceToNewFaceInds;
+            std::unordered_map<label,label> newFaceToOldFaceInds;
             
             //list of indexes of minus side cell of splitted cell or empty if cell is not split
             List<DynamicList<label>> oldSplittedCellToNewMinusCell;
@@ -705,12 +701,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<face> addedFace;
             // face with reference index for original face
             DynamicList<std::pair<face,label>> splittedFaces;
-            // face with reference index for replaced face
-            DynamicList<std::tuple<face,label,bool>> replacingFaces;
-            // face with reference index for replaced face
-            DynamicList<std::pair<face,label>> replacingRediualFaces;
+            // face with reference index for replacing face and original(replaced) face pair(orig or splitted = true / index)
+            DynamicList<std::tuple<face,label,std::pair<bool,label>,bool>> replacingFaces;
+            // face with reference index for replacing face
+            DynamicList<std::pair<face,label>> replacingResidualFaces;
             // new cells with tuple of (original face indexes, splitted faces indexex, added faces indexes)
             DynamicList<CellFaces> cells;
+            
+            DynamicList<label> nonCellFaceChanges;
         } CellSplitData;
         
         label memSecMC33VerticePntInd
