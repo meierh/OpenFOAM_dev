@@ -686,14 +686,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         );
         */
         
-        enum CSFaceType{original=0,splitted=1,added=2};
+        enum CSFaceType{originalCSFT=0,splittedCSFT=1,addedCSFT=2};
         
         typedef struct{
             labelList originalFaceInds;
             labelList splittedFaceInds;
             //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
             List<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
-            List<std::tuple<label,CSFaceType,label> replacingResidualFaceInds;
+            List<std::tuple<label,CSFaceType,label>> replacingResidualFaceInds;
             labelList addedFaceInds;
         } CellFaces;
         

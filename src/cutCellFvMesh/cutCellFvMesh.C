@@ -3710,7 +3710,7 @@ void Foam::cutCellFvMesh::createNewMeshData_MC33
     for(int newFacei=0; newFacei<faceToOriginInd.size(); newFacei++)
     {
         newFaceToOldFaceInds[newFacei] = faceToOriginInd[newFacei];
-        oldFaceToNewFaceInds[faceToOriginInd[newFacei]].append(newFacei)
+        oldFaceToNewFaceInds[faceToOriginInd[newFacei]].append(newFacei);
     }
     
     DynamicList<DynamicList<nurbsReference>> meshPointNurbsReference_new;
@@ -5446,7 +5446,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     
     //Create cell in newCellData
     DynamicList<face> nonConvexCellFaces;
-    nonConvexCellFaces.setSize(corrData.faces.size())
+    nonConvexCellFaces.setSize(corrData.faces.size());
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
         face& globFace = nonConvexCellFaces[faceInd];
@@ -5886,7 +5886,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
         verticeCombNumber += verticeInds[verticeInds.size()-1];
         return verticeCombNumber;
-    }
+    };
     
     std::unordered_map<uint,label> faceVerticesToInd;
     for(label faceInds : thisCell)
@@ -5910,7 +5910,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         label matchingNewFaceInd = -1;
         if(oneFace.type!=FType::mc33Triangle && oneFace.type!=FType::added)
         {
-            label origFaceCellLocalInd = corrData.faces.origFace;
+            label origFaceCellLocalInd = corrData.faces[faceInd].origFace;
             label origFaceGlobalInd = mc33cube.origFaces[origFaceCellLocalInd];
             auto iterOldToNew = oldFaceToNewFaceInds.find(origFaceGlobalInd);
             if(iterOldToNew == oldFaceToNewFaceInds.end())
@@ -5977,18 +5977,18 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             case FType::mc33Triangle:
                 if(newFaceInd[faceInd]==-1)
                     FatalErrorInFunction<<"No new face identical!"<< exit(FatalError);
-                facesStoreInfo[faceInd] = {CSFaceType::original,newFaceInd[faceInd]};                    
+                facesStoreInfo[faceInd] = {CSFaceType::originalCSFT,newFaceInd[faceInd]};                    
                 break;
             case FType::added:
-                facesStoreInfo[faceInd] = {CSFaceType::added,newCellData.addedFace.size()};
-                newCellData.addedFace.append(oneFace);
+                facesStoreInfo[faceInd] = {CSFaceType::addedCSFT,newCellData.addedFace.size()};
+                newCellData.addedFace.append(globFace);
                 break;
             case FType::splitOld:
             case FType::splitOrig:
                 if(newFaceInd[faceInd]==-1)
                     FatalErrorInFunction<<"No new face identical!"<< exit(FatalError);
-                facesStoreInfo[faceInd] = {CSFaceType::splitted,newCellData.splittedFaces.size()};
-                newCellData.splittedFaces.append({oneFace,newFaceInd[faceInd]});
+                facesStoreInfo[faceInd] = {CSFaceType::splittedCSFT,newCellData.splittedFaces.size()};
+                newCellData.splittedFaces.append({globFace,newFaceInd[faceInd]});
                 break;
             default:
                 FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -5996,7 +5996,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     }
     
     enum FaceUsage {None,Partial,Complete};
-    List<std::pair<FaceUsage,label>> faceUsedInSubCell(nonConvexCellFaces.size(),FaceUsage::None);
+    List<std::pair<FaceUsage,label>> faceUsedInSubCell(nonConvexCellFaces.size(),{FaceUsage::None,0});
     for(label cellInd=0; cellInd<trueCellsTrueFaces.size(); cellInd++)
     {
         const List<label>& oneCell = trueCellsTrueFaces[cellInd];
@@ -6006,7 +6006,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         DynamicList<label> splittedFaceInds;
         DynamicList<label> addedFaceInds;
         DynamicList<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
-        DynamicList<std::tuple<label,CSFaceType,label> replacingResidualFaceInds;
+        DynamicList<std::tuple<label,CSFaceType,label>> replacingResidualFaceInds;
         
         for(label cellFaceInd : oneCell)
         {
@@ -6030,8 +6030,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             if(replacedFaceWithRemains && !thisFaceIsReplaced)
                 FatalErrorInFunction<<"Face has remaining faces but not replaced"<< exit(FatalError);
             
-            const corrFace& oneFace = corrData.faces[faceInd];
-            const face& globFace = nonConvexCellFaces[faceInd];
+            const corrFace& oneFace = corrData.faces[cellFaceInd];
+            const face& globFace = nonConvexCellFaces[cellFaceInd];
             
             const std::pair<CSFaceType,label>& faceInfo = facesStoreInfo[cellFaceInd];
             label newFaceIndex = newFaceInd[cellFaceInd];
@@ -6039,11 +6039,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             if(thisFaceIsReplaced)
             {
                 const DynamicList<label>& replacingFacesInd = faceReplacement.second;
+                bool replacedByMc33OrAdded = false;
                 switch(oneFace.type)
                 {
                     case FType::orig:
                     case FType::old:
-                        bool replacedByMc33OrAdded = false;
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             const corrFace& replacingFace = corrData.faces[replacingFaceInd];
@@ -6056,9 +6056,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
                                     break;
                                 case FType::added:
-                                case FType::mc33:
+                                case FType::mc33Triangle:
                                     replacedByMc33OrAdded = true;
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                     break;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -6083,7 +6083,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         break;
                     case FType::splitOrig:
                     case FType::splitOld:
-                        bool replacedByMc33OrAdded = false;
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             const corrFace& replacingFace = corrData.faces[replacingFaceInd];
@@ -6095,9 +6094,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::splitOld:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
                                 case FType::added:
-                                case FType::mc33:
+                                case FType::mc33Triangle:
                                     replacedByMc33OrAdded = true;
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                             }
@@ -6128,22 +6127,22 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                             {
                                 case FType::orig:
                                 case FType::old:
-                                    replacingFaceInds.append({CSFaceType::added,faceInfo.second,
+                                    newCellData.replacingFaceInds.append({CSFaceType::added,faceInfo.second,
                                                               CSFaceType::original,replacingFaceInfo.second});
                                     faceUsedInCell[replacingFaceInd] = true;
                                     faceUsedInSubCell[replacingFaceInd] = Complete;
                                     break;
                                 case FType::splitOrig:
                                 case FType::splitOld:
-                                    replacingFaceInds.append({CSFaceType::added,faceInfo.second,
+                                    newCellData.replacingFaceInds.append({CSFaceType::added,faceInfo.second,
                                                               CSFaceType::splitted,replacingFaceInfo.second});
                                     faceUsedInCell[replacingFaceInd] = true;
                                     faceUsedInSubCell[replacingFaceInd] = Complete;
                                     break;
                                 case FType::added:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
-                                case FType::mc33:
-                                    replacingFaceInds.append({CSFaceType::added,faceInfo.second,
+                                case FType::mc33Triangle:
+                                    newCellData.replacingFaceInds.append({CSFaceType::added,faceInfo.second,
                                                               CSFaceType::original,replacingFaceInfo.second});
                                     faceUsedInCell[replacingFaceInd] = true;
                                     faceUsedInSubCell[replacingFaceInd] = Complete;
@@ -6178,7 +6177,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::splitOld:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
                                 case FType::added:
-                                case FType::mc33:
+                                case FType::mc33Triangle:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by added or mc33 face! No cell!"<< exit(FatalError);
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -6222,8 +6221,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         newCellData.cells.append(oneCellData);
     }
     
-    
-    for(label faceInd=0; faceInd<faceUsedInCell.size(); faceInd++)
+    for(label faceInd=0; faceInd<faceUsedInSubCell.size(); faceInd++)
     {
         bool usedForReplacement = faceUsedForReplacement[faceInd];
         std::pair<bool,DynamicList<label>>& beingReplaced = faceUsedForReplacement[faceInd];
@@ -6263,7 +6261,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     FatalErrorInFunction<<"Invalid replacment of orig face by added face!"<< exit(FatalError);
                                     break;
                                 case FType::mc33:
-                                    nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
+                                    newCellData.nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
                                     faceUsedInSubCell[replacingFaceInd] = Complete;
                                     break;
                                 default:
@@ -6295,7 +6293,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     FatalErrorInFunction<<"Invalid replacment of orig face by added face!"<< exit(FatalError);
                                     break;
                                 case FType::mc33:
-                                    nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
+                                    newCellData.nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
                                     faceUsedInSubCell[replacingFaceInd] = Complete;
                                     break;
                                 default:
@@ -6360,6 +6358,15 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
+    
+    for(label faceInd=0; faceInd<faceUsedInSubCell.size(); faceInd++)
+    {
+        if(faceUsedInSubCell[faceInd].first == None)
+        {
+            FatalErrorInFunction<<"Unused face remains!"<< exit(FatalError);
+        }
+    }
+
     
     return newCellDataPtr;
 }
