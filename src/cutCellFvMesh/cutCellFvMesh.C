@@ -5681,9 +5681,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
 
-    // Redirect faces
+    // Redirect faces to their replacing faces
     List<bool> validFaces(nonConvexCellFaces.size(),true);
-    List<std::pair<bool,DynamicList<label>>> faceReplacedByFaces;
+    List<std::pair<bool,DynamicList<label>>> faceReplacedByFaces(nonConvexCellFaces.size(),{false,DynamicList<label>()});
     for(uint faceInd=0; faceInd<validFaces.size(); faceInd++)
     {
         bool invalidBcEqual = false;
@@ -5714,7 +5714,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     }
     
     // Reduce valid cells
-    //List<bool> validCells(corrData.cells.size(),false);
     DynamicList<List<label>> trueCells;
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
@@ -5843,6 +5842,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    //Create cells from valid faces alone
     List<DynamicList<label>> trueCellsTrueFaces(trueCells.size());
     for(label cellInd=0; cellInd<trueCells.size(); cellInd++)
     {
@@ -5860,6 +5860,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    //Mark every face that is used for replacement of another face
     List<bool> faceUsedForReplacement(nonConvexCellFaces.size(),false);
     for(std::pair<bool,DynamicList<label>> faceReplacement : faceReplacedByFaces)
     {
@@ -5898,113 +5899,466 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         faceVerticesToInd[verticeCombNumber] = faceInds;
     }
     
-    enum FaceType{original=0,splitted=1,replacingFace=2,replacingFaceResid=3,added=4};
-    List<DynamicList<std::tuple<FaceType,label,std::pair<FaceType,label>>>> facesStoreInfo(nonConvexCellFaces.size());
+    // Compute new face reference index
+    std::unordered_set<label> cellsFacesSet;
+    cellsFacesSet.insert(thisCell.begin(),thisCell.end());
+    List<label> newFaceInd(nonConvexCellFaces.size(),-1);
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
-        bool thisFaceValid = validFaces[faceInd];
-        const std::pair<bool,DynamicList<label>>& faceReplacement = faceReplacedByFaces[faceInd];
-        bool thisFaceUsedForReplacement = faceUsedForReplacement[faceInd];
-        
-        if(thisFaceValid && faceReplacement.second.size()!=0)
-            FatalErrorInFunction<<"Face valid but is replaced!"<< exit(FatalError);
-        if(!thisFaceValid && faceReplacement.second.size()==0)
-            FatalErrorInFunction<<"Face invalid but no replacement!"<< exit(FatalError);
-        if(thisFaceUsedForReplacement && !thisFaceValid)
-            FatalErrorInFunction<<"Face used for replacement but invalid!"<< exit(FatalError);
-        
         const corrFace& oneFace = corrData.faces[faceInd];
         const face& globFace = nonConvexCellFaces[faceInd];
-        uint globFaceCombNumber = faceToVerticeCombNumber(globFace);
-        auto iterFaceInd = faceVerticesToInd.find(globFaceCombNumber);
-        
-        if(oneFace.type==FType::mc33Triangle || oneFace.type==FType::old || oneFace.type==FType::orig)
+        label matchingNewFaceInd = -1;
+        if(oneFace.type!=FType::mc33Triangle && oneFace.type!=FType::added)
         {
-            if(oneFace.type==FType::mc33Triangle:
+            label origFaceCellLocalInd = corrData.faces.origFace;
+            label origFaceGlobalInd = mc33cube.origFaces[origFaceCellLocalInd];
+            auto iterOldToNew = oldFaceToNewFaceInds.find(origFaceGlobalInd);
+            if(iterOldToNew == oldFaceToNewFaceInds.end())
+                FatalErrorInFunction<<"Old face not existing!"<< exit(FatalError);
+            const DynamicList<label>& possNewFaceInds = iterOldToNew->second;
+            for(label newFaceInd : possNewFaceInds)
             {
-                if(!thisFaceValid)
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-            }
-            if(iterFaceInd==faceVerticesToInd.end())
-                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-            label newfaceInd = iterFaceInd.second;
-            label oldFaceInd
-            
-            if(thisFaceValid)
-            {
-                label globOldFaceInd = oneFace.origFace;
-                if(globOldFaceInd>=reverseFaceMap.size() || globOldFaceInd<0)
-                    FatalErrorInFunction<<"Invalid old face index"<< exit(FatalError);
-                label globNewFaceInd = reverseFaceMap[globOldFaceInd];
-                if(globNewFaceInd>=reverseFaceMap.size() || globNewFaceInd<0)
-                    FatalErrorInFunction<<"Invalid old face index"<< exit(FatalError);
-                // face Ind Transformation necessary
-                facesStoreInfo[faceInd].append({FaceType::original,faceInd,{}});
-            }
-            else
-            {
-                const DynamicList<label>& replacingFaces = faceReplacement.second;
-                for(label replacingFace : replacingFaces)
+                const face& newFace = new_faces[newFaceInd];
+                bool identicalFace = true;
+                for(label vertice : globFace)
                 {
-                    FType
-                    facesStoreInfo[faceInd].append({FaceType::original,faceInd,{}});
-                    newCellData.replacingFaces.append({globFace,faceInd});
+                    if(newFace.which(vertice)==-1)
+                    {
+                        identicalFace = false;
+                    }
+                }
+                if(identicalFace)
+                {
+                    if(matchingNewFaceInd!=-1)
+                        FatalErrorInFunction<<"Identical to more than one face!"<< exit(FatalError);
+                    matchingNewFaceInd = newFaceInd;
                 }
             }
+            if(matchingNewFaceInd==-1)
+                FatalErrorInFunction<<"No identical face!"<< exit(FatalError);
+            if(cellsFacesSet.find(matchingNewFaceInd)==cellsFacesSet.end())
+                FatalErrorInFunction<<"Matching face not in cell!"<< exit(FatalError);
+            newFaceInd[faceInd] = matchingNewFaceInd;
         }
-            case FType::splitOld:
-            {}
-            case FType::splitOrig:
+        else if(oneFace.type==FType::mc33Triangle)
+        {
+            for(label newFaceInd : thisCell)
             {
-                facesStoreInfo[faceInd] = {FaceType::splitted,newCellData.splittedFaces.size()};
-                label faceInd = oneFace.origFace;
-                // face Ind Transformation necessary
-                newCellData.splittedFaces.append({globFace,faceInd});
-                break;
+                const face& newFace = new_faces[newFaceInd];
+                bool identicalFace = true;
+                for(label vertice : globFace)
+                {
+                    if(newFace.which(vertice)==-1)
+                    {
+                        identicalFace = false;
+                    }
+                }
+                if(identicalFace)
+                {
+                    if(matchingNewFaceInd!=-1)
+                        FatalErrorInFunction<<"Identical to more than one face!"<< exit(FatalError);
+                    matchingNewFaceInd = newFaceInd;
+                }
             }
-            case FType::added:
-            {
-                facesStoreInfo[faceInd] = {FaceType::added,newCellData.addedFace.size()};
-                newCellData.addedFace.append(globFace);
-                break;
-            }
+            if(matchingNewFaceInd==-1)
+                FatalErrorInFunction<<"No identical face!"<< exit(FatalError);
         }
     }
     
+    List<std::pair<CSFaceType,label>> facesStoreInfo(nonConvexCellFaces.size());
+    for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
+    {
+        const corrFace& oneFace = corrData.faces[faceInd];
+        const face& globFace = nonConvexCellFaces[faceInd];
+        switch(oneFace.type)
+        {
+            case FType::old:
+            case FType::orig:
+            case FType::mc33Triangle:
+                if(newFaceInd[faceInd]==-1)
+                    FatalErrorInFunction<<"No new face identical!"<< exit(FatalError);
+                facesStoreInfo[faceInd] = {CSFaceType::original,newFaceInd[faceInd]};                    
+                break;
+            case FType::added:
+                facesStoreInfo[faceInd] = {CSFaceType::added,newCellData.addedFace.size()};
+                newCellData.addedFace.append(oneFace);
+                break;
+            case FType::splitOld:
+            case FType::splitOrig:
+                if(newFaceInd[faceInd]==-1)
+                    FatalErrorInFunction<<"No new face identical!"<< exit(FatalError);
+                facesStoreInfo[faceInd] = {CSFaceType::splitted,newCellData.splittedFaces.size()};
+                newCellData.splittedFaces.append({oneFace,newFaceInd[faceInd]});
+                break;
+            default:
+                FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+        }
+    }
+    
+    enum FaceUsage {None,Partial,Complete};
+    List<std::pair<FaceUsage,label>> faceUsedInSubCell(nonConvexCellFaces.size(),FaceUsage::None);
     for(label cellInd=0; cellInd<trueCellsTrueFaces.size(); cellInd++)
     {
         const List<label>& oneCell = trueCellsTrueFaces[cellInd];
         CellFaces oneCellData;
+        
         DynamicList<label> originalFaceInds;
         DynamicList<label> splittedFaceInds;
         DynamicList<label> addedFaceInds;
+        DynamicList<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
+        DynamicList<std::tuple<label,CSFaceType,label> replacingResidualFaceInds;
+        
         for(label cellFaceInd : oneCell)
         {
-            const std::pair<FaceType,label>& info = facesStoreInfo[cellFaceInd];
-            switch(info.first)
+            bool thisFaceValid = validFaces[cellFaceInd];
+            const std::pair<bool,DynamicList<label>>& faceReplacement = faceReplacedByFaces[cellFaceInd];
+            bool thisFaceIsReplaced = faceReplacement.first;
+            bool thisFaceUsedForReplacement = faceUsedForReplacement[cellFaceInd];
+            const DynamicList<face>& remainingFaces = faceSubsetsRemain[cellFaceInd];
+            bool replacedFaceWithRemains = (remainingFaces.size()>0);
+            
+            if(thisFaceValid && faceReplacement.second.size()!=0)
+                FatalErrorInFunction<<"Face valid but is replaced!"<< exit(FatalError);
+            if(!thisFaceValid && faceReplacement.second.size()==0)
+                FatalErrorInFunction<<"Face invalid but no replacement!"<< exit(FatalError);
+            if(thisFaceUsedForReplacement && !thisFaceValid)
+                FatalErrorInFunction<<"Face used for replacement but invalid!"<< exit(FatalError);
+            if(!thisFaceIsReplaced && faceReplacement.second.size()>0)
+                FatalErrorInFunction<<"Inconsistent face replacement data!"<< exit(FatalError);
+            if(thisFaceIsReplaced && thisFaceUsedForReplacement)
+                FatalErrorInFunction<<"Face replaced but also used for replacement"<< exit(FatalError);
+            if(replacedFaceWithRemains && !thisFaceIsReplaced)
+                FatalErrorInFunction<<"Face has remaining faces but not replaced"<< exit(FatalError);
+            
+            const corrFace& oneFace = corrData.faces[faceInd];
+            const face& globFace = nonConvexCellFaces[faceInd];
+            
+            const std::pair<CSFaceType,label>& faceInfo = facesStoreInfo[cellFaceInd];
+            label newFaceIndex = newFaceInd[cellFaceInd];
+            
+            if(thisFaceIsReplaced)
             {
-                case FaceType::original:
+                const DynamicList<label>& replacingFacesInd = faceReplacement.second;
+                switch(oneFace.type)
                 {
-                    originalFaceInds.append(info.second);
-                    break;
+                    case FType::orig:
+                    case FType::old:
+                        bool replacedByMc33OrAdded = false;
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                    break;
+                                case FType::added:
+                                case FType::mc33:
+                                    replacedByMc33OrAdded = true;
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    break;
+                                default:
+                                    FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                            }
+                        }
+                        if(!replacedByMc33OrAdded);
+                            FatalErrorInFunction<<"Original face can only be replaced by mc33 or added when part of a cell"<< exit(FatalError);
+                        if(replacedFaceWithRemains && !replacedByMc33OrAdded)
+                            FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                        for(const face& remFace : remainingFaces)
+                        {
+                            splittedFaceInds.append(newCellData.splittedFaces.size());
+                            newCellData.splittedFaces.append({remFace,faceInfo.second});
+                        }
+                        if(replacedFaceWithRemains)
+                        {
+                            faceUsedInSubCell[cellFaceInd].first = Partial;
+                            faceUsedInSubCell[cellFaceInd].second++;
+                        }
+                        else
+                            faceUsedInSubCell[cellFaceInd].first = Complete;
+                        break;
+                    case FType::splitOrig:
+                    case FType::splitOld:
+                        bool replacedByMc33OrAdded = false;
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                case FType::added:
+                                case FType::mc33:
+                                    replacedByMc33OrAdded = true;
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                default:
+                                    FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                            }
+                        }
+                        if(!replacedByMc33OrAdded);
+                            FatalErrorInFunction<<"Original face can only be replaced by mc33 or added when part of a cell"<< exit(FatalError);
+                        if(replacedFaceWithRemains && !replacedByMc33OrAdded)
+                            FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                        for(const face& remFace : remainingFaces)
+                        {
+                            splittedFaceInds.append(newCellData.splittedFaces.size());
+                            newCellData.splittedFaces.append({remFace,faceInfo.second});
+                        }
+                        if(replacedFaceWithRemains)
+                        {
+                            faceUsedInSubCell[cellFaceInd].first = Partial;
+                            faceUsedInSubCell[cellFaceInd].second++;
+                        }
+                        else
+                            faceUsedInSubCell[cellFaceInd].first = Complete;
+                        break;
+                    case FType::added:
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            const std::pair<CSFaceType,label>& replacingFaceInfo = facesStoreInfo[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                    replacingFaceInds.append({CSFaceType::added,faceInfo.second,
+                                                              CSFaceType::original,replacingFaceInfo.second});
+                                    faceUsedInCell[replacingFaceInd] = true;
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    break;
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    replacingFaceInds.append({CSFaceType::added,faceInfo.second,
+                                                              CSFaceType::splitted,replacingFaceInfo.second});
+                                    faceUsedInCell[replacingFaceInd] = true;
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    break;
+                                case FType::added:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                case FType::mc33:
+                                    replacingFaceInds.append({CSFaceType::added,faceInfo.second,
+                                                              CSFaceType::original,replacingFaceInfo.second});
+                                    faceUsedInCell[replacingFaceInd] = true;
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    break;
+                                default:
+                                    FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                            }
+                        }
+                        for(const face& remFace : remainingFaces)
+                        {
+                            addedFaceInds.append(newCellData.addedFace.size());
+                            newCellData.addedFaceCells[newCellData.addedFace.size()].append(cellInd);
+                            newCellData.addedFace.append(remFace);
+                        }
+                        if(replacedFaceWithRemains)
+                        {
+                            faceUsedInSubCell[cellFaceInd].first = Partial;
+                            faceUsedInSubCell[cellFaceInd].second++;
+                        }
+                        else
+                            faceUsedInSubCell[cellFaceInd].first = Complete;
+                        break;
+                    case FType::mc33:
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                case FType::added:
+                                case FType::mc33:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by added or mc33 face! No cell!"<< exit(FatalError);
+                                default:
+                                    FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                            }
+                        }
+                        if(remainingFaces.size>0)
+                            FatalErrorInFunction<<"Invalid replacment of mc33 face!"<< exit(FatalError);
+                        break;
+                    default:
+                        FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                 }
-                case FaceType::splitted:
+            }
+            else if(thisFaceUsedForReplacement)
+            {
+            }
+            else
+            {
+                switch(faceInfo.first)
                 {
-                    splittedFaceInds.append(info.second);
-                    break;
+                    case CSFaceType::original:                
+                        originalFaceInds.append(faceInfo.second);
+                        break;
+                    case CSFaceType::added:
+                        newCellData.addedFaceCells[faceInfo.second].append(cellInd);
+                        addedFaceInds.append(faceInfo.second);
+                        break;
+                    case CSFaceType::splitted:
+                        splittedFaceInds.append(faceInfo.second);
+                        break;
+                    default:
+                        FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                 }
-                case FaceType::added:
-                {
-                    addedFaceInds.append(info.second);
-                    break;
-                }
+                faceUsedInCell[cellFaceInd] = true;
             }
         }
         oneCellData.originalFaceInds = originalFaceInds;
         oneCellData.splittedFaceInds = splittedFaceInds;
         oneCellData.addedFaceInds = addedFaceInds;
+        oneCellData.addedFaceCells = addedFaceCells;
 
         newCellData.cells.append(oneCellData);
+    }
+    
+    
+    for(label faceInd=0; faceInd<faceUsedInCell.size(); faceInd++)
+    {
+        bool usedForReplacement = faceUsedForReplacement[faceInd];
+        std::pair<bool,DynamicList<label>>& beingReplaced = faceUsedForReplacement[faceInd];
+        
+        const DynamicList<face>& remainingFaces = faceSubsetsRemain[cellFaceInd];
+        bool replacedFaceWithRemains = (remainingFaces.size()>0);
+
+        if(faceUsedInSubCell[faceInd].first == None)
+        {
+            if(usedForReplacement && beingReplaced.first)
+                FatalErrorInFunction<<"Circular replacement not possible!"<< exit(FatalError);
+            if(beingReplaced.first)
+            {
+                const corrFace& oneFace = corrData.faces[faceInd];
+                const face& globFace = nonConvexCellFaces[faceInd];
+                
+                const DynamicList<label>& replacingFacesInd = beingReplaced.second;
+                switch(oneFace.type)
+                {
+                    case FType::orig:
+                    case FType::old:
+                        bool replacedByMc33OrAdded = false;
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            if(faceUsedInSubCell[replacingFaceInd].first != None)
+                                FatalErrorInFunction<<"Not used replaced face is replaced by used face!"<< exit(FatalError);
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                    break;
+                                case FType::added:
+                                    FatalErrorInFunction<<"Invalid replacment of orig face by added face!"<< exit(FatalError);
+                                    break;
+                                case FType::mc33:
+                                    nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    break;
+                                default:
+                                    FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                            }
+                        }
+                        if(replacedFaceWithRemains)
+                        {
+                            FatalErrorInFunction<<"Off cell replaced face can not be replaced with remains!"<< exit(FatalError);
+                        }
+                        break;
+                    case FType::splitOrig:
+                    case FType::splitOld:
+                        bool replacedByMc33OrAdded = false;
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            if(faceUsedInSubCell[replacingFaceInd].first != None)
+                                FatalErrorInFunction<<"Not used replaced face is replaced by used face!"<< exit(FatalError);
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                    break;
+                                case FType::added:
+                                    FatalErrorInFunction<<"Invalid replacment of orig face by added face!"<< exit(FatalError);
+                                    break;
+                                case FType::mc33:
+                                    nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
+                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    break;
+                                default:
+                                    FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                            }
+                        }
+                        if(replacedFaceWithRemains)
+                        {
+                            FatalErrorInFunction<<"Off cell replaced face can not be replaced with remains!"<< exit(FatalError);
+                        }
+                        break;
+                    case FType::added:
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            const std::pair<CSFaceType,label>& replacingFaceInfo = facesStoreInfo[replacingFaceInd];
+                            FatalErrorInFunction<<"Added face can not be noncell replaced!"<< exit(FatalError);
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                    break;
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                    break;
+                                case FType::added:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                case FType::mc33:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                    break;
+                                default:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                        }
+                        break;
+                    case FType::mc33:
+                        for(label replacingFaceInd : replacingFacesInd)
+                        {
+                            const corrFace& replacingFace = corrData.faces[replacingFaceInd];
+                            switch(replacingFace.type)
+                            {
+                                case FType::orig:
+                                case FType::old:
+                                case FType::splitOrig:
+                                case FType::splitOld:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                case FType::added:
+                                case FType::mc33:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                default:
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                        }
+                        if(remainingFaces.size>0)
+                            FatalErrorInFunction<<"Invalid replacment of mc33 face!"<< exit(FatalError);
+                        break;
+                    default:
+                        FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
+                }
+            }
+        }
     }
     
     return newCellDataPtr;

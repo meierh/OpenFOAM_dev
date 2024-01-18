@@ -95,6 +95,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                     List<label> cutEdgeVerticeIndex = labelList(12,-1);
                     label centerPointInd = -1;
                     std::unordered_map<label,label> cutVerticeIndexToEdge;
+                    // face index of cell in original mesh
                     List<label> origFaces = List<label>(6);
                     std::vector<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>> cutTriangles;
                     unsigned int bitPattern;
@@ -685,11 +686,14 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         );
         */
         
+        enum CSFaceType{original=0,splitted=1,added=2};
+        
         typedef struct{
             labelList originalFaceInds;
             labelList splittedFaceInds;
-            labelList replacingFaceInds;
-            labelList replacingResidualFaceInds;
+            //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
+            List<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
+            List<std::tuple<label,CSFaceType,label> replacingResidualFaceInds;
             labelList addedFaceInds;
         } CellFaces;
         
@@ -698,17 +702,20 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             DynamicList<std::pair<vector,edge>> addedPoints;
             label addedPointsLimit=-1;
             // face with possibly added Points as index+addedPointsLimit
+            // localInd -> {face,[subcell1,subcell2]}
             DynamicList<face> addedFace;
+            std::unordered_map<label,DynamicList<label>> addedFaceCells;
             // face with reference index for original face
             DynamicList<std::pair<face,label>> splittedFaces;
             // face with reference index for replacing face and original(replaced) face pair(orig or splitted = true / index)
-            DynamicList<std::tuple<face,label,std::pair<bool,label>,bool>> replacingFaces;
+            //DynamicList<std::tuple<face,label,std::pair<bool,label>,bool>> replacingFaces;
             // face with reference index for replacing face
-            DynamicList<std::pair<face,label>> replacingResidualFaces;
+            //DynamicList<std::pair<face,label>> replacingResidualFaces;
             // new cells with tuple of (original face indexes, splitted faces indexex, added faces indexes)
             DynamicList<CellFaces> cells;
             
-            DynamicList<label> nonCellFaceChanges;
+            //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
+            DynamicList<std::tuple<CSFaceType,label,CSFaceType,label>> nonCellFaceChanges;
         } CellSplitData;
         
         label memSecMC33VerticePntInd
