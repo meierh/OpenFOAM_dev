@@ -5359,14 +5359,14 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 addedPntsInConvexCorr=true;
                 
                 const addedPointPos& position = oneVert.position;
-                const std::pair<VType,std::uint8_t> distStart = position.distStart;
-                const std::pair<VType,std::uint8_t> distEnd = position.distEnd;
-                const std::pair<VType,std::uint8_t> measureStart = position.measureStart;
-                const std::pair<VType,std::uint8_t> measureEnd = position.measureEnd;
+                const std::pair<VType,std::int8_t> distStart = position.distStart;
+                const std::pair<VType,std::int8_t> distEnd = position.distEnd;
+                const std::pair<VType,std::int8_t> measureStart = position.measureStart;
+                //const std::pair<VType,std::int8_t> measureEnd = position.measureEnd;
                 corrFaceVertice distStartVert = {distStart.first,distStart.second};
                 corrFaceVertice distEndVert = {distEnd.first,distEnd.second};
                 corrFaceVertice measureStartVert = {measureStart.first,measureStart.second};
-                corrFaceVertice measureEndVert = {measureEnd.first,measureEnd.second};
+                //corrFaceVertice measureEndVert = {measureEnd.first,measureEnd.second};
                 corrFaceVertice match;
                 if(verticesAreIdentical(distStartVert,distEndVert,mc33cube,match))
                 {
@@ -5376,7 +5376,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                     {
                         edgeToAddedPntInd[oneVert.value] = measureStartVert.value;
                     }
-                    oneVert = {position.measureStart.first,position.measureStart.second};
+                    oneVert.type =  VType::edgePntAdded;
+                    oneVert.value = position.measureStart.second;
                 }
                 else
                 {
@@ -5461,11 +5462,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     List<std::unordered_set<label>> equalFaces(nonConvexCellFaces.size());
     List<std::unordered_set<label>> faceSubsets(nonConvexCellFaces.size());
     List<std::unordered_set<label>> faceSupersets(nonConvexCellFaces.size());
-    for(uint baseInd=0; baseInd<nonConvexCellFaces.size(); baseInd++)
+    for(label baseInd=0; baseInd<nonConvexCellFaces.size(); baseInd++)
     {
         face baseFace = nonConvexCellFaces[baseInd];
         std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
-        for(uint compareInd=0; compareInd<nonConvexCellFaces.size(); compareInd++)
+        for(label compareInd=0; compareInd<nonConvexCellFaces.size(); compareInd++)
         {
             if(baseInd==compareInd)
                 continue;
@@ -5494,7 +5495,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
-    for(uint faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
+    for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
     {
         for(auto iter=equalFaces[faceInd].begin(); iter!=equalFaces[faceInd].end(); iter++)
         {
@@ -5516,7 +5517,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     //Compute splitted faces for subsets
     List<bool> faceSubsetIsFilling(nonConvexCellFaces.size(),false);
     List<DynamicList<face>> faceSubsetsRemain(nonConvexCellFaces.size());
-    for(uint faceInd=0; faceInd<faceSubsets.size(); faceInd++)
+    for(label faceInd=0; faceInd<faceSubsets.size(); faceInd++)
     {
         const face& baseFace = nonConvexCellFaces[faceInd];
         const std::unordered_set<label>& subFaces = faceSubsets[faceInd];
@@ -5684,9 +5685,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     // Redirect faces to their replacing faces
     List<bool> validFaces(nonConvexCellFaces.size(),true);
     List<std::pair<bool,DynamicList<label>>> faceReplacedByFaces(nonConvexCellFaces.size(),{false,DynamicList<label>()});
-    for(uint faceInd=0; faceInd<validFaces.size(); faceInd++)
+    for(label faceInd=0; faceInd<validFaces.size(); faceInd++)
     {
-        bool invalidBcEqual = false;
+        //bool invalidBcEqual = false;
         if(equalFaces[faceInd].size()>0)
         {
             std::vector<label> equalFacesToThis(equalFaces[faceInd].begin(),equalFaces[faceInd].end());
@@ -5737,7 +5738,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 label i1Face = oneFace.fcIndex(i0Face);
                 label i0Vert = oneFace[i0Face];
                 label i1Vert = oneFace[i1Face];
-                bool edgeConnected=false;
+                //bool edgeConnected=false;
                 
                 for(label iCellNei=0; iCellNei<oneCellValidFaces.size(); iCellNei++)
                 {
@@ -5759,7 +5760,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                     }
                 }
             }
-            if(neighborFaceOnEdge[iCell].size()<oneFace.size())
+            if(neighborFaceOnEdge[iCell].size()<uint(oneFace.size()))
             {
                 removed[iCell] = true;
             }
@@ -5784,7 +5785,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             const face& oneFace = nonConvexCellFaces[oneFaceInd];
             if(!removed[iCell])
             {
-                if(neighborFaceOnEdge[iCell].size()<oneFace.size())
+                if(neighborFaceOnEdge[iCell].size()<uint(oneFace.size()))
                 {
                     FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
                 }
@@ -5965,6 +5966,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    //Store face information in newCellData
     List<std::pair<CSFaceType,label>> facesStoreInfo(nonConvexCellFaces.size());
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
@@ -5995,6 +5997,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    // Create cells
     enum FaceUsage {None,Partial,Complete};
     List<std::pair<FaceUsage,label>> faceUsedInSubCell(nonConvexCellFaces.size(),{FaceUsage::None,0});
     for(label cellInd=0; cellInd<trueCellsTrueFaces.size(); cellInd++)
@@ -6031,10 +6034,10 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 FatalErrorInFunction<<"Face has remaining faces but not replaced"<< exit(FatalError);
             
             const corrFace& oneFace = corrData.faces[cellFaceInd];
-            const face& globFace = nonConvexCellFaces[cellFaceInd];
+            //const face& globFace = nonConvexCellFaces[cellFaceInd];
             
             const std::pair<CSFaceType,label>& faceInfo = facesStoreInfo[cellFaceInd];
-            label newFaceIndex = newFaceInd[cellFaceInd];
+            //label newFaceIndex = newFaceInd[cellFaceInd];
             
             if(thisFaceIsReplaced)
             {
@@ -6064,7 +6067,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                             }
                         }
-                        if(!replacedByMc33OrAdded);
+                        if(!replacedByMc33OrAdded)
                             FatalErrorInFunction<<"Original face can only be replaced by mc33 or added when part of a cell"<< exit(FatalError);
                         if(replacedFaceWithRemains && !replacedByMc33OrAdded)
                             FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
@@ -6101,7 +6104,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                             }
                         }
-                        if(!replacedByMc33OrAdded);
+                        if(!replacedByMc33OrAdded)
                             FatalErrorInFunction<<"Original face can only be replaced by mc33 or added when part of a cell"<< exit(FatalError);
                         if(replacedFaceWithRemains && !replacedByMc33OrAdded)
                             FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
@@ -6127,25 +6130,25 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                             {
                                 case FType::orig:
                                 case FType::old:
-                                    newCellData.replacingFaceInds.append({CSFaceType::added,faceInfo.second,
-                                                              CSFaceType::original,replacingFaceInfo.second});
-                                    faceUsedInCell[replacingFaceInd] = true;
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    replacingFaceInds.append({CSFaceType::addedCSFT,faceInfo.second,
+                                                              CSFaceType::originalCSFT,replacingFaceInfo.second});
+                                    //faceUsedInCell[replacingFaceInd] = true;
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                     break;
                                 case FType::splitOrig:
                                 case FType::splitOld:
-                                    newCellData.replacingFaceInds.append({CSFaceType::added,faceInfo.second,
-                                                              CSFaceType::splitted,replacingFaceInfo.second});
-                                    faceUsedInCell[replacingFaceInd] = true;
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    replacingFaceInds.append({CSFaceType::addedCSFT,faceInfo.second,
+                                                              CSFaceType::splittedCSFT,replacingFaceInfo.second});
+                                    //faceUsedInCell[replacingFaceInd] = true;
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                     break;
                                 case FType::added:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
                                 case FType::mc33Triangle:
-                                    newCellData.replacingFaceInds.append({CSFaceType::added,faceInfo.second,
-                                                              CSFaceType::original,replacingFaceInfo.second});
-                                    faceUsedInCell[replacingFaceInd] = true;
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                    replacingFaceInds.append({CSFaceType::addedCSFT,faceInfo.second,
+                                                              CSFaceType::originalCSFT,replacingFaceInfo.second});
+                                    //faceUsedInCell[replacingFaceInd] = true;
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                     break;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -6165,7 +6168,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         else
                             faceUsedInSubCell[cellFaceInd].first = Complete;
                         break;
-                    case FType::mc33:
+                    case FType::mc33Triangle:
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             const corrFace& replacingFace = corrData.faces[replacingFaceInd];
@@ -6183,7 +6186,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                             }
                         }
-                        if(remainingFaces.size>0)
+                        if(remainingFaces.size()>0)
                             FatalErrorInFunction<<"Invalid replacment of mc33 face!"<< exit(FatalError);
                         break;
                     default:
@@ -6197,26 +6200,26 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             {
                 switch(faceInfo.first)
                 {
-                    case CSFaceType::original:                
+                    case CSFaceType::originalCSFT:                
                         originalFaceInds.append(faceInfo.second);
                         break;
-                    case CSFaceType::added:
+                    case CSFaceType::addedCSFT:
                         newCellData.addedFaceCells[faceInfo.second].append(cellInd);
                         addedFaceInds.append(faceInfo.second);
                         break;
-                    case CSFaceType::splitted:
+                    case CSFaceType::splittedCSFT:
                         splittedFaceInds.append(faceInfo.second);
                         break;
                     default:
                         FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                 }
-                faceUsedInCell[cellFaceInd] = true;
+                //faceUsedInCell[cellFaceInd] = true;
             }
         }
         oneCellData.originalFaceInds = originalFaceInds;
         oneCellData.splittedFaceInds = splittedFaceInds;
+        oneCellData.replacingFaceInds = replacingFaceInds;
         oneCellData.addedFaceInds = addedFaceInds;
-        oneCellData.addedFaceCells = addedFaceCells;
 
         newCellData.cells.append(oneCellData);
     }
@@ -6224,9 +6227,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     for(label faceInd=0; faceInd<faceUsedInSubCell.size(); faceInd++)
     {
         bool usedForReplacement = faceUsedForReplacement[faceInd];
-        std::pair<bool,DynamicList<label>>& beingReplaced = faceUsedForReplacement[faceInd];
+        std::pair<bool,DynamicList<label>>& beingReplaced = faceReplacedByFaces[faceInd];
         
-        const DynamicList<face>& remainingFaces = faceSubsetsRemain[cellFaceInd];
+        const DynamicList<face>& remainingFaces = faceSubsetsRemain[faceInd];
         bool replacedFaceWithRemains = (remainingFaces.size()>0);
 
         if(faceUsedInSubCell[faceInd].first == None)
@@ -6236,14 +6239,14 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             if(beingReplaced.first)
             {
                 const corrFace& oneFace = corrData.faces[faceInd];
-                const face& globFace = nonConvexCellFaces[faceInd];
+                //const face& globFace = nonConvexCellFaces[faceInd];
                 
                 const DynamicList<label>& replacingFacesInd = beingReplaced.second;
+                //bool replacedByMc33OrAdded = false;
                 switch(oneFace.type)
                 {
                     case FType::orig:
                     case FType::old:
-                        bool replacedByMc33OrAdded = false;
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             if(faceUsedInSubCell[replacingFaceInd].first != None)
@@ -6260,9 +6263,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::added:
                                     FatalErrorInFunction<<"Invalid replacment of orig face by added face!"<< exit(FatalError);
                                     break;
-                                case FType::mc33:
-                                    newCellData.nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                case FType::mc33Triangle:
+                                    newCellData.nonCellFaceChanges.append({CSFaceType::originalCSFT,newFaceInd[faceInd],CSFaceType::originalCSFT,newFaceInd[replacingFaceInd]});
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                     break;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -6275,7 +6278,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         break;
                     case FType::splitOrig:
                     case FType::splitOld:
-                        bool replacedByMc33OrAdded = false;
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             if(faceUsedInSubCell[replacingFaceInd].first != None)
@@ -6292,9 +6294,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::added:
                                     FatalErrorInFunction<<"Invalid replacment of orig face by added face!"<< exit(FatalError);
                                     break;
-                                case FType::mc33:
-                                    newCellData.nonCellFaceChanges.append({CSFaceType::original,newFaceInd[faceInd],CSFaceType::original,newFaceInd[replacingFaceInd]});
-                                    faceUsedInSubCell[replacingFaceInd] = Complete;
+                                case FType::mc33Triangle:
+                                    newCellData.nonCellFaceChanges.append({CSFaceType::originalCSFT,newFaceInd[faceInd],CSFaceType::originalCSFT,newFaceInd[replacingFaceInd]});
+                                    faceUsedInSubCell[replacingFaceInd].first = Complete;
                                     break;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -6309,7 +6311,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             const corrFace& replacingFace = corrData.faces[replacingFaceInd];
-                            const std::pair<CSFaceType,label>& replacingFaceInfo = facesStoreInfo[replacingFaceInd];
+                            //const std::pair<CSFaceType,label>& replacingFaceInfo = facesStoreInfo[replacingFaceInd];
                             FatalErrorInFunction<<"Added face can not be noncell replaced!"<< exit(FatalError);
                             switch(replacingFace.type)
                             {
@@ -6323,7 +6325,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     break;
                                 case FType::added:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
-                                case FType::mc33:
+                                case FType::mc33Triangle:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                                     break;
                                 default:
@@ -6331,7 +6333,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                             }
                         }
                         break;
-                    case FType::mc33:
+                    case FType::mc33Triangle:
                         for(label replacingFaceInd : replacingFacesInd)
                         {
                             const corrFace& replacingFace = corrData.faces[replacingFaceInd];
@@ -6343,13 +6345,13 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::splitOld:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                                 case FType::added:
-                                case FType::mc33:
+                                case FType::mc33Triangle:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                                 default:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                             }
                         }
-                        if(remainingFaces.size>0)
+                        if(remainingFaces.size()>0)
                             FatalErrorInFunction<<"Invalid replacment of mc33 face!"<< exit(FatalError);
                         break;
                     default:
@@ -6366,7 +6368,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             FatalErrorInFunction<<"Unused face remains!"<< exit(FatalError);
         }
     }
-
     
     return newCellDataPtr;
 }
@@ -6458,7 +6459,7 @@ bool Foam::cutCellFvMesh::redMarkSide(const MC33::MC33Cube& mc33cube)
     const std::array<unsigned short int,8>& permut = permutationTable[mc33cube.permutationTableIndex];
     const std::array<std::int8_t,8>& refSign = refSignVertice[mc33cube.cubeCase];
     std::array<std::int8_t,8> thisCellPattern;
-    for(uint i=0;i<mc33cube.vertices.size();i++)
+    for(label i=0;i<mc33cube.vertices.size();i++)
     {
         unsigned short int permInd = permut[i];
         label realVertIndPrevMesh = mc33cube.vertices[permInd];
@@ -8452,6 +8453,9 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     //DynamicList<std::tuple<face,label,label>> addedFaces;
     //std::unordered_set<label> removedCell;
     DynamicList<label> cellIndStart({0});
+    //std::unordered_map<faceInd,DynamicList<std::tuple<faceData,owner,neighbor>>>
+    std::unordered_map<label,DynamicList<std::tuple<face,label,label>>> nonSubCellReplacedFace;
+    std::unordered_set<label> preUsedFace;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByNeighborCell;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByOwnerCell;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> originalFacesByNeighborCell;
@@ -8506,7 +8510,348 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 // handle replacing face indexes
                 for(label locRepFaceInd=0;locRepFaceInd<oneCell.replacingFaceInds.size();locRepFaceInd++)
                 {
-                    label faceInds = oneCell.replacingFaceInds[locRepFaceInd];
+                    std::tuple<CSFaceType,label,CSFaceType,label> faceData = oneCell.replacingFaceInds[locRepFaceInd];
+                    CSFaceType replacedFaceType = std::get<0>(faceData);
+                    label replacedFaceInd = std::get<1>(faceData);
+                    CSFaceType replacingFaceType = std::get<2>(faceData);
+                    label replacingFaceInd = std::get<3>(faceData);
+                    
+                    if(replacedFaceType == originalCSFT)
+                    {
+                        if(replacingFaceType == originalCSFT)
+                        {
+                            const face& replacingFace = this->new_faces[replacingFaceInd];
+                            preUsedFace.insert(replacingFaceInd);
+                            if(new_owner[replacedFaceInd]==cellInd)
+                            {
+                                if(new_owner[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_owner[replacingFaceInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else if(new_neighbour[replacedFaceInd]==cellInd)
+                            {
+                               if(new_owner[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_owner[replacingFaceInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(replacingFaceType == splittedCSFT)
+                        {
+                            std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
+                            const face& replacingFace = splittedFace.first;
+                            label replacingFaceOrigInd = splittedFace.second;
+                            preUsedFace.insert(replacingFaceOrigInd);
+
+                            if(new_owner[replacedFaceInd]==cellInd)
+                            {
+                                if(new_owner[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceOrigInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_owner[replacingFaceOrigInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else if(new_neighbour[replacedFaceInd]==cellInd)
+                            {
+                               if(new_owner[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceOrigInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_owner[replacingFaceOrigInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else // replacingFaceType == addedCSFT
+                        {
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                        }
+                    }
+                    else if(replacedFaceType == splittedCSFT)
+                    {
+                        std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacedFaceInd];
+                        const face& replacedFace = splittedFace.first;
+                        label replacedFaceOrigInd = splittedFace.second;
+                        if(replacingFaceType == originalCSFT)
+                        {
+                            const face& replacingFace = this->new_faces[replacingFaceInd];
+                            preUsedFace.insert(replacingFaceInd);
+                            if(new_owner[replacedFaceOrigInd]==cellInd)
+                            {
+                                if(new_owner[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceOrigInd],
+                                                this->new_neighbour[replacingFaceInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceOrigInd],
+                                                this->new_owner[replacingFaceInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else if(new_neighbour[replacedFaceOrigInd]==cellInd)
+                            {
+                               if(new_owner[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceOrigInd],
+                                                this->new_neighbour[replacingFaceInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceOrigInd],
+                                                this->new_owner[replacingFaceInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(replacingFaceType == splittedCSFT)
+                        {
+                            std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
+                            const face& replacingFace = splittedFace.first;
+                            label replacingFaceOrigInd = splittedFace.second;
+                            preUsedFace.insert(replacingFaceOrigInd);
+
+                            if(new_owner[replacedFaceInd]==cellInd)
+                            {
+                                if(new_owner[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceOrigInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_owner[replacingFaceOrigInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else if(new_neighbour[replacedFaceInd]==cellInd)
+                            {
+                               if(new_owner[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceOrigInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_owner[replacingFaceOrigInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else // replacingFaceType == addedCSFT
+                        {
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                        }
+                    }
+                    else //if(replacedFaceType == addedCSFT)
+                    {
+                        const face& replacedFace = cellSplit.addedFace[replacedFaceInd];
+                        auto iter = addedFaceCells[replacedFaceInd];
+                        if(iter==addedFaceCells.end())
+                            FatalErrorInFunction<<"Added face has no subcells!"<< exit(FatalError);
+                        DynamicList<label> replacedFaceSubCells = iter.second;
+                        
+                        /* CONTINUE HERE
+                        if(replacingFaceType == originalCSFT)
+                        {
+                            const face& replacingFace = this->new_faces[replacingFaceInd];
+                            preUsedFace.insert(replacingFaceInd);
+                            if(new_owner[replacedFaceOrigInd]==cellInd)
+                            {
+                                if(new_owner[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceOrigInd],
+                                                this->new_neighbour[replacingFaceInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceOrigInd],
+                                                this->new_owner[replacingFaceInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else if(new_neighbour[replacedFaceOrigInd]==cellInd)
+                            {
+                               if(new_owner[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceOrigInd],
+                                                this->new_neighbour[replacingFaceInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceOrigInd],
+                                                this->new_owner[replacingFaceInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(replacingFaceType == splittedCSFT)
+                        {
+                            std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
+                            const face& replacingFace = splittedFace.first;
+                            label replacingFaceOrigInd = splittedFace.second;
+                            preUsedFace.insert(replacingFaceOrigInd);
+
+                            if(new_owner[replacedFaceInd]==cellInd)
+                            {
+                                if(new_owner[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceOrigInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_neighbour[replacedFaceInd],
+                                                this->new_owner[replacingFaceOrigInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else if(new_neighbour[replacedFaceInd]==cellInd)
+                            {
+                               if(new_owner[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_neighbour[replacingFaceOrigInd]
+                                            });
+                                }
+                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                                {
+                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                            {   replacingFace,
+                                                this->new_owner[replacedFaceInd],
+                                                this->new_owner[replacingFaceOrigInd]
+                                            });
+                                }
+                                else
+                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else //if(replacedFaceType == addedCSFT)
+                        */
+                    }
+                    
+                    
+                    
+                    
                     const std::tuple<face,label,std::pair<bool,label>,bool>& replacingFace = cellSplit.replacingFaces[faceInds];
 
                     label replacingFaceInd = std::get<1>(replacingFace); // replacingFace

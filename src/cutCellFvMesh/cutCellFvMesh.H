@@ -693,7 +693,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             labelList splittedFaceInds;
             //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
             List<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
-            List<std::tuple<label,CSFaceType,label>> replacingResidualFaceInds;
+            //List<std::tuple<label,CSFaceType,label>> replacingResidualFaceInds;
             labelList addedFaceInds;
         } CellFaces;
         
@@ -848,11 +848,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 
                 List<DynamicList<label>> faceInFace(oneCellGlobFaces.size());
                 List<DynamicList<label>> faceIdent(oneCellGlobFaces.size());
-                for(uint baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
+                for(label baseInd=0; baseInd<oneCellGlobFaces.size(); baseInd++)
                 {
                     face baseFace = oneCellGlobFaces[baseInd];
                     std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
-                    for(uint compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
+                    for(label compareInd=0; compareInd<oneCellGlobFaces.size(); compareInd++)
                     {
                         face compFace = oneCellGlobFaces[compareInd];
                         std::unordered_set<label> compFaceSet(compFace.begin(),compFace.end());
