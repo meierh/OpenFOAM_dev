@@ -8448,12 +8448,17 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
 
+    
+    
     //Assign split and original faces to own and neighbor faces
     //std::unordered_set<label> removedFaces;
     //DynamicList<std::tuple<face,label,label>> addedFaces;
     //std::unordered_set<label> removedCell;
     DynamicList<label> cellIndStart({0});
     //std::unordered_map<faceInd,DynamicList<std::tuple<faceData,owner,neighbor>>>
+    DynamicList<face> added_faces;
+    DynamicList<std::pair<label,label>> added_face_owner;
+    DynamicList<std::pair<label,label>> added_face_neighbour;
     std::unordered_map<label,DynamicList<std::tuple<face,label,label>>> nonSubCellReplacedFace;
     std::unordered_set<label> preUsedFace;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByNeighborCell;
@@ -8469,9 +8474,45 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
             if(cellSplit.originalCell != cellMap[cellInd])
                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
             
+            std::unordered_map<label,label> alreadyInsertedAddedFace;            
             for(label locCell=0;locCell<cellSplit.cells.size();locCell++)
             {
                 CellFaces& oneCell = cellSplit.cells[locCell];
+                
+                //handle added faces
+                for(label locAddedFaceInd=0; locAddedFaceInd<oneCell.addedFaceInds.size(); locAddedFaceInd++)
+                {
+                    label addedFaceInd = oneCell.addedFaceInds[locAddedFaceInd];
+                    const face& addedFace = cellSplit.addedFace[addedFaceInd];
+                    auto iter = cellSplit.addedFaceCells.find(addedFaceInd);
+                    if(iter==cellSplit.addedFaceCells.end())
+                        FatalErrorInFunction<<"Added face has not neighbour subcell!"<< exit(FatalError);
+                    const DynamicList<label>& subCells = iter->second;
+                    if(subCells.size()!=2)
+                        FatalErrorInFunction<<"Added face has invalid number of neighbour subcell!"<< exit(FatalError);
+                    
+                    auto iter = alreadyInsertedAddedFace.find(addedFaceInd);
+                    if(iter == alreadyInsertedAddedFace.end())
+                    {
+                        alreadyInsertedAddedFace[addedFaceInd] = added_faces.size();
+                        added_faces.append(addedFace);
+                        added_face_owner.append({cellInd,subCells[0]});
+                        added_face_neighbour.append({-1,-1});
+                    }
+                    else
+                    {
+                        label insertionIndex = alreadyInsertedAddedFace[addedFaceInd];
+                        if(insertionIndex==-1) 
+                            FatalErrorInFunction<<"Invalid triple insertion of added face!"<< exit(FatalError);
+                        std::pair<label,label>& faceNeighbor = added_face_neighbour[insertionIndex];
+                        if(faceNeighbor.first!=-1 || faceNeighbor.second!=-1)
+                            FatalErrorInFunction<<"Invalid double insertion of face neighbor!"<< exit(FatalError);
+                        faceNeighbor = {cellInd,subCells[1]};
+                        if(added_face_owner[insertionIndex].first!=cellInd)
+                            FatalErrorInFunction<<"Invalid mismatch of cell index!"<< exit(FatalError);
+                        alreadyInsertedAddedFace[addedFaceInd] = -1;
+                    }
+                }
                 
                 // handle original face indexes
                 for(label locOFaceInd=0;locOFaceInd<oneCell.originalFaceInds.size();locOFaceInd++)
@@ -8520,6 +8561,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     {
                         if(replacingFaceType == originalCSFT)
                         {
+                            FatalErrorInFunction<<"Can not happen in subcell!"<< exit(FatalError);
+                            
                             const face& replacingFace = this->new_faces[replacingFaceInd];
                             preUsedFace.insert(replacingFaceInd);
                             if(new_owner[replacedFaceInd]==cellInd)
@@ -8569,6 +8612,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         }
                         else if(replacingFaceType == splittedCSFT)
                         {
+                            FatalErrorInFunction<<"Can not happen in subcell!"<< exit(FatalError);
+
                             std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
                             const face& replacingFace = splittedFace.first;
                             label replacingFaceOrigInd = splittedFace.second;
@@ -8631,6 +8676,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         label replacedFaceOrigInd = splittedFace.second;
                         if(replacingFaceType == originalCSFT)
                         {
+                            FatalErrorInFunction<<"Can not happen in subcell!"<< exit(FatalError);
+
                             const face& replacingFace = this->new_faces[replacingFaceInd];
                             preUsedFace.insert(replacingFaceInd);
                             if(new_owner[replacedFaceOrigInd]==cellInd)
@@ -8680,6 +8727,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         }
                         else if(replacingFaceType == splittedCSFT)
                         {
+                            FatalErrorInFunction<<"Can not happen in subcell!"<< exit(FatalError);
+                            
                             std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
                             const face& replacingFace = splittedFace.first;
                             label replacingFaceOrigInd = splittedFace.second;
@@ -8736,145 +8785,320 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         }
                     }
                     else //if(replacedFaceType == addedCSFT)
-                    {
-                        const face& replacedFace = cellSplit.addedFace[replacedFaceInd];
-                        auto iter = addedFaceCells[replacedFaceInd];
-                        if(iter==addedFaceCells.end())
-                            FatalErrorInFunction<<"Added face has no subcells!"<< exit(FatalError);
-                        DynamicList<label> replacedFaceSubCells = iter.second;
-                        
-                        /* CONTINUE HERE
+                    {                        
                         if(replacingFaceType == originalCSFT)
                         {
-                            const face& replacingFace = this->new_faces[replacingFaceInd];
-                            preUsedFace.insert(replacingFaceInd);
-                            if(new_owner[replacedFaceOrigInd]==cellInd)
+                            label oFace = oneCell.originalFaceInds[replacingFaceInd];
+                            if(new_owner[oFace]==cellInd)
                             {
-                                if(new_owner[replacingFaceInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
-                                            {   replacingFace,
-                                                this->new_neighbour[replacedFaceOrigInd],
-                                                this->new_neighbour[replacingFaceInd]
-                                            });
-                                }
-                                else if(new_neighbour[replacingFaceInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
-                                            {   replacingFace,
-                                                this->new_neighbour[replacedFaceOrigInd],
-                                                this->new_owner[replacingFaceInd]
-                                            });
-                                }
-                                else
-                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                originalFacesByOwnerCell[oFace].append({cellInd,locCell,replacingFaceInd});
                             }
-                            else if(new_neighbour[replacedFaceOrigInd]==cellInd)
+                            else if(new_neighbour[oFace]==cellInd)
                             {
-                               if(new_owner[replacingFaceInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
-                                            {   replacingFace,
-                                                this->new_owner[replacedFaceOrigInd],
-                                                this->new_neighbour[replacingFaceInd]
-                                            });
-                                }
-                                else if(new_neighbour[replacingFaceInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
-                                            {   replacingFace,
-                                                this->new_owner[replacedFaceOrigInd],
-                                                this->new_owner[replacingFaceInd]
-                                            });
-                                }
-                                else
-                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                originalFacesByNeighborCell[oFace].append({cellInd,locCell,replacingFaceInd});
                             }
                             else
                                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
                         }
                         else if(replacingFaceType == splittedCSFT)
                         {
-                            std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
-                            const face& replacingFace = splittedFace.first;
-                            label replacingFaceOrigInd = splittedFace.second;
-                            preUsedFace.insert(replacingFaceOrigInd);
-
-                            if(new_owner[replacedFaceInd]==cellInd)
+                            label faceInds = oneCell.splittedFaceInds[replacingFaceInd];
+                            std::pair<face,label>& splittedFace = cellSplit.splittedFaces[faceInds];
+                            label origFace = splittedFace.second;
+                            if(new_owner[origFace]==cellInd)
                             {
-                                if(new_owner[replacingFaceOrigInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
-                                            {   replacingFace,
-                                                this->new_neighbour[replacedFaceInd],
-                                                this->new_neighbour[replacingFaceOrigInd]
-                                            });
-                                }
-                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
-                                            {   replacingFace,
-                                                this->new_neighbour[replacedFaceInd],
-                                                this->new_owner[replacingFaceOrigInd]
-                                            });
-                                }
-                                else
-                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                splittedFacesByOwnerCell[origFace].append({cellInd,locCell,replacingFaceInd});
                             }
-                            else if(new_neighbour[replacedFaceInd]==cellInd)
+                            else if(new_neighbour[origFace]==cellInd)
                             {
-                               if(new_owner[replacingFaceOrigInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
-                                            {   replacingFace,
-                                                this->new_owner[replacedFaceInd],
-                                                this->new_neighbour[replacingFaceOrigInd]
-                                            });
-                                }
-                                else if(new_neighbour[replacingFaceOrigInd]==cellInd)
-                                {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
-                                            {   replacingFace,
-                                                this->new_owner[replacedFaceInd],
-                                                this->new_owner[replacingFaceOrigInd]
-                                            });
-                                }
-                                else
-                                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                splittedFacesByNeighborCell[origFace].append({cellInd,locCell,replacingFaceInd});
                             }
                             else
                                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
                         }
                         else //if(replacedFaceType == addedCSFT)
-                        */
+                        {
+                            FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                        }
                     }
-                    
-                    
-                    
-                    
-                    const std::tuple<face,label,std::pair<bool,label>,bool>& replacingFace = cellSplit.replacingFaces[faceInds];
-
-                    label replacingFaceInd = std::get<1>(replacingFace); // replacingFace
-                    const std::pair<bool,label> replacedFaceData = std::get<2>(replacingFace);
-                    bool replacedFaceIsNonAdded = replacedFaceInd.first;
-                    label replacedFaceInd = replacedFaceInd.second;
-
-                    if(new_owner[replacedFaceInd]==cellInd)
-                    {
-                        splittedFacesByOwnerCell[replacedFaceInd].append({cellInd,locCell,locSpFaceInd});
-                    }
-                    else if(new_neighbour[replacedFaceInd]==cellInd)
-                    {
-                        splittedFacesByNeighborCell[replacedFaceInd].append({cellInd,locCell,locSpFaceInd});
-                    }
-                    else
-                        FatalErrorInFunction<<"Error!"<< exit(FatalError);
                 }
-                
-
-
             }
             cellMultiple = cellSplit.cells.size();
+            for(auto iter=alreadyInsertedAddedFace.begin(); iter!=alreadyInsertedAddedFace.end(); iter++)
+            {
+                if(iter->second!=-1)
+                    FatalErrorInFunction<<"One added face has no neighbour!"<< exit(FatalError);
+            }
+            
+            for(const std::tuple<CSFaceType,label,CSFaceType,label> faceChanges : cellSplit.nonCellFaceChanges)
+            {
+                CSFaceType replacedFaceType = std::get<0>(faceChanges);
+                label replacedFaceInd = std::get<1>(faceChanges);
+                CSFaceType replacingFaceType = std::get<2>(faceChanges);
+                label replacingFaceInd = std::get<3>(faceChanges);
+                
+                if(replacedFaceType == originalCSFT)
+                {
+                    if(replacingFaceType == originalCSFT)
+                    {
+                        const face& replacingFace = this->new_faces[replacingFaceInd];
+                        preUsedFace.insert(replacingFaceInd);
+                        if(new_owner[replacedFaceInd]==cellInd)
+                        {
+                            if(new_owner[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceInd],
+                                            this->new_neighbour[replacingFaceInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceInd],
+                                            this->new_owner[replacingFaceInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(new_neighbour[replacedFaceInd]==cellInd)
+                        {
+                           if(new_owner[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceInd],
+                                            this->new_neighbour[replacingFaceInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceInd],
+                                            this->new_owner[replacingFaceInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    }
+                    else if(replacingFaceType == splittedCSFT)
+                    {
+                        std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
+                        const face& replacingFace = splittedFace.first;
+                        label replacingFaceOrigInd = splittedFace.second;
+                        preUsedFace.insert(replacingFaceOrigInd);
+
+                        if(new_owner[replacedFaceInd]==cellInd)
+                        {
+                            if(new_owner[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceInd],
+                                            this->new_neighbour[replacingFaceOrigInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceInd],
+                                            this->new_owner[replacingFaceOrigInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(new_neighbour[replacedFaceInd]==cellInd)
+                        {
+                           if(new_owner[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceInd],
+                                            this->new_neighbour[replacingFaceOrigInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceInd],
+                                            this->new_owner[replacingFaceOrigInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    }
+                    else // replacingFaceType == addedCSFT
+                    {
+                        FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                }
+                else if(replacedFaceType == splittedCSFT)
+                {
+                    std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacedFaceInd];
+                    const face& replacedFace = splittedFace.first;
+                    label replacedFaceOrigInd = splittedFace.second;
+                    if(replacingFaceType == originalCSFT)
+                    {
+                        const face& replacingFace = this->new_faces[replacingFaceInd];
+                        preUsedFace.insert(replacingFaceInd);
+                        if(new_owner[replacedFaceOrigInd]==cellInd)
+                        {
+                            if(new_owner[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceOrigInd],
+                                            this->new_neighbour[replacingFaceInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceOrigInd],
+                                            this->new_owner[replacingFaceInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(new_neighbour[replacedFaceOrigInd]==cellInd)
+                        {
+                           if(new_owner[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceOrigInd],
+                                            this->new_neighbour[replacingFaceInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceOrigInd],
+                                            this->new_owner[replacingFaceInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    }
+                    else if(replacingFaceType == splittedCSFT)
+                    {
+                        std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacingFaceInd];
+                        const face& replacingFace = splittedFace.first;
+                        label replacingFaceOrigInd = splittedFace.second;
+                        preUsedFace.insert(replacingFaceOrigInd);
+
+                        if(new_owner[replacedFaceInd]==cellInd)
+                        {
+                            if(new_owner[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceInd],
+                                            this->new_neighbour[replacingFaceOrigInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_neighbour[replacedFaceInd],
+                                            this->new_owner[replacingFaceOrigInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else if(new_neighbour[replacedFaceInd]==cellInd)
+                        {
+                           if(new_owner[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceInd],
+                                            this->new_neighbour[replacingFaceOrigInd]
+                                        });
+                            }
+                            else if(new_neighbour[replacingFaceOrigInd]==cellInd)
+                            {
+                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                        {   replacingFace,
+                                            this->new_owner[replacedFaceInd],
+                                            this->new_owner[replacingFaceOrigInd]
+                                        });
+                            }
+                            else
+                                FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                        }
+                        else
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    }
+                    else // replacingFaceType == addedCSFT
+                    {
+                        FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                }
+                else //if(replacedFaceType == addedCSFT)
+                {                        
+                    if(replacingFaceType == originalCSFT)
+                    {
+                        FatalErrorInFunction<<"Can not happen outside a subcell!"<< exit(FatalError);
+
+                        label oFace = oneCell.originalFaceInds[replacingFaceInd];
+                        if(new_owner[oFace]==cellInd)
+                        {
+                            originalFacesByOwnerCell[oFace].append({cellInd,locCell,replacingFaceInd});
+                        }
+                        else if(new_neighbour[oFace]==cellInd)
+                        {
+                            originalFacesByNeighborCell[oFace].append({cellInd,locCell,replacingFaceInd});
+                        }
+                        else
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    }
+                    else if(replacingFaceType == splittedCSFT)
+                    {
+                        FatalErrorInFunction<<"Can not happen outside a subcell!"<< exit(FatalError);
+                        
+                        label faceInds = oneCell.splittedFaceInds[replacingFaceInd];
+                        std::pair<face,label>& splittedFace = cellSplit.splittedFaces[faceInds];
+                        label origFace = splittedFace.second;
+                        if(new_owner[origFace]==cellInd)
+                        {
+                            splittedFacesByOwnerCell[origFace].append({cellInd,locCell,replacingFaceInd});
+                        }
+                        else if(new_neighbour[origFace]==cellInd)
+                        {
+                            splittedFacesByNeighborCell[origFace].append({cellInd,locCell,replacingFaceInd});
+                        }
+                        else
+                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                    }
+                    else //if(replacedFaceType == addedCSFT)
+                    {
+                        FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    }
+                }
+                
+            }
         }
         cellIndStart.append(cellIndStart.last()+cellMultiple);
     }
