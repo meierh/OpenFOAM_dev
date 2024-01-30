@@ -343,8 +343,8 @@ std::array<std::int8_t,6> Foam::cutCellFvMesh::MC33::computeFacePattern()
 	auto crossedFace = [](std::array<MC33_real,4> facePnts)
 	{
 		std::bitset<4> signs;
-		label count=0;
-		for(int i=0; i<signs.size(); i++)
+		//label count=0;
+		for(uint i=0; i<signs.size(); i++)
 		{
 			signs[i] = (facePnts[i]>=0)?true:false;
 		}
@@ -359,7 +359,7 @@ std::array<std::int8_t,6> Foam::cutCellFvMesh::MC33::computeFacePattern()
 			return false;
 	};
 	std::bitset<8> signs;
-	for(int i=0; i<signs.size(); i++)
+	for(uint i=0; i<signs.size(); i++)
 	{
 		signs[i] = (v[i]>=0)?true:false;
 	}
@@ -410,7 +410,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 		{
 			std::uint8_t posCount=0;
 			std::uint8_t negCount=0;
-			for(std::uint8_t ind : facePattern)
+			for(std::int8_t ind : facePattern)
 			{
 				if(ind>0)
 					posCount++;

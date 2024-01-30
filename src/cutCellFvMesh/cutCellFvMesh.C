@@ -5348,7 +5348,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     newCellData.originalCell = cellInd;
 
     //Process possible added point
-    bool addedPntsInConvexCorr = false;
+    //bool addedPntsInConvexCorr = false;
     std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
     for(corrFace& oneFace : corrData.faces)
     {
@@ -5356,7 +5356,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         {
             if(oneVert.type==VType::edgePntAdded)
             {
-                addedPntsInConvexCorr=true;
+                //addedPntsInConvexCorr=true;
                 
                 const addedPointPos& position = oneVert.position;
                 const std::pair<VType,std::int8_t> distStart = position.distStart;
@@ -6096,10 +6096,12 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::splitOrig:
                                 case FType::splitOld:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                    break;
                                 case FType::added:
                                 case FType::mc33Triangle:
                                     replacedByMc33OrAdded = true;
                                     faceUsedInSubCell[replacingFaceInd].first = Complete;
+                                    break;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                             }
@@ -6144,6 +6146,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     break;
                                 case FType::added:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                    break;
                                 case FType::mc33Triangle:
                                     replacingFaceInds.append({CSFaceType::addedCSFT,faceInfo.second,
                                                               CSFaceType::originalCSFT,replacingFaceInfo.second});
@@ -6179,9 +6182,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::splitOrig:
                                 case FType::splitOld:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by standard face!"<< exit(FatalError);
+                                    break;
                                 case FType::added:
                                 case FType::mc33Triangle:
                                     FatalErrorInFunction<<"Invalid replacment of standard face by added or mc33 face! No cell!"<< exit(FatalError);
+                                    break;
                                 default:
                                     FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                             }
@@ -6325,6 +6330,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     break;
                                 case FType::added:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                    break;
                                 case FType::mc33Triangle:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                                     break;
@@ -6344,9 +6350,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 case FType::splitOrig:
                                 case FType::splitOld:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                    break;
                                 case FType::added:
                                 case FType::mc33Triangle:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                                    break;
                                 default:
                                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                             }
@@ -7291,7 +7299,7 @@ void Foam::cutCellFvMesh::facesEdgesIntersection
             label nPnt1 = neiFace[neiFace.fcIndex(n)];
             
             std::unordered_set<label> neiEdgeSet({nPnt0,nPnt1});
-            bool openOwn = true;
+            //bool openOwn = true;
             bool closedOwn = false;
             bool openNei = false;
             bool closedNei = false;
@@ -7506,7 +7514,7 @@ List<label> Foam::cutCellFvMesh::faceIntersection
         }
     }
 
-    bool doFacesEdgesIntersect = faceEdgesIntersect(faceEdgeIntersections);
+    //bool doFacesEdgesIntersect = faceEdgesIntersect(faceEdgeIntersections);
     std::unique_ptr<std::vector<std::pair<label,label>>> matchingPntsOwnNei = matchingPoints(ownFace,neiFace);
     
     std::unordered_map<label,DynamicList<label>> pntNeighbors;
@@ -7598,7 +7606,7 @@ List<label> Foam::cutCellFvMesh::faceIntersection
     while(true)
     {
         label currPnt = facePnts[facePnts.size()-1];
-        label prevPnt = facePnts[facePnts.size()-2];
+        //label prevPnt = facePnts[facePnts.size()-2];
         
         iter = pntNeighbors.find(currPnt);
         if(iter==pntNeighbors.end())
@@ -7807,7 +7815,7 @@ void Foam::cutCellFvMesh::findSmallCellMergeCandidate
     for(label cellInd=0;cellInd<cells.size();cellInd++)
     {
         const cell& oneCell = cells[cellInd];
-        scalar cellSize = oneCell.mag(new_points,new_faces);
+        //scalar cellSize = oneCell.mag(new_points,new_faces);
         if(smallCell[cellInd])
         {
             for(label locFaceInd=0; locFaceInd<oneCell.size(); locFaceInd++)
@@ -8336,7 +8344,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 for(auto iter=origFaceAddPntToCutFaces.cbegin(); iter!=origFaceAddPntToCutFaces.end(); iter++)
                 {
                     label faceInd = iter->first;
-                    face& thisFace = new_faces[faceInd];
+                    //face& thisFace = new_faces[faceInd];
                     
                     const DynamicList<std::pair<face,DynamicList<label>>>& cutFacesWithAddPnts = iter->second;
                     std::unordered_set<label> addedPntsForFace;
@@ -8459,7 +8467,8 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     DynamicList<face> added_faces;
     DynamicList<std::pair<label,label>> added_face_owner;
     DynamicList<std::pair<label,label>> added_face_neighbour;
-    std::unordered_map<label,DynamicList<std::tuple<face,label,label>>> nonSubCellReplacedFace;
+    //std::unordered_map<faceInd,std::unordered_map<cellInd,DynamicList<std::tuple<faceData,replacedFaceCell,replacingFaceCell>>>> nonSubCellReplacedFace;
+    std::unordered_map<label,std::unordered_map<label,DynamicList<std::tuple<face,label,label>>>> nonSubCellReplacedFace;
     std::unordered_set<label> preUsedFace;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByNeighborCell;
     std::unordered_map<label,DynamicList<std::tuple<label,label,label>>> splittedFacesByOwnerCell;
@@ -8484,15 +8493,15 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 {
                     label addedFaceInd = oneCell.addedFaceInds[locAddedFaceInd];
                     const face& addedFace = cellSplit.addedFace[addedFaceInd];
-                    auto iter = cellSplit.addedFaceCells.find(addedFaceInd);
-                    if(iter==cellSplit.addedFaceCells.end())
+                    auto iterAddedFaceSubCells = cellSplit.addedFaceCells.find(addedFaceInd);
+                    if(iterAddedFaceSubCells==cellSplit.addedFaceCells.end())
                         FatalErrorInFunction<<"Added face has not neighbour subcell!"<< exit(FatalError);
-                    const DynamicList<label>& subCells = iter->second;
+                    const DynamicList<label>& subCells = iterAddedFaceSubCells->second;
                     if(subCells.size()!=2)
                         FatalErrorInFunction<<"Added face has invalid number of neighbour subcell!"<< exit(FatalError);
                     
-                    auto iter = alreadyInsertedAddedFace.find(addedFaceInd);
-                    if(iter == alreadyInsertedAddedFace.end())
+                    auto iterAlreadyInserted = alreadyInsertedAddedFace.find(addedFaceInd);
+                    if(iterAlreadyInserted == alreadyInsertedAddedFace.end())
                     {
                         alreadyInsertedAddedFace[addedFaceInd] = added_faces.size();
                         added_faces.append(addedFace);
@@ -8569,7 +8578,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                 if(new_owner[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceInd],
                                                 this->new_neighbour[replacingFaceInd]
@@ -8577,7 +8586,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceInd],
                                                 this->new_owner[replacingFaceInd]
@@ -8590,7 +8599,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                if(new_owner[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceInd],
                                                 this->new_neighbour[replacingFaceInd]
@@ -8598,7 +8607,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceInd],
                                                 this->new_owner[replacingFaceInd]
@@ -8623,7 +8632,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                 if(new_owner[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceInd],
                                                 this->new_neighbour[replacingFaceOrigInd]
@@ -8631,7 +8640,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceInd],
                                                 this->new_owner[replacingFaceOrigInd]
@@ -8644,7 +8653,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                if(new_owner[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceInd],
                                                 this->new_neighbour[replacingFaceOrigInd]
@@ -8652,7 +8661,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceInd],
                                                 this->new_owner[replacingFaceOrigInd]
@@ -8672,7 +8681,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     else if(replacedFaceType == splittedCSFT)
                     {
                         std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacedFaceInd];
-                        const face& replacedFace = splittedFace.first;
+                        //const face& replacedFace = splittedFace.first;
                         label replacedFaceOrigInd = splittedFace.second;
                         if(replacingFaceType == originalCSFT)
                         {
@@ -8684,7 +8693,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                 if(new_owner[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                    nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceOrigInd],
                                                 this->new_neighbour[replacingFaceInd]
@@ -8692,7 +8701,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                    nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceOrigInd],
                                                 this->new_owner[replacingFaceInd]
@@ -8705,7 +8714,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                if(new_owner[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                    nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceOrigInd],
                                                 this->new_neighbour[replacingFaceInd]
@@ -8713,7 +8722,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                    nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceOrigInd],
                                                 this->new_owner[replacingFaceInd]
@@ -8738,7 +8747,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                 if(new_owner[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceInd],
                                                 this->new_neighbour[replacingFaceOrigInd]
@@ -8746,7 +8755,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_neighbour[replacedFaceInd],
                                                 this->new_owner[replacingFaceOrigInd]
@@ -8759,7 +8768,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             {
                                if(new_owner[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceInd],
                                                 this->new_neighbour[replacingFaceOrigInd]
@@ -8767,7 +8776,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                                 }
                                 else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                                 {
-                                    nonSubCellReplacedFace[replacedFaceInd].append(
+                                    nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                             {   replacingFace,
                                                 this->new_owner[replacedFaceInd],
                                                 this->new_owner[replacingFaceOrigInd]
@@ -8830,7 +8839,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     FatalErrorInFunction<<"One added face has no neighbour!"<< exit(FatalError);
             }
             
-            for(const std::tuple<CSFaceType,label,CSFaceType,label> faceChanges : cellSplit.nonCellFaceChanges)
+            for(const std::tuple<CSFaceType,label,CSFaceType,label>& faceChanges : cellSplit.nonCellFaceChanges)
             {
                 CSFaceType replacedFaceType = std::get<0>(faceChanges);
                 label replacedFaceInd = std::get<1>(faceChanges);
@@ -8847,7 +8856,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                             if(new_owner[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceInd],
                                             this->new_neighbour[replacingFaceInd]
@@ -8855,7 +8864,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceInd],
                                             this->new_owner[replacingFaceInd]
@@ -8868,7 +8877,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                            if(new_owner[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceInd],
                                             this->new_neighbour[replacingFaceInd]
@@ -8876,7 +8885,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceInd],
                                             this->new_owner[replacingFaceInd]
@@ -8899,7 +8908,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                             if(new_owner[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceInd],
                                             this->new_neighbour[replacingFaceOrigInd]
@@ -8907,7 +8916,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceInd],
                                             this->new_owner[replacingFaceOrigInd]
@@ -8920,7 +8929,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                            if(new_owner[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceInd],
                                             this->new_neighbour[replacingFaceOrigInd]
@@ -8928,7 +8937,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceInd],
                                             this->new_owner[replacingFaceOrigInd]
@@ -8948,7 +8957,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 else if(replacedFaceType == splittedCSFT)
                 {
                     std::pair<face,label>& splittedFace = cellSplit.splittedFaces[replacedFaceInd];
-                    const face& replacedFace = splittedFace.first;
+                    //const face& replacedFace = splittedFace.first;
                     label replacedFaceOrigInd = splittedFace.second;
                     if(replacingFaceType == originalCSFT)
                     {
@@ -8958,7 +8967,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                             if(new_owner[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceOrigInd],
                                             this->new_neighbour[replacingFaceInd]
@@ -8966,7 +8975,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceOrigInd],
                                             this->new_owner[replacingFaceInd]
@@ -8979,7 +8988,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                            if(new_owner[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceOrigInd],
                                             this->new_neighbour[replacingFaceInd]
@@ -8987,7 +8996,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceOrigInd].append(
+                                nonSubCellReplacedFace[replacedFaceOrigInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceOrigInd],
                                             this->new_owner[replacingFaceInd]
@@ -9010,7 +9019,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                             if(new_owner[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceInd],
                                             this->new_neighbour[replacingFaceOrigInd]
@@ -9018,7 +9027,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_neighbour[replacedFaceInd],
                                             this->new_owner[replacingFaceOrigInd]
@@ -9031,7 +9040,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                         {
                            if(new_owner[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceInd],
                                             this->new_neighbour[replacingFaceOrigInd]
@@ -9039,7 +9048,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                             }
                             else if(new_neighbour[replacingFaceOrigInd]==cellInd)
                             {
-                                nonSubCellReplacedFace[replacedFaceInd].append(
+                                nonSubCellReplacedFace[replacedFaceInd][cellInd].append(
                                         {   replacingFace,
                                             this->new_owner[replacedFaceInd],
                                             this->new_owner[replacingFaceOrigInd]
@@ -9061,36 +9070,10 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     if(replacingFaceType == originalCSFT)
                     {
                         FatalErrorInFunction<<"Can not happen outside a subcell!"<< exit(FatalError);
-
-                        label oFace = oneCell.originalFaceInds[replacingFaceInd];
-                        if(new_owner[oFace]==cellInd)
-                        {
-                            originalFacesByOwnerCell[oFace].append({cellInd,locCell,replacingFaceInd});
-                        }
-                        else if(new_neighbour[oFace]==cellInd)
-                        {
-                            originalFacesByNeighborCell[oFace].append({cellInd,locCell,replacingFaceInd});
-                        }
-                        else
-                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
                     }
                     else if(replacingFaceType == splittedCSFT)
                     {
                         FatalErrorInFunction<<"Can not happen outside a subcell!"<< exit(FatalError);
-                        
-                        label faceInds = oneCell.splittedFaceInds[replacingFaceInd];
-                        std::pair<face,label>& splittedFace = cellSplit.splittedFaces[faceInds];
-                        label origFace = splittedFace.second;
-                        if(new_owner[origFace]==cellInd)
-                        {
-                            splittedFacesByOwnerCell[origFace].append({cellInd,locCell,replacingFaceInd});
-                        }
-                        else if(new_neighbour[origFace]==cellInd)
-                        {
-                            splittedFacesByNeighborCell[origFace].append({cellInd,locCell,replacingFaceInd});
-                        }
-                        else
-                            FatalErrorInFunction<<"Error!"<< exit(FatalError);
                     }
                     else //if(replacedFaceType == addedCSFT)
                     {
@@ -9107,22 +9090,200 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
     List<DynamicList<face>> new_faces(this->new_faces.size());
     List<DynamicList<std::pair<label,label>>> new_owner(this->new_faces.size());
     List<DynamicList<std::pair<label,label>>> new_neighbour(this->new_faces.size());
+    new_faces.append(added_faces);
+    new_owner.append(added_face_owner);
+    new_neighbour.append(added_face_neighbour);
     for(label faceInd=0; faceInd<new_faces.size(); faceInd++)
     {
         auto iterSpOwn = splittedFacesByOwnerCell.find(faceInd);
         auto iterSpNei = splittedFacesByNeighborCell.find(faceInd);
         auto iterOOwn = originalFacesByOwnerCell.find(faceInd);
         auto iterONei = originalFacesByNeighborCell.find(faceInd);
-        DynamicList<std::tuple<label,label,label>>* singleSideCut;
-        DynamicList<std::tuple<label,label,label>>* singleSideO;
+        //DynamicList<std::tuple<label,label,label>>* singleSideCut;
+        //DynamicList<std::tuple<label,label,label>>* singleSideO;
         bool iterSpOwnB = iterSpOwn!=splittedFacesByOwnerCell.end();
         bool iterSpNeiB = iterSpNei!=splittedFacesByNeighborCell.end();
         bool iterOOwnB = iterOOwn!=originalFacesByOwnerCell.end();
-        bool iterONeiB = iterONei!=originalFacesByNeighborCell.end();        
-
+        bool iterONeiB = iterONei!=originalFacesByNeighborCell.end();
+        
         std::pair<label,label> ownCell = {this->new_owner[faceInd],-1};
         std::pair<label,label> neiCell = {this->new_neighbour[faceInd],-1};
-        if(!iterSpOwnB && !iterSpNeiB)
+        
+        auto iterNonSubCell = nonSubCellReplacedFace.find(faceInd);
+        auto iterNonSubCellOwner = iterNonSubCell->second.find(ownCell.first);
+        auto iterNonSubCellNeighbour = iterNonSubCell->second.find(neiCell.first);
+        bool iterNonSubCellB = iterNonSubCell!=nonSubCellReplacedFace.end();
+        bool iterNonSubCellOwnerB = iterNonSubCellOwner!=iterNonSubCell->second.end();
+        bool iterNonSubCellNeighbourB = iterNonSubCellNeighbour!=iterNonSubCell->second.end();
+        
+        if(iterNonSubCellB && (!iterNonSubCellOwnerB && !iterNonSubCellNeighbourB))
+            FatalErrorInFunction<<"Face replaced without subcell but neither owner nor neighbor valid!"<< exit(FatalError);
+        
+        if((iterSpOwnB && (iterOOwnB || iterNonSubCellB)) ||
+           (iterSpNeiB && (iterONeiB || iterNonSubCellNeighbourB)))
+            FatalErrorInFunction<<"Assignment by only splitted, original or replaced at once!"<< exit(FatalError);
+            
+        if((iterOOwnB && (iterSpOwnB || iterNonSubCellB)) ||
+           (iterONeiB && (iterSpNeiB || iterNonSubCellNeighbourB)))
+            FatalErrorInFunction<<"Assignment by only splitted, original or replaced at once!"<< exit(FatalError);
+            
+        if((iterNonSubCellB && (iterSpOwnB || iterOOwnB)) ||
+           (iterNonSubCellNeighbourB && (iterSpNeiB || iterONeiB)))
+            FatalErrorInFunction<<"Assignment by only splitted, original or replaced at once!"<< exit(FatalError);
+        
+        DynamicList<std::pair<face,std::pair<label,label>>> facesFromOwner;
+        if(iterOOwnB)
+        {
+            const DynamicList<std::tuple<label,label,label>>& facesData = iterOOwn->second; 
+            if(facesData.size()!=1)
+                FatalErrorInFunction<<"Original face can only have one entry!"<< exit(FatalError);
+            const std::tuple<label,label,label>& ownerSideFace = facesData[0];
+            label cellInd = std::get<0>(ownerSideFace);
+            if(cellInd!=ownCell.first)
+                FatalErrorInFunction<<"Original face has cell number mismatch!"<< exit(FatalError);
+            label locCell = std::get<1>(ownerSideFace);
+            std::pair<label,label> ownerData = {cellInd,locCell};
+            const face& originalFace = this->new_faces[faceInd];
+            facesFromOwner.append({originalFace,ownerData});
+        }
+        if(iterSpOwnB)
+        {
+            const DynamicList<std::tuple<label,label,label>>& facesData = iterOOwn->second;
+            for(const std::tuple<label,label,label>& oneFace : facesData)
+            {
+                label cellInd = std::get<0>(oneFace);
+                if(cellInd!=this->new_owner[faceInd])
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                CellSplitData& cellSplitOwn = *(convexCorrectionData[cellInd]);
+                label locCellOwn = std::get<1>(oneFace);
+                std::pair<label,label> ownerData = {cellInd,locCellOwn};
+                CellFaces& oneCellOwn = cellSplitOwn.cells[locCellOwn];
+                label locSpFaceIndOwn = std::get<2>(oneFace);
+                label splitFaceIndOwn = oneCellOwn.splittedFaceInds[locSpFaceIndOwn];
+                if(cellSplitOwn.splittedFaces[splitFaceIndOwn].second!=faceInd)
+                    FatalErrorInFunction<<"Splitted cell faceInd mismatch!"<< exit(FatalError);
+                const face& spOwnFace = cellSplitOwn.splittedFaces[splitFaceIndOwn].first;
+                facesFromOwner.append({spOwnFace,ownerData});
+            }
+        }
+        if(iterNonSubCellOwnerB)
+        {
+            const DynamicList<std::tuple<face,label,label>>& facesData = iterNonSubCellOwner->second;
+            for(const std::tuple<face,label,label>& oneFace : facesData)
+            {
+                const face& faceData = std::get<0>(oneFace);
+                //label replacedFaceCellSide = std::get<1>(oneFace);
+                label replacingFaceCellSide = std::get<2>(oneFace);
+                std::pair<label,label> ownerData = {replacingFaceCellSide,-1};
+                facesFromOwner.append({faceData,ownerData});
+            }
+        }
+        if(facesFromOwner.size()==0)
+        {
+            facesFromOwner.append({this->new_faces[faceInd],ownCell});
+        }
+        
+        
+        DynamicList<std::pair<face,std::pair<label,label>>> facesFromNeighbour;
+        if(iterONeiB)
+        {
+            const DynamicList<std::tuple<label,label,label>>& facesData = iterONei->second; 
+            if(facesData.size()!=1)
+                FatalErrorInFunction<<"Original face can only have one entry!"<< exit(FatalError);
+            const std::tuple<label,label,label>& neighbourSide = facesData[0];
+            label cellInd = std::get<0>(neighbourSide);
+            if(cellInd!=neiCell.first)
+                FatalErrorInFunction<<"Original face has cell number mismatch!"<< exit(FatalError);
+            label locCell = std::get<1>(neighbourSide);
+            std::pair<label,label> neighbourData = {cellInd,locCell};
+            const face& originalFace = this->new_faces[faceInd];
+            facesFromNeighbour.append({originalFace,neighbourData});
+        }
+        if(iterSpOwnB)
+        {
+            const DynamicList<std::tuple<label,label,label>>& facesData = iterOOwn->second;
+            for(const std::tuple<label,label,label>& oneFace : facesData)
+            {
+                label cellInd = std::get<0>(oneFace);
+                if(cellInd!=this->new_owner[faceInd])
+                    FatalErrorInFunction<<"Error!"<< exit(FatalError);
+                CellSplitData& cellSplitOwn = *(convexCorrectionData[cellInd]);
+                label locCellOwn = std::get<1>(oneFace);
+                std::pair<label,label> ownerData = {cellInd,locCellOwn};
+                CellFaces& oneCellOwn = cellSplitOwn.cells[locCellOwn];
+                label locSpFaceIndOwn = std::get<2>(oneFace);
+                label splitFaceIndOwn = oneCellOwn.splittedFaceInds[locSpFaceIndOwn];
+                if(cellSplitOwn.splittedFaces[splitFaceIndOwn].second!=faceInd)
+                    FatalErrorInFunction<<"Splitted cell faceInd mismatch!"<< exit(FatalError);
+                const face& spOwnFace = cellSplitOwn.splittedFaces[splitFaceIndOwn].first;
+                facesFromNeighbour.append({spOwnFace,ownerData});
+            }
+        }
+        if(iterNonSubCellOwnerB)
+        {
+            const DynamicList<std::tuple<face,label,label>>& facesData = iterNonSubCellNeighbour->second;
+            for(const std::tuple<face,label,label>& oneFace : facesData)
+            {
+                const face& faceData = std::get<0>(oneFace);
+                //label replacedFaceCellSide = std::get<1>(oneFace);
+                label replacingFaceCellSide = std::get<2>(oneFace);
+                std::pair<label,label> ownerData = {replacingFaceCellSide,-1};
+                facesFromNeighbour.append({faceData,ownerData});
+            }
+        }
+        if(facesFromNeighbour.size()==0)
+        {
+            facesFromNeighbour.append({this->new_faces[faceInd],neiCell});
+        }
+        
+        if(facesFromOwner.size()==1 && facesFromNeighbour.size()==1)
+        {
+            const std::pair<face,std::pair<label,label>>& ownerFace = facesFromOwner[0];
+            const std::pair<face,std::pair<label,label>>& neighbourFace = facesFromNeighbour[0];
+            new_faces[faceInd].append(ownerFace.first);
+            new_owner[faceInd].append(ownerFace.second);
+            new_neighbour[faceInd].append(neighbourFace.second);
+        }
+        else if(facesFromOwner.size()!=1 && facesFromNeighbour.size()==1)
+        {
+            const std::pair<face,std::pair<label,label>>& neighbourFace = facesFromNeighbour[0];
+            for(const std::pair<face,std::pair<label,label>>& ownerFace : facesFromOwner)
+            {
+                new_faces[faceInd].append(ownerFace.first);
+                new_owner[faceInd].append(ownerFace.second);
+                new_neighbour[faceInd].append(neighbourFace.second);
+            }
+        }
+        else if(facesFromOwner.size()==1 && facesFromNeighbour.size()!=1)
+        {
+            const std::pair<face,std::pair<label,label>>& ownerFace = facesFromOwner[0];
+            for(const std::pair<face,std::pair<label,label>>& neighbourFace : facesFromNeighbour)
+            {
+                new_faces[faceInd].append(neighbourFace.first);
+                new_owner[faceInd].append(ownerFace.second);
+                new_neighbour[faceInd].append(neighbourFace.second);
+            }
+        }
+        else
+        {
+            edgToIntPntIndMap edgesToAddPntInd;
+            const face& totalFace = this->new_faces[faceInd];
+            for(const std::pair<face,std::pair<label,label>>& ownerFace : facesFromOwner)
+            {
+                for(const std::pair<face,std::pair<label,label>>& neighbourFace : facesFromNeighbour)
+                {
+                    List<label> intersecFacePnts = faceIntersection(totalFace,ownerFace.first,neighbourFace.first,edgesToAddPntInd,new_points_List);
+                    face intersecFace(intersecFacePnts);                    
+                        
+                    new_faces[faceInd].append(intersecFace);;
+                    new_owner[faceInd].append(ownerFace.second);
+                    new_neighbour[faceInd].append(neighbourFace.second);
+                }
+            }
+        }
+        
+        /*
+        if(!iterSpOwnB && !iterSpNeiB && )
         {
             if(iterOOwnB)
             {
@@ -9135,7 +9296,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                     FatalErrorInFunction<<"Error!"<< exit(FatalError);
                 label locCell = std::get<1>(oneSideO);
                 ownCell.second = locCell;
-            }
+            }            
             if(iterONeiB)
             {
                 singleSideO = &(iterONei->second);
@@ -9148,6 +9309,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 label locCell = std::get<1>(oneSideO);
                 neiCell.second = locCell;
             }
+            else if(
             new_faces[faceInd].append(this->new_faces[faceInd]);
             new_owner[faceInd].append(ownCell);
             new_neighbour[faceInd].append(neiCell);
@@ -9284,6 +9446,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
                 new_neighbour[faceInd].append(neiCell);
             }
         }
+        */
     }
     
     pointField new_points;
@@ -9333,7 +9496,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         {
             scalar thisCellSize = cellSizes[cellInd];
             cell& thisCell = new_cells[cellInd];
-            vector thisCellCentre = thisCell.centre(new_points,new_faces_flat);
+            //vector thisCellCentre = thisCell.centre(new_points,new_faces_flat);
             DynamicList<std::pair<label,label>>& mergeCandidates = smallCellMergeCand[cellInd];
             
             DynamicList<std::tuple<label,label,scalar,scalar>> mergeCandLargeEnough;            
@@ -9443,7 +9606,7 @@ void Foam::cutCellFvMesh::agglomerateSmallCells_MC33
         }
     }
     
-    if(newCellInd+1+removedFaces.size() != new_faces_flat.size())
+    if(newCellInd+1+static_cast<label>(removedFaces.size()) != new_faces_flat.size())
         FatalErrorInFunction<<"Error!"<< exit(FatalError);
     
     this->new_faces.setSize(newCellInd+1);
