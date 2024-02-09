@@ -237,7 +237,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 												  oneCube.vertices[2],oneCube.vertices[3]};
 	std::unordered_set<label> oppositeFaceVert;
 	for(label vert:vertices)
-		if(startingFaceVert.find(vert)!=startingFaceVert.end())
+		if(startingFaceVert.find(vert)==startingFaceVert.end())
 			oppositeFaceVert.insert(vert);
 	
 	//Info<<"Vertices:"<<oneCube.vertices<<Foam::endl;
@@ -311,9 +311,47 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::generateMC33Cube
 	{
 		auto iter = globFaces.find(oFace);
 		if(iter!=globFaces.end())
+		{
+			Info<<"startingFaceVert:";
+			for(auto iter=startingFaceVert.begin(); iter!=startingFaceVert.end(); iter++)
+				Info<<*iter<<" ";
+			Info<<Foam::endl;
+			Info<<"oppositeFaceVert:";
+			for(auto iter=oppositeFaceVert.begin(); iter!=oppositeFaceVert.end(); iter++)
+				Info<<*iter<<" ";
+			Info<<Foam::endl;
+			Info<<"vertices:"<<Foam::endl;
+			for(auto vert : vertices)
+			{
+				Info<<vert<<" ";
+			}
+			Info<<Foam::endl;
+			Info<<"faceVertices:"<<Foam::endl;
+			for(auto set : faceVertices)
+			{
+				for(auto iter=set.begin(); iter!=set.end(); iter++)
+					Info<<*iter<<" ";
+				Info<<Foam::endl;
+			}
+			Info<<"oneCube.vertices:"<<oneCube.vertices<<Foam::endl;
+			Info<<"oneCube.origFaces:"<<oneCube.origFaces<<Foam::endl;
+			for(auto faceInd : oneCube.origFaces)
+			{
+				Info<<faceInd<<": ";
+				for(label vert : meshFaces[faceInd])
+					Info<<vert<<" ";
+				Info<<Foam::endl;
+			}
+			Info<<"thisCell:"<<thisCell<<Foam::endl;
+			for(auto iter=globFaces.begin(); iter!=globFaces.end(); iter++)
+				Info<<*iter<<" ";
+			Info<<Foam::endl;
+			Info<<" :"<<*iter<<Foam::endl;
 			FatalErrorInFunction<<"Duplicate face assignment!"<< exit(FatalError);
+		}
 		globFaces.insert(oFace);
 	}
+	//FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
 	return oneCube;
 }
 

@@ -333,6 +333,8 @@ void Foam::cutCellFvMesh::projectLevelSet()
 
 void Foam::cutCellFvMesh::executeMarchingCubes()
 {
+    createConvexCorrectionData();
+    
     const cellList& meshCells = this->cells();
     const edgeList& basisEdges = this->edges();
     const faceList& basisFaces = this->faces();
@@ -4878,6 +4880,7 @@ label Foam::cutCellFvMesh::getFaceIndFromPntList
     return matchingFaceInd;
 }
 
+//Test if two correction vertices are identical
 bool Foam::cutCellFvMesh::verticesAreIdentical
 (
     const corrFaceVertice& vert1,
@@ -4886,13 +4889,31 @@ bool Foam::cutCellFvMesh::verticesAreIdentical
     corrFaceVertice& vertResult
 )
 {
+    /*
+    Info<<"----------------------"<<Foam::endl;
+    Info<<"pointPermutation: ";
+    for(auto ind : mc33cube.pointPermutation)
+        Info<<ind<<" ";
+    Info<<Foam::endl;
+    
+    Info<<"edgePermutation: ";
+    for(auto ind : mc33cube.edgePermutation)
+        Info<<ind<<" ";
+    Info<<Foam::endl;
+    
+    Info<<"facePermutation: ";
+    for(auto ind : mc33cube.facePermutation)
+        Info<<ind<<" ";
+    Info<<Foam::endl;
+    */
+    
     corrFaceVertice match;
     
     label globalPnt1;
     label globalPnt2;
     if(vert1.type==VType::cubePnt)
     {
-        globalPnt1 = mc33cube.vertices[vert1.value];
+        globalPnt1 = mc33cube.vertices[mc33cube.pointPermutation[vert1.value]];
         if(vert2.type==VType::cubePnt)
         {
             if(vert1.value==vert2.value)
@@ -4906,7 +4927,7 @@ bool Foam::cutCellFvMesh::verticesAreIdentical
         }
         else if(vert2.type==VType::cutEdge)
         {
-            globalPnt2 = mc33cube.cutEdgeVerticeIndex[vert2.value];
+            globalPnt2 = mc33cube.cutEdgeVerticeIndex[mc33cube.edgePermutation[vert2.value]];
             if(globalPnt1==-1 || globalPnt2==-1)
                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
             if(globalPnt1==globalPnt2)
@@ -4919,14 +4940,17 @@ bool Foam::cutCellFvMesh::verticesAreIdentical
                 return false;
         }
         else
-            FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+        // edgePntAdded or centerPnt
+        {
+            return false;
+        }
     }
     else if(vert1.type==VType::cutEdge)
     {
-        globalPnt1 = mc33cube.cutEdgeVerticeIndex[vert1.value];
+        globalPnt1 = mc33cube.cutEdgeVerticeIndex[mc33cube.edgePermutation[vert1.value]];
         if(vert2.type==VType::cubePnt)
         {
-            globalPnt2 = mc33cube.vertices[vert2.value];
+            globalPnt2 = mc33cube.vertices[mc33cube.pointPermutation[vert2.value]];
             if(globalPnt1==-1 || globalPnt2==-1)
                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
             if(globalPnt1==globalPnt2)
@@ -4940,9 +4964,27 @@ bool Foam::cutCellFvMesh::verticesAreIdentical
         }
         else if(vert2.type==VType::cutEdge)
         {
-            globalPnt2 = mc33cube.cutEdgeVerticeIndex[vert2.value];
+            globalPnt2 = mc33cube.cutEdgeVerticeIndex[mc33cube.edgePermutation[vert2.value]];
             if(globalPnt1==-1 || globalPnt2==-1)
+            {
+                Info<<"mc33cube.cutEdgeVerticeIndex:";
+                for(label ind : mc33cube.cutEdgeVerticeIndex)
+                    Info<<" "<<ind;
+                Info<<Foam::endl;
+                Info<<"mc33cube.vertices:";
+                for(label ind : mc33cube.vertices)
+                    Info<<" "<<ind;
+                Info<<Foam::endl;
+                Info<<"mc33cube.cutTriangles:";
+                for(auto triangle : mc33cube.cutTriangles)
+                    Info<<" ("<<std::get<0>(triangle)<<","<<std::get<1>(triangle)<<","<<std::get<2>(triangle)<<")";
+                Info<<Foam::endl;
+                Info<<"vert1.type:"<<vert1.type<<Foam::endl;
+                Info<<"vert2.type:"<<vert2.type<<Foam::endl;
+                Info<<"vert1.value:"<<vert1.value<<Foam::endl;
+                Info<<"vert2.value:"<<vert2.value<<Foam::endl;
                 FatalErrorInFunction<<"Error!"<< exit(FatalError);
+            }
             if(globalPnt1==globalPnt2)
             {
                 vertResult.type = vert2.type;
@@ -4953,10 +4995,45 @@ bool Foam::cutCellFvMesh::verticesAreIdentical
                 return false;
         }
         else
-            FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+        // edgePntAdded or centerPnt
+        {
+            return false;
+        }
+    }
+    else if(vert1.type==VType::centerPnt)
+    {
+        if(vert2.type==VType::centerPnt)
+        {
+            if(vert1.value==vert2.value)
+            {
+                vertResult.type=vert1.type;
+                vertResult.value=vert1.value;
+                return true;
+            }
+            else
+                FatalErrorInFunction<<"There can not be multiple center points"<< exit(FatalError);
+        }
+        else
+            return false;
     }
     else
-        FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
+    {
+        if(vert2.type==VType::edgePntAdded)
+        {
+            if(vert1.value==vert2.value)
+            {                
+                vertResult.type=vert1.type;
+                vertResult.value=vert1.value;
+                vertResult.position=vert1.position;
+                return true;
+            }
+            else
+                return false;
+        }
+        else
+            return false;
+    }
+    FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);
     return false;
 }
 
@@ -4979,7 +5056,26 @@ void Foam::cutCellFvMesh::getGlobalPoint
     else
         FatalErrorInFunction<<"Not made for this type of vertice"<< exit(FatalError);    
     if(globalPnt==-1)
+    {
+        Info<<"vert.type:"<<vert.type<<Foam::endl;
+        Info<<"vert.value:"<<vert.value<<Foam::endl;
+        Info<<"mc33cube.vertices:"<<mc33cube.vertices<<Foam::endl;
+        Info<<"mc33cube.cutEdgeVerticeIndex:"<<mc33cube.cutEdgeVerticeIndex<<Foam::endl;
+        Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
+        Info<<"pointPermutation: ";
+        for(uint i=0;i<mc33cube.pointPermutation.size();i++)
+            Info<<" "<<mc33cube.pointPermutation[i];
+        Info<<Foam::endl;
+        Info<<"edgePermutation: ";
+        for(uint i=0;i<mc33cube.edgePermutation.size();i++)
+            Info<<" "<<mc33cube.edgePermutation[i];
+        Info<<Foam::endl;
+        Info<<"facePermutation: ";
+        for(uint i=0;i<mc33cube.facePermutation.size();i++)
+            Info<<" "<<mc33cube.facePermutation[i];
+        Info<<Foam::endl;
         FatalErrorInFunction<<"Point does not exist in mc33Cube"<< exit(FatalError);
+    }
     
     globalPnt = oldToNewPointInd[globalPnt];
     if(globalPnt==-1)
@@ -5347,6 +5443,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     CellSplitData& newCellData = *newCellDataPtr;
     newCellData.originalCell = cellInd;
 
+    Info<<"Process possible added point"<<Foam::endl;
     //Process possible added point
     //bool addedPntsInConvexCorr = false;
     std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
@@ -5356,68 +5453,91 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         {
             if(oneVert.type==VType::edgePntAdded)
             {
+                addedPointPos adPnt = oneVert.position;
+                Info<<"distStart: ("<<adPnt.distStart.first<<","<<adPnt.distStart.second<<")"<<Foam::endl;
+                Info<<"distEnd: ("<<adPnt.distEnd.first<<","<<adPnt.distEnd.second<<")"<<Foam::endl;
+                Info<<"measureStart: ("<<adPnt.measureStart.first<<","<<adPnt.measureStart.second<<")"<<Foam::endl;
+                Info<<"measureEnd: ("<<adPnt.measureEnd.first<<","<<adPnt.measureEnd.second<<")"<<Foam::endl;
                 //addedPntsInConvexCorr=true;
                 
                 const addedPointPos& position = oneVert.position;
                 const std::pair<VType,std::int8_t> distStart = position.distStart;
                 const std::pair<VType,std::int8_t> distEnd = position.distEnd;
                 const std::pair<VType,std::int8_t> measureStart = position.measureStart;
-                //const std::pair<VType,std::int8_t> measureEnd = position.measureEnd;
+                const std::pair<VType,std::int8_t> measureEnd = position.measureEnd;
                 corrFaceVertice distStartVert = {distStart.first,distStart.second};
                 corrFaceVertice distEndVert = {distEnd.first,distEnd.second};
                 corrFaceVertice measureStartVert = {measureStart.first,measureStart.second};
-                //corrFaceVertice measureEndVert = {measureEnd.first,measureEnd.second};
+                corrFaceVertice measureEndVert = {measureEnd.first,measureEnd.second};
+                
+                label distStartInd;
+                vector distStartVec;
+                getGlobalPoint(distStartVert,mc33cube,new_points,distStartInd,distStartVec);
+                
+                label distEndInd;
+                vector distEndVec;
+                getGlobalPoint(distEndVert,mc33cube,new_points,distEndInd,distEndVec);
+                
+                label measureStartInd;
+                vector measureStartVec;
+                getGlobalPoint(measureStartVert,mc33cube,new_points,measureStartInd,measureStartVec);
+                
+                label measureEndInd;
+                vector measureEndVec;
+                getGlobalPoint(measureEndVert,mc33cube,new_points,measureEndInd,measureEndVec);
+                
+                vector measureEdgeVector = measureEndVec-measureStartVec;
+                scalar measureEdgeVectorLen = norm2(measureEdgeVector);
+                vector distEdgeVector = distEndVec-distStartVec;
+                scalar distEdgeVectorLen = norm2(distEdgeVector);
+                
                 corrFaceVertice match;
                 if(verticesAreIdentical(distStartVert,distEndVert,mc33cube,match))
+                    FatalErrorInFunction<<"Zero length edge can not happen!"<< exit(FatalError);
+
+                if(measureEdgeVectorLen==0)
                 {
-                    if(match.type!=VType::cubePnt)
-                        FatalErrorInFunction<<"Error"<< exit(FatalError);
-                    if(edgeToAddedPntInd.find(oneVert.value)!=edgeToAddedPntInd.end())
-                    {
-                        edgeToAddedPntInd[oneVert.value] = measureStartVert.value;
-                    }
-                    oneVert.type =  VType::edgePntAdded;
-                    oneVert.value = position.measureStart.second;
+                    oneVert.type =  VType::cubePnt;
+                    oneVert.value = distStart.second;
+                }
+                else if(measureEdgeVectorLen==distEdgeVectorLen)
+                {
+                    oneVert.type =  VType::cubePnt;
+                    oneVert.value = distEnd.second;
                 }
                 else
                 {
-                    label distStartInd;
-                    vector distStartVec;
-                    getGlobalPoint(oneVert,mc33cube,new_points,distStartInd,distStartVec);
-                    label distEndInd;
-                    vector distEndVec;
-                    getGlobalPoint(oneVert,mc33cube,new_points,distEndInd,distEndVec);
-                    label measureStartInd;
-                    vector measureStartVec;
-                    getGlobalPoint(oneVert,mc33cube,new_points,measureStartInd,measureStartVec);
-                    label measureEndInd;
-                    vector measureEndVec;
-                    getGlobalPoint(oneVert,mc33cube,new_points,measureEndInd,measureEndVec);
-                    
-                    scalar distLen = norm2(distStartVec-distEndVec);
-                    scalar measureLen = norm2(measureStartVec-measureEndVec);
-                    
-                    vector addedPoint = (distLen/measureLen) * (measureEndVec-measureStartVec) + measureStartVec;
-                    
+                    vector addedPoint = (measureEdgeVectorLen/distEdgeVectorLen)*distEdgeVector + distStartVec;
                     if(edgeToAddedPntInd.find(oneVert.value)!=edgeToAddedPntInd.end())
                     {
                         edgeToAddedPntInd[oneVert.value] = newCellData.addedPoints.size();
                         newCellData.addedPoints.append({addedPoint,edge(measureStartInd,measureEndInd)});
                     }
+                    else
+                        FatalErrorInFunction<<"Two added points at one edge!"<< exit(FatalError);
                 }
             }
         }
     }
     
+    Info<<"Reduce duplicate vertices in faces"<<Foam::endl;
     //Reduce duplicate vertices in faces
     for(corrFace& oneFace : corrData.faces)
     {
+        Info<<"Face:"<<oneFace.type<<"|";
+        for(auto corrFVert : oneFace.faceData)
+            Info<<corrFVert.to_string()<<" ";
+        Info<<Foam::endl;
+        
+        
+        
         DynamicList<corrFaceVertice> faceData;
         label vertInd0 = 0;
         corrFaceVertice& vert0 = oneFace.faceData[vertInd0];
         faceData.append(vert0);
         do
         {
+            Info<<"vertInd0:"<<vertInd0<<Foam::endl;
             label vertInd1 = (vertInd0+1)%oneFace.faceData.size();
             corrFaceVertice& vert1 = oneFace.faceData[vertInd1];
             corrFaceVertice match;
@@ -5432,6 +5552,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         oneFace.faceData = faceData;
     }
     
+    Info<<"Remove empty faces from cells"<<Foam::endl;
     //Remove empty faces from cells
     for(List<label>& oneCell : corrData.cells)
     {
@@ -5445,6 +5566,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         oneCell = reducedCell;
     }
     
+    Info<<"Create cell in newCellData"<<Foam::endl;
     //Create cell in newCellData
     DynamicList<face> nonConvexCellFaces;
     nonConvexCellFaces.setSize(corrData.faces.size());
@@ -5458,6 +5580,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
 
+    Info<<"Compute equal faces and faces as face subsets"<<Foam::endl;
     //Compute equal faces and faces as face subsets
     List<std::unordered_set<label>> equalFaces(nonConvexCellFaces.size());
     List<std::unordered_set<label>> faceSubsets(nonConvexCellFaces.size());
@@ -5514,6 +5637,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             FatalErrorInFunction<<"Face must be equal, a superset or a subset but not both!"<< exit(FatalError);
     }
     
+    Info<<"Compute splitted faces for subsets"<<Foam::endl;
     //Compute splitted faces for subsets
     List<bool> faceSubsetIsFilling(nonConvexCellFaces.size(),false);
     List<DynamicList<face>> faceSubsetsRemain(nonConvexCellFaces.size());
@@ -5681,7 +5805,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             faceSubsetsRemain[faceInd].append(remainingFaces);
         }
     }
-
+    
+    Info<<"Redirect faces to their replacing faces"<<Foam::endl;
     // Redirect faces to their replacing faces
     List<bool> validFaces(nonConvexCellFaces.size(),true);
     List<std::pair<bool,DynamicList<label>>> faceReplacedByFaces(nonConvexCellFaces.size(),{false,DynamicList<label>()});
@@ -5714,6 +5839,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    Info<<"Reduce valid cells"<<Foam::endl;
     // Reduce valid cells
     DynamicList<List<label>> trueCells;
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
@@ -5843,6 +5969,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    Info<<"Create cells from valid faces alone"<<Foam::endl;
     //Create cells from valid faces alone
     List<DynamicList<label>> trueCellsTrueFaces(trueCells.size());
     for(label cellInd=0; cellInd<trueCells.size(); cellInd++)
@@ -5861,6 +5988,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    Info<<"Mark every face that is used for replacement of another face"<<Foam::endl;
     //Mark every face that is used for replacement of another face
     List<bool> faceUsedForReplacement(nonConvexCellFaces.size(),false);
     for(std::pair<bool,DynamicList<label>> faceReplacement : faceReplacedByFaces)
@@ -5900,6 +6028,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         faceVerticesToInd[verticeCombNumber] = faceInds;
     }
     
+    Info<<"Compute new face reference index"<<Foam::endl;
     // Compute new face reference index
     std::unordered_set<label> cellsFacesSet;
     cellsFacesSet.insert(thisCell.begin(),thisCell.end());
@@ -5966,6 +6095,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    Info<<"Store face information in newCellData"<<Foam::endl;
     //Store face information in newCellData
     List<std::pair<CSFaceType,label>> facesStoreInfo(nonConvexCellFaces.size());
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
@@ -5997,6 +6127,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    Info<<"Create cells"<<Foam::endl;
     // Create cells
     enum FaceUsage {None,Partial,Complete};
     List<std::pair<FaceUsage,label>> faceUsedInSubCell(nonConvexCellFaces.size(),{FaceUsage::None,0});
@@ -6473,12 +6604,32 @@ bool Foam::cutCellFvMesh::redMarkSide(const MC33::MC33Cube& mc33cube)
         label realVertIndPrevMesh = mc33cube.vertices[permInd];
         thisCellPattern[i] = (pointsToSide_[realVertIndPrevMesh]>=0)?+1:-1;
     }
+    
     if(refSign == thisCellPattern)
         return true;
     for(std::int8_t& sign : thisCellPattern)
         sign = sign*-1;
     if(refSign == thisCellPattern)
         return false;
+    
+    Info<<"refSignVertice["<<MC33::Case::c2<<"]:";
+    for(int sign : refSignVertice[MC33::Case::c2])
+        Info<<" "<<sign;
+    Info<<Foam::endl;
+    Info<<"mc33cube.permutationTableIndex:"<<mc33cube.permutationTableIndex<<Foam::endl;
+    Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
+    Info<<"permut:";
+    for(int sign : permut)
+        Info<<" "<<sign;
+    Info<<Foam::endl;
+    Info<<"refSign:";
+    for(int sign : refSign)
+        Info<<" "<<sign;
+    Info<<Foam::endl;
+    Info<<"thisCellPattern:";
+    for(int sign : thisCellPattern)
+        Info<<" "<<sign;
+    Info<<Foam::endl;
     FatalErrorInFunction<<"Non matching pattern!"<< exit(FatalError);
     return true;
 }

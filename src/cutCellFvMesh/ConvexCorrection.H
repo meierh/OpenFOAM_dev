@@ -2,10 +2,10 @@ enum VType {cubePnt=0,cutEdge=1,centerPnt=2,edgePntAdded=3};
 class addedPointPos
 {
 public:
-    std::pair<VType,std::uint8_t> distStart;
-    std::pair<VType,std::uint8_t> distEnd;
-    std::pair<VType,std::uint8_t> measureStart;
-    std::pair<VType,std::uint8_t> measureEnd;
+    std::pair<VType,std::int8_t> distStart = {cubePnt,99};
+    std::pair<VType,std::int8_t> distEnd = {cubePnt,99};
+    std::pair<VType,std::int8_t> measureStart = {cubePnt,99};
+    std::pair<VType,std::int8_t> measureEnd = {cubePnt,99};
 };
 class corrFaceVertice
 {
@@ -16,6 +16,7 @@ public:
     corrFaceVertice(VType type,std::int8_t value,addedPointPos position):type(type),value(value),position(position){}
     corrFaceVertice(VType type,std::int8_t value):type(type),value(value){}
     corrFaceVertice(){}
+    std::string to_string(){ return "type:"+std::to_string(type)+" val:"+std::to_string(value); }
 };
 
 enum FType {mc33Triangle=-1,added=0,splitOld=1,splitOrig=2,old=3,orig=4};
@@ -32,7 +33,7 @@ public:
     label origFace;
     corrFace(FType type,List<corrFaceVertice> faceData,label origFace):
             type(type),faceData(faceData),origFace(origFace) {}
-    corrFace();
+    corrFace() {}
 };
 
 class corrConcaveCellData
@@ -76,16 +77,23 @@ void createConvexCorrectionData()
         corrConcaveCellData redMarkSide = {{{0,2,3,4},{1,2,5,6,7}},{mc33TriUp,mc33TriLow,addedRedMark,split5Up,old1,split5Low,old0,old3}};
         
     // RedMarkNotPlus
-        corrFace addedNonRedMark={FType::added,{{VType::cutEdge,7},{VType::cutEdge,9},{VType::cubePnt,1},{VType::edgePntAdded,3}},-1};
+        addedPointPos  addedPointPosInfo;
+        addedPointPosInfo.distStart = {VType::cubePnt,3};
+        addedPointPosInfo.distEnd = {VType::cubePnt,0};
+        addedPointPosInfo.measureStart = {VType::cubePnt,7};
+        addedPointPosInfo.measureEnd = {VType::cutEdge,7};
+        corrFaceVertice addedPoint = {VType::edgePntAdded,3,addedPointPosInfo};
+        
+        corrFace addedNonRedMark={FType::added,{{VType::cutEdge,7},{VType::cutEdge,9},{VType::cubePnt,1},addedPoint},-1};
         //Upper Cell {3,4,5,6,7}
-        corrFace split3Up =   {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},{VType::edgePntAdded,3}},3};
-        corrFace split4Up  =  {FType::splitOrig,{{VType::cubePnt,1},{VType::edgePntAdded,3},{VType::cubePnt,3},{VType::cubePnt,2}},4};
+        corrFace split3Up =   {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},3};
+        corrFace split4Up  =  {FType::splitOrig,{{VType::cubePnt,1},addedPoint,{VType::cubePnt,3},{VType::cubePnt,2}},4};
         corrFace old2 =       {FType::orig,{},2};
         corrFace old5 =       {FType::old,{},5};
         old1 =       {FType::old,{},1};
         //Lower Cell {8,9,10}
-        corrFace split3Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},{VType::edgePntAdded,3}},3};
-        corrFace split4Low  = {FType::splitOrig,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},{VType::edgePntAdded,3}},4};
+        corrFace split3Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},3};
+        corrFace split4Low  = {FType::splitOrig,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},4};
         old0 =       {FType::old,{},0};
         corrConcaveCellData nonRedMarkSide = {{{0,2,3,4,5,6,7},{1,2,8,9,10}},{mc33TriUp,mc33TriLow,addedNonRedMark,split3Up,split4Up,old2,old5,old1,split3Low,split4Low,old0}};
         
@@ -234,16 +242,23 @@ void createConvexCorrectionData()
         corrConcaveCellData redMarkSide = {{{0,2,3,4},{1,2,5,6,7}},{mc33TriUp,mc33TriLow,addedRedMark,split5Up,old1,split5Low,old0,old3}};
         
     // RedMarkNotPlus
-        corrFace addedNonRedMark={FType::added,{{VType::cutEdge,7},{VType::cutEdge,9},{VType::cubePnt,1},{VType::edgePntAdded,3}},-1};
+        addedPointPos  addedPointPosInfo;
+        addedPointPosInfo.distStart = {VType::cubePnt,3};
+        addedPointPosInfo.distEnd = {VType::cubePnt,0};
+        addedPointPosInfo.measureStart = {VType::cubePnt,7};
+        addedPointPosInfo.measureEnd = {VType::cutEdge,7};
+        corrFaceVertice addedPoint = {VType::edgePntAdded,3,addedPointPosInfo};
+        
+        corrFace addedNonRedMark={FType::added,{{VType::cutEdge,7},{VType::cutEdge,9},{VType::cubePnt,1},addedPoint},-1};
         //Upper Cell {3,4,5,6,7}
-        corrFace split3Up =   {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},{VType::edgePntAdded,3}},3};
-        corrFace split4Up  =  {FType::splitOld,{{VType::cubePnt,1},{VType::edgePntAdded,3},{VType::cubePnt,3},{VType::cutEdge,2},{VType::cutEdge,1}},4};
+        corrFace split3Up =   {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},3};
+        corrFace split4Up  =  {FType::splitOld,{{VType::cubePnt,1},addedPoint,{VType::cubePnt,3},{VType::cutEdge,2},{VType::cutEdge,1}},4};
         corrFace old2 =       {FType::old,{},2};
         corrFace old5 =       {FType::old,{},5};
         old1 =       {FType::old,{},1};
         //Lower Cell {8,9,10}
-        corrFace split3Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},{VType::edgePntAdded,3}},3};
-        corrFace split4Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},{VType::edgePntAdded,3}},4};
+        corrFace split3Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},3};
+        corrFace split4Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},4};
         old0 =       {FType::old,{},0};
         corrConcaveCellData nonRedMarkSide = {{{0,2,3,4,5,6,7,11},{1,2,8,9,10}},{mc33TriUp,mc33TriLow,addedNonRedMark,split3Up,split4Up,old2,old5,old1,split3Low,split4Low,old0,mc33TriOther}};
         
