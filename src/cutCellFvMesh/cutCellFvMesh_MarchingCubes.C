@@ -1204,6 +1204,49 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 	
 }
 
+void Foam::cutCellFvMesh::MC33::mc33Cube_print
+(
+	const MC33Cube& cube,
+	const labelList& oldToNewPointInd
+)
+{
+	Info<<"Cell:"<<cube.cell<<Foam::endl;
+	Info<<"vertices:"<<cube.vertices<<Foam::endl;
+	Info<<"new vertices: 8(";
+	for(label vert : cube.vertices)
+		Info<<" "<<oldToNewPointInd[vert]<<" ";
+	Info<<")"<<Foam::endl;
+	List<label> permVertices(cube.vertices.size(),-1);
+	Info<<"new perm vertices: 8(";
+	for(label i=0; i<permVertices.size(); i++)
+	{
+		label perm = cube.pointPermutation[i];
+		Info<<" "<<oldToNewPointInd[cube.vertices[perm]]<<" ";
+	}
+	Info<<")"<<Foam::endl;
+	Info<<"bitPattern:"<<cube.bitPattern<<Foam::endl;
+	//Info<<"edges:"<<cube.edges<<Foam::endl;
+	//Info<<"edgeGlobalInd:"<<cube.edgeGlobalInd<<Foam::endl;
+	Info<<"cutEdgeVerticeIndex:"<<cube.cutEdgeVerticeIndex<<Foam::endl;
+	Info<<"centerPointInd:"<<cube.centerPointInd<<Foam::endl;
+	Info<<"origFaces:"<<cube.origFaces<<Foam::endl;
+	Info<<"cubeCase:"<<cube.cubeCase<<Foam::endl;
+	Info<<"permutationTableIndex:"<<cube.permutationTableIndex<<Foam::endl;
+	Info<<"redMarkIsPlusSide:"<<cube.redMarkIsPlusSide<<Foam::endl;
+	Info<<"pointPermutation: (";
+	for(int pointPerm : cube.pointPermutation)
+		Info<<" "<<pointPerm;
+	Info<<" )"<<Foam::endl;
+	Info<<"edgePermutation: (";
+	for(int edgePerm : cube.edgePermutation)
+		Info<<" "<<edgePerm;
+	Info<<" )"<<Foam::endl;
+	Info<<"facePermutation: (";
+	for(int facePerm : cube.facePermutation)
+		Info<<" "<<facePerm;
+	Info<<" )"<<Foam::endl;
+}
+
 const unsigned short int* Foam::cutCellFvMesh::MC33::getTriangleCase(unsigned int verticePattern)
 {
 	union { // memory saving

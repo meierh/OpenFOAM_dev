@@ -111,7 +111,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 
                 MC33Cube computeCutCell(int cellInd);
                 std::string getBitPattern(const unsigned short int x);
-                
+                static void mc33Cube_print(const MC33Cube& cube, const labelList& oldToNewPointInd);
                 
             private:
                 cutCellFvMesh& mesh;
@@ -820,6 +820,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         (
             const corrFace& abstrFace,
             const MC33::MC33Cube& mc33cube,
+            const cell& thisCell,
             const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
             const faceList& faces,
             const pointField& points

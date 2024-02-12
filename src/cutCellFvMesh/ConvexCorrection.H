@@ -6,6 +6,13 @@ public:
     std::pair<VType,std::int8_t> distEnd = {cubePnt,99};
     std::pair<VType,std::int8_t> measureStart = {cubePnt,99};
     std::pair<VType,std::int8_t> measureEnd = {cubePnt,99};
+    bool operator==(const addedPointPos& other) const
+    {
+        return  distStart==other.distStart && 
+                distEnd==other.distEnd && 
+                measureStart==other.measureStart && 
+                measureEnd==other.measureEnd;
+    }
 };
 class corrFaceVertice
 {
@@ -16,7 +23,28 @@ public:
     corrFaceVertice(VType type,std::int8_t value,addedPointPos position):type(type),value(value),position(position){}
     corrFaceVertice(VType type,std::int8_t value):type(type),value(value){}
     corrFaceVertice(){}
-    std::string to_string(){ return "type:"+std::to_string(type)+" val:"+std::to_string(value); }
+    std::string to_string()const{ return "type:"+std::to_string(type)+" val:"+std::to_string(value);}
+    bool operator==(const corrFaceVertice& other) const
+    {
+        if(type!=VType::edgePntAdded)
+        {
+            if(type==other.type)
+            {
+                if(value==other.value)
+                    return true;
+            }
+            return false;
+        }
+        else
+        {
+            if(type==other.type)
+            {
+                if(value==other.value && position==other.position)
+                    return true;
+            }
+            return false;
+        }
+    }
 };
 
 enum FType {mc33Triangle=-1,added=0,splitOld=1,splitOrig=2,old=3,orig=4};
@@ -34,6 +62,62 @@ public:
     corrFace(FType type,List<corrFaceVertice> faceData,label origFace):
             type(type),faceData(faceData),origFace(origFace) {}
     corrFace() {}
+    std::string to_string() const
+    {
+        std::string result;
+        result+="Face:"+std::to_string(type)+"|";
+        for(const corrFaceVertice& corrFVert : faceData)
+            result+=corrFVert.to_string()+" ";
+        Info<<" | origFace:"<<origFace<<Foam::endl;
+        return result;
+    }
+    bool operator==(const corrFace& other) const
+    {
+        bool faceDataEqual = (faceData.size()==other.faceData.size());
+        if(faceDataEqual)
+        {
+            for(label i=0; i<faceData.size(); i++)
+            {
+                bool hasEqual = false;
+                for(label j=0; j<other.faceData.size(); j++)
+                {
+                    if(faceData[i]==other.faceData[j])
+                        hasEqual = true;
+                }
+                if(!hasEqual)
+                    faceDataEqual = false;
+            }
+            for(label i=0; i<other.faceData.size(); i++)
+            {
+                bool hasEqual = false;
+                for(label j=0; j<faceData.size(); j++)
+                {
+                    if(faceData[i]==other.faceData[j])
+                        hasEqual = true;
+                }
+                if(!hasEqual)
+                    faceDataEqual = false;
+            }
+        }
+        bool typeEqual = (type==other.type);
+        bool origFaceEqual = (origFace==other.origFace);
+        
+        if(faceData.size()>0 && faceDataEqual && (!typeEqual || !origFaceEqual))
+        {
+            Info<<"faceData:";
+            for(auto dat : faceData)
+                Info<<" "<<dat.to_string();
+            Info<<Foam::endl;
+            Info<<"other.faceData:";
+            for(auto dat : other.faceData)
+                Info<<" "<<dat.to_string();
+            Info<<Foam::endl;
+            Info<<"typeEqual:"<<typeEqual<<Foam::endl;
+            Info<<"origFaceEqual:"<<origFaceEqual<<Foam::endl;
+            FatalErrorInFunction<<"If the face data is equal all other data must be too"<< exit(FatalError);
+        }
+        return faceDataEqual && typeEqual && origFaceEqual;        
+    }
 };
 
 class corrConcaveCellData
@@ -41,6 +125,20 @@ class corrConcaveCellData
 public:
     List<List<label>> cells;
     List<corrFace> faces;
+    bool checkUniqueFaces()
+    {
+        for(label i=0; i<faces.size(); i++)
+        {
+            for(label j=0; j<faces.size(); j++)
+            {
+                if(i==j)
+                    continue;
+                if(faces[i]==faces[j])
+                    return false;
+            }
+        }
+        return true;
+    }
 };
 
 class markSide
@@ -92,8 +190,8 @@ void createConvexCorrectionData()
         corrFace old5 =       {FType::old,{},5};
         old1 =       {FType::old,{},1};
         //Lower Cell {8,9,10}
-        corrFace split3Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},3};
-        corrFace split4Low  = {FType::splitOrig,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cubePnt,3},addedPoint},4};
+        corrFace split3Low  = {FType::splitOld,{{VType::cutEdge,7},{VType::cutEdge,8},{VType::cubePnt,0},addedPoint},3};
+        corrFace split4Low  = {FType::splitOrig,{addedPoint,{VType::cubePnt,0},{VType::cubePnt,1}},4};
         old0 =       {FType::old,{},0};
         corrConcaveCellData nonRedMarkSide = {{{0,2,3,4,5,6,7},{1,2,8,9,10}},{mc33TriUp,mc33TriLow,addedNonRedMark,split3Up,split4Up,old2,old5,old1,split3Low,split4Low,old0}};
         

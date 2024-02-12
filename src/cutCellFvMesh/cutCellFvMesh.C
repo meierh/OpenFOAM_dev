@@ -5048,9 +5048,15 @@ void Foam::cutCellFvMesh::getGlobalPoint
 {   
     label globalPnt=-1;
     if(vert.type==VType::cubePnt)
-        globalPnt = mc33cube.vertices[vert.value];
+    {
+        label permutedPoint = mc33cube.pointPermutation[vert.value];
+        globalPnt = mc33cube.vertices[permutedPoint];
+    }
     else if(vert.type==VType::cutEdge)
-        globalPnt = mc33cube.cutEdgeVerticeIndex[vert.value];
+    {
+        label permutedEdge = mc33cube.edgePermutation[vert.value];
+        globalPnt = mc33cube.cutEdgeVerticeIndex[permutedEdge];
+    }
     else if(vert.type==VType::centerPnt)
         globalPnt = mc33cube.centerPointInd;
     else
@@ -5077,12 +5083,18 @@ void Foam::cutCellFvMesh::getGlobalPoint
         FatalErrorInFunction<<"Point does not exist in mc33Cube"<< exit(FatalError);
     }
     
-    globalPnt = oldToNewPointInd[globalPnt];
-    if(globalPnt==-1)
+    label newGlobalPnt = oldToNewPointInd[globalPnt];
+    if(newGlobalPnt==-1)
+    {
+        Info<<"vert.to_string():"<<vert.to_string()<<Foam::endl;
+        Info<<"globalPnt:"<<globalPnt<<Foam::endl;
+        Info<<"newGlobalPnt:"<<newGlobalPnt<<Foam::endl;
+        MC33::mc33Cube_print(mc33cube,oldToNewPointInd);
         FatalErrorInFunction<<"Point does not exist as new point"<< exit(FatalError);
+    }
     
-    verticeInd = globalPnt;
-    verticePoint = points[globalPnt];
+    verticeInd = newGlobalPnt;
+    verticePoint = points[newGlobalPnt];
 }
 
 label Foam::cutCellFvMesh::getGlobalPoint
@@ -5103,11 +5115,23 @@ label Foam::cutCellFvMesh::getGlobalPoint
     {
         auto iter = edgeToAddedPntInd.find(vert.value);
         if(iter==edgeToAddedPntInd.end())
+        {
+            Info<<"vert.type:"<<vert.type<<Foam::endl;
+            Info<<"vert.value:"<<vert.value<<Foam::endl;
+            MC33::mc33Cube_print(mc33cube,oldToNewPointInd);
+            Info<<"edgeToAddedPntInd:";
+            for(auto iter=edgeToAddedPntInd.cbegin(); iter!=edgeToAddedPntInd.cend(); iter++)
+                Info<<" ("<<iter->first<<","<<iter->second<<")";
+            Info<<Foam::endl;
             FatalErrorInFunction<<"Point does not exist"<< exit(FatalError);
+        }
         globalPnt = iter->second;
     }
     if(globalPnt==-1)
         FatalErrorInFunction<<"Invalid point label!"<< exit(FatalError);
+   if(globalPnt<0 || globalPnt>=points.size())
+        FatalErrorInFunction<<"Invalid point label!"<< exit(FatalError);
+    
     return globalPnt;    
 }
 
@@ -5115,11 +5139,19 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
 (
     const corrFace& abstrFace,
     const MC33::MC33Cube& mc33cube,
+    const cell& thisCell,
     const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
     const faceList& faces,
     const pointField& points
 )
 {
+    Info<<"abstrFaceToGlobalFaceTransfer: "<<abstrFace.to_string()<<Foam::endl;
+    
+    
+    std::unordered_set<label> cellFaceSet(thisCell.begin(),thisCell.end());
+    labelList thisCellVertices = thisCell.labels(faces);
+    std::unordered_set<label> cellVerticeSet(thisCellVertices.begin(),thisCellVertices.end());
+    
     DynamicList<label> globalVertices;
     switch (abstrFace.type)
     {
@@ -5130,221 +5162,321 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
             if(abstrFace.origFace!=-2)
                 FatalErrorInFunction<<"MC33 triangle have a original face of -2!"<< exit(FatalError);
             for(const corrFaceVertice& vert : abstrFace.faceData)
+            {               
+                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points);
+                globalVertices.append(globalVertex);
+                if(vert.type==VType::edgePntAdded)
+                    FatalErrorInFunction<<"MC33 triangle must not have added point!"<< exit(FatalError);
+            }
+            for(label globalVert : globalVertices)
             {
-                globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
+                if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                {
+                    FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
+                }
             }
             break;
         }
         case FType::old:
         {
-            if(abstrFace.origFace<0 || abstrFace.origFace>=nbrOfPrevFaces)
-                FatalErrorInFunction<<"MC33 triangle have a valid original face number!"<< exit(FatalError);
-            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[abstrFace.origFace];
+            // Testing and permutation of abstrFace data
+            if(abstrFace.origFace>5 || abstrFace.origFace<0)
+                FatalErrorInFunction<<"Abstract face number must be in [0,6]!"<< exit(FatalError);
+            label facePerm = mc33cube.facePermutation[abstrFace.origFace];
+            if(facePerm>5 || facePerm<0)
+                FatalErrorInFunction<<"Abstract permuted face number must be in [0,6]!"<< exit(FatalError);
+            label origFace = mc33cube.origFaces[facePerm];
+            if(origFace<0 || origFace>=nbrOfPrevFaces)
+                FatalErrorInFunction<<"Old face has no valid original face number!"<< exit(FatalError);
+            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[origFace];
             if(cutFaceInds.size()<2)
-                FatalErrorInFunction<<"Old face must have more cutFaces!"<< exit(FatalError);
-            DynamicList<label> posCutFaceInds;
-            for(label cutFaceInd : cutFaceInds)
+                FatalErrorInFunction<<"Old face must have more cutFaces!"<< exit(FatalError);          
+            
+            // Create global vertice face
+            if(abstrFace.faceData.size()!=0)
             {
-                label signFace = cutFacesToSide_[cutFaceInd];
-                if(signFace>=0)
-                    posCutFaceInds.append(signFace);
-            }
-            DynamicList<face> posCutFace;
-            for(label posCutFaceInd : posCutFaceInds)
-            {
-                const face& thisFace = cutFaces_[posCutFaceInd];
-                DynamicList<label> thisFaceNewPntsList;
-                for(label oldVerticeInd : thisFace)
+                DynamicList<label> hintVertices;
+                for(const corrFaceVertice& vert : abstrFace.faceData)
+                {               
+                    label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points);
+                    hintVertices.append(globalVertex);
+                    if(vert.type==VType::edgePntAdded)
+                        FatalErrorInFunction<<"Old face must not have added point!"<< exit(FatalError); 
+                }            
+                
+                //Find corresponding face index
+                label newOldFaceInd = -1;
+                auto iter = oldFaceToNewFaceInds.find(origFace);
+                if(iter==oldFaceToNewFaceInds.end())
+                    FatalErrorInFunction<<"Old face to new face indexes not existing!"<< exit(FatalError);
+                DynamicList<label>& newFaceInds = iter->second;
+                if(newFaceInds.size()!=1 && newFaceInds.size()!=2)
                 {
-                    label newVerticeInd = oldToNewPointInd[oldVerticeInd];
-                    if(newVerticeInd==-1)
-                        FatalErrorInFunction<<"Invalid new point indices!"<< exit(FatalError);
-                    thisFaceNewPntsList.append(newVerticeInd);
+                    Info<<"newFaceInds:"<<newFaceInds<<Foam::endl;
+                    FatalErrorInFunction<<"Old face does not have 1 or 2 new face ind!"<< exit(FatalError);
                 }
-                posCutFace.append(face(thisFaceNewPntsList));
-            }
-            if(posCutFace.size()==0)
-                FatalErrorInFunction<<"No remaining faces!"<< exit(FatalError);
-
-            if(abstrFace.faceData.size()==0)
-            {
-                if(posCutFace.size()!=1)
-                    FatalErrorInFunction<<"More than one possible face but no hint!"<< exit(FatalError);
-                for(label vertices : posCutFace[0])
-                     globalVertices.append(vertices);
+                for(label oneNewOldFaceInd : newFaceInds)
+                {
+                    if(cellFaceSet.find(oneNewOldFaceInd)==cellFaceSet.end())
+                        FatalErrorInFunction<<"New Face ind not in cell!"<< exit(FatalError);
+                    const face& oneNewOrigFace = faces[oneNewOldFaceInd];
+                    std::unordered_set<label> oneNewOrigFaceSet(oneNewOrigFace.begin(),oneNewOrigFace.end());
+                    label numIn = 0;
+                    for(label vert : hintVertices)
+                        if(oneNewOrigFaceSet.find(vert)!=oneNewOrigFaceSet.end())
+                            numIn++;
+                    if(numIn==hintVertices.size())
+                    {
+                        if(newOldFaceInd!=-1)
+                            FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                        newOldFaceInd = oneNewOldFaceInd;
+                    }
+                    else if(numIn==0)
+                    {}
+                    else
+                        FatalErrorInFunction<<"Partially included face can not happen!"<< exit(FatalError);
+                }
+                if(newOldFaceInd<0 || newOldFaceInd>=faces.size())
+                    FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
+                const face& newOldFace = faces[newOldFaceInd];
+                std::unordered_set<label> newOrigFaceVerticeSet(newOldFace.begin(),newOldFace.end());
+                
+                for(label globalVert : hintVertices)
+                {
+                    if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                        FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
+                    if(newOrigFaceVerticeSet.find(globalVert)==newOrigFaceVerticeSet.end())
+                        FatalErrorInFunction<<"Vertice not in orig face!"<< exit(FatalError);
+                }
+                globalVertices = newOldFace;
             }
             else
             {
-                List<std::unordered_set<label>> faceVertices(posCutFace.size());
-                for(label faceInd=0; faceInd<posCutFace.size(); faceInd++)
+                //Find corresponding face index
+                label newOldFaceInd = -1;
+                auto iter = oldFaceToNewFaceInds.find(origFace);
+                if(iter==oldFaceToNewFaceInds.end())
+                    FatalErrorInFunction<<"Orig face to new face indexes not existing!"<< exit(FatalError);
+                DynamicList<label>& newFaceInds = iter->second;
+                if(newFaceInds.size()!=1)
                 {
-                    for(label vert : posCutFace[faceInd])
-                    {
-                        faceVertices[faceInd].insert(vert);
-                    }
+                    Info<<"newFaceInds:"<<newFaceInds<<Foam::endl;
+                    FatalErrorInFunction<<"Old face does not have 1 new face ind!"<< exit(FatalError);
                 }
-
-                label matchInd = -1;
-                for(label faceInd=0; faceInd<posCutFace.size(); faceInd++)
+                newOldFaceInd = newFaceInds[0];
+                if(newOldFaceInd<0 || newOldFaceInd>=faces.size())
+                    FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
+                const face& newOldFace = faces[newOldFaceInd];
+                globalVertices = newOldFace;
+                
+                for(label globalVert : globalVertices)
                 {
-                    bool allMatch = true;
-                    for(const corrFaceVertice& vert : abstrFace.faceData)
-                    {
-                        auto iter = faceVertices[faceInd].find(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
-                        if(iter==faceVertices[faceInd].end())
-                            allMatch=false;
-                    }
-                    if(allMatch)
-                    {
-                        if(matchInd!=-1)
-                            FatalErrorInFunction<<"Hint matches with two faces!"<< exit(FatalError);
-                        matchInd=faceInd;
-                    }
+                    if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                        FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
                 }
-                if(matchInd==-1)
-                    FatalErrorInFunction<<"Hint matches with no face!"<< exit(FatalError);
-                for(label vertices : posCutFace[matchInd])
-                     globalVertices.append(vertices);
             }
             break;
         }
         case FType::orig:
         {
-            if(abstrFace.origFace<0 || abstrFace.origFace>=nbrOfPrevFaces)
-                FatalErrorInFunction<<"MC33 triangle have a valid original face number!"<< exit(FatalError);
-            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[abstrFace.origFace];
+            // Testing and permutation of abstrFace data
+            if(abstrFace.faceData.size()!=0)
+                FatalErrorInFunction<<"Orig face faceData must be sized 0!"<< exit(FatalError);
+            if(abstrFace.origFace>5 || abstrFace.origFace<0)
+                FatalErrorInFunction<<"Abstract face number must be in [0,6]!"<< exit(FatalError);
+            label facePerm = mc33cube.facePermutation[abstrFace.origFace];
+            if(facePerm>5 || facePerm<0)
+                FatalErrorInFunction<<"Abstract permuted face number must be in [0,6]!"<< exit(FatalError);
+            label origFace = mc33cube.origFaces[facePerm];
+            if(origFace<0 || origFace>=nbrOfPrevFaces)
+                FatalErrorInFunction<<"Orig face has no valid original face number!"<< exit(FatalError);
+            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[origFace];
             if(cutFaceInds.size()!=0)
                 FatalErrorInFunction<<"Old face must not have cutFaces!"<< exit(FatalError);
-            label origFaceInd = abstrFace.origFace;
-            origFaceInd = reverseFaceMap[origFaceInd];
-            if(origFaceInd<0 || origFaceInd>=faces.size())
-                FatalErrorInFunction<<"New face index not valid!"<< exit(FatalError);
-            globalVertices.append(faces[origFaceInd]);
             
-            std::unordered_set<label> globalVerticesSet;
-            for(label vert : globalVertices)
+            //Find corresponding face index
+            label newOrigFaceInd = -1;
+            auto iter = oldFaceToNewFaceInds.find(origFace);
+            if(iter==oldFaceToNewFaceInds.end())
+                FatalErrorInFunction<<"Orig face to new face indexes not existing!"<< exit(FatalError);
+            DynamicList<label>& newFaceInds = iter->second;
+            if(newFaceInds.size()!=1)
             {
-                globalVerticesSet.insert(vert);
+                Info<<"newFaceInds:"<<newFaceInds<<Foam::endl;
+                FatalErrorInFunction<<"Old face does not have 1 new face ind!"<< exit(FatalError);
             }
-            for(const corrFaceVertice& vert : abstrFace.faceData)
+            newOrigFaceInd = newFaceInds[0];
+            if(newOrigFaceInd<0 || newOrigFaceInd>=faces.size())
+                FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
+            const face& newOrigFace = faces[newOrigFaceInd];
+            globalVertices = newOrigFace;
+            
+            std::unordered_set<label> newOrigFaceVerticeSet(newOrigFace.begin(),newOrigFace.end());
+            if(cellFaceSet.find(newOrigFaceInd)==cellFaceSet.end())
+                FatalErrorInFunction<<"New Face ind not in cell!"<< exit(FatalError);
+            for(label globalVert : globalVertices)
             {
-                auto iter = globalVerticesSet.find(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
-                if(iter==globalVerticesSet.end())
-                    FatalErrorInFunction<<"Hint does not match!"<< exit(FatalError);                
+                if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                    FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
             }
             break;
         }
         case FType::splitOld:
         {
-            if(abstrFace.origFace<0 || abstrFace.origFace>=nbrOfPrevFaces)
-                FatalErrorInFunction<<"MC33 triangle have a valid original face number!"<< exit(FatalError);
-            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[abstrFace.origFace];
+            // Testing and permutation of abstrFace data
+            if(abstrFace.faceData.size()==0)
+                FatalErrorInFunction<<"Split old face faceData must not be sized 0!"<< exit(FatalError);
+            if(abstrFace.origFace>5 || abstrFace.origFace<0)
+                FatalErrorInFunction<<"Abstract face number must be in [0,6]!"<< exit(FatalError);
+            label facePerm = mc33cube.facePermutation[abstrFace.origFace];
+            if(facePerm>5 || facePerm<0)
+                FatalErrorInFunction<<"Abstract permuted face number must be in [0,6]!"<< exit(FatalError);
+            label origFace = mc33cube.origFaces[facePerm];
+            if(origFace<0 || origFace>=nbrOfPrevFaces)
+                FatalErrorInFunction<<"Old face has no valid original face number!"<< exit(FatalError);
+            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[origFace];
             if(cutFaceInds.size()<2)
-                FatalErrorInFunction<<"Old face must have more cutFaces!"<< exit(FatalError);
-            DynamicList<label> posCutFaceInds;
-            for(label cutFaceInd : cutFaceInds)
-            {
-                label signFace = cutFacesToSide_[cutFaceInd];
-                if(signFace>=0)
-                    posCutFaceInds.append(signFace);
-            }
-            DynamicList<face> posCutFace;
-            for(label posCutFaceInd : posCutFaceInds)
-            {
-                const face& thisFace = cutFaces_[posCutFaceInd];
-                DynamicList<label> thisFaceNewPntsList;
-                for(label oldVerticeInd : thisFace)
-                {
-                    label newVerticeInd = oldToNewPointInd[oldVerticeInd];
-                    if(newVerticeInd==-1)
-                        FatalErrorInFunction<<"Invalid new point indices!"<< exit(FatalError);
-                    thisFaceNewPntsList.append(newVerticeInd);
-                }
-                posCutFace.append(face(thisFaceNewPntsList));
-            }
-            if(posCutFace.size()==0)
-                FatalErrorInFunction<<"No remaining faces!"<< exit(FatalError);
-            if(abstrFace.faceData.size()<3)
-                FatalErrorInFunction<<"Split old face must be larger than 3!"<< exit(FatalError);
-            for(const corrFaceVertice& vert : abstrFace.faceData)
-            {
-                globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
-            }
+                FatalErrorInFunction<<"Old face must have more cutFaces!"<< exit(FatalError);          
             
-            std::unordered_set<label> globalVerticesSet;
-            for(label vert : globalVertices)
+            // Create global vertice face
+            DynamicList<label> globalVerticesNonAddedPnts;
+            for(const corrFaceVertice& vert : abstrFace.faceData)
+            {               
+                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points);
+                globalVertices.append(globalVertex);
+                if(vert.type!=VType::edgePntAdded)
+                    globalVerticesNonAddedPnts.append(globalVertex); 
+            }            
+            
+            //Find corresponding face index
+            label newOldFaceInd = -1;
+            auto iter = oldFaceToNewFaceInds.find(origFace);
+            if(iter==oldFaceToNewFaceInds.end())
+                FatalErrorInFunction<<"Old face to new face indexes not existing!"<< exit(FatalError);
+            DynamicList<label>& newFaceInds = iter->second;
+            if(newFaceInds.size()!=1 && newFaceInds.size()!=2)
             {
-                globalVerticesSet.insert(vert);
+                Info<<"newFaceInds:"<<newFaceInds<<Foam::endl;
+                FatalErrorInFunction<<"Old face does not have 1 or 2 new face ind!"<< exit(FatalError);
             }
-            label allInOneFace = false;
-            for(const face& oneFace : posCutFace)
+            for(label oneNewOldFaceInd : newFaceInds)
             {
-                bool allInThis = true;
-                for(label vert : oneFace)
+                if(cellFaceSet.find(oneNewOldFaceInd)==cellFaceSet.end())
+                    FatalErrorInFunction<<"New Face ind not in cell!"<< exit(FatalError);
+                const face& oneNewOrigFace = faces[oneNewOldFaceInd];
+                std::unordered_set<label> oneNewOrigFaceSet(oneNewOrigFace.begin(),oneNewOrigFace.end());
+                label numIn = 0;
+                for(label vert : globalVerticesNonAddedPnts)
+                    if(oneNewOrigFaceSet.find(vert)!=oneNewOrigFaceSet.end())
+                        numIn++;
+                if(numIn==globalVerticesNonAddedPnts.size())
                 {
-                    auto iter = globalVerticesSet.find(vert);
-                    if(iter==globalVerticesSet.end())
-                        allInThis = false;
+                    if(newOldFaceInd!=-1)
+                        FatalErrorInFunction<<"Double assignment!"<< exit(FatalError);
+                    newOldFaceInd = oneNewOldFaceInd;
                 }
-                if(allInThis)
-                {
-                    if(allInOneFace)
-                        FatalErrorInFunction<<"Double matching!"<< exit(FatalError);
-                    else
-                        allInOneFace = true;
-                }
+                else if(numIn==0)
+                {}
+                else
+                    FatalErrorInFunction<<"Partially included face can not happen!"<< exit(FatalError);
             }
-            if(!allInOneFace)
-                FatalErrorInFunction<<"No matching!"<< exit(FatalError);
+            if(newOldFaceInd<0 || newOldFaceInd>=faces.size())
+                FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
+            const face& newOldFace = faces[newOldFaceInd];
+            std::unordered_set<label> newOrigFaceVerticeSet(newOldFace.begin(),newOldFace.end());
+            
+            for(label globalVert : globalVerticesNonAddedPnts)
+            {
+                if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                    FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
+                if(newOrigFaceVerticeSet.find(globalVert)==newOrigFaceVerticeSet.end())
+                    FatalErrorInFunction<<"Vertice not in orig face!"<< exit(FatalError);
+            }
             break;
         }
         case FType::splitOrig:
         {
-            if(abstrFace.origFace<0 || abstrFace.origFace>=nbrOfPrevFaces)
-                FatalErrorInFunction<<"MC33 triangle have a valid original face number!"<< exit(FatalError);
-            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[abstrFace.origFace];
+            // Testing and permutation of abstrFace data
+            if(abstrFace.faceData.size()==0)
+                FatalErrorInFunction<<"Orig face faceData must not be sized 0!"<< exit(FatalError);
+            if(abstrFace.origFace>5 || abstrFace.origFace<0)
+                FatalErrorInFunction<<"Abstract face number must be in [0,6]!"<< exit(FatalError);
+            label facePerm = mc33cube.facePermutation[abstrFace.origFace];
+            if(facePerm>5 || facePerm<0)
+                FatalErrorInFunction<<"Abstract permuted face number must be in [0,6]!"<< exit(FatalError);
+            label origFace = mc33cube.origFaces[facePerm];
+            if(origFace<0 || origFace>=nbrOfPrevFaces)
+                FatalErrorInFunction<<"Orig face has no valid original face number!"<< exit(FatalError);
+            const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[origFace];
             if(cutFaceInds.size()!=0)
                 FatalErrorInFunction<<"Old face must not have cutFaces!"<< exit(FatalError);
-            label origFaceInd = abstrFace.origFace;
-            origFaceInd = reverseFaceMap[origFaceInd];
-            if(origFaceInd<0 || origFaceInd>=faces.size())
-                FatalErrorInFunction<<"New face index not valid!"<< exit(FatalError);
-            if(abstrFace.faceData.size()<3)
-                FatalErrorInFunction<<"Split old face must be larger than 3!"<< exit(FatalError);
             
-            const face& origFace = faces[origFaceInd];
+            // Create global vertice face
+            DynamicList<label> globalVerticesNonAddedPnts;
             for(const corrFaceVertice& vert : abstrFace.faceData)
-            {
-                globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
+            {               
+                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points);
+                globalVertices.append(globalVertex);
+                if(vert.type!=VType::edgePntAdded)
+                    globalVerticesNonAddedPnts.append(globalVertex);                
             }
             
-            std::unordered_set<label> globalVerticesSet;
-            for(label vert : globalVertices)
+            //Find corresponding face index
+            label newOrigFaceInd = -1;
+            auto iter = oldFaceToNewFaceInds.find(origFace);
+            if(iter==oldFaceToNewFaceInds.end())
+                FatalErrorInFunction<<"Orig face to new face indexes not existing!"<< exit(FatalError);
+            DynamicList<label>& newFaceInds = iter->second;
+            if(newFaceInds.size()!=1)
             {
-                globalVerticesSet.insert(vert);
+                Info<<"newFaceInds:"<<newFaceInds<<Foam::endl;
+                FatalErrorInFunction<<"Old face does not have 1 new face ind!"<< exit(FatalError);
             }
-            for(label vert : origFace)
+            newOrigFaceInd = newFaceInds[0];
+            if(newOrigFaceInd<0 || newOrigFaceInd>=faces.size())
+                FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
+            const face& newOrigFace = faces[newOrigFaceInd];
+            std::unordered_set<label> newOrigFaceVerticeSet(newOrigFace.begin(),newOrigFace.end());
+            if(cellFaceSet.find(newOrigFaceInd)==cellFaceSet.end())
+                FatalErrorInFunction<<"New Face ind not in cell!"<< exit(FatalError);
+            label numIn = 0;
+            for(label globalVert : globalVerticesNonAddedPnts)
             {
-                auto iter = globalVerticesSet.find(vert);
-                if(iter==globalVerticesSet.end())
-                    FatalErrorInFunction<<"No matching!"<< exit(FatalError);
+                if(newOrigFaceVerticeSet.find(globalVert)!=newOrigFaceVerticeSet.end())
+                    numIn++;
+                if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                    FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
             }
+            if(numIn!=globalVerticesNonAddedPnts.size())
+                FatalErrorInFunction<<"Not fully included face can not happen!"<< exit(FatalError);
             break;
         }
         case FType::added:
         {
-            if(abstrFace.faceData.size()!=3)
+            if(abstrFace.faceData.size()!=3 && abstrFace.faceData.size()!=4)
+            {
+                Info<<"abstrFace.faceData.size():"<<abstrFace.faceData.size()<<Foam::endl;
                 FatalErrorInFunction<<"Added face must be sized 3!"<< exit(FatalError);
+            }
             if(abstrFace.origFace!=-1)
                 FatalErrorInFunction<<"Added face must have a original face of -1!"<< exit(FatalError);
+            DynamicList<label> globalVerticesNonAddedPnts;
             for(const corrFaceVertice& vert : abstrFace.faceData)
+            {               
+                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points);
+                globalVertices.append(globalVertex);
+                if(vert.type!=VType::edgePntAdded)
+                    globalVerticesNonAddedPnts.append(globalVertex);                
+            }
+            for(label globalVert : globalVerticesNonAddedPnts)
             {
-                globalVertices.append(getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,points));
+                if(cellVerticeSet.find(globalVert)==cellVerticeSet.end())
+                    FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
             }
             break;
         }
     }
-
+    Info<<"abstrFaceToGlobalFaceTransfer: END"<<Foam::endl;
     return face(globalVertices);
 }
 
@@ -5438,12 +5570,18 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     const MC33::MC33Cube& mc33cube = mc33CutCellData[oldCellIndex];
     if(mc33cube.cell!=oldCellIndex)
         FatalErrorInFunction<<"Error"<< exit(FatalError);
-        
+    if(!corrData.checkUniqueFaces())
+    {
+        Info<<"Duplicate faces in corrData of:"<<mc33cube.cubeCase<<Foam::endl;
+        FatalErrorInFunction<<"Error"<< exit(FatalError);
+    }
+    Info<<"corrData:"<<corrData.cells<<Foam::endl;
+    
     auto newCellDataPtr = std::unique_ptr<CellSplitData>(new CellSplitData());
     CellSplitData& newCellData = *newCellDataPtr;
     newCellData.originalCell = cellInd;
 
-    Info<<"Process possible added point"<<Foam::endl;
+    Info<<"---------------------Process possible added point--------------------------"<<Foam::endl;
     //Process possible added point
     //bool addedPntsInConvexCorr = false;
     std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
@@ -5453,11 +5591,13 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         {
             if(oneVert.type==VType::edgePntAdded)
             {
+                /*
                 addedPointPos adPnt = oneVert.position;
                 Info<<"distStart: ("<<adPnt.distStart.first<<","<<adPnt.distStart.second<<")"<<Foam::endl;
                 Info<<"distEnd: ("<<adPnt.distEnd.first<<","<<adPnt.distEnd.second<<")"<<Foam::endl;
                 Info<<"measureStart: ("<<adPnt.measureStart.first<<","<<adPnt.measureStart.second<<")"<<Foam::endl;
                 Info<<"measureEnd: ("<<adPnt.measureEnd.first<<","<<adPnt.measureEnd.second<<")"<<Foam::endl;
+                */
                 //addedPntsInConvexCorr=true;
                 
                 const addedPointPos& position = oneVert.position;
@@ -5508,13 +5648,15 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 else
                 {
                     vector addedPoint = (measureEdgeVectorLen/distEdgeVectorLen)*distEdgeVector + distStartVec;
-                    if(edgeToAddedPntInd.find(oneVert.value)!=edgeToAddedPntInd.end())
+                    if(edgeToAddedPntInd.find(oneVert.value)==edgeToAddedPntInd.end())
                     {
                         edgeToAddedPntInd[oneVert.value] = newCellData.addedPoints.size();
                         newCellData.addedPoints.append({addedPoint,edge(measureStartInd,measureEndInd)});
+                        Info<<"Insert ";
                     }
                     else
-                        FatalErrorInFunction<<"Two added points at one edge!"<< exit(FatalError);
+                        Info<<"Non Insert ";
+                Info<<"Treated added point:"<<oneVert.to_string()<<Foam::endl;
                 }
             }
         }
@@ -5524,20 +5666,30 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     //Reduce duplicate vertices in faces
     for(corrFace& oneFace : corrData.faces)
     {
+        if(oneFace.type==FType::orig || oneFace.type==FType::old)
+            // orig or old face type can not hape duplicate vertices
+            continue;
+        
+        /*
         Info<<"Face:"<<oneFace.type<<"|";
         for(auto corrFVert : oneFace.faceData)
             Info<<corrFVert.to_string()<<" ";
-        Info<<Foam::endl;
-        
-        
+        Info<<" |"<<Foam::endl;
+        */
+        //Info<<oneFace.to_string()<<Foam::endl;        
         
         DynamicList<corrFaceVertice> faceData;
+        if(oneFace.faceData.size()<3)
+        {
+            Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
+            FatalErrorInFunction<<"Faces smaller than 3 vertices can not exist!"<< exit(FatalError);
+        }
         label vertInd0 = 0;
         corrFaceVertice& vert0 = oneFace.faceData[vertInd0];
         faceData.append(vert0);
         do
         {
-            Info<<"vertInd0:"<<vertInd0<<Foam::endl;
+            //Info<<"vertInd0:"<<vertInd0<<Foam::endl;
             label vertInd1 = (vertInd0+1)%oneFace.faceData.size();
             corrFaceVertice& vert1 = oneFace.faceData[vertInd1];
             corrFaceVertice match;
@@ -5552,20 +5704,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         oneFace.faceData = faceData;
     }
     
-    Info<<"Remove empty faces from cells"<<Foam::endl;
-    //Remove empty faces from cells
-    for(List<label>& oneCell : corrData.cells)
-    {
-        DynamicList<label> reducedCell;
-        for(label oneFaceInd : oneCell)
-        {
-            const corrFace& oneFace = corrData.faces[oneFaceInd];
-            if(oneFace.faceData.size()>2)
-                reducedCell.append(oneFaceInd);
-        }
-        oneCell = reducedCell;
-    }
-    
     Info<<"Create cell in newCellData"<<Foam::endl;
     //Create cell in newCellData
     DynamicList<face> nonConvexCellFaces;
@@ -5573,13 +5711,30 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
         face& globFace = nonConvexCellFaces[faceInd];
-        const corrFace& abstrFace = corrData.faces[faceInd];
-        if(abstrFace.faceData.size()>2)
-        {
-            globFace = abstrFaceToGlobalFaceTransfer(abstrFace,mc33cube,edgeToAddedPntInd,new_faces,new_points);
-        }
+        const corrFace& abstrFace = corrData.faces[faceInd];        
+        globFace = abstrFaceToGlobalFaceTransfer(abstrFace,mc33cube,thisCell,edgeToAddedPntInd,new_faces,new_points);
     }
-
+    
+    Info<<"Remove empty faces from cells"<<Foam::endl;
+    //Remove empty faces from cells
+    for(List<label>& oneCell : corrData.cells)
+    {
+        DynamicList<label> reducedCell;
+        for(label oneFaceInd : oneCell)
+        {
+            //const corrFace& oneFace = corrData.faces[oneFaceInd];
+            if(nonConvexCellFaces[oneFaceInd].size()>2)
+                reducedCell.append(oneFaceInd);
+        }
+        oneCell = reducedCell;
+    }
+    Info<<"corrData:"<<corrData.cells<<Foam::endl;
+    
+    for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
+    {
+        Info<<faceInd<<"  "<<nonConvexCellFaces[faceInd]<<Foam::endl;
+    }
+    
     Info<<"Compute equal faces and faces as face subsets"<<Foam::endl;
     //Compute equal faces and faces as face subsets
     List<std::unordered_set<label>> equalFaces(nonConvexCellFaces.size());
@@ -5588,6 +5743,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     for(label baseInd=0; baseInd<nonConvexCellFaces.size(); baseInd++)
     {
         face baseFace = nonConvexCellFaces[baseInd];
+        Info<<"baseFace:"<<baseInd<<" "<<baseFace<<Foam::endl;
         std::unordered_set<label> baseFaceSet(baseFace.begin(),baseFace.end());
         for(label compareInd=0; compareInd<nonConvexCellFaces.size(); compareInd++)
         {
@@ -5607,11 +5763,13 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 if(baseFace.size()==compFace.size())
                 {
                     equalFaces[baseInd].insert(compareInd);
+                    Info<<"     compFace:"<<compareInd<<" "<<compFace<<"  equal"<<Foam::endl;
                 }
                 else if(baseFace.size()>compFace.size())
                 {
                     faceSubsets[baseInd].insert(compareInd);
                     faceSupersets[compareInd].insert(baseInd);
+                    Info<<"     compFace:"<<compareInd<<" "<<compFace<<"  sub"<<Foam::endl;
                 }
                 else
                     FatalErrorInFunction<<"Error"<< exit(FatalError);
@@ -5634,7 +5792,13 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         if(faceSupersets[faceInd].size()>0)
             nbrCategory++;
         if(nbrCategory>1)
+        {
+            Info<<"abstrFace:"<<corrData.faces[faceInd].to_string()<<Foam::endl;
+            Info<<"equalFaces["<<faceInd<<"].size():"<<equalFaces[faceInd].size()<<Foam::endl;
+            Info<<"equalFaces["<<faceInd<<"].size():"<<equalFaces[faceInd].size()<<Foam::endl;
+            Info<<"equalFaces["<<faceInd<<"].size():"<<equalFaces[faceInd].size()<<Foam::endl;
             FatalErrorInFunction<<"Face must be equal, a superset or a subset but not both!"<< exit(FatalError);
+        }
     }
     
     Info<<"Compute splitted faces for subsets"<<Foam::endl;
@@ -5844,11 +6008,13 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     DynamicList<List<label>> trueCells;
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
+        Info<<"Work on cell:"<<cellInd<<" of "<<corrData.cells.size()<<Foam::endl;
         const List<label>& oneCellFaceInds = corrData.cells[cellInd];
         DynamicList<label> oneCellValidFaces;
         for(label faceInd : oneCellFaceInds)
             if(validFaces[faceInd])
                 oneCellValidFaces.append(faceInd);
+        Info<<"Reduced faces from "<<oneCellFaceInds.size()<<" to "<<oneCellValidFaces.size()<<"|"<<oneCellValidFaces<<Foam::endl;
         
         //Compute neighborhood set for valid faces
         List<std::unordered_set<label>> neighborFaceOnEdge(oneCellValidFaces.size());
@@ -5917,6 +6083,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 }
             }
         }
+        Info<<"removed:"<<removed<<Foam::endl;
         
         //List valid faces
         std::unordered_set<label> validFaceLocInd;
@@ -6046,6 +6213,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             if(iterOldToNew == oldFaceToNewFaceInds.end())
                 FatalErrorInFunction<<"Old face not existing!"<< exit(FatalError);
             const DynamicList<label>& possNewFaceInds = iterOldToNew->second;
+            Info<<"possNewFaceInds:"<<possNewFaceInds<<Foam::endl;
             for(label newFaceInd : possNewFaceInds)
             {
                 const face& newFace = new_faces[newFaceInd];
@@ -6065,7 +6233,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 }
             }
             if(matchingNewFaceInd==-1)
+            {
+                Info<<"oneFace:"<<oneFace.to_string()<<Foam::endl;
+                Info<<"globFace:"<<globFace<<Foam::endl;
                 FatalErrorInFunction<<"No identical face!"<< exit(FatalError);
+            }
             if(cellsFacesSet.find(matchingNewFaceInd)==cellsFacesSet.end())
                 FatalErrorInFunction<<"Matching face not in cell!"<< exit(FatalError);
             newFaceInd[faceInd] = matchingNewFaceInd;
