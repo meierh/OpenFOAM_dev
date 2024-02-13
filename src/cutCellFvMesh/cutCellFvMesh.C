@@ -5580,7 +5580,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     auto newCellDataPtr = std::unique_ptr<CellSplitData>(new CellSplitData());
     CellSplitData& newCellData = *newCellDataPtr;
     newCellData.originalCell = cellInd;
-
+    newCellData.addedPointsLimit = this->new_points.size();
+    
     Info<<"---------------------Process possible added point--------------------------"<<Foam::endl;
     //Process possible added point
     //bool addedPntsInConvexCorr = false;
@@ -5590,16 +5591,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         for(corrFaceVertice& oneVert : oneFace.faceData)
         {
             if(oneVert.type==VType::edgePntAdded)
-            {
-                /*
-                addedPointPos adPnt = oneVert.position;
-                Info<<"distStart: ("<<adPnt.distStart.first<<","<<adPnt.distStart.second<<")"<<Foam::endl;
-                Info<<"distEnd: ("<<adPnt.distEnd.first<<","<<adPnt.distEnd.second<<")"<<Foam::endl;
-                Info<<"measureStart: ("<<adPnt.measureStart.first<<","<<adPnt.measureStart.second<<")"<<Foam::endl;
-                Info<<"measureEnd: ("<<adPnt.measureEnd.first<<","<<adPnt.measureEnd.second<<")"<<Foam::endl;
-                */
-                //addedPntsInConvexCorr=true;
-                
+            {               
                 const addedPointPos& position = oneVert.position;
                 const std::pair<VType,std::int8_t> distStart = position.distStart;
                 const std::pair<VType,std::int8_t> distEnd = position.distEnd;
@@ -5650,7 +5642,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                     vector addedPoint = (measureEdgeVectorLen/distEdgeVectorLen)*distEdgeVector + distStartVec;
                     if(edgeToAddedPntInd.find(oneVert.value)==edgeToAddedPntInd.end())
                     {
-                        edgeToAddedPntInd[oneVert.value] = newCellData.addedPoints.size();
+                        edgeToAddedPntInd[oneVert.value] = newCellData.addedPoints.size()+newCellData.addedPointsLimit;
                         newCellData.addedPoints.append({addedPoint,edge(measureStartInd,measureEndInd)});
                         Info<<"Insert ";
                     }
@@ -5730,9 +5722,10 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     }
     Info<<"corrData:"<<corrData.cells<<Foam::endl;
     
+    //Print
     for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
     {
-        Info<<faceInd<<"  "<<nonConvexCellFaces[faceInd]<<Foam::endl;
+        Info<<"   "<<faceInd<<"  "<<nonConvexCellFaces[faceInd]<<Foam::endl;
     }
     
     Info<<"Compute equal faces and faces as face subsets"<<Foam::endl;
@@ -5776,6 +5769,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
+    //Check for false assignment in equal,sub or super
     for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
     {
         for(auto iter=equalFaces[faceInd].begin(); iter!=equalFaces[faceInd].end(); iter++)
@@ -5801,6 +5795,29 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         }
     }
     
+    //Print
+    for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
+    {
+        Info<<"   Face "<<faceInd<<" equal to:";
+        for(auto iter=equalFaces[faceInd].begin(); iter!=equalFaces[faceInd].end(); iter++)
+        {
+            Info<<*iter<<" ";
+        }
+        Info<<Foam::endl;
+        Info<<"   Face "<<faceInd<<" has subset:";
+        for(auto iter=faceSubsets[faceInd].begin(); iter!=faceSubsets[faceInd].end(); iter++)
+        {
+            Info<<*iter<<" ";
+        }
+        Info<<Foam::endl;
+        Info<<"   Face "<<faceInd<<" has superset:";
+        for(auto iter=faceSupersets[faceInd].begin(); iter!=faceSupersets[faceInd].end(); iter++)
+        {
+            Info<<*iter<<" ";
+        }
+        Info<<Foam::endl;
+    }
+    
     Info<<"Compute splitted faces for subsets"<<Foam::endl;
     //Compute splitted faces for subsets
     List<bool> faceSubsetIsFilling(nonConvexCellFaces.size(),false);
@@ -5810,164 +5827,176 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         const face& baseFace = nonConvexCellFaces[faceInd];
         const std::unordered_set<label>& subFaces = faceSubsets[faceInd];
         DynamicList<face> remainingFaces;
-        remainingFaces.append(baseFace);
-        
-        for(auto faceIndIter=subFaces.begin(); faceIndIter!=subFaces.end();)
+        if(subFaces.size()>0)
         {
-            const face& oneSubFace = nonConvexCellFaces[*faceIndIter];
-            
-            //Get remaining face to insert subface
-            label remFaceInd = -1;
-            for(label i=0; i<remainingFaces.size(); i++)
+            remainingFaces.append(baseFace);
+        
+            //Start with initial face and chip away the intial face by subfaces piece by piece
+            for(auto faceIndIter=subFaces.begin(); faceIndIter!=subFaces.end();)
             {
-                const face& oneRemainingFace = remainingFaces[i];
-                //Test if all subface vertices are in one remaining faces
-                bool allIn=true;
-                for(label oneSubFaceInd : oneSubFace)
-                    if(oneRemainingFace.which(oneSubFaceInd)==-1)
-                        allIn=false;
-                if(allIn)
+                const face& oneSubFace = nonConvexCellFaces[*faceIndIter];
+                //Get remaining face to insert subface
+                label remFaceInd = -1;
+                for(label i=0; i<remainingFaces.size(); i++)
                 {
-                    if(remFaceInd!=-1)
-                        FatalErrorInFunction<<"Subface can not be in two remaining faces"<< exit(FatalError);
-                    remFaceInd = i;
+                    const face& oneRemainingFace = remainingFaces[i];
+                    //Test if all subface vertices are in one remaining faces
+                    bool allIn=true;
+                    for(label oneSubFaceInd : oneSubFace)
+                        if(oneRemainingFace.which(oneSubFaceInd)==-1)
+                            allIn=false;
+                    if(allIn)
+                    {
+                        if(remFaceInd!=-1)
+                            FatalErrorInFunction<<"Subface can not be in two remaining faces"<< exit(FatalError);
+                        remFaceInd = i;
+                    }
                 }
-            }
-            if(remFaceInd==-1)
-                FatalErrorInFunction<<"Subface must be in at least one remaining face"<< exit(FatalError);
-            
-            const face& remFace = remainingFaces[remFaceInd];
-            if(oneSubFace.size()==remFace.size())
-            {
+                if(remFaceInd==-1)
+                    FatalErrorInFunction<<"Subface must be in at least one remaining face"<< exit(FatalError);
+                
+                const face& remFace = remainingFaces[remFaceInd];
+                if(oneSubFace.size()==remFace.size())
+                {
+                    DynamicList<face> newRemainingFaces;
+                    for(label j=0; j<remainingFaces.size(); j++)
+                        if(j!=remFaceInd)
+                            newRemainingFaces.append(remainingFaces[j]);
+                    remainingFaces = newRemainingFaces;
+                    continue;
+                }
+                if(oneSubFace.size()>remFace.size())
+                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+
+                //Search for subFace edges cutting the remFace
+                DynamicList<label> oneSubFaceCuti0s;
+                for(label i0=0; i0<oneSubFace.size(); i0++)
+                {
+                    label i1 = oneSubFace.fcIndex(i0);
+                    label remainingFaceLocIndi0 = remFace.which(oneSubFace[i0]);
+                    if(!(remFace.nextLabel(remainingFaceLocIndi0)==oneSubFace[i1] ||
+                        remFace.prevLabel(remainingFaceLocIndi0)==oneSubFace[i1]))
+                    {
+                        oneSubFaceCuti0s.append(i0);
+                    }
+                }
+                if(oneSubFaceCuti0s.size()<1)
+                    FatalErrorInFunction<<"Subface must have at least one cutting edge"<< exit(FatalError);
+                
+                //Split remaining face
                 DynamicList<face> newRemainingFaces;
-                for(label j=0; j<remainingFaces.size(); j++)
-                    if(j!=remFaceInd)
-                        newRemainingFaces.append(remainingFaces[j]);
-                remainingFaces = newRemainingFaces;
-                continue;
-            }
-            if(oneSubFace.size()>remFace.size())
-                FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
-
-            //Search for subFace edges cutting the remFace
-            DynamicList<label> oneSubFaceCuti0s;
-            for(label i0=0; i0<oneSubFace.size(); i0++)
-            {
-                label i1 = oneSubFace.fcIndex(i0);
-                label remainingFaceLocIndi0 = remFace.which(oneSubFace[i0]);
-                if(!(remFace.nextLabel(remainingFaceLocIndi0)==oneSubFace[i1] ||
-                     remFace.prevLabel(remainingFaceLocIndi0)==oneSubFace[i1]))
+                for(label j=0; j<oneSubFaceCuti0s.size(); j++)
                 {
-                    oneSubFaceCuti0s.append(i0);
+                    label globIndSubFacei0 = oneSubFace[oneSubFaceCuti0s[j]];
+                    label globIndSubFacei1 = oneSubFace.nextLabel(oneSubFaceCuti0s[j]);
+                    
+                    label locIndRemFacei0 = remFace.which(globIndSubFacei0);                    
+                    label locIndRemFacei1 = remFace.which(globIndSubFacei1);
+                    if(locIndRemFacei0==-1 || locIndRemFacei1==-1)
+                        FatalErrorInFunction<<"Cut edge not in remFace!"<< exit(FatalError);
+
+                    bool rotPValid = true;
+                    bool closedP = false;
+                    DynamicList<label> rotPInds;
+                    label locIndRemFacei0rotP = locIndRemFacei0;
+                    rotPInds.append(remFace[locIndRemFacei0rotP]);
+                    for(label k=0; k<remFace.size(); k++)
+                    {
+                        locIndRemFacei0rotP = remFace.rcIndex(locIndRemFacei0rotP);
+                        label globIndRemFace = remFace[locIndRemFacei0rotP];
+                        rotPInds.append(globIndRemFace);
+                        if(globIndSubFacei1==globIndRemFace)
+                        {
+                            closedP = true;
+                            break;
+                        }
+                        else if(oneSubFace.which(globIndRemFace)!=-1)
+                        {
+                            rotPValid = false;
+                        }
+                    }
+                    if(!closedP)
+                        FatalErrorInFunction<<"Non closed cut face!"<< exit(FatalError);
+
+                    bool rotNValid = true;
+                    bool closedN = false;
+                    DynamicList<label> rotNInds;
+                    label locIndRemFacei0rotN = locIndRemFacei0;
+                    rotNInds.append(remFace[locIndRemFacei0rotN]);                
+                    for(label k=0; k<remFace.size(); k++)
+                    {
+                        locIndRemFacei0rotN = remFace.fcIndex(locIndRemFacei0rotN);
+                        label globIndRemFace = remFace[locIndRemFacei0rotN];
+                        rotNInds.append(globIndRemFace);
+                        if(globIndSubFacei1==globIndRemFace)
+                        {
+                            closedN = true;
+                            break;
+                        }
+                        else if(oneSubFace.which(globIndRemFace)!=-1)
+                        {
+                            rotNValid = false;
+                        }
+                    }
+                    if(!closedN)
+                        FatalErrorInFunction<<"Non closed cut face!"<< exit(FatalError);
+                    
+                    if(rotPValid && !rotNValid)
+                    {
+                        newRemainingFaces.append(face(rotNInds));
+                    }
+                    else if(!rotPValid && rotNValid)
+                    {
+                        newRemainingFaces.append(face(rotPInds));
+                    }
+                    else
+                        FatalErrorInFunction<<"Only one face can be valid"<< exit(FatalError);
                 }
-            }
-            if(oneSubFaceCuti0s.size()<1)
-                FatalErrorInFunction<<"Subface must have at least one cutting edge"<< exit(FatalError);
-            
-            //Split remaining face
-            DynamicList<face> newRemainingFaces;
-            for(label j=0; j<oneSubFaceCuti0s.size(); j++)
-            {
-                label globIndSubFacei0 = oneSubFace[oneSubFaceCuti0s[j]];
-                label globIndSubFacei1 = oneSubFace.nextLabel(oneSubFaceCuti0s[j]);
                 
-                label locIndRemFacei0 = remFace.which(globIndSubFacei0);                    
-                label locIndRemFacei1 = remFace.which(globIndSubFacei1);
-                if(locIndRemFacei0==-1 || locIndRemFacei1==-1)
-                    FatalErrorInFunction<<"Cut edge not in remFace!"<< exit(FatalError);
-
-                bool rotPValid = true;
-                bool closedP = false;
-                DynamicList<label> rotPInds;
-                label locIndRemFacei0rotP = locIndRemFacei0;
-                rotPInds.append(remFace[locIndRemFacei0rotP]);
-                for(label k=0; k<remFace.size(); k++)
+                // Replace initial face with first new remaining Faces and add the others
+                remainingFaces[remFaceInd] = newRemainingFaces[0];
+                for(label j=1; j<newRemainingFaces.size(); j++)
                 {
-                    locIndRemFacei0rotP = remFace.rcIndex(locIndRemFacei0rotP);
-                    label globIndRemFace = remFace[locIndRemFacei0rotP];
-                    rotPInds.append(globIndRemFace);
-                    if(globIndSubFacei1==globIndRemFace)
-                    {
-                        closedP = true;
-                        break;
-                    }
-                    else if(oneSubFace.which(globIndRemFace)!=-1)
-                    {
-                        rotPValid = false;
-                    }
+                    remainingFaces.append(newRemainingFaces[j]);
                 }
-                if(!closedP)
-                    FatalErrorInFunction<<"Non closed cut face!"<< exit(FatalError);
-
-                bool rotNValid = true;
-                bool closedN = false;
-                DynamicList<label> rotNInds;
-                label locIndRemFacei0rotN = locIndRemFacei0;
-                rotNInds.append(remFace[locIndRemFacei0rotN]);                
-                for(label k=0; k<remFace.size(); k++)
-                {
-                    locIndRemFacei0rotN = remFace.fcIndex(locIndRemFacei0rotN);
-                    label globIndRemFace = remFace[locIndRemFacei0rotN];
-                    rotNInds.append(globIndRemFace);
-                    if(globIndSubFacei1==globIndRemFace)
-                    {
-                        closedN = true;
-                        break;
-                    }
-                    else if(oneSubFace.which(globIndRemFace)!=-1)
-                    {
-                        rotNValid = false;
-                    }
-                }
-                if(!closedN)
-                    FatalErrorInFunction<<"Non closed cut face!"<< exit(FatalError);
-                
-                if(rotPValid && !rotNValid)
-                {
-                    newRemainingFaces.append(face(rotNInds));
-                }
-                else if(!rotPValid && rotNValid)
-                {
-                    newRemainingFaces.append(face(rotPInds));
-                }
-                else
-                    FatalErrorInFunction<<"Only one face can be valid"<< exit(FatalError);
             }
             
-            //
-            remainingFaces[remFaceInd] = newRemainingFaces[0];
-            for(label j=1; j<newRemainingFaces.size(); j++)
+            std::unordered_set<label> subFaceSet;
+            for(auto faceIndIter=subFaces.begin(); faceIndIter!=subFaces.end();)
             {
-                remainingFaces.append(newRemainingFaces[j]);
+                const face& oneSubFace = nonConvexCellFaces[*faceIndIter];
+                for(label vert : oneSubFace)
+                    subFaceSet.insert(vert);
+            }
+            bool mustBeNonFilling = false;
+            for(label vert : baseFace)
+            {
+                if(subFaceSet.find(vert)==subFaceSet.end())
+                    mustBeNonFilling = true;
+            }
+            
+            if(remainingFaces.size()==0)
+            {
+                faceSubsetIsFilling[faceInd] = true;
+                if(mustBeNonFilling)
+                    FatalErrorInFunction<<"Filling mismatch!"<< exit(FatalError);
+            }
+            else
+            {
+                if(!mustBeNonFilling)
+                    FatalErrorInFunction<<"Filling mismatch!"<< exit(FatalError);
+                faceSubsetsRemain[faceInd].append(remainingFaces);
             }
         }
-        
-        std::unordered_set<label> subFaceSet;
-        for(auto faceIndIter=subFaces.begin(); faceIndIter!=subFaces.end();)
-        {
-            const face& oneSubFace = nonConvexCellFaces[*faceIndIter];
-            for(label vert : oneSubFace)
-                subFaceSet.insert(vert);
-        }
-        bool mustBeNonFilling = false;
-        for(label vert : baseFace)
-        {
-            if(subFaceSet.find(vert)==subFaceSet.end())
-                mustBeNonFilling = true;
-        }
-        
-        if(remainingFaces.size()==0)
-        {
-            faceSubsetIsFilling[faceInd] = true;
-            if(mustBeNonFilling)
-                FatalErrorInFunction<<"Filling mismatch!"<< exit(FatalError);
-        }
-        else
-        {
-            if(!mustBeNonFilling)
-                FatalErrorInFunction<<"Filling mismatch!"<< exit(FatalError);
-            faceSubsetsRemain[faceInd].append(remainingFaces);
-        }
+    }
+    
+    //Print
+    for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
+    {
+        Info<<"   RemainingSubsets "<<faceSubsetIsFilling[faceInd]<<"  ->:";
+        for(const face& fc : faceSubsetsRemain[faceInd])
+            Info<<fc<<" ";       
+        Info<<Foam::endl;
     }
     
     Info<<"Redirect faces to their replacing faces"<<Foam::endl;
@@ -6002,28 +6031,126 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
+
+    //Print
+    for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
+    {
+        Info<<faceInd<<"   validFaces "<<validFaces[faceInd]<<"  and replaced "<<faceReplacedByFaces[faceInd].first<<" by:";
+        for(const label fc : faceReplacedByFaces[faceInd].second)
+            Info<<fc<<" ";       
+        Info<<Foam::endl;
+    }
+
+    Info<<"Mark every face that is used for replacement of another face"<<Foam::endl;
+    //Mark every face that is used for replacement of another face
+    List<bool> faceUsedForReplacement(nonConvexCellFaces.size(),false);
+    for(std::pair<bool,DynamicList<label>> faceReplacement : faceReplacedByFaces)
+    {
+        for(label replacementFace : faceReplacement.second)
+        {
+            if(faceUsedForReplacement[replacementFace])
+                FatalErrorInFunction<<"Face used for replacement twice!"<< exit(FatalError);
+            faceUsedForReplacement[replacementFace] = true;
+        }
+    }
+    Info<<"faceUsedForReplacement:"<<faceUsedForReplacement<<Foam::endl;
     
-    Info<<"Reduce valid cells"<<Foam::endl;
-    // Reduce valid cells
+    typedef struct 
+    {
+        face origFace;
+        corrFace origFaceData;
+        bool isReplaced = false;
+        DynamicList<label> replacementFacesInds;
+        DynamicList<face> replacementFaces;
+        DynamicList<corrFace> replacementFaceData;
+        DynamicList<face> replacementRemainingFaces;
+        bool usedForReplacement = false;
+        label usedForReplacementBy = -1;
+    } CompleteFace;
+    
+    List<CompleteFace> completeFacesData(nonConvexCellFaces.size());
+    for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
+    {
+        CompleteFace& oneFace = completeFacesData[faceInd];
+        oneFace.origFace = nonConvexCellFaces[faceInd];
+        oneFace.origFaceData = corrData.faces[faceInd];
+        
+        oneFace.isReplaced = faceReplacedByFaces[faceInd].first;
+        oneFace.replacementFacesInds = faceReplacedByFaces[faceInd].second;
+        for(label ind : oneFace.replacementFacesInds)
+        {
+            oneFace.replacementFaces.append(nonConvexCellFaces[ind]);
+            oneFace.replacementFaceData.append(corrData.faces[ind]);
+        }
+        oneFace.replacementRemainingFaces = faceSubsetsRemain[faceInd];
+        
+        oneFace.usedForReplacement = faceUsedForReplacement[faceInd];
+        if(oneFace.isReplaced && oneFace.usedForReplacement)
+            FatalErrorInFunction<<"Face cannot be replaced and used for replacement!"<< exit(FatalError);
+    }
+    
+    //DynamicList<std::tuple<face,corrFace,label of face in cell>>
+    DynamicList<std::tuple<face,corrFace,label>> flatted_faces;
+    std::unordered_map<label,DynamicList<label>> faceIndToFlattedFacesInd;
+    for(label faceInd=0; faceInd<completeFacesData.size(); faceInd++)
+    {
+        CompleteFace& oneFace = completeFacesData[faceInd];
+        if(oneFace.isReplaced)
+        {
+            for(label replFaceInd=0; replFaceInd<oneFace.replacementFacesInds.size(); replFaceInd++)
+            {
+                face replFace = oneFace.replacementFaces[replFaceInd];
+                corrFace replFaceData = oneFace.replacementFaceData[replFaceInd];
+                faceIndToFlattedFacesInd[faceInd].append(flatted_faces.size());
+                flatted_faces.append({replFace,replFaceData,faceInd});
+            }
+            for(label remFaceInd=0; remFaceInd<oneFace.replacementRemainingFaces.size(); remFaceInd++)
+            {
+                face remFace = oneFace.replacementRemainingFaces[remFaceInd];
+                faceIndToFlattedFacesInd[faceInd].append(flatted_faces.size());
+                flatted_faces.append({remFace,oneFace.origFaceData,faceInd});
+            }
+        }
+        else
+        {
+            faceIndToFlattedFacesInd[faceInd].append(flatted_faces.size());
+            flatted_faces.append({oneFace.origFace,oneFace.origFaceData,faceInd});
+        }
+    }
+    
     DynamicList<List<label>> trueCells;
+    List<DynamicList<label>> cellsOfFlattedFaceInds(corrData.cells.size());
     for(label cellInd=0; cellInd<corrData.cells.size(); cellInd++)
     {
-        Info<<"Work on cell:"<<cellInd<<" of "<<corrData.cells.size()<<Foam::endl;
+        DynamicList<label>& oneCellFlattedFaceInds = cellsOfFlattedFaceInds[cellInd];
         const List<label>& oneCellFaceInds = corrData.cells[cellInd];
-        DynamicList<label> oneCellValidFaces;
         for(label faceInd : oneCellFaceInds)
-            if(validFaces[faceInd])
-                oneCellValidFaces.append(faceInd);
-        Info<<"Reduced faces from "<<oneCellFaceInds.size()<<" to "<<oneCellValidFaces.size()<<"|"<<oneCellValidFaces<<Foam::endl;
-        
+        {
+            auto iter = faceIndToFlattedFacesInd.find(faceInd);
+            if(iter==faceIndToFlattedFacesInd.end())
+                FatalErrorInFunction<<"Face index not found"<<exit(FatalError);
+            for(label flattFaceInd :  iter->second)
+            {
+                oneCellFlattedFaceInds.append(flattFaceInd);
+            }
+        }
+
+        DynamicList<face> oneCellFaces;
+        DynamicList<label> oneCellFacesLocInds;
+        for(label iFace=0; iFace<oneCellFlattedFaceInds.size(); iFace++)
+        {
+            oneCellFaces.append(std::get<0>(flatted_faces[oneCellFlattedFaceInds[iFace]]));
+            oneCellFacesLocInds.append(iFace);
+        }
+
         //Compute neighborhood set for valid faces
-        List<std::unordered_set<label>> neighborFaceOnEdge(oneCellValidFaces.size());
-        List<bool> removed(oneCellValidFaces.size(),false);
-        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        List<std::unordered_set<label>> neighborFaceOnEdge(oneCellFacesLocInds.size());
+        List<bool> removed(oneCellFacesLocInds.size(),false);
+        for(label iCell=0; iCell<oneCellFacesLocInds.size(); iCell++)
         // for all faces in cell
         {
-            label oneFaceInd = oneCellValidFaces[iCell];
-            const face& oneFace = nonConvexCellFaces[oneFaceInd];
+            label oneFaceInd = oneCellFacesLocInds[iCell];
+            const face& oneFace = oneCellFaces[oneFaceInd];
             for(label i0Face=0; i0Face<oneFace.size(); i0Face++)
             // for all edges
             {
@@ -6032,12 +6159,12 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 label i1Vert = oneFace[i1Face];
                 //bool edgeConnected=false;
                 
-                for(label iCellNei=0; iCellNei<oneCellValidFaces.size(); iCellNei++)
+                for(label iCellNei=0; iCellNei<oneCellFacesLocInds.size(); iCellNei++)
                 {
                     if(iCell==iCellNei)
                         continue;
-                    label oneFaceIndNei = oneCellValidFaces[iCellNei];
-                    const face& oneFaceNei = nonConvexCellFaces[oneFaceIndNei];
+                    label oneFaceIndNei = oneCellFacesLocInds[iCellNei];
+                    const face& oneFaceNei = oneCellFaces[oneFaceIndNei];
                     
                     label neiFacei0 = oneFaceNei.which(i0Vert);
                     if(neiFacei0!=-1)
@@ -6057,11 +6184,12 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 removed[iCell] = true;
             }
         }
-        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        // Remove removed face from the neighborhood mapping
+        for(label iCell=0; iCell<oneCellFacesLocInds.size(); iCell++)
         // for all faces in cell
         {
             std::unordered_set<label>& neighborFaceOnEdgeSingle = neighborFaceOnEdge[iCell];
-            for(label iCell1=0; iCell1<oneCellValidFaces.size(); iCell1++)
+            for(label iCell1=0; iCell1<oneCellFacesLocInds.size(); iCell1++)
             {
                 if(removed[iCell1])
                 {
@@ -6070,26 +6198,42 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 }
             }
         }
-        for(label iCell=0; iCell<oneCellValidFaces.size(); iCell++)
+        for(label iCell=0; iCell<oneCellFacesLocInds.size(); iCell++)
         // for all faces in cell
         {
-            label oneFaceInd = oneCellValidFaces[iCell];
-            const face& oneFace = nonConvexCellFaces[oneFaceInd];
+            label oneFaceInd = oneCellFacesLocInds[iCell];
+            const face& oneFace = oneCellFaces[oneFaceInd];
             if(!removed[iCell])
             {
-                if(neighborFaceOnEdge[iCell].size()<uint(oneFace.size()))
+                if(neighborFaceOnEdge[iCell].size()!=uint(oneFace.size()))
                 {
-                    FatalErrorInFunction<<"Can not happen!"<< exit(FatalError);
+                    Info<<"oneFace:"<<oneFace<<Foam::endl;
+                    Info<<"neighborFaceOnEdge["<<iCell<<"].size():"<<neighborFaceOnEdge[iCell].size()<<Foam::endl;
+                    Info<<"oneFace.size():"<<oneFace.size()<<Foam::endl;
+                    FatalErrorInFunction<<"A non removed face has not exactly the same number of  neighbors than edges!"<< exit(FatalError);
                 }
             }
         }
-        Info<<"removed:"<<removed<<Foam::endl;
+        
+        for(label faceInd=0; faceInd<neighborFaceOnEdge.size(); faceInd++)
+        {
+            Info<<"   cell Face "<<oneCellFacesLocInds[faceInd]<<" removed "<<removed[faceInd]<<"  borders: ";
+            for(auto iter=neighborFaceOnEdge[faceInd].begin(); 
+                     iter!=neighborFaceOnEdge[faceInd].end();
+                     iter++)
+                Info<<oneCellFacesLocInds[*iter]<<" ";       
+            Info<<Foam::endl;
+        }
         
         //List valid faces
         std::unordered_set<label> validFaceLocInd;
         for(label i=0;i<removed.size();i++)
             if(!removed[i])
                 validFaceLocInd.insert(i);
+        Info<<"validFaceLocInd: ";
+        for(auto iter=validFaceLocInd.begin();iter!=validFaceLocInd.end();iter++)
+            Info<<*iter<<" ";
+        Info<<Foam::endl;
         
         //Collect valid cells from valid faces
         List<std::unordered_set<label>> neighborFaceOnEdgeCopy = neighborFaceOnEdge;
@@ -6100,6 +6244,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         while(!validFaceLocInd.empty())
         // over all cells
         {
+            Info<<"-|-|-|-|-|-|-|-|-|-|-|-|-"<< "validFaceLocInd.size():"<<validFaceLocInd.size()<<Foam::endl;
             if(edgeFaceFront.size()==0)
             {
                 if(trueCell.size()>0)
@@ -6112,17 +6257,22 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 treatedFace[*iter] = true;
                 validFaceLocInd.erase(iter);
             }
+            Info<<"edgeFaceFront:"<<edgeFaceFront<<Foam::endl;
             
             // advance front
             DynamicList<label> new_edgeFaceFront;
             for(label locInd : edgeFaceFront)
             {
-                trueCell.append(locInd);
+                trueCell.append(oneCellFacesLocInds[locInd]);
+                Info<<"Advance from "<<locInd<<" : "<<oneCellFacesLocInds[locInd]<<Foam::endl;
                 std::unordered_set<label>& neighborFaceOnEdgeSingle = neighborFaceOnEdgeCopy[locInd];
-                for(auto iterNei=neighborFaceOnEdgeSingle.begin(); iterNei!=neighborFaceOnEdgeSingle.end(); iterNei++)
+                for(auto iterNei=neighborFaceOnEdgeSingle.begin();
+                         iterNei!=neighborFaceOnEdgeSingle.end();
+                         iterNei++)
                 {
                     if(!treatedFace[*iterNei])
                     {
+                        Info<<"    Neighbour "<<*iterNei<<" : "<<oneCellFacesLocInds[*iterNei]<<Foam::endl;
                         new_edgeFaceFront.append(*iterNei);
                         treatedFace[*iterNei] = true;
                         auto iterValidFace = validFaceLocInd.find(*iterNei);
@@ -6133,40 +6283,21 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                 }
             }
             edgeFaceFront = new_edgeFaceFront;
-        }
-    }
-    
-    Info<<"Create cells from valid faces alone"<<Foam::endl;
-    //Create cells from valid faces alone
-    List<DynamicList<label>> trueCellsTrueFaces(trueCells.size());
-    for(label cellInd=0; cellInd<trueCells.size(); cellInd++)
-    {
-        const List<label>& cell = trueCells[cellInd];
-        for(label faceInd : cell)
-        {
-            if(faceReplacedByFaces[faceInd].first)
+            Info<<"trueCell:"<<trueCell<<Foam::endl;
+            Info<<"validFaceLocInd.size():"<<validFaceLocInd.size()<<Foam::endl;
+            if(validFaceLocInd.empty())
             {
-                trueCellsTrueFaces[cellInd].append(faceReplacedByFaces[faceInd].second);
-            }
-            else
-            {
-                trueCellsTrueFaces[cellInd].append(faceInd);
+                for(label locInd : edgeFaceFront)
+                    trueCell.append(oneCellFacesLocInds[locInd]);
+                trueCells.append(trueCell);
+                trueCell.clear();
             }
         }
-    }
+    }    
+    Info<<"trueCells:"<<trueCells<<Foam::endl;
+        
     
-    Info<<"Mark every face that is used for replacement of another face"<<Foam::endl;
-    //Mark every face that is used for replacement of another face
-    List<bool> faceUsedForReplacement(nonConvexCellFaces.size(),false);
-    for(std::pair<bool,DynamicList<label>> faceReplacement : faceReplacedByFaces)
-    {
-        for(label replacementFace : faceReplacement.second)
-        {
-            if(faceUsedForReplacement[replacementFace])
-                FatalErrorInFunction<<"Face used for replacement twice!"<< exit(FatalError);
-            faceUsedForReplacement[replacementFace] = true;
-        }
-    }
+    //CONTINUE HERE
     
     auto faceToVerticeCombNumber = [](const face& oneFace)
     {
@@ -6202,6 +6333,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     List<label> newFaceInd(nonConvexCellFaces.size(),-1);
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
+        Info<<"---------------"<<faceInd<<"---------------"<<Foam::endl;
         const corrFace& oneFace = corrData.faces[faceInd];
         const face& globFace = nonConvexCellFaces[faceInd];
         label matchingNewFaceInd = -1;
