@@ -689,12 +689,12 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         enum CSFaceType{originalCSFT=0,splittedCSFT=1,addedCSFT=2};
         
         typedef struct{
-            labelList originalFaceInds;
-            labelList splittedFaceInds;
+            DynamicList<label> originalFaceInds;
+            DynamicList<label> splittedFaceInds;
             //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
-            List<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
+            DynamicList<std::tuple<CSFaceType,label,CSFaceType,label>> replacingFaceInds;
             //List<std::tuple<label,CSFaceType,label>> replacingResidualFaceInds;
-            labelList addedFaceInds;
+            DynamicList<label> addedFaceInds;
         } CellFaces;
         
         typedef struct{
@@ -707,11 +707,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             std::unordered_map<label,DynamicList<label>> addedFaceCells;
             // face with reference index for original face
             DynamicList<std::pair<face,label>> splittedFaces;
-            // face with reference index for replacing face and original(replaced) face pair(orig or splitted = true / index)
-            //DynamicList<std::tuple<face,label,std::pair<bool,label>,bool>> replacingFaces;
-            // face with reference index for replacing face
-            //DynamicList<std::pair<face,label>> replacingResidualFaces;
-            // new cells with tuple of (original face indexes, splitted faces indexex, added faces indexes)
+
             DynamicList<CellFaces> cells;
             
             //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
@@ -824,6 +820,16 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const std::unordered_map<std::uint8_t,label>& edgeToAddedPntInd,
             const faceList& faces,
             const pointField& points
+        );
+
+        void mc33CubeFaceIndToNewFaceInd
+        (
+            label mc33CubeFaceInd,
+            const MC33::MC33Cube& mc33cube,
+            const DynamicList<label> globalVerticeHint,
+            const faceList& faces,
+            label& oldFaceInd,
+            label& newFaceInd
         );
         
         enum FaceRelation{Ident=0,oneInTwo=1,twoInOne=2,mixedOverlay=3,none=4};
