@@ -68,7 +68,7 @@ public:
         result+="Face:"+std::to_string(type)+"|";
         for(const corrFaceVertice& corrFVert : faceData)
             result+=corrFVert.to_string()+" ";
-        Info<<" | origFace:"<<origFace<<Foam::endl;
+        result+=" | origFace:"+std::to_string(origFace);
         return result;
     }
     bool operator==(const corrFace& other) const
@@ -118,6 +118,104 @@ public:
         }
         return faceDataEqual && typeEqual && origFaceEqual;        
     }
+    void check(label cubeCase=-1) const
+    {
+        for(label iVertInd=0; iVertInd<faceData.size(); iVertInd++)
+        {
+            const corrFaceVertice& iVert = faceData[iVertInd];
+            switch(type)
+            {
+                case mc33Triangle:
+                    if(iVert.type!=VType::cutEdge && iVert.type!=VType::centerPnt)
+                    {
+                        Info<<"iVert.type:"<<iVert.type<<Foam::endl;
+                        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                        Info<<to_string()<<Foam::endl;
+                        FatalErrorInFunction<<"MC33 must only have cutEdge or center points"<< exit(FatalError);
+                    }
+                    break;
+                case added:
+                case splitOld:
+                case splitOrig:
+                    if(iVert.type==VType::centerPnt)
+                    {
+                        Info<<"iVert.type:"<<iVert.type<<Foam::endl;
+                        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                        Info<<to_string()<<Foam::endl;
+                        FatalErrorInFunction<<"SplitOld must not have center points"<< exit(FatalError);
+                    }
+                    break;
+                case old:
+                    if(iVert.type==VType::centerPnt || iVert.type==VType::edgePntAdded)
+                    {
+                        Info<<"iVert.type:"<<iVert.type<<Foam::endl;
+                        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                        Info<<to_string()<<Foam::endl;
+                        FatalErrorInFunction<<"Old must only have cube or cutEdge points"<< exit(FatalError);
+                    }
+                    break;
+                case orig:
+                    if(iVert.type==VType::cutEdge || iVert.type==VType::centerPnt || 
+                        iVert.type==VType::edgePntAdded)
+                    {
+                        Info<<"iVert.type:"<<iVert.type<<Foam::endl;
+                        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                        Info<<to_string()<<Foam::endl;
+                        FatalErrorInFunction<<"Orig must only have cube points"<< exit(FatalError);
+                    }
+                    break;
+            }
+            
+            for(label jVertInd=0; jVertInd<faceData.size(); jVertInd++)
+            {
+                if(iVertInd!=jVertInd)
+                {
+                    const corrFaceVertice& jVert = faceData[jVertInd];
+                    if(iVert==jVert)
+                    {
+                        Info<<"iVertInd:"<<iVertInd<<"  "<<iVert.to_string()<<Foam::endl;
+                        Info<<"jVertInd:"<<jVertInd<<"  "<<jVert.to_string()<<Foam::endl;
+                        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                        Info<<to_string()<<Foam::endl;
+                        FatalErrorInFunction<<"A face has duplicate vertices"<< exit(FatalError);
+                    }
+                }
+            }
+        }
+        switch(type)
+        {
+            case mc33Triangle:
+                if(origFace!=-2)
+                {                    
+                    Info<<"origFace:"<<origFace<<Foam::endl;
+                    Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                    Info<<to_string()<<Foam::endl;
+                    FatalErrorInFunction<<"MC33 must have a origFace of -2"<< exit(FatalError);
+                }
+                break;
+            case added:
+                if(origFace!=-1)
+                {
+                    Info<<"origFace:"<<origFace<<Foam::endl;
+                    Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                    Info<<to_string()<<Foam::endl;
+                    FatalErrorInFunction<<"Added must have a origFace of -1"<< exit(FatalError);
+                }
+                break;
+            case splitOld:
+            case splitOrig:
+            case old:
+            case orig:
+                if(origFace<0 && origFace>=6)
+                {
+                    Info<<"origFace:"<<origFace<<Foam::endl;
+                    Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                    Info<<to_string()<<Foam::endl;
+                    FatalErrorInFunction<<"Other face must have a origFace in [0,6]"<< exit(FatalError);
+                }
+                break;
+        }
+    }
 };
 
 class corrConcaveCellData
@@ -139,6 +237,50 @@ public:
         }
         return true;
     }
+    void check(label cubeCase=-1, bool redMarkSidePlus=true) const
+    {
+        for(const corrFace& face : faces)
+            face.check(cubeCase);
+        for(const List<label>& oneCell : cells)
+        {
+            for(label faceInd : oneCell)
+            {
+                const corrFace& baseFace = faces[faceInd];
+                for(label i=0; i<baseFace.faceData.size(); i++)
+                {
+                    const corrFaceVertice& edgeStart = baseFace.faceData[i];
+                    const corrFaceVertice& edgeEnd = baseFace.faceData[(i+1)%baseFace.faceData.size()];
+                    
+                    label equalEdgeCounter=0;
+                    for(label compFaceInd : oneCell)
+                    {
+                        const corrFace& compFace = faces[compFaceInd];
+                        for(label i=0; i<compFace.faceData.size(); i++)
+                        {
+                            const corrFaceVertice& compEdgeStart = compFace.faceData[i];
+                            const corrFaceVertice& compEdgeEnd = compFace.faceData[(i+1)%compFace.faceData.size()];
+                            
+                            if((edgeStart==compEdgeStart && edgeEnd==compEdgeEnd) ||
+                               (edgeStart==compEdgeEnd && edgeEnd==compEdgeStart))
+                            {
+                                equalEdgeCounter++;
+                            }
+                        }
+                    }
+                    
+                    if(equalEdgeCounter!=2)
+                    {
+                        Info<<"redMarkSidePlus:"<<redMarkSidePlus<<Foam::endl;
+                        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+                        Info<<"baseFace:"<<baseFace.to_string()<<Foam::endl;
+                        Info<<"equalEdgeCounter:"<<equalEdgeCounter<<Foam::endl;
+                        Info<<"Edge from "<<edgeStart.to_string()<<" to "<<edgeEnd.to_string()<<" not matched"<<Foam::endl;
+                        FatalErrorInFunction<<"Edge matching Error"<< exit(FatalError);
+                    }
+                }
+            }
+        }
+    }
 };
 
 class markSide
@@ -150,6 +292,16 @@ public:
 
 List<markSide> convexCorrectionData = List<markSide>(47);
 List<std::array<std::int8_t,8>> refSignVertice = List<std::array<std::int8_t,8>>(47);
+
+void testCorrectionData()
+{
+    for(label cubeCase=0; cubeCase<convexCorrectionData.size(); cubeCase++)
+    {
+        const markSide& oneCase = convexCorrectionData[cubeCase];
+        oneCase.redMarkPlus.check(cubeCase,true);
+        oneCase.redMarkNotPlus.check(cubeCase,true);
+    }
+}
 
 void createConvexCorrectionData()
 {
@@ -732,11 +884,11 @@ void createConvexCorrectionData()
         //Front Cell {3,4,5}
         corrFace old3 =       {FType::old,{},3};
         corrFace old5 =       {FType::old,{},5};
-        corrFace split0Front= {FType::splitOld,{{VType::cubePnt,5},{VType::cubePnt,4},{VType::cubePnt,0}},0};
+        corrFace split0Front= {FType::splitOrig,{{VType::cubePnt,5},{VType::cubePnt,4},{VType::cubePnt,0}},0};
         //Back Cell {6,7,8}
         corrFace old1 =       {FType::old,{},1};
         corrFace old4 =       {FType::old,{},4};
-        corrFace split0Back = {FType::splitOld,{{VType::cubePnt,0},{VType::cubePnt,1},{VType::cubePnt,5}},0};
+        corrFace split0Back = {FType::splitOrig,{{VType::cubePnt,0},{VType::cubePnt,1},{VType::cubePnt,5}},0};
         
         corrConcaveCellData redMarkSide = {{{0,2,3,4,5},
                                             {1,2,6,7,8}},
@@ -749,11 +901,11 @@ void createConvexCorrectionData()
         //Front Cell {3,4,5}
         old3 =       {FType::old,{},3};
         old5 =       {FType::old,{},5};
-        corrFace split2Front= {FType::splitOld,{{VType::cubePnt,6},{VType::cubePnt,7},{VType::cubePnt,3}},2};
+        corrFace split2Front= {FType::splitOrig,{{VType::cubePnt,6},{VType::cubePnt,7},{VType::cubePnt,3}},2};
         //Back Cell {6,7,8}
         old1 =       {FType::old,{},1};
         old4 =       {FType::old,{},4};
-        corrFace split2Back = {FType::splitOld,{{VType::cubePnt,3},{VType::cubePnt,2},{VType::cubePnt,6}},2};
+        corrFace split2Back = {FType::splitOrig,{{VType::cubePnt,3},{VType::cubePnt,2},{VType::cubePnt,6}},2};
         
         corrConcaveCellData nonRedMarkSide = {{{0,2,3,4,5},
                                                {1,2,6,7,8}},
@@ -1556,5 +1708,7 @@ void createConvexCorrectionData()
     convexCorrectionData[MC33::Case::c14] = {redMarkSide,nonRedMarkSide};
     refSignVertice[MC33::Case::c14] = {+1,+1,-1,+1,-1,+1,-1,-1};
 }
+
+testCorrectionData();
 };
 

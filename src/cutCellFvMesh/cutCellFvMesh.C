@@ -5139,6 +5139,53 @@ label Foam::cutCellFvMesh::getGlobalPoint
     return globalPnt;    
 }
 
+void Foam::cutCellFvMesh::mc33CubeFaceHintToNewFaceInd
+(
+    const MC33::MC33Cube& mc33cube,
+    const cell& thisCell,
+    const DynamicList<label> globalFaceVertices,
+    const faceList& faces,
+    label& newFaceInd
+)
+{
+    std::unordered_set<label> faceSet(globalFaceVertices.begin(),globalFaceVertices.end());
+    
+    DynamicList<label> matchingFaceInd;
+    for(label faceInd : thisCell)
+    {
+        const face& thisFace = faces[faceInd];
+        bool thisFaceCompIn = true;
+        for(label vertInd : thisFace)
+        {
+            if(faceSet.find(vertInd)==faceSet.end())
+            {
+                thisFaceCompIn = false;
+            }
+        }
+        if(thisFaceCompIn)
+            matchingFaceInd.append(faceInd);
+    }
+    if(matchingFaceInd.size()==0)
+        FatalErrorInFunction<<"No matching face found!"<< exit(FatalError);
+    else if(matchingFaceInd.size()>1)
+        FatalErrorInFunction<<"Multiple matching faces found!"<< exit(FatalError);
+    
+    newFaceInd = matchingFaceInd[0];
+    
+    auto iterNtoO = newFaceToOldFaceInds.find(newFaceInd);
+    if(iterNtoO!=newFaceToOldFaceInds.end())
+    {
+        label oldFaceInd = iterNtoO->second;
+        auto iterOtoN = oldFaceToNewFaceInds.find(oldFaceInd);
+        if(iterOtoN==oldFaceToNewFaceInds.end())
+            FatalErrorInFunction<<"Mismatch in face correspondence!"<< exit(FatalError);
+        const DynamicList<label>& newPntInds = iterOtoN->second;
+        std::unordered_set<label> newPntIndsSet(newPntInds.begin(),newPntInds.end());
+        if(newPntIndsSet.find(newFaceInd)==newPntIndsSet.end())
+            FatalErrorInFunction<<"Mismatch in face correspondence!"<< exit(FatalError);
+    }
+}
+
 void Foam::cutCellFvMesh::mc33CubeFaceIndToNewFaceInd
 (
     label mc33CubeFaceInd,
@@ -5189,7 +5236,18 @@ void Foam::cutCellFvMesh::mc33CubeFaceIndToNewFaceInd
         else if(numIn==0)
         {}
         else
+        {
+            Info<<Foam::endl;
+            Info<<"newFaceInds:"<<newFaceInds<<Foam::endl;
+            Info<<"oneNewOldFaceInd:"<<oneNewOldFaceInd<<Foam::endl;
+            Info<<"mc33CubeFaceInd:"<<mc33CubeFaceInd<<Foam::endl;
+            Info<<"facePerm:"<<facePerm<<Foam::endl;
+            Info<<"newFaceInd:"<<newFaceInd<<Foam::endl;
+            Info<<"globalVerticeHint:"<<globalVerticeHint<<Foam::endl;
+            Info<<"numIn:"<<numIn<<Foam::endl;
+            Info<<"oneNewOrigFace:"<<oneNewOrigFace<<Foam::endl;
             FatalErrorInFunction<<"Partially included face can not happen!"<< exit(FatalError);
+        }
     }
     if(newFaceInd<0 || newFaceInd>=faces.size())
         FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
@@ -5206,6 +5264,8 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
 )
 {
     Info<<"abstrFaceToGlobalFaceTransfer: "<<abstrFace.to_string()<<Foam::endl;
+    Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
+    Info<<"mc33cube.redMarkIsPlusSide:"<<mc33cube.redMarkIsPlusSide<<Foam::endl;
     
     
     std::unordered_set<label> cellFaceSet(thisCell.begin(),thisCell.end());
@@ -5258,7 +5318,10 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
             );
             const DynamicList<label>& cutFaceInds = oldFacesToCutFaces_[oldFaceInd];
             if(abstrFace.type==FType::splitOld && cutFaceInds.size()<2)
+            // If the face was splitted before aka. it is old it must have more than one cut face
+            {
                 FatalErrorInFunction<<"Old face must have more cutFaces!"<< exit(FatalError);
+            }
 
             const face& newOldFace = faces[newFaceInd];
             for(label faceVert : newOldFace)
@@ -5455,6 +5518,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     newCellData.addedPointsLimit = this->new_points.size();
     
     Info<<"---------------------Process possible added point--------------------------"<<Foam::endl;
+    Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
+    Info<<"mc33cube.redMarkIsPlusSide:"<<mc33cube.redMarkIsPlusSide<<Foam::endl;
+    
     //Process possible added point
     //bool addedPntsInConvexCorr = false;
     std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
@@ -5822,7 +5888,11 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         newRemainingFaces.append(face(rotPInds));
                     }
                     else
+                    {
+                        Info<<"newRemainingFaces:"<<newRemainingFaces<<Foam::endl;
+                        Info<<"baseFace:"<<baseFace<<Foam::endl;
                         FatalErrorInFunction<<"Only one face can be valid"<< exit(FatalError);
+                    }
                 }
                 
                 // Replace initial face with first new remaining Faces and add the others
@@ -6174,6 +6244,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     List<bool> faceInCell(flatted_faces.size(),false);
     for(List<label> oneCell : trueCells)
     {
+        Info<<"oneCell:"<<oneCell<<Foam::endl;
         CellFaces oneCellData;
         for(label faceInd : oneCell)
         {
@@ -6191,7 +6262,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             
             const corrFace& faceCorrData = std::get<1>(faceData);
             const face& thisFace = std::get<0>(faceData);
-            Info<<"faceCorrData:"<<faceCorrData.to_string()<<Foam::endl;
+            Info<<"   faceCorrData:"<<faceCorrData.to_string()<<Foam::endl;
             if(compFaceData.isReplaced)
             {
                 const corrFace& replacedFace = compFaceData.origFaceData;
@@ -6252,39 +6323,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                             case FType::splitOrig:
                             case FType::splitOld:
                             {
-                                auto iter = flatFaceIndToIndex.find(faceInd);
-                                if(iter==flatFaceIndToIndex.end())
-                                {
-                                    DynamicList<label> globalVerticesNonAddedPnts;
-                                    for(const corrFaceVertice& vert : replacedFace.faceData)
-                                    {
-                                        label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
-                                        if(vert.type!=VType::edgePntAdded)
-                                            globalVerticesNonAddedPnts.append(globalVertex); 
-                                    }
-                                    label oldFaceInd;
-                                    label newFaceInd;
-                                    mc33CubeFaceIndToNewFaceInd
-                                    (
-                                        replacedFace.origFace,mc33cube,globalVerticesNonAddedPnts,
-                                        new_faces,oldFaceInd,newFaceInd
-                                    );
-                                    
-                                    oneCellData.splittedFaceInds.append(newCellData.splittedFaces.size());
-                                    flatFaceIndToIndex[faceInd] = newCellData.splittedFaces.size();
-                                    newCellData.splittedFaces.append({thisFace,newFaceInd});
-                                }
-                                else
-                                {
-                                    oneCellData.splittedFaceInds.append(iter->second);
-                                }
-                            }
-                            break;
-                            case FType::added:
-                                FatalErrorInFunction<<"Added face can not replaced an added face!"<< exit(FatalError);
-                                break;
-                            case FType::mc33Triangle:
-                            {
                                 DynamicList<label> globalVerticesNonAddedPnts;
                                 for(const corrFaceVertice& vert : replacedFace.faceData)
                                 {
@@ -6299,7 +6337,83 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                     replacedFace.origFace,mc33cube,globalVerticesNonAddedPnts,
                                     new_faces,oldFaceInd,newFaceInd
                                 );
-                                oneCellData.originalFaceInds.append(newFaceInd);
+                                
+                                auto iter = flatFaceIndToIndex.find(faceInd);
+                                if(iter==flatFaceIndToIndex.end())
+                                {                                    
+                                    std::tuple<CSFaceType,label,CSFaceType,label> replacingFaceInds =
+                                    {
+                                        CSFaceType::originalCSFT,
+                                        newFaceInd,
+                                        CSFaceType::addedCSFT,
+                                        newCellData.addedFace.size()
+                                    };
+                                    oneCellData.replacingFaceInds.append(replacingFaceInds);
+                                    newCellData.addedFaceCells[newCellData.addedFace.size()].append(newCellData.cells.size());
+                                    flatFaceIndToIndex[faceInd] = newCellData.addedFace.size();
+                                    newCellData.addedFace.append(thisFace);
+                                }
+                                else
+                                {
+                                    std::tuple<CSFaceType,label,CSFaceType,label> replacingFaceInds =
+                                    {
+                                        CSFaceType::originalCSFT,
+                                        newFaceInd,
+                                        CSFaceType::addedCSFT,
+                                        iter->second
+                                    };
+                                    oneCellData.replacingFaceInds.append(replacingFaceInds);
+                                    newCellData.addedFaceCells[iter->second].append(newCellData.cells.size());                                    
+                                }
+                            }
+                            break;
+                            case FType::added:
+                                FatalErrorInFunction<<"Added face can not replaced an added face!"<< exit(FatalError);
+                                break;
+                            case FType::mc33Triangle:
+                            {
+                                DynamicList<label> globalVertices;
+                                for(const corrFaceVertice& vert : replacedFace.faceData)
+                                {
+                                    label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                    globalVertices.append(globalVertex);
+                                    if(vert.type==VType::edgePntAdded)
+                                        FatalErrorInFunction<<"Added point can not be in mc33 face!"<< exit(FatalError);
+                                }
+                                label newFaceInd;
+                                mc33CubeFaceHintToNewFaceInd
+                                (
+                                    mc33cube,thisCell,globalVertices,
+                                    new_faces,newFaceInd
+                                );
+                                
+                                auto iter = flatFaceIndToIndex.find(faceInd);
+                                if(iter==flatFaceIndToIndex.end())
+                                {                                   
+                                    std::tuple<CSFaceType,label,CSFaceType,label> replacingFaceInds =
+                                    {
+                                        CSFaceType::originalCSFT,
+                                        newFaceInd,
+                                        CSFaceType::addedCSFT,
+                                        newCellData.addedFace.size()
+                                    };
+                                    oneCellData.replacingFaceInds.append(replacingFaceInds);
+                                    newCellData.addedFaceCells[newCellData.addedFace.size()].append(newCellData.cells.size());
+                                    flatFaceIndToIndex[faceInd] = newCellData.addedFace.size();
+                                    newCellData.addedFace.append(thisFace);
+                                }
+                                else
+                                {
+                                    std::tuple<CSFaceType,label,CSFaceType,label> replacingFaceInds =
+                                    {
+                                        CSFaceType::originalCSFT,
+                                        newFaceInd,
+                                        CSFaceType::addedCSFT,
+                                        iter->second
+                                    };
+                                    oneCellData.replacingFaceInds.append(replacingFaceInds);
+                                    newCellData.addedFaceCells[iter->second].append(newCellData.cells.size());                                    
+                                }
                             }
                             break;
                             default:
@@ -6355,6 +6469,14 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         auto iter = flatFaceIndToIndex.find(faceInd);
                         if(iter==flatFaceIndToIndex.end())
                         {
+                            DynamicList<label> globalVertices;
+                            for(const corrFaceVertice& vert : faceCorrData.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                if(vert.type!=VType::edgePntAdded)
+                                    globalVertices.append(globalVertex);
+                            }
+                            
                             label oldFaceInd;
                             label newFaceInd;
                             DynamicList<label> thisFacePnts;
@@ -6362,7 +6484,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                                 thisFacePnts.append(vert);
                             mc33CubeFaceIndToNewFaceInd
                             (
-                                faceCorrData.origFace,mc33cube,thisFacePnts,
+                                faceCorrData.origFace,mc33cube,globalVertices,
                                 new_faces,oldFaceInd,newFaceInd
                             );
                             
@@ -6381,17 +6503,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         auto iter = flatFaceIndToIndex.find(faceInd);
                         if(iter==flatFaceIndToIndex.end())
                         {
-                            label oldFaceInd;
-                            label newFaceInd;
-                            DynamicList<label> thisFacePnts;
-                            for(label vert : thisFace)
-                                thisFacePnts.append(vert);
-                            mc33CubeFaceIndToNewFaceInd
-                            (
-                                faceCorrData.origFace,mc33cube,thisFacePnts,
-                                new_faces,oldFaceInd,newFaceInd
-                            );
-                            
                             oneCellData.addedFaceInds.append(newCellData.addedFace.size());
                             flatFaceIndToIndex[faceInd] = newCellData.addedFace.size();
                             newCellData.addedFaceCells[newCellData.addedFace.size()].append(newCellData.cells.size());
@@ -6406,15 +6517,15 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                     break;
                     case FType::mc33Triangle:
                     {
-                        label oldFaceInd;
-                        label newFaceInd;
                         DynamicList<label> thisFacePnts;
                         for(label vert : thisFace)
                             thisFacePnts.append(vert);
-                        mc33CubeFaceIndToNewFaceInd
+                
+                        label newFaceInd;
+                        mc33CubeFaceHintToNewFaceInd
                         (
-                            faceCorrData.origFace,mc33cube,thisFacePnts,
-                            new_faces,oldFaceInd,newFaceInd
+                            mc33cube,thisCell,thisFacePnts,
+                            new_faces,newFaceInd
                         );
                         oneCellData.originalFaceInds.append(newFaceInd);
                     }
@@ -6427,10 +6538,38 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         newCellData.cells.append(oneCellData);
     }
     
-    FatalErrorInFunction<<"Temp Stop!"<< exit(FatalError);
+    Info<<Foam::endl;
+    Info<<"newCellData.originalCell:"<<newCellData.originalCell<<Foam::endl;
+    Info<<"newCellData.addedPoints:";
+    for(auto dat: newCellData.addedPoints)  
+        Info<<" ("<<dat.first<<","<<dat.second<<") ";
+    Info<<Foam::endl;
+    Info<<"newCellData.addedPointsLimit:"<<newCellData.addedPointsLimit<<Foam::endl;
+    Info<<"newCellData.addedFace:"<<newCellData.addedFace<<Foam::endl;
+    Info<<"newCellData.splittedFaces:";
+    for(auto iter=newCellData.addedFaceCells.begin(); iter!=newCellData.addedFaceCells.end(); iter++)
+        Info<<" ("<<iter->first<<":"<<iter->second<<") ";
+    Info<<Foam::endl;
+    Info<<"newCellData.splittedFaces:";
+    for(auto dat: newCellData.splittedFaces)  
+        Info<<" ("<<dat.first<<","<<dat.second<<") ";
+    Info<<Foam::endl;
+    
+    for(CellFaces oneCell : newCellData.cells)
+    {
+        Info<<Foam::endl;
+        Info<<"oneCell.originalFaceInds:"<<oneCell.originalFaceInds<<" --";
+        for(auto faceInd : oneCell.originalFaceInds)
+            Info<<new_faces[faceInd]<<" ";
+        Info<<Foam::endl;
+        Info<<"oneCell.splittedFaceInds:"<<oneCell.splittedFaceInds<<Foam::endl;
+        Info<<"oneCell.addedFaceInds:"<<oneCell.addedFaceInds<<Foam::endl;
+    }
+    
+    Info<<"faceInCell:"<<faceInCell<<Foam::endl;
+    
     //CONTINUE HERE
 
-    /*
     for(label faceInd=0; faceInd<flatted_faces.size(); faceInd++)
     {
         if(!faceInCell[faceInd])
@@ -6470,11 +6609,51 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                             FatalErrorInFunction<<"Old or Orig faces can not replace each other!"<< exit(FatalError);
                             break;
                         case FType::added:
-                            FatalErrorInFunction<<"Added face can not be replaced by a Old or Orig face in a cell!"<< exit(FatalError);
+                            FatalErrorInFunction<<"Added face can not be replaced by a Old or Orig face outside a cell!"<< exit(FatalError);
                             break;
                         case FType::mc33Triangle:
-                            FatalErrorInFunction<<"MC33 face can not be replaced by a Old or Orig face in a cell!"<< exit(FatalError);
-                            break;
+                        {   
+                            DynamicList<label> verticesMC33;
+                            for(const corrFaceVertice& vert : replacedFace.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                verticesMC33.append(globalVertex);
+                                if(vert.type==VType::edgePntAdded)
+                                    FatalErrorInFunction<<"Added point can not be in mc33 face!"<< exit(FatalError);
+                            }
+                            label newFaceIndMC33;
+                            mc33CubeFaceHintToNewFaceInd
+                            (
+                                mc33cube,thisCell,verticesMC33,
+                                new_faces,newFaceIndMC33
+                            );
+                            
+                            DynamicList<label> verticesOrigOld;
+                            for(const corrFaceVertice& vert : faceCorrData.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                verticesOrigOld.append(globalVertex);
+                                if(vert.type==VType::edgePntAdded)
+                                    FatalErrorInFunction<<"Added point can not be in orig or old  face!"<< exit(FatalError);
+                            }
+                            label newFaceIndOrigOld;
+                            label old;
+                            mc33CubeFaceIndToNewFaceInd
+                            (
+                                faceCorrData.origFace,mc33cube,verticesOrigOld,
+                                new_faces,old,newFaceIndOrigOld
+                            );                         
+
+                            std::tuple<CSFaceType,label,CSFaceType,label> replacementData = 
+                            {
+                                CSFaceType::originalCSFT,
+                                newFaceIndMC33,
+                                CSFaceType::originalCSFT,
+                                newFaceIndOrigOld,
+                            };
+                            newCellData.nonCellFaceChanges.append(replacementData);
+                        }
+                        break;
                         default:
                             FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                     }
@@ -6493,8 +6672,51 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                             FatalErrorInFunction<<"Added face can not be replaced by a Old or Orig face in a cell!"<< exit(FatalError);
                             break;
                         case FType::mc33Triangle:
-                            FatalErrorInFunction<<"MC33 face can not be replaced by a Old or Orig face in a cell!"<< exit(FatalError);
-                            break;
+                        {
+                            DynamicList<label> verticesMC33;
+                            for(const corrFaceVertice& vert : replacedFace.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                verticesMC33.append(globalVertex);
+                                if(vert.type==VType::edgePntAdded)
+                                    FatalErrorInFunction<<"Added point can not be in mc33 face!"<< exit(FatalError);
+                            }
+                            label newFaceIndMC33;
+                            mc33CubeFaceHintToNewFaceInd
+                            (
+                                mc33cube,thisCell,verticesMC33,
+                                new_faces,newFaceIndMC33
+                            );
+                            
+                            
+                            DynamicList<label> splitFaceVertices;
+                            for(const corrFaceVertice& vert : faceCorrData.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                if(vert.type!=VType::edgePntAdded)
+                                    splitFaceVertices.append(globalVertex);
+                            }
+                            label oldFaceInd;
+                            label newFaceIndSplitOrig;
+                            mc33CubeFaceIndToNewFaceInd
+                            (
+                                faceCorrData.origFace,mc33cube,splitFaceVertices,
+                                new_faces,oldFaceInd,newFaceIndSplitOrig
+                            );
+
+                            flatFaceIndToIndex[faceInd] = newCellData.splittedFaces.size();
+                            newCellData.splittedFaces.append({thisFace,newFaceIndSplitOrig});                         
+                            
+                            std::tuple<CSFaceType,label,CSFaceType,label> replacementData = 
+                            {
+                                CSFaceType::originalCSFT,
+                                newFaceIndMC33,
+                                CSFaceType::splittedCSFT,
+                                newCellData.splittedFaces.size()
+                            };
+                            newCellData.nonCellFaceChanges.append(replacementData);
+                        }
+                        break;
                         default:
                             FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
                     }
@@ -6506,56 +6728,13 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         case FType::old:
                         case FType::splitOrig:
                         case FType::splitOld:
-                        {
-                            auto iter = flatFaceIndToIndex.find(faceInd);
-                            if(iter==flatFaceIndToIndex.end())
-                            {
-                                DynamicList<label> globalVerticesNonAddedPnts;
-                                for(const corrFaceVertice& vert : replacedFace.faceData)
-                                {
-                                    label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
-                                    if(vert.type!=VType::edgePntAdded)
-                                        globalVerticesNonAddedPnts.append(globalVertex); 
-                                }
-                                label oldFaceInd;
-                                label newFaceInd;
-                                mc33CubeFaceIndToNewFaceInd
-                                (
-                                    replacedFace.origFace,mc33cube,globalVerticesNonAddedPnts,
-                                    new_faces,oldFaceInd,newFaceInd
-                                );
-                                
-                                oneCellData.splittedFaceInds.append(newCellData.splittedFaces.size());
-                                flatFaceIndToIndex[faceInd] = newCellData.splittedFaces.size();
-                                newCellData.splittedFaces.append({thisFace,newFaceInd});
-                            }
-                            else
-                            {
-                                oneCellData.splittedFaceInds.append(iter->second);
-                            }
-                        }
+                            FatalErrorInFunction<<"Added face can not replaced an orig or old face outside a cell!"<< exit(FatalError);
                         break;
                         case FType::added:
                             FatalErrorInFunction<<"Added face can not replaced an added face!"<< exit(FatalError);
                             break;
                         case FType::mc33Triangle:
-                        {
-                            DynamicList<label> globalVerticesNonAddedPnts;
-                            for(const corrFaceVertice& vert : replacedFace.faceData)
-                            {
-                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
-                                if(vert.type!=VType::edgePntAdded)
-                                    globalVerticesNonAddedPnts.append(globalVertex); 
-                            }
-                            label oldFaceInd;
-                            label newFaceInd;
-                            mc33CubeFaceIndToNewFaceInd
-                            (
-                                replacedFace.origFace,mc33cube,globalVerticesNonAddedPnts,
-                                new_faces,oldFaceInd,newFaceInd
-                            );
-                            oneCellData.originalFaceInds.append(newFaceInd);
-                        }
+                            FatalErrorInFunction<<"Added face can not replaced an mc33 face outside a cell!"<< exit(FatalError);
                         break;
                         default:
                             FatalErrorInFunction<<"Invalid face type!"<< exit(FatalError);
@@ -6568,10 +6747,65 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
                         case FType::old:
                         case FType::splitOrig:
                         case FType::splitOld:
-                            FatalErrorInFunction<<"MC33 triangle can not replace an old or orig face in a cell!"<< exit(FatalError);
-                            break;
+                        {
+                            DynamicList<label> verticesMC33;
+                            for(const corrFaceVertice& vert : faceCorrData.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                verticesMC33.append(globalVertex);
+                                if(vert.type==VType::edgePntAdded)
+                                    FatalErrorInFunction<<"Added point can not be in mc33 face!"<< exit(FatalError);
+                            }
+                            label newFaceIndMC33;
+                            mc33CubeFaceHintToNewFaceInd
+                            (
+                                mc33cube,thisCell,verticesMC33,
+                                new_faces,newFaceIndMC33
+                            );
+                            
+                            DynamicList<label> splitFaceVertices;
+                            for(const corrFaceVertice& vert : replacedFace.faceData)
+                            {
+                                label globalVertex = getGlobalPoint(vert,mc33cube,edgeToAddedPntInd,this->new_points);
+                                if(vert.type!=VType::edgePntAdded)
+                                    splitFaceVertices.append(globalVertex);
+                            }
+                            label oldFaceInd;
+                            label newFaceIndSplitOrig;
+                            mc33CubeFaceIndToNewFaceInd
+                            (
+                                replacedFace.origFace,mc33cube,splitFaceVertices,
+                                new_faces,oldFaceInd,newFaceIndSplitOrig
+                            );
+                            
+                            if(replacedFace.type==FType::orig || replacedFace.type==FType::old)
+                            {
+                                std::tuple<CSFaceType,label,CSFaceType,label> replacementData = 
+                                {
+                                    CSFaceType::originalCSFT,
+                                    newFaceIndSplitOrig,
+                                    CSFaceType::originalCSFT,
+                                    newFaceIndMC33
+                                };
+                                newCellData.nonCellFaceChanges.append(replacementData);
+                            }
+                            else
+                            {                                
+                                std::tuple<CSFaceType,label,CSFaceType,label> replacementData = 
+                                {
+                                    CSFaceType::splittedCSFT,
+                                    newCellData.splittedFaces.size(),
+                                    CSFaceType::originalCSFT,
+                                    newFaceIndMC33
+                                };
+                                flatFaceIndToIndex[faceInd] = newCellData.splittedFaces.size();
+                                newCellData.splittedFaces.append({thisFace,newFaceIndSplitOrig});
+                                newCellData.nonCellFaceChanges.append(replacementData);
+                            }
+                        }
+                        break;
                         case FType::added:
-                            FatalErrorInFunction<<"MC33 triangle can not replace an added face in a cell!"<< exit(FatalError);
+                            FatalErrorInFunction<<"MC33 triangle can not replace an added face outside a cell!"<< exit(FatalError);
                             break;
                         case FType::mc33Triangle:
                             FatalErrorInFunction<<"MC33 triangle can not replace a MC33 triangle!"<< exit(FatalError);
@@ -6585,7 +6819,6 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             }
         }
     }
-    */
     
     return newCellDataPtr;
 }

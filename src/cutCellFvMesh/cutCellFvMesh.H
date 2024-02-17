@@ -822,6 +822,15 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const pointField& points
         );
 
+        void mc33CubeFaceHintToNewFaceInd
+        (
+            const MC33::MC33Cube& mc33cube,
+            const cell& thisCell,
+            const DynamicList<label> globalFaceVertices,
+            const faceList& faces,
+            label& newFaceInd
+        );
+        
         void mc33CubeFaceIndToNewFaceInd
         (
             label mc33CubeFaceInd,
