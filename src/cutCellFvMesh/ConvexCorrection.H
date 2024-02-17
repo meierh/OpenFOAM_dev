@@ -118,6 +118,24 @@ public:
         }
         return faceDataEqual && typeEqual && origFaceEqual;        
     }
+    List<std::unordered_set<std::int8_t>> allowedCubePnts = 
+    {
+        {0,1,4,5},
+        {1,2,5,6},
+        {2,3,6,7},
+        {0,3,4,7},
+        {0,1,2,3},
+        {4,5,6,7}
+    };
+    List<std::unordered_set<std::int8_t>> allowedCutEdges = 
+    {
+        {0,4,8,9},
+        {1,5,9,10},
+        {2,6,10,11},
+        {3,7,8,11},
+        {0,1,2,3},
+        {4,5,6,7}
+    };
     void check(label cubeCase=-1) const
     {
         for(label iVertInd=0; iVertInd<faceData.size(); iVertInd++)
@@ -216,6 +234,40 @@ public:
                 }
                 break;
         }
+        if(origFace>=0 && origFace<6)
+        {
+            const std::unordered_set<std::int8_t> allowedPnts = allowedCubePnts[origFace];
+            const std::unordered_set<std::int8_t> allowedEdges = allowedCutEdges[origFace];
+        
+            for(const corrFaceVertice& vert : faceData)
+            {
+                switch(vert.type)
+                {
+                    case VType::cubePnt:
+                    {
+                        if(allowedPnts.find(vert.value)==allowedPnts.end())
+                        {
+                            Info<<to_string()<<Foam::endl;
+                            Info<<"type:"<<vert.type<<" value:"<<vert.value<<Foam::endl;
+                            FatalErrorInFunction<<"Invalid point in face"<< exit(FatalError);
+                        }
+                        break;
+                    }
+                    case VType::cutEdge:
+                    {
+                        if(allowedEdges.find(vert.value)==allowedEdges.end())
+                        {
+                            Info<<to_string()<<Foam::endl;
+                            Info<<"type:"<<vert.type<<" value:"<<vert.value<<Foam::endl;
+                            FatalErrorInFunction<<"Invalid point in face"<< exit(FatalError);
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
     }
 };
 
@@ -240,10 +292,26 @@ public:
     }
     void check(label cubeCase=-1, bool redMarkSidePlus=true) const
     {
+        Info<<"cubeCase:"<<cubeCase<<Foam::endl;
+        Info<<"redMarkSidePlus:"<<redMarkSidePlus<<Foam::endl;
+        for(label iFaceInd=0; iFaceInd<faces.size(); iFaceInd++)
+        {
+            for(label jFaceInd=0; jFaceInd<faces.size(); jFaceInd++)
+            {
+                if(iFaceInd!=jFaceInd)
+                {
+                    if(faces[iFaceInd]==faces[jFaceInd])
+                        FatalErrorInFunction<<"Duplicate face in list"<< exit(FatalError);
+                }
+            }
+        }
         for(const corrFace& face : faces)
             face.check(cubeCase);
         for(const List<label>& oneCell : cells)
         {
+            Info<<"  oneCell:"<<oneCell<<Foam::endl;;
+            for(label faceInd : oneCell)
+                Info<<"      "<<faces[faceInd].to_string()<<Foam::endl;
             for(label faceInd : oneCell)
             {
                 const corrFace& baseFace = faces[faceInd];
@@ -280,6 +348,18 @@ public:
                     }
                 }
             }
+            for(label iFaceInd=0; iFaceInd<oneCell.size(); iFaceInd++)
+            {
+                for(label jFaceInd=0; jFaceInd<oneCell.size(); jFaceInd++)
+                {
+                    if(iFaceInd!=jFaceInd)
+                    {
+                        if(faces[oneCell[iFaceInd]]==faces[oneCell[jFaceInd]])
+                            FatalErrorInFunction<<"Duplicate face in cell"<< exit(FatalError);
+                    }
+                }
+            }
+            
         }
     }
 };
@@ -1013,7 +1093,7 @@ void createConvexCorrectionData()
         //Middle Cell {14}
         corrFace split2Middle={FType::splitOld,{{VType::cutEdge,6},{VType::cutEdge,10},{VType::cutEdge,2},{VType::cutEdge,11}},2};
         //Back Cell {15,16,17,18}
-        corrFace old0Right=   {FType::old,{{VType::cutEdge,9},{VType::cubePnt,1},{VType::cutEdge,0}},2};
+        corrFace old0Right=   {FType::old,{{VType::cutEdge,9},{VType::cubePnt,1},{VType::cutEdge,0}},0};
         old1 =                {FType::old,{{VType::cutEdge,10},{VType::cubePnt,2},{VType::cubePnt,1},{VType::cutEdge,9}},1};
         old4 =                {FType::old,{{VType::cutEdge,2},{VType::cubePnt,2},{VType::cubePnt,1},{VType::cutEdge,0}},4};
         corrFace split2Right= {FType::splitOld,{{VType::cubePnt,2},{VType::cutEdge,10},{VType::cutEdge,2}},2};
@@ -1051,7 +1131,7 @@ void createConvexCorrectionData()
         //Middle Cell {14}
         corrFace split2Middle={FType::splitOld,{{VType::cutEdge,6},{VType::cutEdge,10},{VType::cutEdge,2},{VType::cutEdge,11}},2};
         //Back Cell {15,16,17,18}
-        corrFace old0Back =   {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,0}},2};
+        corrFace old0Back =   {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,0}},0};
         corrFace old4 =       {FType::old,{{VType::cutEdge,2},{VType::cubePnt,3},{VType::cubePnt,0},{VType::cutEdge,0}},4};
         corrFace old3 =       {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cubePnt,0},{VType::cutEdge,8}},3};
         corrFace split2Back = {FType::splitOld,{{VType::cubePnt,3},{VType::cutEdge,11},{VType::cutEdge,2}},2};
@@ -1275,14 +1355,14 @@ void createConvexCorrectionData()
         corrFace addedNonRedMark41 = {FType::added,{{VType::cutEdge,4},{VType::cubePnt,5},{VType::cutEdge,1}},-1};//3
         corrFace addedNonRedMark81 = {FType::added,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,1}},-1};
         //Front Cell {5,6}
-        corrFace old5Down =  {FType::old,{{VType::cubePnt,5}},5};
+        corrFace old5Down =  {FType::old,{{VType::cutEdge,4},{VType::cubePnt,5},{VType::cutEdge,5}},5};
         corrFace split1Up  = {FType::splitOld,{{VType::cutEdge,5},{VType::cubePnt,5},{VType::cutEdge,1}},1};
         //Middle Cell {7,8,9}
-        corrFace old0 =      {FType::old,{},0};
+        corrFace old0 =      {FType::old,{{VType::cutEdge,4},{VType::cubePnt,5},{VType::cubePnt,1},{VType::cubePnt,0},{VType::cutEdge,8}},0};
         corrFace split1Down= {FType::splitOld,{{VType::cubePnt,5},{VType::cubePnt,1},{VType::cutEdge,1}},1};
         corrFace split4Down= {FType::splitOld,{{VType::cubePnt,0},{VType::cubePnt,1},{VType::cutEdge,1}},4};
         //Left Cell {10,11}
-        corrFace old3Down=   {FType::old,{{VType::cubePnt,0}},3};
+        corrFace old3Down=   {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,3}},3};
         corrFace split4Up  = {FType::splitOld,{{VType::cubePnt,0},{VType::cutEdge,3},{VType::cutEdge,1}},4};
         
         corrConcaveCellData nonRedMarkSide = {{{0,3,5,6},
@@ -1310,18 +1390,18 @@ void createConvexCorrectionData()
     // RedMarkPlus
         corrFace addedRedMark38={FType::added,{{VType::cutEdge,3},{VType::cutEdge,8},{VType::centerPnt,-1}},-1};//8
         //Front Cell {9,10,11}
-        corrFace old2    =    {FType::old,{},2};
-        corrFace old5Left =   {FType::old,{{VType::cubePnt,7}},5};
+        corrFace old2    =    {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cutEdge,6}},2};
+        corrFace old5Left =   {FType::old,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cutEdge,6}},5};
         corrFace split3Left = {FType::splitOld,{{VType::cubePnt,7},{VType::cutEdge,7},{VType::cutEdge,8},{VType::cutEdge,3},{VType::cutEdge,11}},3};
-        //Down Cell {15,16,17,18,19}
-        corrFace old0 =       {FType::old,{},0};
-        corrFace old1 =       {FType::old,{},1};
-        corrFace old5Right=   {FType::old,{{VType::cubePnt,5}},5};
-        corrFace old4 =       {FType::old,{},4};
+        //Down Cell {12,13,14,15,16}
+        corrFace old0 =       {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cubePnt,1},{VType::cubePnt,5},{VType::cutEdge,4}},0};
+        corrFace old1 =       {FType::old,{{VType::cutEdge,1},{VType::cubePnt,1},{VType::cubePnt,5},{VType::cutEdge,5}},1};
+        corrFace old5Right=   {FType::old,{{VType::cutEdge,5},{VType::cubePnt,5},{VType::cutEdge,4}},5};
+        corrFace old4 =       {FType::old,{{VType::cutEdge,3},{VType::cubePnt,0},{VType::cubePnt,1},{VType::cutEdge,1}},4};
         corrFace split3Right= {FType::splitOld,{{VType::cubePnt,0},{VType::cutEdge,3},{VType::cutEdge,8}},3};
         
         corrConcaveCellData redMarkSide = {{{0,1,2,3,8,9,10,11},
-                                            {4,5,6,7,8,15,16,17,18,19}}, 
+                                            {4,5,6,7,8,12,13,14,15,16}}, 
                     {mc33Tri3B,mc33TriB6,mc33Tri67,mc33Tri78,mc33Tri84,mc33Tri45,mc33Tri51,mc33Tri13,
                      addedRedMark38,
                      old2,old5Left,split3Left,old0,old1,old5Right,old4,split3Right
@@ -1330,18 +1410,18 @@ void createConvexCorrectionData()
     // RedMarkNotPlus
         corrFace addedNonRedMark65={FType::added,{{VType::cutEdge,6},{VType::cutEdge,5},{VType::centerPnt,-1}},-1};//8
         //Back Cell {9,10,11,12,13}
-        old1 =                {FType::old,{},1};
-        old2 =                {FType::old,{},2};
-        old4 =                {FType::old,{},4};
-        corrFace old3Back =   {FType::splitOld,{{VType::cubePnt,3}},3};
+        old1 =                {FType::old,{{VType::cutEdge,1},{VType::cubePnt,2},{VType::cubePnt,6},{VType::cutEdge,5}},1};
+        old2 =                {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cubePnt,2},{VType::cubePnt,6},{VType::cutEdge,6}},2};
+        old4 =                {FType::old,{{VType::cutEdge,3},{VType::cubePnt,3},{VType::cubePnt,2},{VType::cutEdge,1}},4};
+        corrFace old3Back =   {FType::splitOld,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,3}},3};
         corrFace split5Top =  {FType::splitOld,{{VType::cutEdge,6},{VType::cutEdge,5},{VType::cubePnt,6}},5};
-        //Back Cell {15,16,17}
-        old0 =                {FType::old,{},0};
-        corrFace old3Front  = {FType::old,{{VType::cubePnt,4}},3};
+        //Back Cell {14,15,16}
+        old0 =                {FType::old,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,4}},0};
+        corrFace old3Front  = {FType::old,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,7}},3};
         corrFace split5Bottom={FType::splitOld,{{VType::cubePnt,4},{VType::cutEdge,7},{VType::cutEdge,6},{VType::cutEdge,5},{VType::cutEdge,4}},5};
         
         corrConcaveCellData nonRedMarkSide = {{{0,1,6,7,8,9,10,11,12,13},
-                                               {2,3,4,5,8,15,16,17}}, 
+                                               {2,3,4,5,8,14,15,16}}, 
                     {mc33Tri3B,mc33TriB6,mc33Tri67,mc33Tri78,mc33Tri84,mc33Tri45,mc33Tri51,mc33Tri13,
                      addedNonRedMark65,
                      old1,old2,old4,old3Back,split5Top,old0,old3Front,split5Bottom
@@ -1352,26 +1432,26 @@ void createConvexCorrectionData()
 }
 // Case c122_1742
 {
-    corrFace mc33Tri65  =   {FType::mc33Triangle,{{VType::cutEdge,4}, {VType::cutEdge,9}, {VType::centerPnt,-1}},-2};
-    corrFace mc33Tri51  =   {FType::mc33Triangle,{{VType::cutEdge,9}, {VType::cutEdge,10},{VType::centerPnt,-1}},-2};
-    corrFace mc33Tri13  =   {FType::mc33Triangle,{{VType::cutEdge,10},{VType::cutEdge,2}, {VType::centerPnt,-1}},-2};
-    corrFace mc33Tri38  =   {FType::mc33Triangle,{{VType::cutEdge,2}, {VType::cutEdge,0}, {VType::centerPnt,-1}},-2};
-    corrFace mc33Tri84  =   {FType::mc33Triangle,{{VType::cutEdge,0}, {VType::cutEdge,8}, {VType::centerPnt,-1}},-2};//4
-    corrFace mc33Tri47  =   {FType::mc33Triangle,{{VType::cutEdge,8}, {VType::cutEdge,11},{VType::centerPnt,-1}},-2};
-    corrFace mc33Tri7B  =   {FType::mc33Triangle,{{VType::cutEdge,11},{VType::cutEdge,6}, {VType::centerPnt,-1}},-2};
-    corrFace mc33TriB6  =   {FType::mc33Triangle,{{VType::cutEdge,6}, {VType::cutEdge,4}, {VType::centerPnt,-1}},-2};
+    corrFace mc33Tri65  =   {FType::mc33Triangle,{{VType::cutEdge,6}, {VType::cutEdge,5}, {VType::centerPnt,-1}},-2};
+    corrFace mc33Tri51  =   {FType::mc33Triangle,{{VType::cutEdge,5}, {VType::cutEdge,1},{VType::centerPnt,-1}},-2};
+    corrFace mc33Tri13  =   {FType::mc33Triangle,{{VType::cutEdge,1},{VType::cutEdge,3}, {VType::centerPnt,-1}},-2};
+    corrFace mc33Tri38  =   {FType::mc33Triangle,{{VType::cutEdge,3}, {VType::cutEdge,8}, {VType::centerPnt,-1}},-2};
+    corrFace mc33Tri84  =   {FType::mc33Triangle,{{VType::cutEdge,8}, {VType::cutEdge,4}, {VType::centerPnt,-1}},-2};//4
+    corrFace mc33Tri47  =   {FType::mc33Triangle,{{VType::cutEdge,4}, {VType::cutEdge,7},{VType::centerPnt,-1}},-2};
+    corrFace mc33Tri7B  =   {FType::mc33Triangle,{{VType::cutEdge,7},{VType::cutEdge,11}, {VType::centerPnt,-1}},-2};
+    corrFace mc33TriB6  =   {FType::mc33Triangle,{{VType::cutEdge,11}, {VType::cutEdge,6}, {VType::centerPnt,-1}},-2};
 
     // RedMarkPlus
         corrFace addedRedMark45={FType::added,{{VType::cutEdge,4},{VType::cutEdge,5},{VType::centerPnt,-1}},-1};//8
         //Front Cell {9,10,11}
-        corrFace old2    =    {FType::old,{},2};
-        corrFace old3Front=   {FType::old,{{VType::cubePnt,7}},3};
+        corrFace old2    =    {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cutEdge,6}},2};
+        corrFace old3Front=   {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cutEdge,7}},3};
         corrFace split5Left = {FType::splitOld,{{VType::cubePnt,7},{VType::cutEdge,7},{VType::cutEdge,4},{VType::cutEdge,5},{VType::cutEdge,6}},5};
         //Right Cell {12,13,14,15,16}
-        corrFace old0 =       {FType::old,{},0};
-        corrFace old1 =       {FType::old,{},1};
-        corrFace old3Back =   {FType::old,{{VType::cubePnt,0}},3};
-        corrFace old4 =       {FType::old,{},4};
+        corrFace old0 =       {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cubePnt,1},{VType::cubePnt,5},{VType::cutEdge,4}},0};
+        corrFace old1 =       {FType::old,{{VType::cutEdge,1},{VType::cubePnt,1},{VType::cubePnt,5},{VType::cutEdge,5}},1};
+        corrFace old3Back =   {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,3}},3};
+        corrFace old4 =       {FType::old,{{VType::cutEdge,3},{VType::cubePnt,0},{VType::cubePnt,1},{VType::cutEdge,1}},4};
         corrFace split5Right= {FType::splitOld,{{VType::cubePnt,5},{VType::cutEdge,5},{VType::cutEdge,4}},5};
         
         corrConcaveCellData redMarkSide = {{{5,6,7,0,8,9,10,11},
@@ -1384,18 +1464,18 @@ void createConvexCorrectionData()
     // RedMarkNotPlus
         corrFace addedNonRedMark3B={FType::added,{{VType::cutEdge,3},{VType::cutEdge,11},{VType::centerPnt,-1}},-1};//8
         //Top Cell {9,10,11,12,13}
-        old1 =                {FType::old,{},1};
-        old2 =                {FType::old,{},2};
-        old4 =                {FType::old,{},4};
-        corrFace old5Top  =   {FType::splitOld,{{VType::cubePnt,6}},5};
+        old1 =                {FType::old,{{VType::cutEdge,1},{VType::cubePnt,2},{VType::cubePnt,6},{VType::cutEdge,5}},1};
+        old2 =                {FType::old,{{VType::cutEdge,6},{VType::cubePnt,6},{VType::cubePnt,2},{VType::cubePnt,3},{VType::cutEdge,11}},2};
+        old4 =                {FType::old,{{VType::cutEdge,3},{VType::cubePnt,3},{VType::cubePnt,2},{VType::cutEdge,1}},4};
+        corrFace old5Top  =   {FType::splitOld,{{VType::cutEdge,6},{VType::cubePnt,6},{VType::cutEdge,5}},5};
         corrFace split3Top =  {FType::splitOld,{{VType::cubePnt,3},{VType::cutEdge,3},{VType::cutEdge,11}},3};
-        //Left Cell {15,16,17}
-        old0 =                {FType::old,{},0};
-        corrFace old5Bottom = {FType::old,{{VType::cubePnt,4}},5};
+        //Left Cell {14,15,16}
+        old0 =                {FType::old,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,4}},0};
+        corrFace old5Bottom = {FType::old,{{VType::cutEdge,7},{VType::cubePnt,4},{VType::cutEdge,4}},5};
         corrFace split3Bottom={FType::splitOld,{{VType::cubePnt,4},{VType::cutEdge,7},{VType::cutEdge,11},{VType::cutEdge,3},{VType::cutEdge,8}},3};
         
         corrConcaveCellData nonRedMarkSide = {{{7,0,1,2,8,9,10,11,12,13},
-                                               {3,4,5,6,8,15,16,17}}, 
+                                               {3,4,5,6,8,14,15,16}}, 
                     {mc33Tri65,mc33Tri51,mc33Tri13,mc33Tri38,mc33Tri84,mc33Tri47,mc33Tri7B,mc33TriB6,
                      addedNonRedMark3B,
                      old1,old2,old4,old5Top,split3Top,old0,old5Bottom,split3Bottom
@@ -1421,15 +1501,15 @@ void createConvexCorrectionData()
     // RedMarkNotPlus
         corrFace addedNonRedMark={FType::added,{{VType::cutEdge,7},{VType::cubePnt,4},{VType::cubePnt,1},{VType::cutEdge,1}},-1};
         //Front Cell {7,8,9,10}
-        corrFace old1 =       {FType::old,{},1};
-        corrFace old5 =       {FType::old,{},5};
+        corrFace old1 =       {FType::old,{{VType::cutEdge,5},{VType::cutEdge,9},{VType::cubePnt,1},{VType::cutEdge,1},{VType::cutEdge,10},{VType::cubePnt,6}},1};
+        corrFace old5 =       {FType::old,{{VType::cutEdge,4},{VType::cutEdge,5},{VType::cubePnt,6},{VType::cutEdge,6},{VType::cutEdge,7},{VType::cubePnt,4}},5};
         corrFace split0Front= {FType::splitOld,{{VType::cutEdge,4},{VType::cutEdge,9},{VType::cubePnt,1},{VType::cubePnt,4}},0};
-        corrFace old2Front =  {FType::old,{{VType::cubePnt,6}},2};
+        corrFace old2Front =  {FType::old,{{VType::cutEdge,6},{VType::cubePnt,6},{VType::cutEdge,10}},2};
         //Back Cell {11,12,13,14}
-        corrFace old3 =       {FType::old,{},3};
-        corrFace old4 =       {FType::old,{},4};
+        corrFace old3 =       {FType::old,{{VType::cutEdge,7},{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,3},{VType::cutEdge,8},{VType::cubePnt,4}},3};
+        corrFace old4 =       {FType::old,{{VType::cutEdge,1},{VType::cutEdge,2},{VType::cubePnt,3},{VType::cutEdge,3},{VType::cutEdge,0},{VType::cubePnt,1}},4};
         corrFace split0Back = {FType::splitOld,{{VType::cubePnt,4},{VType::cubePnt,1},{VType::cutEdge,0},{VType::cutEdge,8}},0};
-        corrFace old2Back  =  {FType::old,{{VType::cubePnt,3}},2};
+        corrFace old2Back  =  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,2}},2};
         
         corrConcaveCellData nonRedMarkSide = {{{2,3,4,6,7,8,9,10},
                                                {0,1,5,6,11,12,13,14}},
@@ -1452,15 +1532,15 @@ void createConvexCorrectionData()
     // RedMarkPlus
         corrFace addedRedMark={FType::added,{{VType::cutEdge,5},{VType::cubePnt,5},{VType::cubePnt,0},{VType::cutEdge,3}},-1};
         //Left Cell {7,8,9,10}
-        corrFace old3 =       {FType::old,{},3};
-        corrFace old5 =       {FType::old,{},5};
+        corrFace old3 =       {FType::old,{{VType::cutEdge,11},{VType::cutEdge,3},{VType::cubePnt,0},{VType::cutEdge,8},{VType::cutEdge,7},{VType::cubePnt,7}},3};
+        corrFace old5 =       {FType::old,{{VType::cutEdge,6},{VType::cutEdge,5},{VType::cubePnt,5},{VType::cutEdge,4},{VType::cutEdge,7},{VType::cubePnt,7}},5};
         corrFace split0Left = {FType::splitOld,{{VType::cutEdge,8},{VType::cutEdge,4},{VType::cubePnt,5},{VType::cubePnt,0}},0};
-        corrFace old2Left  =  {FType::old,{{VType::cubePnt,7}},2};
+        corrFace old2Left  =  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cutEdge,6}},2};
         //Back Cell {11,12,13,14}
-        corrFace old1 =       {FType::old,{},1};
-        corrFace old4 =       {FType::old,{},4};
+        corrFace old1 =       {FType::old,{{VType::cutEdge,5},{VType::cutEdge,10},{VType::cubePnt,2},{VType::cutEdge,1},{VType::cutEdge,9},{VType::cubePnt,5}},1};
+        corrFace old4 =       {FType::old,{{VType::cutEdge,3},{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,1},{VType::cutEdge,0},{VType::cubePnt,0}},4};
         corrFace split0Right= {FType::splitOld,{{VType::cubePnt,0},{VType::cubePnt,5},{VType::cutEdge,9},{VType::cutEdge,0}},0};
-        corrFace old2Right  = {FType::old,{{VType::cubePnt,2}},2};
+        corrFace old2Right  = {FType::old,{{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,10}},2};
         
         corrConcaveCellData redMarkSide = {{{2,3,4,6,7,8,9,10},
                                                {0,1,5,6,11,12,13,14}},
@@ -1490,16 +1570,16 @@ void createConvexCorrectionData()
         corrFace addedNonRedMarkB2={FType::added,{{VType::cutEdge,11},{VType::cutEdge,2},{VType::centerPnt,-1}},-1};//10
         corrFace addedNonRedMarkB3={FType::added,{{VType::cutEdge,11},{VType::cutEdge,3},{VType::centerPnt,-1}},-1};
         //Left Center Cell {12,13,14}
-        corrFace old5Left  =  {FType::old,{{VType::cubePnt,4}},5};
-        corrFace old0Left =   {FType::old,{{VType::cubePnt,4}},0};
+        corrFace old5Left  =  {FType::old,{{VType::cutEdge,7},{VType::cubePnt,4},{VType::cutEdge,4}},5};
+        corrFace old0Left =   {FType::old,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,4}},0};
         corrFace split3Front= {FType::splitOld,{{VType::cubePnt,4},{VType::cutEdge,7},{VType::cutEdge,11},{VType::cutEdge,3},{VType::cutEdge,8}},3};
         //Middle Upper Cell {15,16,17}
-        corrFace old4Up =     {FType::old,{{VType::cubePnt,3}},4};        
+        corrFace old4Up =     {FType::old,{{VType::cutEdge,2},{VType::cubePnt,3},{VType::cutEdge,3}},4};        
         corrFace split2Back = {FType::splitOld,{{VType::cubePnt,3},{VType::cutEdge,11},{VType::cutEdge,2}},2};
         corrFace split3Back = {FType::splitOld,{{VType::cubePnt,3},{VType::cutEdge,3},{VType::cutEdge,11}},3};
         //Right Upper Cell {18,19,20}
-        corrFace old5Right  = {FType::old,{{VType::cubePnt,6}},5};
-        corrFace old1Up   =   {FType::old,{{VType::cubePnt,6}},1};
+        corrFace old5Right  = {FType::old,{{VType::cutEdge,6},{VType::cubePnt,6},{VType::cutEdge,5}},5};
+        corrFace old1Up   =   {FType::old,{{VType::cutEdge,5},{VType::cubePnt,6},{VType::cutEdge,10}},1};
         corrFace split2Front= {FType::splitOld,{{VType::cutEdge,11},{VType::cutEdge,2},{VType::cutEdge,10},{VType::cubePnt,6},{VType::cutEdge,6}},2};
         
         corrConcaveCellData redMarkSide = {{{4,5,6,7,11,12,13,14},
@@ -1513,15 +1593,15 @@ void createConvexCorrectionData()
     // RedMarkNotPlus
         corrFace addedNonRedMark45={FType::added,{{VType::cutEdge,4},{VType::cutEdge,5},{VType::centerPnt,-1}},-1};//10
         //Front Cell {11,12,13}
-        corrFace old3Front =  {FType::old,{{VType::cubePnt,7}},3};
-        corrFace old2Front =  {FType::old,{{VType::cubePnt,7}},2};
+        corrFace old3Front =  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cutEdge,7}},3};
+        corrFace old2Front =  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cutEdge,6}},2};
         corrFace split5Left=  {FType::splitOld,{{VType::cubePnt,7},{VType::cutEdge,6},{VType::cutEdge,5},{VType::cutEdge,4},{VType::cutEdge,7}},5};
         //Back Cell {14,15,16,17,18,19}
-        corrFace old3Back  =  {FType::old,{{VType::cubePnt,0}},3};
-        corrFace old2Back  =  {FType::old,{{VType::cubePnt,2}},2};
-        corrFace old4 =       {FType::old,{{VType::cubePnt,0},{VType::cubePnt,2},{VType::cutEdge,3},{VType::cutEdge,2}},4};
-        corrFace old1 =       {FType::old,{{VType::cubePnt,2},{VType::cubePnt,5},{VType::cutEdge,5},{VType::cutEdge,10}},1};
-        corrFace old0 =       {FType::old,{{VType::cubePnt,0},{VType::cubePnt,5},{VType::cutEdge,4},{VType::cutEdge,8}},0};
+        corrFace old3Back  =  {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,3}},3};
+        corrFace old2Back  =  {FType::old,{{VType::cutEdge,10},{VType::cubePnt,2},{VType::cutEdge,2}},2};
+        corrFace old4 =       {FType::old,{{VType::cutEdge,0},{VType::cubePnt,0},{VType::cutEdge,3},{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,1}},4};
+        corrFace old1 =       {FType::old,{{VType::cubePnt,2},{VType::cutEdge,10},{VType::cutEdge,5},{VType::cubePnt,5},{VType::cutEdge,9},{VType::cutEdge,1}},1};
+        corrFace old0 =       {FType::old,{{VType::cutEdge,0},{VType::cubePnt,0},{VType::cutEdge,8},{VType::cutEdge,4},{VType::cubePnt,5},{VType::cutEdge,9}},0};
         corrFace split5Right= {FType::splitOld,{{VType::cutEdge,4},{VType::cubePnt,5},{VType::cutEdge,5}},5};
         
         corrConcaveCellData nonRedMarkSide = {{{6,7,8,0,10,11,12,13},
@@ -1551,19 +1631,19 @@ void createConvexCorrectionData()
     // RedMarkPlus
         corrFace addedNonRedMark01={FType::added,{{VType::cutEdge,1},{VType::cutEdge,0},{VType::centerPnt,-1}},-1};//10
         //Back Cell {11,12,13}
-        corrFace old3Back  =  {FType::old,{{VType::cubePnt,3}},3};
-        corrFace old2Back  =  {FType::old,{{VType::cubePnt,3}},2};
+        corrFace old3Back  =  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,3}},3};
+        corrFace old2Back  =  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,2}},2};
         corrFace split4Left=  {FType::splitOld,{{VType::cubePnt,3},{VType::cutEdge,3},{VType::cutEdge,0},{VType::cutEdge,1},{VType::cutEdge,2}},4};
         //Back Cell {14,15,16,17,18,19}
-        corrFace old3Front =  {FType::old,{{VType::cubePnt,4}},3};
-        corrFace old2Front  = {FType::old,{{VType::cubePnt,6}},2};
-        corrFace old5 =       {FType::old,{{VType::cubePnt,4},{VType::cubePnt,6},{VType::cutEdge,7},{VType::cutEdge,6}},5};
-        corrFace old1 =       {FType::old,{{VType::cubePnt,6},{VType::cubePnt,1},{VType::cutEdge,10},{VType::cutEdge,1}},1};
-        corrFace old0 =       {FType::old,{{VType::cubePnt,4},{VType::cubePnt,1},{VType::cutEdge,8},{VType::cutEdge,0}},0};
+        corrFace old3Front =  {FType::old,{{VType::cutEdge,7},{VType::cubePnt,4},{VType::cutEdge,8}},3};
+        corrFace old2Front  = {FType::old,{{VType::cutEdge,6},{VType::cubePnt,6},{VType::cutEdge,10}},2};
+        corrFace old5 =       {FType::old,{{VType::cubePnt,6},{VType::cutEdge,6},{VType::cutEdge,7},{VType::cubePnt,4},{VType::cutEdge,4},{VType::cutEdge,5}},5};
+        corrFace old1 =       {FType::old,{{VType::cubePnt,6},{VType::cutEdge,10},{VType::cutEdge,1},{VType::cubePnt,1},{VType::cutEdge,9},{VType::cutEdge,5}},1};
+        corrFace old0 =       {FType::old,{{VType::cutEdge,4},{VType::cutEdge,9},{VType::cubePnt,1},{VType::cutEdge,0},{VType::cutEdge,8},{VType::cubePnt,4}},0};
         corrFace split4Right= {FType::splitOld,{{VType::cutEdge,0},{VType::cubePnt,1},{VType::cutEdge,1}},4};
         
-        corrConcaveCellData nonRedMarkSide = {{{5,6,7,8,10,11,12,13},
-                                               {0,1,2,3,4,9,10,14,15,16,17,18,19}},
+        corrConcaveCellData redMarkSide = {{{5,6,7,8,10,11,12,13},
+                                            {0,1,2,3,4,9,10,14,15,16,17,18,19}},
                     {mc33Tri1A,mc33TriA6,mc33Tri67,mc33Tri78,mc33Tri80,mc33Tri03,mc33Tri3B,mc33TriB2,mc33Tri21,mc33Tri459,
                     addedNonRedMark01,
                     old3Back,old2Back,split4Left,old3Front,old2Front,old5,old1,old0,split4Right
@@ -1573,19 +1653,19 @@ void createConvexCorrectionData()
         corrFace addedNonRedMarkB6={FType::added,{{VType::cutEdge,11},{VType::cutEdge,6},{VType::centerPnt,-1}},-1};//10
         corrFace addedNonRedMarkB7={FType::added,{{VType::cutEdge,11},{VType::cutEdge,7},{VType::centerPnt,-1}},-1};
         //Right Cell {12,13,14}
-        corrFace old4Top  =   {FType::old,{{VType::cubePnt,2}},4};
-        old1     =   {FType::old,{{VType::cubePnt,2}},1};
+        corrFace old4Top  =   {FType::old,{{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,1}},4};
+        old1     =   {FType::old,{{VType::cutEdge,10},{VType::cubePnt,2},{VType::cutEdge,1}},1};
         corrFace split2Right= {FType::splitOld,{{VType::cubePnt,2},{VType::cutEdge,2},{VType::cutEdge,11},{VType::cutEdge,6},{VType::cutEdge,10}},2};
         //Left Upper Cell {15,16,17}
-        corrFace old5Up =     {FType::old,{{VType::cubePnt,7}},5};        
+        corrFace old5Up =     {FType::old,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cutEdge,6}},5};        
         corrFace split2Left = {FType::splitOld,{{VType::cubePnt,7},{VType::cutEdge,6},{VType::cutEdge,11}},2};
         corrFace split3Top  = {FType::splitOld,{{VType::cubePnt,7},{VType::cutEdge,11},{VType::cutEdge,7}},3};
         //Left Lower Cell {18,19,20}
-        corrFace old4Lower  = {FType::old,{{VType::cubePnt,0}},4};
-        corrFace old0Back   = {FType::old,{{VType::cubePnt,0}},0};
+        corrFace old4Lower  = {FType::old,{{VType::cutEdge,3},{VType::cubePnt,0},{VType::cutEdge,0}},4};
+        corrFace old0Back   = {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,0}},0};
         corrFace split3Lower= {FType::splitOld,{{VType::cutEdge,11},{VType::cutEdge,3},{VType::cubePnt,0},{VType::cutEdge,8},{VType::cutEdge,7}},3};
         
-        corrConcaveCellData redMarkSide = {{{0,1,7,8,10,12,13,14},
+        corrConcaveCellData nonRedMarkSide = {{{0,1,7,8,10,12,13,14},
                                             {2,10,11,15,16,17},                 
                                             {3,4,5,6,11,18,19,20}}, 
                     {mc33Tri1A,mc33TriA6,mc33Tri67,mc33Tri78,mc33Tri80,mc33Tri03,mc33Tri3B,mc33TriB2,mc33Tri21,mc33Tri459,
@@ -1616,17 +1696,17 @@ void createConvexCorrectionData()
         corrFace addedNonRedMark33={FType::added,{{VType::cutEdge,3}, {VType::cubePnt,3},{VType::centerPnt,-1}},-1};
         corrFace addedNonRedMarkB3={FType::added,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::centerPnt,-1}},-1};
         //Left Center Cell {15,16,17}
-        corrFace old5Left  =  {FType::old,{{VType::cubePnt,4}},5};
-        corrFace old0Left =   {FType::old,{{VType::cubePnt,4}},0};
-        corrFace old3 =       {FType::old,{},5};
+        corrFace old5Left  =  {FType::old,{{VType::cutEdge,7},{VType::cubePnt,4},{VType::cutEdge,4}},5};
+        corrFace old0Left =   {FType::old,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,4}},0};
+        corrFace old3 =       {FType::old,{{VType::cutEdge,7},{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,3},{VType::cutEdge,8},{VType::cubePnt,4}},3};
         //Middle Lower Cell {18,19,20}
-        corrFace old2 =       {FType::old,{},2};
-        corrFace old5Right =  {FType::old,{{VType::cubePnt,6}},5};
-        corrFace old1Front =  {FType::old,{{VType::cubePnt,6}},1};
+        corrFace old2 =       {FType::old,{{VType::cutEdge,11},{VType::cutEdge,6},{VType::cubePnt,6},{VType::cutEdge,10},{VType::cutEdge,2},{VType::cubePnt,3}},2};
+        corrFace old5Right =  {FType::old,{{VType::cutEdge,6},{VType::cubePnt,6},{VType::cutEdge,5}},5};
+        corrFace old1Front =  {FType::old,{{VType::cutEdge,10},{VType::cubePnt,6},{VType::cutEdge,5}},1};
         //Back Center Cell {21,22,23}
-        corrFace old4 =       {FType::old,{},4};
-        corrFace old0Right  = {FType::old,{{VType::cubePnt,1}},0};
-        corrFace old1Back  =  {FType::old,{{VType::cubePnt,1}},1};
+        corrFace old4 =       {FType::old,{{VType::cutEdge,2},{VType::cutEdge,1},{VType::cubePnt,1},{VType::cutEdge,0},{VType::cutEdge,3},{VType::cubePnt,3}},4};
+        corrFace old0Right  = {FType::old,{{VType::cutEdge,9},{VType::cubePnt,1},{VType::cutEdge,0}},0};
+        corrFace old1Back  =  {FType::old,{{VType::cutEdge,9},{VType::cubePnt,1},{VType::cutEdge,1}},1};
         
         corrConcaveCellData redMarkSide = {{{7,8,9,10,14,13,15,16,17},
                                             {11,0,1,2,12,14,18,19,20},                 
@@ -1641,19 +1721,20 @@ void createConvexCorrectionData()
         corrFace addedNonRedMark45={FType::added,{{VType::cutEdge,4},{VType::cubePnt,5},{VType::centerPnt,-1}},-1};
         corrFace addedNonRedMark95={FType::added,{{VType::cutEdge,9},{VType::cubePnt,5},{VType::centerPnt,-1}},-1};
         //Front Center Cell {15,16,17}
-        corrFace old3Front =  {FType::old,{{VType::cubePnt,7}},3};
-        corrFace old2Front =  {FType::old,{{VType::cubePnt,7}},2};
-        corrFace old5 =       {FType::old,{},5};
+        corrFace old3Front =  {FType::old,{{VType::cutEdge,7},{VType::cubePnt,7},{VType::cutEdge,11}},3};
+        corrFace old2Front =  {FType::old,{{VType::cutEdge,6},{VType::cubePnt,7},{VType::cutEdge,11}},2};
+        corrFace old5 =       {FType::old,{{VType::cutEdge,6},{VType::cutEdge,5},{VType::cubePnt,5},{VType::cutEdge,4},{VType::cutEdge,7},{VType::cubePnt,7}},5};
         //Middle Lower Cell {18,19,20}
-        corrFace old0 =       {FType::old,{},0};
-        corrFace old3Back  =  {FType::old,{{VType::cubePnt,0}},3};
-        corrFace old4Left  =  {FType::old,{{VType::cubePnt,0}},4};
+        corrFace old0 =       {FType::old,{{VType::cutEdge,8},{VType::cutEdge,4},{VType::cubePnt,5},{VType::cutEdge,9},{VType::cutEdge,0},{VType::cubePnt,0}},0};
+        corrFace old3Back  =  {FType::old,{{VType::cutEdge,8},{VType::cubePnt,0},{VType::cutEdge,3}},3};
+        corrFace old4Left  =  {FType::old,{{VType::cutEdge,0},{VType::cubePnt,0},{VType::cutEdge,3}},4};
         //Right Center Cell {21,22,23}
-        corrFace old1 =       {FType::old,{},1};
-        corrFace old2Back  =  {FType::old,{{VType::cubePnt,2}},2};
-        corrFace old4Right =  {FType::old,{{VType::cubePnt,2}},4};
+        corrFace old1 =       {FType::old,{{VType::cutEdge,5},{VType::cutEdge,10},{VType::cubePnt,2},{VType::cutEdge,1},{VType::cutEdge,9},{VType::cubePnt,5}},1};
+        corrFace old2Back  =  {FType::old,{{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,10}},2};
+        corrFace old4Right =  {FType::old,{{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,1}},4};
         
-        corrConcaveCellData nonRedMarkSide = {{{9,10,11,0,12,13,15,16,17},{5,6,7,8,13,14,18,19,20},                 
+        corrConcaveCellData nonRedMarkSide = {{{9,10,11,0,12,13,15,16,17},
+                                               {5,6,7,8,13,14,18,19,20},                 
                                                {1,2,3,4,12,14,21,22,23}}, 
                     {mc33Tri65,mc33Tri5A,mc33TriA2,mc33Tri21,mc33Tri19,mc33Tri90,mc33Tri03,mc33Tri38,mc33Tri84,mc33Tri47,mc33Tri7B,mc33TriB6,
                     addedNonRedMark55,addedNonRedMark45,addedNonRedMark95,
@@ -1677,18 +1758,18 @@ void createConvexCorrectionData()
     corrFace mc33Tri28B = {FType::mc33Triangle,{{VType::cutEdge,2},{VType::cutEdge,8},{VType::cutEdge,11}},-2};
 
     // RedMarkPlus
-        corrFace addedRedMark85={FType::added,{{VType::cutEdge,8},{VType::cubePnt,5},{VType::cubePnt,5}},-1};//4
+        corrFace addedRedMark85={FType::added,{{VType::cutEdge,8},{VType::cutEdge,5},{VType::cubePnt,5}},-1};//4
         corrFace addedRedMark82={FType::added,{{VType::cutEdge,8},{VType::cutEdge,2},{VType::cubePnt,0}},-1};
         //Front Cell {6,7}
-        corrFace old5 =       {FType::old,{},5};
+        corrFace old5 =       {FType::old,{{VType::cutEdge,4},{VType::cubePnt,5},{VType::cutEdge,5}},5};
         corrFace split0Front ={FType::splitOld,{{VType::cutEdge,8},{VType::cubePnt,5},{VType::cutEdge,4}},0};
         //Back Cell {8,9,10}
-        corrFace old1 =       {FType::old,{},1};
+        corrFace old1 =       {FType::old,{{VType::cubePnt,5},{VType::cutEdge,5},{VType::cutEdge,1},{VType::cubePnt,1}},1};
         corrFace split0Back = {FType::splitOld,{{VType::cutEdge,8},{VType::cubePnt,5},{VType::cubePnt,1},{VType::cubePnt,0}},0};
         corrFace split4Right= {FType::splitOld,{{VType::cutEdge,2},{VType::cutEdge,1},{VType::cubePnt,1},{VType::cubePnt,0}},4};
         //Back Left Cell {11,12,13}
-        corrFace old2 =       {FType::old,{},2};
-        corrFace old3 =       {FType::old,{},3};
+        corrFace old2 =       {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cutEdge,2}},2};
+        corrFace old3 =       {FType::old,{{VType::cutEdge,11},{VType::cubePnt,3},{VType::cubePnt,0},{VType::cutEdge,8}},3};
         corrFace split4Left = {FType::splitOld,{{VType::cutEdge,2},{VType::cubePnt,0},{VType::cubePnt,3}},4};
         
         corrConcaveCellData redMarkSide = {{{0,4,6,7},
@@ -1702,20 +1783,20 @@ void createConvexCorrectionData()
         corrFace addedNonRedMark85={FType::added,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,5},},-1};//4
         corrFace addedNonRedMark52={FType::added,{{VType::cutEdge,5},{VType::cubePnt,6},{VType::cutEdge,2},},-1};
         //Down Cell {6,7}
-        corrFace old0 =                  {FType::old,{},0};
-        corrFace split5Down =   {FType::splitOld,{{VType::cutEdge,5},{VType::cubePnt,5},{VType::cubePnt,4}},5};
+        corrFace old0 =         {FType::old,{{VType::cutEdge,8},{VType::cubePnt,4},{VType::cutEdge,4}},0};
+        corrFace split5Down =   {FType::splitOld,{{VType::cutEdge,5},{VType::cutEdge,4},{VType::cubePnt,4}},5};
         //Center Cell {8,9,10}
-        old3 =                  {FType::old,{},3};
+        old3 =                  {FType::old,{{VType::cutEdge,11},{VType::cubePnt,7},{VType::cubePnt,4},{VType::cutEdge,8}},3};
         corrFace split5Up    =  {FType::splitOld,{{VType::cutEdge,5},{VType::cubePnt,6},{VType::cubePnt,7},{VType::cubePnt,4}},5};
         corrFace split2Left  =  {FType::splitOld,{{VType::cutEdge,2},{VType::cutEdge,11},{VType::cubePnt,7},{VType::cubePnt,6}},2};
         //Right Cell {11,12,13}
-        old1 =                  {FType::old,{},1};
-        corrFace old4 =         {FType::old,{},4};
+        old1 =                  {FType::old,{{VType::cubePnt,6},{VType::cutEdge,5},{VType::cutEdge,1},{VType::cubePnt,2}},1};
+        corrFace old4 =         {FType::old,{{VType::cutEdge,2},{VType::cubePnt,2},{VType::cutEdge,1}},4};
         corrFace split2Right=   {FType::splitOld,{{VType::cutEdge,2},{VType::cubePnt,6},{VType::cubePnt,2}},2};
         
         corrConcaveCellData nonRedMarkSide = {{{0,4,6,7},
-                                               {1,3,4,5,8,9,10},
-                                               {2,5,11,12,13}},
+                                               {2,3,4,5,8,9,10},
+                                               {1,5,11,12,13}},
                                     {mc33Tri458,mc33Tri125,mc33Tri258,mc33Tri28B,
                                      addedNonRedMark85,addedNonRedMark52,
                                      old0,split5Down,old3,split5Up,split2Left,old1,old4,split2Right}};    

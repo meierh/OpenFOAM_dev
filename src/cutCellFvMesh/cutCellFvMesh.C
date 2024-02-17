@@ -5166,7 +5166,14 @@ void Foam::cutCellFvMesh::mc33CubeFaceHintToNewFaceInd
             matchingFaceInd.append(faceInd);
     }
     if(matchingFaceInd.size()==0)
+    {
+        for(label faceInd : thisCell)
+        {
+            Info<<faceInd<<"  "<<faces[faceInd]<<Foam::endl;
+        }
+        Info<<"globalFaceVertices:"<<globalFaceVertices<<Foam::endl;
         FatalErrorInFunction<<"No matching face found!"<< exit(FatalError);
+    }
     else if(matchingFaceInd.size()>1)
         FatalErrorInFunction<<"Multiple matching faces found!"<< exit(FatalError);
     
