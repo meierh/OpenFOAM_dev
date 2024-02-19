@@ -433,6 +433,89 @@ std::array<std::int8_t,6> Foam::cutCellFvMesh::MC33::computeFacePattern()
 	return pattern;
 }
 
+bool equalTriangles
+(
+	const std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& mc33TriA,
+	const std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& mc33TriB
+)
+{
+	std::unordered_set<std::uint8_t> mc33TriASet = {std::get<0>(mc33TriA),std::get<1>(mc33TriA),std::get<2>(mc33TriA)};
+	bool equal = mc33TriASet.find(std::get<0>(mc33TriB))!=mc33TriASet.end() &&
+				 mc33TriASet.find(std::get<1>(mc33TriB))!=mc33TriASet.end() &&
+				 mc33TriASet.find(std::get<2>(mc33TriB))!=mc33TriASet.end();
+	return equal;
+};
+
+using Triangle = std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>;
+struct TriangleHasher
+{
+	std::size_t operator()(const Triangle& tri) const
+	{
+		return 	std::hash<std::uint8_t>()(std::get<0>(tri)) ^ 
+				std::hash<std::uint8_t>()(std::get<1>(tri)) ^
+				std::hash<std::uint8_t>()(std::get<2>(tri));
+	}
+};
+struct TriangleEqual
+{
+	std::size_t operator()(const Triangle& triA, const Triangle& triB) const
+	{
+		return 	equalTriangles(triA,triB);
+	}
+};
+
+void Foam::cutCellFvMesh::getCubeCaseMC33Triangles
+(
+	MC33::Case cubeCase,
+    bool redMarkPlus,
+    DynamicList<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>>& mc33Triangles
+)
+{
+	const markSide& thisCaseCorrData = convexCorrectionData[cubeCase];
+
+	std::unordered_set<Triangle,TriangleHasher,TriangleEqual> mc33TrianglesSet;
+	for(const corrFace& oneCorrFace : thisCaseCorrData.redMarkPlus.faces)
+	{
+		Info<<"Iterate red :"<<oneCorrFace.to_string();
+		if(oneCorrFace.type==FType::mc33Triangle)
+		{
+			Triangle oneMc33Triangle;
+			if(oneCorrFace.faceData.size()!=3)
+				FatalErrorInFunction<<"MC33 must be sized 3!"<< exit(FatalError);
+			std::get<0>(oneMc33Triangle) = static_cast<std::uint8_t>(oneCorrFace.faceData[0].value);
+			std::get<1>(oneMc33Triangle) = static_cast<std::uint8_t>(oneCorrFace.faceData[1].value);
+			std::get<2>(oneMc33Triangle) = static_cast<std::uint8_t>(oneCorrFace.faceData[2].value);
+			if(mc33TrianglesSet.find(oneMc33Triangle)==mc33TrianglesSet.end())
+			{
+				mc33Triangles.append(oneMc33Triangle);
+				mc33TrianglesSet.insert(oneMc33Triangle);
+				Info<<" insert";
+			}
+		}
+		Info<<Foam::endl;
+	}
+	for(const corrFace& oneCorrFace : thisCaseCorrData.redMarkNotPlus.faces)
+	{
+		Info<<"Iterate non red :"<<oneCorrFace.to_string();
+		if(oneCorrFace.type==FType::mc33Triangle)
+		{
+			Triangle oneMc33Triangle;
+			if(oneCorrFace.faceData.size()!=3)
+				FatalErrorInFunction<<"MC33 must be sized 3!"<< exit(FatalError);
+			std::get<0>(oneMc33Triangle) = static_cast<std::uint8_t>(oneCorrFace.faceData[0].value);
+			std::get<1>(oneMc33Triangle) = static_cast<std::uint8_t>(oneCorrFace.faceData[1].value);
+			std::get<2>(oneMc33Triangle) = static_cast<std::uint8_t>(oneCorrFace.faceData[2].value);
+			if(mc33TrianglesSet.find(oneMc33Triangle)==mc33TrianglesSet.end())
+			{
+				mc33Triangles.append(oneMc33Triangle);
+				mc33TrianglesSet.insert(oneMc33Triangle);
+				Info<<" insert";
+			}
+		}
+		Info<<Foam::endl;
+	}
+}
+
 Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 (
 	int cellInd
@@ -440,6 +523,38 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 {
 	MC33Cube mc33Cube = generateMC33Cube(cellInd);
 	unsigned int bitPattern = computeSignBitPattern(mc33Cube);
+	auto compEdgePermFromPointPerm = [&](const std::array<unsigned short int,8>& pointPermutation)
+	{
+		std::array<std::uint8_t,12> edgePermutation;
+		for(unsigned int edgeInd=0; edgeInd<edgePermutation.size(); edgeInd++)
+		{
+			std::array<uint,2> edgePnts = edgeToPnts[edgeInd];
+			for(uint& pnt : edgePnts)
+			{
+				pnt = pointPermutation[pnt];
+			}
+			std::sort(edgePnts.begin(),edgePnts.end());
+			
+			uint num = 0;
+			for(uint decInd=0; decInd<edgePnts.size(); decInd++)
+			{
+				num *= 10;
+				num += edgePnts[decInd];
+			}
+			auto iter = pntsToEdge.find(num);
+			if(iter==pntsToEdge.end())
+			{				
+				FatalErrorInFunction<<"Error num:"<<num<< exit(FatalError);
+			}
+			edgePermutation[edgeInd] = iter->second;
+		}
+		std::bitset<12> refEdges;
+		for(std::uint8_t permEdg : edgePermutation)
+			refEdges[permEdg] = true;
+		if(!refEdges.all())
+			FatalErrorInFunction<<"Mismatch edge permutations"<< exit(FatalError);
+		return edgePermutation;
+	};
 	if(bitPattern!=0 && bitPattern!=255) 
 	{
 		mc33Cube.bitPattern = bitPattern;
@@ -835,6 +950,61 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 					Info<<"validPermutationsInvert.size():"<<validPermutationsInvert.size()<<Foam::endl;
 					FatalErrorInFunction<<"Error!"<< exit(FatalError);
 				}
+				
+				using Triangle = std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>;
+
+				DynamicList<Triangle> mc33TrianglesInCorrection;
+				mesh.getCubeCaseMC33Triangles
+				(
+					mc33Cube.cubeCase,
+					mc33Cube.redMarkIsPlusSide,
+					mc33TrianglesInCorrection
+				);
+				const std::vector<Triangle>& cutTriangles = mc33Cube.cutTriangles;
+				std::unordered_set<Triangle,TriangleHasher,TriangleEqual> cutTrianglesSet(cutTriangles.cbegin(),cutTriangles.cend());
+				
+				Info<<"cutTriangles:"<<Foam::endl;
+				for(Triangle tri : cutTriangles)
+				{
+					Info<<"   ("<<std::get<0>(tri)<<","<<std::get<1>(tri)<<","<<std::get<2>(tri)<<")"<<Foam::endl;
+				}
+				Info<<"mc33TrianglesInCorrection:"<<Foam::endl;
+				for(Triangle tri : mc33TrianglesInCorrection)
+				{
+					Info<<"   ("<<std::get<0>(tri)<<","<<std::get<1>(tri)<<","<<std::get<2>(tri)<<")"<<Foam::endl;
+				}
+				
+				
+				std::vector<std::uint8_t> validPermutationsMatchTri;
+				for(label onePermutation : validPermutations)
+				{
+					Info<<"onePermutation:"<<onePermutation<<Foam::endl;
+					std::array<unsigned short int,8> pointPerm = permutations[onePermutation];
+					std::array<std::uint8_t,12> edgePerm = compEdgePermFromPointPerm(pointPerm);
+					List<Triangle> mc33TrianglesInCorrPerm(mc33TrianglesInCorrection.size());
+					for(label triInd=0; triInd<mc33TrianglesInCorrection.size(); triInd++)
+					{
+						Triangle mc33Tri = mc33TrianglesInCorrection[triInd];
+						std::get<0>(mc33Tri) = edgePerm[std::get<0>(mc33Tri)];
+						std::get<1>(mc33Tri) = edgePerm[std::get<1>(mc33Tri)];
+						std::get<2>(mc33Tri) = edgePerm[std::get<2>(mc33Tri)];
+						mc33TrianglesInCorrPerm[triInd] = mc33Tri;
+					}
+					
+					bool allMatch = true;
+					for(const Triangle& corrMc33 : mc33TrianglesInCorrPerm)
+					{
+						if(cutTrianglesSet.find(corrMc33)==cutTrianglesSet.end())
+							allMatch = false;;
+					}
+					if(allMatch)
+					{
+						validPermutationsMatchTri.push_back(onePermutation);
+					}
+				}
+				if(validPermutationsMatchTri.size()<1)
+					FatalErrorInFunction<<"No matching permutation!"<< exit(FatalError);
+				validPermutations = validPermutationsMatchTri;
 				return validPermutations[0];
 			};
 			auto findFacePermutation = [&]()
@@ -1105,6 +1275,17 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			*/
 		}
 
+		if(mc33Cube.cubeCase == MC33::Case::c8)
+		{
+			Info<<"referenceBitPattern:"<<referenceBitPattern<<Foam::endl;
+			Info<<"bitPattern:"<<bitPattern<<Foam::endl;
+			Info<<"validPermutations: (";
+			for(auto val : validPermutations)
+				Info<<" "<<val<<" ";
+			Info<<")"<<Foam::endl;
+			FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+		}
+		
 		mc33Cube.pointPermutation = permutations[mc33Cube.permutationTableIndex];
 		std::bitset<8> refPoints;
 		for(short unsigned int permPnt : mc33Cube.pointPermutation)
@@ -1134,11 +1315,7 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			}
 			mc33Cube.edgePermutation[edgeInd] = iter->second;
 		}
-		std::bitset<12> refEdges;
-		for(std::uint8_t permEdg : mc33Cube.edgePermutation)
-			refEdges[permEdg] = true;
-		if(!refEdges.all())
-			FatalErrorInFunction<<"Mismatch edge permutations"<< exit(FatalError);
+		mc33Cube.edgePermutation = compEdgePermFromPointPerm(mc33Cube.pointPermutation);
 		
 		for(unsigned int faceInd=0; faceInd<mc33Cube.facePermutation.size(); faceInd++)
 		{

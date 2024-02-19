@@ -124,7 +124,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
                 const std::unordered_map<std::uint32_t,std::uint32_t>& pntsToFace;
                 const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>>& faceToEdges;
                 //const unsigned short int table[2310];
-                
+
                 std::array<std::int8_t,6> computeFacePattern();
 
                 MC33_real v[8];
@@ -149,6 +149,13 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         };
         
         #include "ConvexCorrection.H"
+        
+        void getCubeCaseMC33Triangles
+        (
+            MC33::Case cubeCase,
+            bool redMarkPlus,
+            DynamicList<std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>>& mc33Triangles
+        );
 
     //Private Attributes
     private:
@@ -812,7 +819,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const pointField& points
         );
 
-        face abstrFaceToGlobalFaceTransfer
+        std::pair<face,label> abstrFaceToGlobalFaceTransfer
         (
             const corrFace& abstrFace,
             const MC33::MC33Cube& mc33cube,

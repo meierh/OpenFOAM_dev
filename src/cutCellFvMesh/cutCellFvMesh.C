@@ -5167,6 +5167,7 @@ void Foam::cutCellFvMesh::mc33CubeFaceHintToNewFaceInd
     }
     if(matchingFaceInd.size()==0)
     {
+        Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
         for(label faceInd : thisCell)
         {
             Info<<faceInd<<"  "<<faces[faceInd]<<Foam::endl;
@@ -5260,7 +5261,7 @@ void Foam::cutCellFvMesh::mc33CubeFaceIndToNewFaceInd
         FatalErrorInFunction<<"New orig face not set!"<< exit(FatalError);
 }
 
-face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
+std::pair<face,label> Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
 (
     const corrFace& abstrFace,
     const MC33::MC33Cube& mc33cube,
@@ -5274,12 +5275,20 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
     Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
     Info<<"mc33cube.redMarkIsPlusSide:"<<mc33cube.redMarkIsPlusSide<<Foam::endl;
     
-    
     std::unordered_set<label> cellFaceSet(thisCell.begin(),thisCell.end());
     labelList thisCellVertices = thisCell.labels(faces);
     std::unordered_set<label> cellVerticeSet(thisCellVertices.begin(),thisCellVertices.end());
+    List<std::unordered_set<label>> faceListVerticeSet(thisCell.size());
+    for(label faceInd=0; faceInd<thisCell.size(); faceInd++)
+    {
+        for(label verticeInd : faces[thisCell[faceInd]])
+        {
+            faceListVerticeSet[faceInd].insert(verticeInd);
+        }
+    }
     
     DynamicList<label> globalVertices;
+    label matchingFaceInd=-1;
     switch (abstrFace.type)
     {
         case FType::mc33Triangle:
@@ -5301,6 +5310,38 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
                 {
                     FatalErrorInFunction<<"Vertice not in cell structure!"<< exit(FatalError);
                 }
+            }
+            for(label faceInd=0; faceInd<faceListVerticeSet.size(); faceInd++)
+            {
+                bool allIn = true;
+                for(label vertice : globalVertices)
+                {
+                    if(faceListVerticeSet[faceInd].find(vertice)==faceListVerticeSet[faceInd].end())
+                        allIn = false;
+                }
+                if(allIn)
+                {
+                    if(matchingFaceInd!=-1)
+                        FatalErrorInFunction<<"Double matching error!"<< exit(FatalError);
+                    matchingFaceInd = thisCell[faceInd];
+                }
+            }
+            if(matchingFaceInd==-1)
+            {
+                Info<<"globalVertices:"<<globalVertices<<Foam::endl;
+                for(label faceInd : thisCell)
+                {
+                    Info<<faceInd<<" - "<<faces[faceInd]<<Foam::endl;
+                }
+                FatalErrorInFunction<<"Missing match face error!"<< exit(FatalError);
+            }
+            
+            if(cellFaceSet.find(matchingFaceInd)==cellFaceSet.end())
+            {
+                Info<<"globalVertices:"<<globalVertices<<Foam::endl;
+                Info<<"matchingFaceInd:"<<matchingFaceInd<<Foam::endl;
+                Info<<"thisCell:"<<thisCell<<Foam::endl;
+                FatalErrorInFunction<<"Face index not in cell!"<< exit(FatalError);
             }
             break;
         }
@@ -5346,6 +5387,7 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
                     FatalErrorInFunction<<"Vertice not in orig face!"<< exit(FatalError);
             }
             globalVertices = newOldFace;
+            matchingFaceInd = newFaceInd;
             break;
         }
         case FType::splitOld:
@@ -5391,6 +5433,7 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
                 if(newOrigFaceVerticeSet.find(globalVert)==newOrigFaceVerticeSet.end())
                     FatalErrorInFunction<<"Vertice not in orig face!"<< exit(FatalError);
             }
+            matchingFaceInd = newFaceInd;
             break;
         }
         case FType::added:
@@ -5419,7 +5462,7 @@ face Foam::cutCellFvMesh::abstrFaceToGlobalFaceTransfer
         }
     }
     Info<<"abstrFaceToGlobalFaceTransfer: END"<<Foam::endl;
-    return face(globalVertices);
+    return {face(globalVertices),matchingFaceInd};
 }
 
 Foam::cutCellFvMesh::FaceRelation Foam::cutCellFvMesh::facesOverlay
@@ -5527,7 +5570,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     Info<<"---------------------Process possible added point--------------------------"<<Foam::endl;
     Info<<"mc33cube.cubeCase:"<<mc33cube.cubeCase<<Foam::endl;
     Info<<"mc33cube.redMarkIsPlusSide:"<<mc33cube.redMarkIsPlusSide<<Foam::endl;
-    
+    Info<<"corrData.faces.size():"<<corrData.faces.size()<<Foam::endl;
     //Process possible added point
     //bool addedPntsInConvexCorr = false;
     std::unordered_map<std::uint8_t,label> edgeToAddedPntInd;
@@ -5644,12 +5687,18 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     Info<<"Create cell in newCellData"<<Foam::endl;
     //Create cell in newCellData
     DynamicList<face> nonConvexCellFaces;
+    DynamicList<label> nonConvexCellFacesOldIndex;
     nonConvexCellFaces.setSize(corrData.faces.size());
+    nonConvexCellFacesOldIndex.setSize(corrData.faces.size());
+    Info<<"nonConvexCellFaces.size():"<<nonConvexCellFaces.size()<<Foam::endl;
     for(label faceInd=0; faceInd<corrData.faces.size(); faceInd++)
     {
         face& globFace = nonConvexCellFaces[faceInd];
-        const corrFace& abstrFace = corrData.faces[faceInd];        
-        globFace = abstrFaceToGlobalFaceTransfer(abstrFace,mc33cube,thisCell,edgeToAddedPntInd,new_faces,this->new_points);
+        const corrFace& abstrFace = corrData.faces[faceInd];
+        std::pair<face,label> globFaceData;
+        globFaceData = abstrFaceToGlobalFaceTransfer(abstrFace,mc33cube,thisCell,edgeToAddedPntInd,new_faces,this->new_points);
+        globFace = globFaceData.first;
+        nonConvexCellFacesOldIndex[faceInd] = globFaceData.second;
     }
     
     Info<<"Remove empty faces from cells"<<Foam::endl;
@@ -6018,6 +6067,8 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     } CompleteFace;
     
     List<CompleteFace> completeFacesData(nonConvexCellFaces.size());
+    Info<<"nonConvexCellFaces.size():"<<nonConvexCellFaces.size()<<Foam::endl;
+    Info<<"completeFacesData.size():"<<completeFacesData.size()<<Foam::endl;
     for(label faceInd=0; faceInd<nonConvexCellFaces.size(); faceInd++)
     {
         CompleteFace& oneFace = completeFacesData[faceInd];
@@ -6077,7 +6128,12 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
         {
             auto iter = faceIndToFlattedFacesInd.find(faceInd);
             if(iter==faceIndToFlattedFacesInd.end())
+            {
+                Info<<"completeFacesData.size():"<<completeFacesData.size()<<Foam::endl;
+                Info<<"oneCellFaceInds:"<<oneCellFaceInds<<Foam::endl;
+                Info<<"faceInd:"<<faceInd<<Foam::endl;
                 FatalErrorInFunction<<"Face index not found"<<exit(FatalError);
+            }
             for(label flattFaceInd :  iter->second)
             {
                 oneCellFlattedFaceInds.append(flattFaceInd);
@@ -6246,7 +6302,9 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
     Info<<"cellsOfFlattedFaceInds"<<cellsOfFlattedFaceInds<<Foam::endl;
     Info<<"trueCells:"<<trueCells<<Foam::endl;
     
+    Info<<"nonConvexCellFaces:"<<nonConvexCellFaces<<Foam::endl;
     
+    // Fill CellSplitData
     std::unordered_map<label,label> flatFaceIndToIndex;
     List<bool> faceInCell(flatted_faces.size(),false);
     for(List<label> oneCell : trueCells)
@@ -6270,6 +6328,7 @@ std::unique_ptr<Foam::cutCellFvMesh::CellSplitData> Foam::cutCellFvMesh::generat
             const corrFace& faceCorrData = std::get<1>(faceData);
             const face& thisFace = std::get<0>(faceData);
             Info<<"   faceCorrData:"<<faceCorrData.to_string()<<Foam::endl;
+            Info<<"   face:"<<thisFace<<Foam::endl;
             if(compFaceData.isReplaced)
             {
                 const corrFace& replacedFace = compFaceData.origFaceData;
