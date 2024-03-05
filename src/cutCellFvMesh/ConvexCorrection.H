@@ -292,8 +292,10 @@ public:
     }
     void check(label cubeCase=-1, bool redMarkSidePlus=true) const
     {
+        /*
         Info<<"cubeCase:"<<cubeCase<<Foam::endl;
         Info<<"redMarkSidePlus:"<<redMarkSidePlus<<Foam::endl;
+        */
         for(label iFaceInd=0; iFaceInd<faces.size(); iFaceInd++)
         {
             for(label jFaceInd=0; jFaceInd<faces.size(); jFaceInd++)
@@ -309,9 +311,11 @@ public:
             face.check(cubeCase);
         for(const List<label>& oneCell : cells)
         {
+            /*
             Info<<"  oneCell:"<<oneCell<<Foam::endl;;
             for(label faceInd : oneCell)
                 Info<<"      "<<faces[faceInd].to_string()<<Foam::endl;
+            */
             for(label faceInd : oneCell)
             {
                 const corrFace& baseFace = faces[faceInd];

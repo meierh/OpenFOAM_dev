@@ -705,7 +705,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         } CellFaces;
         
         typedef struct{
-            label originalCell = -1;
+            MC33::Case origMC33CubeCase;
+            bool redMarkIsPlusSide;
+            label oldCellInd = -1;
+            label newCellInd = -1;
             DynamicList<std::pair<vector,edge>> addedPoints;
             label addedPointsLimit=-1;
             // face with possibly added Points as index+addedPointsLimit
@@ -720,6 +723,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             //List<replacedFaceType,replacedFaceID,replacingFaceType,replacingFaceID>
             DynamicList<std::tuple<CSFaceType,label,CSFaceType,label>> nonCellFaceChanges;
         } CellSplitData;
+        
+        void printCellSplitData(const CellSplitData& csd);
         
         label memSecMC33VerticePntInd
         (
@@ -786,7 +791,8 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             faceList& faces,
             const labelList& owner,
             const labelList& neighbour,
-            const cellList& cells
+            const cellList& cells,
+            const pointField& points
         );
         
         void agglomerateSmallCells_MC33
@@ -853,6 +859,13 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         (
             const face& face1,
             const face& face2
+        );
+        
+        bool collapseCorrFace
+        (
+            const corrFace& oneFace,
+            const MC33::MC33Cube& mc33cube,
+            corrFace& collapsedFace
         );
         
         std::unique_ptr<CellSplitData> generateCellSplitData
@@ -1139,8 +1152,10 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         scalar computeCellSizeAndSizeLimit
         (
             const List<cell>& cells,
-            List<bool> tooSmallCells,
-            List<scalar> cellSizes,
+            const List<face>& faces,
+            const pointField& points,
+            List<bool>& tooSmallCells,
+            List<scalar>& cellSizes,
             scalar limitPercentage = 0.1,
             scalar tooSmallFraction = 0.1
         );
@@ -1148,6 +1163,9 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         void findSmallCellMergeCandidate
         (
             const List<cell>& cells,
+            const List<face>& faces,
+            const List<label>& owner,
+            const List<label>& neighbour,
             const List<bool> smallCell,
             List<DynamicList<std::pair<label,label>>>& smallCellMergeCand
         );
