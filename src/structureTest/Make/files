@@ -1,0 +1,6 @@
+Structure.C
+LineStructure.C
+CrossSectionStructure.C
+FvMeshOctree.C
+
+LIB = $(FOAM_USER_LIBBIN)/libStructure
