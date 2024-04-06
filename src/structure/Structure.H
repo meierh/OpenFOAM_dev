@@ -10,7 +10,7 @@
 
 #include "activeRodMesh.h"
 //#include "rodOpt.h"
-//#include "rodTools.h"
+#include "rodTools.h"
 //#include "rodLatticePBC.h"
 #include "rodImport.h"
 #include "rodCScircle.h"
@@ -56,7 +56,7 @@ class Structure
     public:
         explicit Structure
         (
-            Time& runTime,
+            const Time& runTime,
             const dimensionedScalar& alpha,
             const volScalarField& T,
             const volScalarField& p,
@@ -67,10 +67,13 @@ class Structure
         ~Structure();
         Structure(const Structure&) = delete;
         
+        label getNumberRods();
+        label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod);
+        
         void solveOneStep();
         
-    private:
-        Time& runTime;
+    protected:
+        const Time& runTime;
         fileName runDirectory;
         fileName caseName;
         fileName xmlPath;
@@ -152,7 +155,10 @@ class Structure
         
         void assignForceOnCurve();        
         std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
-        void moveNurbs();        
+        void moveNurbs();
+
+        static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
+        static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
 };
 }
 #endif

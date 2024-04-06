@@ -54,7 +54,7 @@ class Nurbs1D
             List<vector> controlPoints,
             scalarList weights,
             int degree,
-            scalar diameter=0.2,
+            scalar diameter=0.1,
             scalar deltaX=0.2
         );
         

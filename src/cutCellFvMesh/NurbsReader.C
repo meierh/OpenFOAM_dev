@@ -187,7 +187,7 @@ std::shared_ptr<std::vector<Nurbs1D>> Foam::NurbsReader::readOutNurbsFromXML()
             coefList.append(vector(numberList[i],numberList[i+1],numberList[i+2]));
         }      
         
-        nurbsCurves->push_back(Nurbs1D(knotList, coefList, weightList, nurbsDegree));
+        nurbsCurves->push_back(Nurbs1D(knotList, coefList, weightList, nurbsDegree,2.0));
         nurbsData->push_back({knotList,coefList,weightList,nurbsDegree,0});
     }
     if(Pstream::master())

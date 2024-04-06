@@ -70,7 +70,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
         const std::unordered_map<uint,uint> pntsToEdge = {{1,0},{12,1},{23,2},{3,3},{45,4},{56,5},{67,6},{47,7},{4,8},{15,9},{26,10},{37,11}};
         const std::array<std::array<uint,4>,6> faceToPnts = {{{0,1,4,5},{1,2,5,6},{2,3,6,7},{0,3,4,7},{0,1,2,3},{4,5,6,7}}};
         const std::unordered_map<std::uint32_t,std::uint32_t> pntsToFace = {{145,0},{1256,1},{2367,2},{347,3},{123,4},{4567,5}};
-        const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>> faceToEdges = {{0,{0,1,4,5}},{1,{1,5,9,10}},{2,{2,6,10,11}},{3,{3,7,8,11}},{4,{0,1,2,3}},{5,{4,5,6,7}}};
+        const std::unordered_map<std::uint8_t,std::unordered_set<std::uint8_t>> faceToEdges = {{0,{0,4,8,9}},{1,{1,5,9,10}},{2,{2,6,10,11}},{3,{3,7,8,11}},{4,{0,1,2,3}},{5,{4,5,6,7}}};
         
         void checkPermutation();
 
@@ -778,7 +778,7 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const faceList& faces,
             const labelList& owner,
             const labelList& neighbour 
-        );
+        ) const;
         
         void testCellClosure
         (
@@ -793,6 +793,11 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             const labelList& neighbour,
             const cellList& cells,
             const pointField& points
+        );
+        
+        void handleNonConvexCells_MC33
+        (
+            scalar partialThreeshold = 0.01
         );
         
         void agglomerateSmallCells_MC33
@@ -1177,84 +1182,21 @@ class cutCellFvMesh   :   public dynamicRefineFvMesh //fvMesh
             List<bool>& nonConvexCell
         );
         
-        /*
-        void agglomerateSmallCells_cutNeg_plus
+        void sortFaces
         (
-            scalarList& newCellVolume,
-            scalarList& oldCellVolume,
-            scalar partialThreeshold = 0.25
+            faceList& newFaces,
+            labelList& newFaceOwner,
+            labelList& newFaceNeighbor,
+            labelList& faceMap,
+            labelList& reverseFaceMap,
+            labelList& patchStarts,
+            labelList& patchSizes
         );
-        */
-        
-        /*
-        labelList searchDown
-        (
-            scalarListList& possibleMergeFaceArea,
-            labelListList& possibleMergeFaces,
-            labelListList& possibleMergeCells,
-            boolList& oneMergeFaceSufficient,
-            boolList& mergeNecessary,
-            label count,
-            std::unordered_set<label> cellReserved
-        );
-        */
-        
-        /*
-        labelList searchDown_rec
-        (
-            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-            DynamicList<DynamicList<label>>& possibleMergeFaces,
-            DynamicList<DynamicList<label>>& possibleMergeCells,
-            DynamicList<bool>& oneMergeFaceSufficient,
-            DynamicList<bool>& mergeNecessary,
-            label count,
-            DynamicList<DynamicList<label>>& blockedCells,
-            std::unordered_set<label>& cellReserved
-        );
-        */
-        
-        /*
-        List<DynamicList<label>> searchDown_iter
-        (
-            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
-            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
-            DynamicList<bool>& oneMergeFaceSufficient,
-            DynamicList<bool>& mergeNecessary
-        );
-        */
-        
-        /*
-        List<DynamicList<label>> searchDown_iter_preBlock
-        (
-            const labelList& owner,
-            const labelList& neighbour,
-            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
-            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
-            DynamicList<bool>& oneMergeFaceSufficient,
-            DynamicList<bool>& mergeNecessary
-        );
-        */
-        
-        /*
-        List<DynamicList<label>> assignMergeFaces
-        (
-            const labelList& owner,
-            const labelList& neighbour,
-            DynamicList<DynamicList<scalar>>& possibleMergeFaceArea,
-            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeFaces,
-            DynamicList<DynamicList<DynamicList<label>>>& possibleMergeCells,
-            DynamicList<bool>& oneMergeFaceSufficient,
-            DynamicList<bool>& mergeNecessary,
-            DynamicList<DynamicList<scalar>>& possibleMergeCellsPartialSize,
-            scalar partialThreeshold
-        );
-        */
         
         //test data for new Mesh creation
         void testNewMeshData
         (
+            const pointField& new_points,
             const faceList& newFaces,
             const labelList& newFaceOwner,
             const labelList& newFaceNeighbor,

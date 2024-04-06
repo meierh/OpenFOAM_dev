@@ -2,7 +2,7 @@
 
 Foam::Structure::Structure
 (
-    Time& runTime,
+    const Time& runTime,
     const dimensionedScalar& alpha,
     const volScalarField& T,
     const volScalarField& p,
@@ -315,6 +315,9 @@ void Foam::Structure::createNurbsStructure()
             Rods[i] = new ActiveRodMesh::rodCosseratMixed(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
         else
             Rods[i] = new ActiveRodMesh::rodCosserat(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
+        
+        Rods[i]->m_Rot.setCoefs(Rods[i]->m_init_Rot.transpose());
+
 
         // Cross-section basis for optimization
         Rods[i]->resetEbasis(ekn, ewts);
@@ -682,4 +685,91 @@ void Foam::Structure::createDeformationCurve()
             nurbs_to_knots.back()[n] = knots[n];
         }
     }
+}
+
+label Foam::Structure::getNumberRods()
+{
+    return myMesh->m_Rods.size();
+}
+
+label Foam::Structure::getMaxDegree
+(
+    const ActiveRodMesh::rodCosserat* oneRod
+)
+{
+    const gsNurbs<double>& base = oneRod->m_Curve;
+    label baseDegreeX = base.degree();
+    //label baseDegreeY = base.degree(1);
+    //label baseDegreeZ = base.degree(2);
+    const gsNurbs<double>& def = oneRod->m_Def;
+    label defDegreeX = def.degree();
+    //label defDegreeY = def.degree(1);
+    //label defDegreeZ = def.degree(2);
+    /*
+    label maxDegree = std::max<label>(baseDegreeX,baseDegreeY);
+    maxDegree = std::max(maxDegree,baseDegreeY);
+    maxDegree = std::max(maxDegree,baseDegreeZ);
+    maxDegree = std::max(maxDegree,defDegreeX);
+    maxDegree = std::max(maxDegree,defDegreeY);
+    maxDegree = std::max(maxDegree,defDegreeZ);
+    */
+    return std::max<label>(baseDegreeX,defDegreeX);
+}
+
+void Foam::Structure::rodEval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter,
+    vector& d1,
+    vector& d2,
+    vector& d3,
+    vector& r
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+        
+    gsMatrix<scalar> basePnt;
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    curve.eval_into(parMat,basePnt);
+
+    gsMatrix<scalar> defPnt;
+    const gsNurbs<scalar>& def = rod->m_Def;
+    def.eval_into(parMat,defPnt);
+    
+    gsMatrix<scalar> pnt = basePnt+defPnt;    
+    r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
+
+    
+    gsMatrix<scalar> rotQuat;
+    const gsNurbs<scalar>& quat = rod->m_Rot;
+    quat.eval_into(parMat,rotQuat);
+    gsMatrix<scalar,3,3> R;
+    ActiveRodMesh::quat_R(rotQuat,R);
+    
+    d1 = vector(R(0,0),R(1,0),R(2,0));
+    d2 = vector(R(0,1),R(1,1),R(2,1));
+    d3 = vector(R(0,2),R(1,2),R(2,2));
+}
+
+void Foam::Structure::rodEval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter,
+    vector& r
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+        
+    gsMatrix<scalar> basePnt;
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    curve.eval_into(parMat,basePnt);
+
+    gsMatrix<scalar> defPnt;
+    const gsNurbs<scalar>& def = rod->m_Def;
+    def.eval_into(parMat,defPnt);
+    
+    gsMatrix<scalar> pnt = basePnt+defPnt;    
+    r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }

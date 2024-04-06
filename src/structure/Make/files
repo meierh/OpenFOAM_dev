@@ -2,5 +2,6 @@ Structure.C
 LineStructure.C
 CrossSectionStructure.C
 FvMeshOctree.C
+MarkerImplementation.C
 
 LIB = $(FOAM_USER_LIBBIN)/libStructure

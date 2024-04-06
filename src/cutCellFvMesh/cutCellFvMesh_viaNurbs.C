@@ -267,7 +267,27 @@ cellDimToStructureDimLimit(cellDimToStructureDimLimit),
 motionPtr_(motionSolver::New(*this,dynamicMeshDict())),
 ibAlgorithm(state),
 marchingCubesAlgorithm(*this)
-{  
+{
+    
+    /*
+    face total = face(List<label>({86216,69214,92848,54759,93252,69213,86215}));
+    face own = face(List<label>({92848,54759,93252,69213,86215}));
+    face nei = face(List<label>({93252,54759,92848,69214,86216}));
+    
+    List<List<bool>> faceEdgeIntersections;
+    facesEdgesIntersection(total,nei,own,faceEdgeIntersections);
+    
+    Info<<"faceEdgeIntersections"<<faceEdgeIntersections<<Foam::endl;   
+
+    edgToIntPntIndMap map;
+    DynamicList<vector> addPnt;
+    List<label> intersec = faceIntersection(total,own,nei,map,addPnt);
+    
+    Info<<"Intersec:"<<intersec<<Foam::endl;
+    
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    */
+    
     intersectionRadius = 0;
     bool refineIsHex = false;
     const dictionary& dynDict = this->dynamicMeshDict();
@@ -291,6 +311,7 @@ marchingCubesAlgorithm(*this)
     fileName caseName = this->fvMesh::polyMesh::objectRegistry::caseName();
     NurbsReader Reader(runDirectory,caseName);
     Curves = Reader.getNurbsCurves();
+    Info<<"Curves radius:"<<Curves->front().radius()<<Foam::endl;
     MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
     NurbsTrees = List<std::unique_ptr<BsTree>>((*(this->Curves)).size());
     for(unsigned long i=0;i<(*(this->Curves)).size();i++)
@@ -347,6 +368,8 @@ marchingCubesAlgorithm(*this)
     
     // Initialize mesh class
     Curves = Reader.getNurbsCurves();
+    
+    Info<<"Curves radius:"<<Curves->front().radius()<<Foam::endl;
     /// CHANGE LATER ///
     
     MainTree = std::unique_ptr<KdTree>(new KdTree(this->Curves));
@@ -722,167 +745,26 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         Info<< "Create new Mesh data and cut negative cells took \t"<< time_span.count() << " seconds."<<endl;
         
     t1 = std::chrono::high_resolution_clock::now();
+    //handleNonConvexCells_MC33(partialThreeshold);
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    if(Pstream::master())
+        Info<< "Convex handling of cells took \t"<< time_span.count() << " seconds."<<endl;
+    
+    t1 = std::chrono::high_resolution_clock::now();
     agglomerateSmallCells_MC33(partialThreeshold);
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     if(Pstream::master())
         Info<< "Agglomeration of small cells took \t"<< time_span.count() << " seconds."<<endl;
         
-    /*
-    List<bool> pntDeleted(newMeshPoints_.size(),true);
-    for(const face& oneFace: faces)
-        for(const label& oneVertice: oneFace)
-            pntDeleted[oneVertice] = false;
-
-    labelList pntOldIndToNewInd(newMeshPoints_.size(),-1);
-    label index=0;
-    for(int i=0;i<pntDeleted.size();i++)
-    {
-        if(!pntDeleted[i])
-        {
-            pntOldIndToNewInd[i] = index;
-            index++;
-        }
-    }
-    points.setSize(index+1);
-    pointMap.setSize(points.size());
-    reversePointMap.setSize(nbrOfPrevPoints);
-    index=0;
-    for(int i=0;i<pntDeleted.size();i++)
-    {
-        if(i<nbrOfPrevPoints)
-        {
-            if(pntDeleted[i])
-                reversePointMap[i] = -1;
-            else
-                reversePointMap[i] = index;
-        }
-        
-        if(!pntDeleted[i])
-        {
-            points[index] = newMeshPoints_[i];
-            if(i<nbrOfPrevPoints)
-                pointMap[index] = i;
-            else
-                pointMap[index] = -1;
-            index++;
-        }
-    }
-        
-    for(face& oneFace: faces)
-    {
-        for(label& oneVertice: oneFace)
-        {
-            point oldPoint = newMeshPoints_[oneVertice];
-            point newPoint = points[pntOldIndToNewInd[oneVertice]];
-            if(oldPoint != newPoint)
-                FatalErrorInFunction<< "Can not happen"<<endl<< exit(FatalError);
-            oneVertice = pntOldIndToNewInd[oneVertice];
-        }
-    }
-    */
+    sortFaces(this->new_faces,this->new_owner,this->new_neighbour,this->faceMap,this->reverseFaceMap,this->patchStarts,this->patchSizes);
     
-
-    /*                    
-    const polyBoundaryMesh& boundaryMesh = this->boundaryMesh();
-    oldPointIndToPatchInd.setSize(boundaryMesh.size());
-    for(int i=0;i<boundaryMesh.size();i++)
-    {
-        const polyPatch& onePatch = boundaryMesh[i];
-        const labelList& patchPoints = onePatch.boundaryPoints();
-        for(int j=0;j<patchPoints.size();j++)
-            oldPointIndToPatchInd[i].insert(std::pair<label,label>(patchPoints[j],j));
-    }
-    */
-
-//Barrier(true);
+    testNewMeshData(new_points,new_faces,new_owner,new_neighbour,patchStarts,patchSizes);
     
-    t1 = std::chrono::high_resolution_clock::now();
-    //correctFaceNormalDir(new_points,new_faces,new_owner,new_neighbour);
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    if(Pstream::master())
-        Info<< "Correcting face normal direction \t"<< time_span.count() << " seconds."<<endl;
-
-//Barrier(true);
-
-    /*    
-    const pointField& oldPoints = this->points();
-    const faceList& oldFaceList = this->faces();
-    const cellList& oldCells = this->cells();    
-    oldCellVolume = scalarList(oldCells.size());
-    for(int i=0;i<oldCellVolume.size();i++)
-    {
-        oldCellVolume[i] = oldCells[i].mag(oldPoints,oldFaceList);
-        if(oldCellVolume[i]==0.0)
-        {
-            Info<<"oldCells["<<i<<"]:"<<oldCells[i]<<endl;
-            FatalErrorInFunction<< "Temp stop"<<endl<< exit(FatalError);
-        }   
-    }
-    */
-    
-    //testNewMeshData(new_faces,new_owner,new_neighbour,patchStarts,patchSizes);
     if(Pstream::master())
         Info<< "Mesh Data tested"<<endl;
     
-    label maxOwnerCell=0;
-    label maxNeighborCell=0;
-    for(label cellInd : this->new_owner)
-        maxOwnerCell = std::max(maxOwnerCell,cellInd);
-    for(label cellInd : this->new_neighbour)
-        maxNeighborCell = std::max(maxNeighborCell,cellInd);
-    
-    labelList DATA(Pstream::nProcs(),0);
-    
-    DATA[Pstream::myProcNo()] = maxOwnerCell;
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-        
-    DATA[Pstream::myProcNo()] = maxNeighborCell;
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"maxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = new_faces.size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-        
-    DATA[Pstream::myProcNo()] = maxOwnerCell;
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"807 maxOwnerCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-        
-    DATA[Pstream::myProcNo()] = maxNeighborCell;
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"813 maxNeighborCell:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = this->new_faces.size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"819 new_faces.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = this->new_owner.size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"825 new_owner.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = this->new_neighbour.size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"831 new_neighbour.size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-
     resetPrimitives(Foam::clone(new_points),
                     Foam::clone(new_faces),
                     Foam::clone(new_owner),
@@ -892,12 +774,6 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
                     false);
     if(Pstream::master())
         Info<< "Primitives reset"<<endl;
-    
-    DATA[Pstream::myProcNo()] = this->cells().size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"this->cells().size():                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
     
 //Barrier(true);
     
@@ -930,50 +806,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     
     Info<<"Reset"<<endl;
 //Barrier(true);
-    
-    /*
-    std::unordered_set<label> activePnts;
-    for(int i=0;i<this->faces().size();i++)
-        for(int j=0;j<this->faces()[i].size();j++)
-            activePnts.insert(this->faces()[i][j]);
-    label cnt=0;
-    for(int i=0;i<points.size();i++)
-        if(activePnts.count(i)!=0)
-            cnt++;
-    cnt++;
-    if(cnt!=this->points().size())
-    {
-        Info<<"cnt:"<<cnt<<endl;
-        Info<<"this->points().size():"<<this->points().size()<<endl;
-        FatalErrorInFunction<< "Invalid point number"<<endl<< exit(FatalError);
-    }
-    */
         
-    DATA[Pstream::myProcNo()] = this->nCells();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"nCells:                 "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = this->cellMap.size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"cellMap.size():          "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = this->nOldCells;
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"nOldCells:              "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    DATA[Pstream::myProcNo()] = this->reverseCellMap.size();
-    Pstream::gatherList(DATA);
-    Pstream::scatterList(DATA);
-    if(Pstream::master())
-        Info<<"reverseCellMap.size():  "<<Pstream::myProcNo()<<"--"<<DATA[0]<<","<<DATA[1]<<","<<DATA[2]<<","<<DATA[3]<<Foam::endl;
-    
-    
     this->topoChanging(true);
     updateMesh(*meshCuttingMap);
     motionPtr_->updateMesh(*meshCuttingMap);
@@ -1003,7 +836,7 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
         if(vec!= vector(0,0,0))
             FatalErrorInFunction<< Pstream::myProcNo()<<"Unequal zero"<<endl<< exit(FatalError);
     }
-
+    
     /*
     if(this->points().size()!=pVF.size())
         pVF.setSize(this->points().size());
@@ -1107,7 +940,8 @@ void Foam::cutCellFvMesh::cutTheImmersedBoundary_MC33()
     //printMesh();
     //selfTestMesh();
     Info<<"Ending"<<endl;
-Barrier(true);
+
+//Barrier(true);
 }
 
 void Foam::cutCellFvMesh::computeSolidFraction_MC33(std::unique_ptr<volScalarField>& solidFraction)
@@ -1308,7 +1142,7 @@ void Foam::cutCellFvMesh::computeSolidFraction_MC33(std::unique_ptr<volScalarFie
         }   
     }
     
-    testNewMeshData(faces,owner,neighbour,patchStarts,patchSizes);
+    testNewMeshData(points,faces,owner,neighbour,patchStarts,patchSizes);
     
     std::unordered_map<label,DynamicList<label>> newCellIndToNewFaces;
     for(int faceInd=0;faceInd<faces.size();faceInd++)

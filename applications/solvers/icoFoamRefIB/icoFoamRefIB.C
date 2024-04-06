@@ -52,8 +52,6 @@ int main(int argc, char *argv[])
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
     runTime.write();
 
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
-
     Info<< "\nStarting time loop\n" << endl;
 
     while (runTime.loop())
@@ -126,7 +124,7 @@ int main(int argc, char *argv[])
             - fvm::laplacian(alpha,T)
         );
         
-        solidStructure.solveOneStep();
+        //solidStructure.solveOneStep();
         
         runTime.write();
 

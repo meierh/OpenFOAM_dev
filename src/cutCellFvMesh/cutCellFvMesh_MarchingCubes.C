@@ -1375,8 +1375,12 @@ Foam::cutCellFvMesh::MC33::MC33Cube Foam::cutCellFvMesh::MC33::computeCutCell
 			std::tuple<std::uint8_t,std::uint8_t,std::uint8_t>& triangle = *iter;
 			if(detectInFaceTriangles(triangle))
 			{
+				
 				if(mc33Cube.cubeCase!=c612 && mc33Cube.cubeCase!=c742)
+				{
+					Info<<"("<<std::get<0>(triangle)<<","<<std::get<1>(triangle)<<","<<std::get<2>(triangle)<<")"<<Foam::endl;
 					FatalErrorInFunction<<"Triangles in face in case where not possible: "<<mc33Cube.cubeCase<< exit(FatalError);
+				}
 				iter = triangles.erase(iter);
 			}
 			else
