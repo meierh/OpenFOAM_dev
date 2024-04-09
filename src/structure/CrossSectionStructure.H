@@ -60,14 +60,17 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
             const vector markerPosition,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerAngle,
-            const CrossSection baseCrossSec
+            const CrossSection baseCrossSec,
+            const scalar radiusFrac
         ):
         LagrangianMarker(markerParameter,markerPosition,baseRod),
         markerAngle(markerAngle),
-        baseCrossSec(baseCrossSec)
+        baseCrossSec(baseCrossSec),
+        markerRadiusFrac(radiusFrac)
         {}
         
         const scalar markerAngle;
+        const scalar markerRadiusFrac;
         const CrossSection baseCrossSec;        
 };
 
@@ -95,21 +98,24 @@ class CrossSectionStructure : public LineStructure
             scalar parameterB,
             const CrossSection& oneCrossSec,
             scalar angleA,
-            scalar angleB
+            scalar angleB,
+            scalar radiusFracA,
+            scalar radiusFracB
         );
         static vector evaluateRodCircumPos
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
             const CrossSection& oneCrossSec,
-            scalar angle
+            scalar angle,
+            scalar radiusFrac
         );
         bool doSubdivision
         (
             const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
             const std::list<LagrangianMarkerOnCrossSec>& largerSide
         );
-        bool doSubdivisionAngle
+        bool doSubdivisionCircumferential
         (
             const LagrangianMarkerOnCrossSec& smallerSide,
             const LagrangianMarkerOnCrossSec& largerSide
@@ -121,16 +127,17 @@ class CrossSectionStructure : public LineStructure
     private:
         std::vector<CrossSection> rodCrossSection;
         
-        std::vector<std::unique_ptr<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>> rodMarkers;
+        std::vector<std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>>> rodMarkers;
         
         LagrangianMarkerOnCrossSec createLagrangianMarkerOnCrossSec
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
             const CrossSection& oneCrossSec,
-            scalar angle
+            scalar angle,
+            scalar radius
         );
-        std::unique_ptr<std::vector<std::vector<LagrangianMarkerOnCrossSec>>> constructMarkerSet
+        std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>> constructMarkerSet
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection& oneCrossSec
@@ -140,14 +147,24 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat*,
             const CrossSection&,
-            std::list<LagrangianMarkerOnCrossSec>& 
+            std::list<LagrangianMarkerOnCrossSec>&,
+            scalar radiusFrac = 1
+        );
+        
+        void constructMarkerSetRadial
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            const scalar parameter,
+            const CrossSection& oneCrossSec,
+            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers
         );
         
         std::list<LagrangianMarkerOnCrossSec> createInitialCircumMarkers
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& oneCrossSec
+            const CrossSection& oneCrossSec,
+            scalar radiusFrac = 1
         );
 };
 }
