@@ -121,6 +121,7 @@ class CrossSectionStructure : public LineStructure
             const LagrangianMarkerOnCrossSec& largerSide
         );
         
+        static scalar restrictAngle(scalar angle);
         static scalar distance(const LagrangianMarkerOnCrossSec& A, const LagrangianMarkerOnCrossSec& B);
 
     
