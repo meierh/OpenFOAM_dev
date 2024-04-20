@@ -21,7 +21,7 @@ p(p),
 U(U),
 mesh(mesh),
 nu(nu)
-{    
+{
     cntOpt.ptsType = 2;
     cntOpt.ptsN = 2;
     cntOpt.csFac = 2.0;
@@ -57,83 +57,16 @@ std::unique_ptr<Foam::List<Foam::List<Tensor_Type>>> Foam::Structure::computeDis
 
 void Foam::Structure::assignForceOnCurve()
 {
-    /*
-    tmp<GeometricField<Tensor<double>,fvPatchField,volMesh>> gU = fvc::grad(U);
-    GeometricField<Tensor<double>,fvPatchField,volMesh>& gradU = gU.ref();
-    GeometricField<SymmTensor<double>,fvPatchField,volMesh> totalStress = symm(-p*tensor::one + nu*(gradU + gradU.T()));
-    
-    const vectorField& Sfp = mesh.Sf().boundaryField()[IBPatchID];
-    const scalarField& magSfp = mesh.magSf().boundaryField()[IBPatchID];
-    const symmTensorField& totalStressIB = totalStress.boundaryField()[IBPatchID];
-    
-    Field<vector> ibWallForces = (-Sfp/magSfp) & totalStressIB;
-    
-    std::unique_ptr<List<List<vector>>> distrLoad = computeDistributedLoad<vector>(ibWallForces);
-    
-    if(Pstream::master())
-    {
-        for(int nurbsInd=0;nurbsInd<distrLoad->size();nurbsInd++)
-        {
-            const List<vector>& oneCurveDistrLoad = (*distrLoad)[nurbsInd];      
-            
-            std::vector<double> knotContainer(nurbsToLimits[nurbsInd].size()*2);
-            int degree=1;
-            double delta = nurbsToLimits[nurbsInd][1]-nurbsToLimits[nurbsInd][0];
-            knotContainer[0] = knotContainer[1] = nurbsToLimits[nurbsInd][0] - delta/200;
-            for(int k=1;k<nurbsToLimits[nurbsInd].size()-1;k++)
-            {
-                double delta = nurbsToLimits[nurbsInd][k+1]-nurbsToLimits[nurbsInd][k-1];
-                double epsilon = delta/200;
-                knotContainer[2*k] = nurbsToLimits[nurbsInd][k]-epsilon;
-                knotContainer[2*k+1] = nurbsToLimits[nurbsInd][k]+epsilon;
-            }
-            knotContainer[knotContainer.size()-2] = knotContainer[knotContainer.size()-1] = nurbsToLimits[nurbsInd].back() + delta/200;
-            
-            gismo::gsKnotVector<double> knotVector(knotContainer,degree);
-            
-            gismo::gsMatrix<double> w(nurbsToLimits[nurbsInd].size()*2-2,1);
-            for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i++)
-                w(i,0) = 1;
-            
-            gismo::gsMatrix<double> Pcoeff(nurbsToLimits[nurbsInd].size()*2-2,3);
-            int k=0;
-            for(int i=0;i<nurbsToLimits[nurbsInd].size()*2-2;i+=2,k++)
-            {
-                for(label d=0;d<3;d++)
-                {
-                    Pcoeff(i,d) = oneCurveDistrLoad[k][d];
-                    Pcoeff(i+1,d) = oneCurveDistrLoad[k][d];
-                }
-            }
-      
-            gismo::gsNurbs<double>* forceNurbs = new gismo::gsNurbs<double>(knotVector,w,Pcoeff);
-            gismo::gsKnotVector<double>& knotVectorRead = forceNurbs->knots();
-            
-            forceCurveStorage[nurbsInd].reset(forceNurbs);
-
-            (myMesh->m_Rods[nurbsInd])->set_force_lG(forceCurveStorage[nurbsInd].get());
-        }
-    }
-    */
 }
 
 void Foam::Structure::computeIBHeatFlux()
 {
-    /*
-    tmp<GeometricField<double,fvsPatchField,surfaceMesh>> gradT = fvc::snGrad(T,IBpatchName);
-    GeometricField<double,fvsPatchField,surfaceMesh>& gTF = gradT.ref();
-    const GeometricField<double,fvsPatchField,surfaceMesh>::Boundary& gradTBoundary = gTF.boundaryField();
-    const fvsPatchField<double> ibgradT = gradTBoundary[IBPatchID];
-    */
-    
-    
-    gismo::gsNurbs<double> heatFlux;
 }
 
 Foam::word Foam::Structure::getXMLPath()
 {
-    Info<<"lateScale:"<<latScale<<endl;
-    Info<<"latDir:"<<latDir<<endl;
+    //Info<<"lateScale:"<<latScale<<endl;
+    //Info<<"latDir:"<<latDir<<endl;
 
     fileName caseDirectory = runDirectory+"/"+caseName;
     fileName constantDirectory = caseDirectory;
@@ -167,12 +100,13 @@ Foam::word Foam::Structure::getXMLPath()
         Info<<"Multiple Nurbs files found. First one will be used!"<<endl;
     word fullPath = constantDirectory+"/"+xmlFiles[0];    
     name = xmlFiles[0].erase(xmlFiles[0].length()-4,std::string::npos);
+    Info<<"Xml path:"<<fullPath<<Foam::endl;
     return fullPath;
 }
 
 int Foam::Structure::loadRodsFromXML()
 {
-    printf("loadRodsFromXML\n");
+    //printf("loadRodsFromXML\n");
     std::string rodsXMLFilePath = xmlPath;
     bool importSuccess = ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
     if(!importSuccess)
@@ -181,24 +115,26 @@ int Foam::Structure::loadRodsFromXML()
     }
 	const int  nR = rodsList.size();
     Info<<"rodsList.size():"<<rodsList.size()<<endl;
-    Info<<"nR:"<<nR<<endl;
+
+    //Info<<"nR:"<<nR<<endl;
     for(int i=0;i<nR;i++)
     {
-        Info<<"---Curve:"<<i<<endl;
+        Info<<"---Curve:"<<i;
         gismo::gsKnotVector<double> knots = rodsList[i].knots();
-        Info<<"Knots [";
+        Info<<"  Knots [";
         for(double knot: knots)
             Info<<knot<<", ";
-        Info<<"]"<<endl;
+        Info<<"]  ";
         gismo::gsMatrix<double> coefs = rodsList[i].coefs();
-        Info<<"Coefs ["<<endl;
+        Info<<"  Coefs [";
         for(int j=0;j<coefs.rows();j++)
         {
-            Info<<"("<<coefs(j,0)<<","<<coefs(j,1)<<","<<coefs(j,2)<<")"<<endl;
+            Info<<"("<<coefs(j,0)<<","<<coefs(j,1)<<","<<coefs(j,2)<<")";
         }
-        Info<<"]"<<endl;
+        Info<<"]";
 
     }
+    Info<<endl;
 
     double	x0 = 1e6, x1 = -1e6, y0 = 1e6, y1 = -1e6, z0 = 1e6, z1 = -1e6;
     for(int i=0; i<nR; i++)
@@ -223,29 +159,25 @@ int Foam::Structure::loadRodsFromXML()
         z1 = std::fmax(z1, rodsList[i].coefs().topRows(0).coeff(0, 2));
         z1 = std::fmax(z1, rodsList[i].coefs().bottomRows(1).coeff(0, 2));
     }
-    Info<<"x0:"<<x0<<endl;
-    Info<<"x1:"<<x1<<endl;
-    Info<<"y0:"<<y0<<endl;
-    Info<<"y1:"<<y1<<endl;
-    Info<<"z0:"<<z0<<endl;
-    Info<<"z1:"<<z1<<endl;
-    Info<<"lateScale:"<<latScale<<endl;
-    Info<<"latDir:"<<latDir<<endl;
+    Info<<"Bounding Box (x:["<<x0<<"-"<<x1<<"], y:["<<y0<<"-"<<y1<<"], z:["<<z0<<"-"<<z1<<"])"<<endl;
+    //Info<<"lateScale:"<<latScale<<endl;
+    //Info<<"latDir:"<<latDir<<endl;
     latSize << x1 - x0, y1 - y0, z1 - z0;
     
     latScale=1;
     gsVector<double,3> dX;
     dX << -x0, -y0, -z0;
+    std::cout<<"dX:"<<dX<<std::endl;
     for (int i = 0; i < nR; i++)
     {
         rodsList[i].knots().transform(0., 1.);	// re-scale knot vector
-        rodsList[i].translate(dX);				// translate to 0
+        //rodsList[i].translate(dX);				// translate to 0
         rodsList[i].scale(latScale);
     }
-    Info<<"lateScale:"<<latScale<<endl;
+    //Info<<"lateScale:"<<latScale<<endl;
     latSize *= latScale;
-    printf("Rods:  %i\n", nR);
-    printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
+    //printf("Rods:  %i\n", nR);
+    //printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
     
     //FatalIOError<<"Temp Stop"<<exit(FatalIOError);
     
@@ -316,8 +248,11 @@ void Foam::Structure::createNurbsStructure()
         else
             Rods[i] = new ActiveRodMesh::rodCosserat(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
         
+        std::cout<<"rodsList[i].coeffs:"<<rodsList[i].coefs()<<std::endl;
+        std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
+        
         Rods[i]->m_Rot.setCoefs(Rods[i]->m_init_Rot.transpose());
-
+        std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
 
         // Cross-section basis for optimization
         Rods[i]->resetEbasis(ekn, ewts);
@@ -327,6 +262,16 @@ void Foam::Structure::createNurbsStructure()
             Rods[i]->set_force_lG(loadG);
     }
     forceCurveStorage.resize(nR);
+    
+    for(ActiveRodMesh::rodCosserat* rodPtr : Rods)
+        std::cout<<rodPtr->m_Curve.coefs()<<std::endl;
+    
+    printf("Rod mesh ... \n");
+
+    ActiveRodMesh::RodMeshOptions meshOpt;
+    meshOpt.name = name;
+    myMesh = std::unique_ptr<ActiveRodMesh::rodMesh>(new ActiveRodMesh::rodMesh(Rods, meshOpt));
+    myMesh->setTemp(Temp0, Temp0);
 }
 
 void Foam::Structure::createNurbsBoundary()
@@ -413,13 +358,6 @@ void Foam::Structure::createNurbsBoundary()
 
 void Foam::Structure::setSolverOptions()
 {
-    printf("Rod mesh ... \n");
-
-    ActiveRodMesh::RodMeshOptions meshOpt;
-    meshOpt.name = name;
-    myMesh = std::unique_ptr<ActiveRodMesh::rodMesh>(new ActiveRodMesh::rodMesh(Rods, meshOpt));
-    myMesh->setTemp(Temp0, Temp0);
-
     // * Output mesh
     printf("Set ParaView Options ... \n");
     ParaViewOptions vtkOpt;
