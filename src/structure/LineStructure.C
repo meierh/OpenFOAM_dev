@@ -63,7 +63,7 @@ scalar Foam::LineStructure::distance
         
         //Info<<" distance:"<<distance<<Foam::endl;
     }
-    Info<<"     distance("<<A.markerPosition<<","<<B.markerPosition<<"):"<<distance<<Foam::endl;
+    //Info<<"     distance("<<A.markerPosition<<","<<B.markerPosition<<"):"<<distance<<Foam::endl;
     
     return distance;
 }
@@ -73,7 +73,12 @@ Foam::FieldMarkerStructureInteraction::FieldMarkerStructureInteraction
     dynamicRefineFvMesh& mesh
 ):
 mesh(mesh)
-{}
+{
+    /*
+    for(scalar span=0; span<2; span+=0.01)
+        Info<<"r:"<<span<<" -> "<<phiFunction(span)<<Foam::endl;
+    */
+}
 
 Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
 {
@@ -82,21 +87,21 @@ Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
     scalar abs_r = std::abs(r);
     if(abs_r < 0.5)
     {
-        scalar result = -std::sqrt(-3*(abs_r)*(abs_r)+1);
-        result += 1;
-        result /= 3;
+        scalar result = (1.0/3.0)*(1+std::sqrt(-3*(abs_r*abs_r)+1));
+        //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
         return result;
     }
     else if(abs_r <= 1.5)
     {
-        scalar result = -std::sqrt(-3*(1-abs_r)*(1-abs_r)+1);
-        result += -3*abs_r;
-        result += 5;
-        result /= 6;
+        scalar result = (1.0/6.0)*(5.0-3.0*abs_r-std::sqrt(-3.0*((1-abs_r)*(1-abs_r))+1));
+        //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
         return result;        
     }
     else
+    {
+        //Info<<"abs_r:"<<abs_r<<" -> "<<0<<Foam::endl;
         return 0;
+    }
 }
 
 Foam::scalar Foam::FieldMarkerStructureInteraction::deltaDirac
@@ -105,17 +110,18 @@ Foam::scalar Foam::FieldMarkerStructureInteraction::deltaDirac
     Foam::vector x,
     Foam::scalar h
 )
-{
-    //Info<<"deltaDirac -- X:"<<X<<" x:"<<x<<" h:"<<h<<Foam::endl;
-    
+{   
     vector sigma_d;
     for(label dim=0; dim<3; dim++)
     {
         scalar X_i_x_i = X[dim]-x[dim];
         scalar r = X_i_x_i / h;
-        sigma_d[dim] = phiFunction(r)/(h*h);
+        sigma_d[dim] = phiFunction(r);
     }
-    return sigma_d[0]*sigma_d[1]*sigma_d[2];
+    scalar deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
+    deltaDir /= (h*h*h);
+    //Info<<h<<"  X:"<<X<<"  x:"<<x<<" -> "<<deltaDir<<Foam::endl;
+    return deltaDir;
 }
 
 Foam::LineStructure::LineStructure
@@ -165,26 +171,31 @@ void Foam::LineStructure::transferMarkers(FieldMarkerStructureInteraction& conne
 void Foam::LineStructure::getSupportDomain
 (
     label cellInd,
-    std::unordered_set<label>& neighbourhoodCells
+    std::unordered_set<label>& neighbourhoodCells,
+    label iterations
 )
 {
-    //Info<<"         getSupportDomain:"<<cellInd<<Foam::endl;
     const cellList& cellList = mesh.cells();
     const faceList& facesList = mesh.faces();
-
     if(cellInd<0 || cellInd>=cellList.size())
         FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
+    neighbourhoodCells.insert(cellInd);
     
-    const cell& thisCell = cellList[cellInd];
-    
-    labelList cellVertices = thisCell.labels(facesList);
-    for(label vertice : cellVertices)
+    for(label iter=0; iter<iterations; iter++)
     {
-        //Info<<"         "<<vertice<<Foam::endl;
-        labelList verticeCells = mesh.pointCells(vertice);
-        neighbourhoodCells.insert(verticeCells.begin(),verticeCells.end());
-    }
-    //Info<<"         getSupportDomain done"<<Foam::endl;
+        DynamicList<label> newCells;
+        for(auto cellIter=neighbourhoodCells.begin(); cellIter!=neighbourhoodCells.end(); cellIter++)
+        {
+            const cell& thisCell = cellList[*cellIter];
+            labelList cellVertices = thisCell.labels(facesList);
+            for(label vertice : cellVertices)
+            {
+                labelList verticeCells = mesh.pointCells(vertice);
+                newCells.append(verticeCells);
+            }
+        }
+        neighbourhoodCells.insert(newCells.begin(),newCells.end());
+    }    
 }
 
 std::pair<double,double> Foam::LineStructure::minMaxSpan
@@ -274,19 +285,19 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
     scalar startPar = oneRod->m_Curve.domainStart();
     markers.push_back(createLagrangianMarker(startPar,oneRod));
     Info<<"Start marker created: "<<startPar<<Foam::endl;
-    Info<<"markers.back():"<<markers.back().markerParameter<<Foam::endl;
+    Info<<"markers.back():"<<markers.back().markerParameter<<" - "<<markers.back().markerPosition<<Foam::endl;
     
     // Insert end marker
     scalar endPar = oneRod->m_Curve.domainEnd();
     markers.push_back(createLagrangianMarker(endPar,oneRod));
     Info<<"End marker created: "<<endPar<<Foam::endl;
-    Info<<"markers.back():"<<markers.back().markerParameter<<Foam::endl;
+    Info<<"markers.back():"<<markers.back().markerParameter<<" - "<<markers.back().markerPosition<<Foam::endl;
     
     bool refined=true;
     label refinementCount = 0;
     while(refined)
     {
-        Info<<"Refine "<<refinementCount<<" size:"<<markers.size()<<Foam::endl;
+        //Info<<"Refine "<<refinementCount<<" size:"<<markers.size()<<Foam::endl;
         refined = false;
         bool cond = true;
         auto markersIter0 = markers.begin();
@@ -294,23 +305,25 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
         for( ; markersIter1!=markers.end() ; )
         {
             bool subdivide = doSubdivision(*markersIter0, *markersIter1);
-            if(refinementCount>=minRefinement)
-                subdivide = false;
+            if(refinementCount<minRefinement)
+                subdivide = true;
             if(subdivide)
             {
                 scalar middlePar = 0.5*(markersIter0->markerParameter+markersIter1->markerParameter);
                 auto inserted = markers.insert(markersIter1,createLagrangianMarker(middlePar,oneRod));
                 refined=true;
-                Info<<"   Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<" / "<<middlePar<<Foam::endl;
+                //Info<<"   Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<" / "<<middlePar<<Foam::endl;
             }
             else
-                Info<<"   Non Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<Foam::endl;
+            {
+                //Info<<"   Non Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<Foam::endl;
+            }
             markersIter0 = markersIter1;
             markersIter1++;
         }
         refinementCount++;
     }
-    
+        
     std::list<LagrangianMarker>::iterator iterPrev = markers.end();
     std::list<LagrangianMarker>::iterator iterNext;
     for(auto iter=markers.begin(); iter!=markers.end(); iter++)
@@ -350,9 +363,12 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
     std::unique_ptr<std::vector<LagrangianMarker>> markersPtr(new std::vector<LagrangianMarker>());
     for(auto iter=markers.begin(); iter!=markers.end(); iter++)
     {
-        Info<<iter->markerParameter<<" -- "<<iter->markerPosition<<Foam::endl;
-        markersPtr->push_back(*iter);
+        Info<<iter->markerParameter<<" -- "<<iter->markerPosition<<" "<<iter->markerCell<<Foam::endl;
+        if(iter->markerCell!=-1)
+            markersPtr->push_back(*iter);
     }
+    
+    Info<<"Created "<<markersPtr->size()<<" markers!"<<Foam::endl;
     return markersPtr;
 }
 
@@ -401,14 +417,17 @@ Foam::LagrangianMarker Foam::LineStructure::createLagrangianMarker
     label cellOfMarker = mesh.findCell(marker.markerPosition);
     if(cellOfMarker!=-1)
         getSupportDomain(cellOfMarker,marker.supportCells);
-    marker.markerCell = -1;
+    marker.markerCell = mesh.findCell(marker.markerPosition);
+    /*
     for(auto iter=marker.supportCells.begin(); iter!=marker.supportCells.end(); iter++)
         if(mesh.pointInCell(marker.markerPosition,*iter))
         {
+            Info<<*iter<<":"<<marker.markerPosition<<Foam::endl;
             if(marker.markerCell!=-1)
                 FatalErrorInFunction<<"Double assignment marker cell"<<exit(FatalError);
             marker.markerCell = *iter;
         }
+    */
     return marker;
 }
 
@@ -460,7 +479,7 @@ bool Foam::LineStructure::doSubdivision
     
     scalar overallDomainMinSide = std::min(smallerSideDomainMinSize,largerSideDomainMinSize);
     
-    Info<<" doSubdivision:"<<distOnNurbs<<"|"<<distDirect<<"/"<<overallDomainMinSide<<smallerSide.markerPosition<<"->"<<largerSide.markerPosition<<" -- "<<distance(smallerSide,largerSide)<<Foam::endl;
+    //Info<<" doSubdivision:"<<distOnNurbs<<"|"<<distDirect<<"/"<<overallDomainMinSide<<smallerSide.markerPosition<<"->"<<largerSide.markerPosition<<" -- "<<distance(smallerSide,largerSide)<<Foam::endl;
     
     if(bothSidesHaveSupp)
     {

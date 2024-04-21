@@ -33,10 +33,14 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
         vector markerVelocity = oneMarkerPtr->getMarkerVelocity();
         vector fluidVelocity = markerFluidVelocity[markerInd];
         makerCouplingForce[markerInd] = (markerVelocity-fluidVelocity)/deltaT;
+        //Info<<markerInd<<" velocity:"<<fluidVelocity<<" couplingForce:"<<makerCouplingForce[markerInd]<<Foam::endl;
     }
 }
 
 void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
+    scalar deltaT = mesh.time().deltaTValue();
     markerToField<vector>(makerCouplingForce,output_Uf);
+    for(vector uf : output_Uf)
+        uf = uf*deltaT;
 }

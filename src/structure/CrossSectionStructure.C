@@ -341,7 +341,8 @@ Foam::LagrangianMarkerOnCrossSec Foam::CrossSectionStructure::createLagrangianMa
     label cellOfMarker = mesh.findCell(marker.markerPosition);
     if(cellOfMarker!=-1)
         getSupportDomain(cellOfMarker,marker.supportCells);
-    marker.markerCell = -1;
+    marker.markerCell = mesh.findCell(marker.markerPosition);
+    /*
     for(auto iter=marker.supportCells.begin(); iter!=marker.supportCells.end(); iter++)
         if(mesh.pointInCell(marker.markerPosition,*iter))
         {
@@ -349,7 +350,8 @@ Foam::LagrangianMarkerOnCrossSec Foam::CrossSectionStructure::createLagrangianMa
             if(marker.markerCell!=-1)
                 FatalErrorInFunction<<"Double assignment marker cell"<<exit(FatalError);
             marker.markerCell = *iter;
-        }       
+        }
+    */
     return marker;
 }
 
@@ -382,13 +384,13 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
 {
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
-    Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
+    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
     scalar radius = oneCrossSec(parameter,angle)*radiusFrac;
-    Info<<"radius:"<<radius<<Foam::endl;
+    //Info<<"radius:"<<radius<<Foam::endl;
     vector coordXDir = std::cos(angle)*radius*d1;
-    Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
+    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
     vector coordYDir = std::sin(angle)*radius*d2;
-    Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
+    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
     return r+coordXDir+coordYDir;
 }
 
@@ -398,6 +400,7 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
     const CrossSection& oneCrossSec
 )
 {
+    /*
     LagrangianMarkerOnCrossSec marker1 = createLagrangianMarkerOnCrossSec(oneRod,0,oneCrossSec,0.985247,1);
     LagrangianMarkerOnCrossSec marker2 = createLagrangianMarkerOnCrossSec(oneRod,0,oneCrossSec,0.985295,1);
     
@@ -405,9 +408,10 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
     scalar distDirect = Foam::mag(marker1.markerPosition-marker2.markerPosition);
     
     Info<<distOnNurbs<<"|"<<distDirect<<"/ "<<marker1.markerPosition<<"->"<<marker2.markerPosition<<Foam::endl;
+    */
     
     
-    Info<<"constructMarkerSet"<<Foam::endl;
+    //Info<<"constructMarkerSet"<<Foam::endl;
     std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>> markers;
     markers.resize(2);
     
@@ -419,7 +423,7 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
     scalar endPar = oneRod->m_Curve.domainEnd();
     constructMarkerSetRadial(oneRod,endPar,oneCrossSec,markers.back());
     
-    Info<<"Start and end done"<<Foam::endl;
+    //Info<<"Start and end done"<<Foam::endl;
     
     bool refined=true;
     label refinementCount = 0;
@@ -451,7 +455,7 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
             markersIter1++;
         }
         refinementCount++;
-        Info<<"refinementCount:"<<refinementCount<<Foam::endl;
+        //Info<<"refinementCount:"<<refinementCount<<Foam::endl;
         if(refinementCount==20)
             FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);    
     }
@@ -475,11 +479,12 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
     {
         return CrossSectionStructure::evaluateRodCircumPos(rod,para,crossSec,angle,radFrac);
     };
-        
+    
+    scalar sumVolume = 0;
     std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markersRef = *markersPtr;
     for(label rodWiseIndex=0; rodWiseIndex<markers.size(); rodWiseIndex++)
     {
-        Info<<"rodWiseIndex:"<<rodWiseIndex<<Foam::endl;
+        //Info<<"rodWiseIndex:"<<rodWiseIndex<<Foam::endl;
         std::vector<std::vector<LagrangianMarkerOnCrossSec>>& radialMarkers = markersRef[rodWiseIndex];
         scalar rodWiseIndexParameter = radialMarkers[0][0].markerParameter;
         
@@ -497,7 +502,7 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
         
         for(label radialIndex=0; radialIndex<radialMarkers.size(); radialIndex++)
         {
-            Info<<"\tradialIndex:"<<radialIndex<<Foam::endl;
+            //Info<<"\tradialIndex:"<<radialIndex<<Foam::endl;
             std::vector<LagrangianMarkerOnCrossSec>& circumMarkers = radialMarkers[radialIndex];
             scalar radialIndexFrac = circumMarkers[0].markerRadiusFrac;
             
@@ -522,7 +527,7 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
             
             for(label circIndex=0; circIndex<circumMarkers.size(); circIndex++)
             {
-                Info<<"\t\tcircIndex:"<<circIndex<<"/"<<circumMarkers.size()<<Foam::endl;
+                //Info<<"\t\tcircIndex:"<<circIndex<<"/"<<circumMarkers.size()<<Foam::endl;
 
                 LagrangianMarkerOnCrossSec& singleMarker = circumMarkers[circIndex];
                 scalar circIndexAngle = radialMarkers[radialIndex][0].markerRadiusFrac;
@@ -544,9 +549,11 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
                 upperAngle /= 2;
                 upperAngle = CrossSectionStructure::restrictAngle(upperAngle);
                 
+                /*
                 Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::endl;
                 Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
                 Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::endl;
+                */
                 
                 std::array<std::array<std::array<label,2>,2>,2> paraRadAnglePnts;
                 pointField points(8);
@@ -566,22 +573,7 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
                 paraRadAnglePnts[1][1][0] = 6;
                 points[7] = getPosition(subseqParameter,outerRadiusFrac,upperAngle);
                 paraRadAnglePnts[1][1][1] = 7;
-                Info<<"points:"<<points<<Foam::endl;
-                
-                Info<<getPosition(0,1,0.2)<<Foam::endl;
-                Info<<getPosition(0,1,0.4)<<Foam::endl;
-                Info<<getPosition(0,1,0.6)<<Foam::endl;
-                
-                vector r,d1,d2,d3;
-                rodEval(oneRod,0,d1,d2,d3,r);
-                Info<<"r:"<<r<<Foam::endl;
-                Info<<"d1:"<<d1<<Foam::endl;
-                Info<<"d2:"<<d2<<Foam::endl;
-                Info<<"d3:"<<d3<<Foam::endl;
-                getPosition(0,1,0.6);
-                FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
-
-                
+        
                 face prevFace({0,1,3,2});
                 face subseqFace({4,5,7,6});
                 face innerFace({0,1,5,4});
@@ -613,16 +605,11 @@ std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>
                     cellList[ind] = ind;
                 cell thisCell(cellList);
                 
-                Info<<"faces:"<<faces<<Foam::endl;
-                Info<<"thisCell:"<<thisCell<<Foam::endl;
-                Info<<"thisCell.mag():"<<thisCell.mag(points,faces)<<Foam::endl;
                 singleMarker.markerVolume = thisCell.mag(points,faces);
-                Info<<"\t\t\t"<<singleMarker.markerVolume<<Foam::endl;
-                FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+                sumVolume+=singleMarker.markerVolume;
             }
         }
     }
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
     return markersPtr;
 }
 
@@ -637,13 +624,13 @@ void Foam::CrossSectionStructure::constructMarkerSetRadial
     if(!radialMarkers.empty())
         FatalErrorInFunction<<"List must be empty"<< exit(FatalError);
     
-    Info<<"constructMarkerSetRadial:"<<parameter<<Foam::endl;
+    //Info<<"constructMarkerSetRadial:"<<parameter<<Foam::endl;
     
     // Insert outer circum markers
     radialMarkers.push_back(createInitialCircumMarkers(oneRod,parameter,oneCrossSec,1));
     constructMarkerSetCircumferential(oneRod,oneCrossSec,radialMarkers.back());
     
-    Info<<"Done outer cirum markers"<<Foam::endl;
+    //Info<<"Done outer cirum markers"<<Foam::endl;
 
     // Insert inner circum marker
     LagrangianMarkerOnCrossSec marker
@@ -668,7 +655,7 @@ void Foam::CrossSectionStructure::constructMarkerSetRadial
         }
     radialMarkers.push_back({marker});
     
-    Info<<"Done inner cirum markers"<<Foam::endl;
+    //Info<<"Done inner cirum markers"<<Foam::endl;
 
     
     bool refined=true;

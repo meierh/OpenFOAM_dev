@@ -38,8 +38,8 @@ nu(nu)
     auto cutCellBound = this->mesh.Sf().boundaryField();
     const fvBoundaryMesh& bound = mesh.boundary();
     
-    createDeformationCurve();    
-    assignBoundaryFacesToNurbsCurves();
+    //createDeformationCurve();    
+    //assignBoundaryFacesToNurbsCurves();
     Info<<"Completed Structure setup"<<Foam::endl;
 }
 
@@ -584,6 +584,7 @@ void Foam::Structure::moveNurbs()
 
 void Foam::Structure::createDeformationCurve()
 {
+    /*
     label nbrNurbs = myMesh->m_Rods.size();
     label nbrNurbs2 = myMesh->m_nR;
     Info<<"nbrNurbs:"<<nbrNurbs<<Foam::endl;
@@ -623,6 +624,7 @@ void Foam::Structure::createDeformationCurve()
             nurbs_to_knots.back()[n] = knots[n];
         }
     }
+    */
 }
 
 label Foam::Structure::getNumberRods()

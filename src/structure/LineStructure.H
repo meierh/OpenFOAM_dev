@@ -60,11 +60,14 @@ class FieldMarkerStructureInteraction
             const pointField& points = mesh.points();
             
             markerData.resize(markers.size());
+            scalar factorSumAvg = 0;
+            label count=0;
             for(label index=0; index<markerData.size(); index++)
             {
                 T value = Foam::zero();
                 const LagrangianMarker& oneMarker = *(markers[index]);
                 const vector& oneMarkerPos = oneMarker.markerPosition;
+                scalar factorSum = 0;
                 for(auto cellIter=oneMarker.supportCells.begin();
                     cellIter!=oneMarker.supportCells.end();
                     cellIter++)
@@ -76,9 +79,19 @@ class FieldMarkerStructureInteraction
                     scalar h = std::cbrt(cellVol);
                     scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*cellVol;
                     value += fieldData[cellInd]*factor;
+                    //Info<<factor<<"  ";
+                    factorSum+=factor;
                 }
+                //Info<<factorSum<<Foam::endl;
                 markerData[index] = value;
+                if(oneMarker.supportCells.size()>0)
+                {
+                    factorSumAvg+=factorSum;
+                    count++;
+                }
             }
+            factorSumAvg/=count;
+            Info<<"-------------"<<factorSumAvg<<"--------"<<Foam::endl;
         }
         template<typename T>
         void markerToField
@@ -87,6 +100,7 @@ class FieldMarkerStructureInteraction
             GeometricField<T,fvPatchField,volMesh>& fieldData
         )
         {
+            Info<<"Transfer markers to field"<<Foam::endl;
             const cellList& cells = mesh.cells();
             const faceList& faces = mesh.faces();
             const pointField& points = mesh.points();
@@ -107,30 +121,41 @@ class FieldMarkerStructureInteraction
                 }
             }
             
+            scalar factorSumAvg = 0;
+            scalar count = 0;
             for(label cellInd=0; cellInd<fieldData.size(); cellInd++)
             {
                 const cell& oneCell = cells[cellInd];
                 point cellCentre = oneCell.centre(points,faces);
-                scalar cellVol = oneCell.mag(points,faces);
-                scalar h = std::cbrt(cellVol);
+                //scalar cellVol = oneCell.mag(points,faces);
+                scalar factorSum = 0;
                 if(cellMarkers[cellInd].size()>0)
                 {
                     T value = Foam::zero();
+                    //Info<<cellInd<<" -- ";
                     for(label markerInd : cellMarkers[cellInd])
                     {
                         const LagrangianMarker& oneMarker = *(markers[markerInd]);
                         const vector& oneMarkerPos = oneMarker.markerPosition;
                         scalar markerVolume = oneMarker.markerVolume;
+                        scalar h = std::cbrt(markerVolume);
                         scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*markerVolume;
+                        //Info<<"dd:"<<deltaDirac(cellCentre,oneMarkerPos,h)<<" mV:"<<markerVolume<<" f:"<<factor<<" m:"<<markerData[markerInd]<<"   ";
+                        factorSum+=factor;
                         value += markerData[markerInd]*factor;
                     }
                     fieldData[cellInd] = value;
+                    //Info<<factorSum<<Foam::endl;
+                    count++;
+                    factorSumAvg+=factorSum;
                 }
                 else
                 {
                     fieldData[cellInd] = Foam::zero();
                 }
             }
+            factorSumAvg/=count;
+            Info<<"-------------"<<factorSumAvg<<"--------"<<Foam::endl;
         }
 };
 
@@ -154,7 +179,8 @@ class LineStructure : public Structure
         void getSupportDomain
         (
             label cellInd,
-            std::unordered_set<label>& neighbourhoodCells
+            std::unordered_set<label>& neighbourhoodCells,
+            label iterations=1
         );
         
         std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
@@ -203,7 +229,7 @@ class LineStructure : public Structure
         
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
         
-        const label minRefinement = 5;
+        const label minRefinement = 3;
         
     private:
         const List<scalar> crossSecArea;
