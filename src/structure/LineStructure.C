@@ -10,6 +10,11 @@ vector Foam::LagrangianMarker::getMarkerVelocity()
     return vector(0,0,0);
 }
 
+scalar Foam::LagrangianMarker::getMarkerTemperature()
+{
+    return 1;
+}
+
 scalar Foam::LineStructure::distance
 (
     const LagrangianMarker& A,
@@ -70,14 +75,15 @@ scalar Foam::LineStructure::distance
 
 Foam::FieldMarkerStructureInteraction::FieldMarkerStructureInteraction
 (
-    dynamicRefineFvMesh& mesh
+    dynamicRefineFvMesh& mesh,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
-mesh(mesh)
+mesh(mesh),
+h(std::cbrt(mesh.cells()[0].mag(mesh.points(),mesh.faces()))),
+modusFieldToMarker(modusFieldToMarker),
+modusMarkerToField(modusMarkerToField)
 {
-    /*
-    for(scalar span=0; span<2; span+=0.01)
-        Info<<"r:"<<span<<" -> "<<phiFunction(span)<<Foam::endl;
-    */
 }
 
 Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
@@ -124,17 +130,103 @@ Foam::scalar Foam::FieldMarkerStructureInteraction::deltaDirac
     return deltaDir;
 }
 
+void Foam::FieldMarkerStructureInteraction::scatterNurbs
+(
+    std::pair<gsNurbs<scalar>,label> in,
+    std::pair<gsNurbs<scalar>,label>& out
+)
+{
+    List<List<scalar>> nurbsData(7);
+    // degree
+    // gsKnotVector
+    // weights
+    // cols // nbrControlPoints
+    // rows // dimensionControlPoints
+    // coefficients
+    // number
+    if(Pstream::master())
+    {
+        gismo::gsKnotVector<scalar> knots = in.first.knots();
+        label degree = knots.degree();
+        nurbsData[0] = List<scalar>(1);
+        nurbsData[0][0] = degree;
+        nurbsData[1] = List<scalar>(knots.size());
+        for(label i=0;i<knots.size();i++)
+            nurbsData[1][i] = knots[i];
+        
+        gismo::gsMatrix<scalar> weights = in.first.weights();
+        if(weights.rows()!=1)
+            FatalErrorInFunction<<"Wrong weight dimensions"<< exit(FatalError);
+        nurbsData[2] = List<scalar>(weights.cols());
+        for(label i=0;i<weights.cols();i++)
+            nurbsData[2][i] = weights(0,i);
+
+        gismo::gsMatrix<scalar> coefs = in.first.coefs();
+        nurbsData[3] = List<scalar>(1);
+        nurbsData[3][0] = coefs.cols();
+        nurbsData[4] = List<scalar>(1);
+        nurbsData[4][0] = coefs.rows();
+        nurbsData[5] = List<scalar>(coefs.cols()*coefs.rows());
+        label index = 0;
+        for(int n=0;n<coefs.cols();n++)
+        {
+            for(int d=0;d<coefs.rows();d++)
+            {
+                nurbsData[5][index] = coefs(d,n);
+                index++;
+            }
+        }
+        
+        nurbsData[6] = List<scalar>(1);
+        nurbsData[6][0] = in.second;
+    }
+    Pstream::scatter(nurbsData);
+    if(Pstream::master())
+    {
+        out = in;
+    }
+    else
+    {
+        std::vector<double> knotContainer(nurbsData[1].size());
+        for(label i=0;i<nurbsData[1].size();i++)
+            knotContainer[i] = nurbsData[1][i];
+        gismo::gsKnotVector<scalar> knots(knotContainer,nurbsData[0][0]);
+
+        gismo::gsMatrix<scalar> weights(nurbsData[2].size(),1);
+        for(label i=0;i<nurbsData[2].size();i++)
+            weights(i,0) = nurbsData[2][i];
+
+        gismo::gsMatrix<scalar> coefs(nurbsData[4][0],nurbsData[3][0]);
+        nurbsData[5] = List<scalar>(coefs.cols()*coefs.rows());
+        label index = 0;
+        for(int n=0;n<coefs.cols();n++)
+        {
+            for(int d=0;d<coefs.rows();d++)
+            {
+                coefs(d,n) = nurbsData[5][index];;
+                index++;
+            }
+        }
+       
+        out.first = gismo::gsNurbs<double>(knots,weights,coefs);
+        
+        out.second = nurbsData[6][0];
+    }
+}
+
 Foam::LineStructure::LineStructure
 (
     dynamicRefineFvMesh& mesh,
+    /*
     const dimensionedScalar& alpha,
     const volScalarField& T,
     const volScalarField& p,
     const volVectorField& U,
     const dimensionedScalar nu,
+    */
     const List<scalar> crossSecArea
 ):
-Structure(mesh.time(),alpha,T,p,U,mesh,nu),
+Structure(mesh,mesh.time()/*,alpha,T,p,U,nu*/),
 crossSecArea(crossSecArea)
 {
     
@@ -159,7 +251,7 @@ void Foam::LineStructure::transferMarkers(FieldMarkerStructureInteraction& conne
         if(!oneRodMarkers)
         {
             myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
-            oneRodMarkers = constructMarkerSet(myMesh->m_Rods[rodIndex],crossSecArea[rodIndex]);
+            oneRodMarkers = constructMarkerSet(rodIndex,myMesh->m_Rods[rodIndex],crossSecArea[rodIndex]);
         }
         for(LagrangianMarker& marker : *oneRodMarkers)
         {
@@ -273,6 +365,7 @@ scalar Foam::LineStructure::supportDomainMinSize
 
 std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMarkerSet
 (
+    label rodNumber,
     const ActiveRodMesh::rodCosserat* oneRod,
     scalar crossSecArea
 )
@@ -283,13 +376,13 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
     
     // Insert start marker
     scalar startPar = oneRod->m_Curve.domainStart();
-    markers.push_back(createLagrangianMarker(startPar,oneRod));
+    markers.push_back(createLagrangianMarker(startPar,rodNumber,oneRod));
     Info<<"Start marker created: "<<startPar<<Foam::endl;
     Info<<"markers.back():"<<markers.back().markerParameter<<" - "<<markers.back().markerPosition<<Foam::endl;
     
     // Insert end marker
     scalar endPar = oneRod->m_Curve.domainEnd();
-    markers.push_back(createLagrangianMarker(endPar,oneRod));
+    markers.push_back(createLagrangianMarker(endPar,rodNumber,oneRod));
     Info<<"End marker created: "<<endPar<<Foam::endl;
     Info<<"markers.back():"<<markers.back().markerParameter<<" - "<<markers.back().markerPosition<<Foam::endl;
     
@@ -310,7 +403,7 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
             if(subdivide)
             {
                 scalar middlePar = 0.5*(markersIter0->markerParameter+markersIter1->markerParameter);
-                auto inserted = markers.insert(markersIter1,createLagrangianMarker(middlePar,oneRod));
+                auto inserted = markers.insert(markersIter1,createLagrangianMarker(middlePar,rodNumber,oneRod));
                 refined=true;
                 //Info<<"   Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<" / "<<middlePar<<Foam::endl;
             }
@@ -409,11 +502,12 @@ Foam::vector Foam::LineStructure::evaluateRodDeriv
 Foam::LagrangianMarker Foam::LineStructure::createLagrangianMarker
 (
     scalar markerParameter,
+    label rodNumber,
     const ActiveRodMesh::rodCosserat* oneRod
 )
 {
     //Info<<" createLagrangianMarker"<<Foam::endl;
-    LagrangianMarker marker(markerParameter,evaluateRodPos(oneRod,markerParameter),oneRod);
+    LagrangianMarker marker(markerParameter,evaluateRodPos(oneRod,markerParameter),rodNumber,oneRod);
     label cellOfMarker = mesh.findCell(marker.markerPosition);
     if(cellOfMarker!=-1)
         getSupportDomain(cellOfMarker,marker.supportCells);

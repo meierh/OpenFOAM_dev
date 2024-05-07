@@ -2,25 +2,31 @@
 
 Foam::Structure::Structure
 (
-    const Time& runTime,
+    dynamicRefineFvMesh& mesh,
+    const Time& runTime
+    /*,
     const dimensionedScalar& alpha,
     const volScalarField& T,
     const volScalarField& p,
     const volVectorField& U,
-    dynamicRefineFvMesh& mesh,
     const dimensionedScalar nu
+    */
 ):
 runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
 xmlPath(getXMLPath()),
 nR(loadRodsFromXML()),
+/*
 alpha(alpha),
 T(T),
 p(p),
 U(U),
-mesh(mesh),
+*/
+mesh(mesh)
+/*,
 nu(nu)
+*/
 {
     cntOpt.ptsType = 2;
     cntOpt.ptsN = 2;

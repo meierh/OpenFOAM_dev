@@ -12,17 +12,28 @@ class CrossSection
         (
             scalar radius
         );
+        
         explicit CrossSection
         (
             scalar a_0,
             std::vector<scalar> a_k,
-            std::vector<scalar> b_k
-        );        
+            std::vector<scalar> b_k,
+            scalar phaseShift=0
+        );
+        explicit CrossSection
+        (
+            scalar a_0,
+            std::vector<scalar> a_k,
+            std::vector<scalar> b_k,
+            gsNurbs<scalar> phaseShift
+        );
+        
         explicit CrossSection
         (
             gsNurbs<scalar> a_0,
             std::vector<gsNurbs<scalar>> a_k,
-            std::vector<gsNurbs<scalar>> b_k
+            std::vector<gsNurbs<scalar>> b_k,
+            gsNurbs<scalar> phaseShift
         );
         scalar operator()(scalar parameter, scalar rad) const;
         std::function<scalar(scalar)> getEvalOnPoint(scalar parameter) const;
@@ -31,21 +42,33 @@ class CrossSection
         scalar domainEnd(){return domEnd;}
 
     private:
-        std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>> constCrossSec
+        std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> constCrossSec
         (
             scalar a_0,
             std::vector<scalar> a_k,
-            std::vector<scalar> b_k
+            std::vector<scalar> b_k,
+            scalar phaseShift = 0
+        );
+        std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> twistedConstCrossSec
+        (
+            scalar a_0,
+            std::vector<scalar> a_k,
+            std::vector<scalar> b_k,
+            gsNurbs<scalar> phaseShift
         );
         void init
         (
             gsNurbs<scalar> a_0,
             std::vector<gsNurbs<scalar>> a_k,
-            std::vector<gsNurbs<scalar>> b_k
+            std::vector<gsNurbs<scalar>> b_k,
+            gsNurbs<scalar> phaseShift
         );
+        gsNurbs<scalar> createConstNurbs(scalar coeff) const;
+        
         gsNurbs<scalar> a_0;
         std::vector<gsNurbs<scalar>> a_k;
         std::vector<gsNurbs<scalar>> b_k;
+        gsNurbs<scalar> phaseShift;
         uint numberCoeffs;
         scalar domStart;
         scalar domEnd;
@@ -58,12 +81,13 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         (
             const scalar markerParameter,
             const vector markerPosition,
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerAngle,
             const CrossSection baseCrossSec,
             const scalar radiusFrac
         ):
-        LagrangianMarker(markerParameter,markerPosition,baseRod),
+        LagrangianMarker(markerParameter,markerPosition,rodNumber,baseRod),
         markerAngle(markerAngle),
         baseCrossSec(baseCrossSec),
         markerRadiusFrac(radiusFrac)
@@ -80,11 +104,13 @@ class CrossSectionStructure : public LineStructure
         explicit CrossSectionStructure
         (
             dynamicRefineFvMesh& mesh,
+            /*
             const dimensionedScalar& alpha,
             const volScalarField& T,
             const volScalarField& p,
             const volVectorField& U,
             const dimensionedScalar nu,
+            */
             std::vector<CrossSection> rodCrossSection
         );
         CrossSectionStructure(const CrossSectionStructure&) = delete;
@@ -108,7 +134,9 @@ class CrossSectionStructure : public LineStructure
             scalar parameter,
             const CrossSection& oneCrossSec,
             scalar angle,
-            scalar radiusFrac
+            scalar radiusFrac,
+            scalar var_para = 0,
+            scalar var_radius = 0
         );
         bool doSubdivision
         (
@@ -132,6 +160,7 @@ class CrossSectionStructure : public LineStructure
         
         LagrangianMarkerOnCrossSec createLagrangianMarkerOnCrossSec
         (
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
             const CrossSection& oneCrossSec,
@@ -140,12 +169,14 @@ class CrossSectionStructure : public LineStructure
         );
         std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>> constructMarkerSet
         (
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection& oneCrossSec
         );
         
         void constructMarkerSetCircumferential
         (
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat*,
             const CrossSection&,
             std::list<LagrangianMarkerOnCrossSec>&,
@@ -154,6 +185,7 @@ class CrossSectionStructure : public LineStructure
         
         void constructMarkerSetRadial
         (
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             const scalar parameter,
             const CrossSection& oneCrossSec,
@@ -162,6 +194,7 @@ class CrossSectionStructure : public LineStructure
         
         std::list<LagrangianMarkerOnCrossSec> createInitialCircumMarkers
         (
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
             const CrossSection& oneCrossSec,

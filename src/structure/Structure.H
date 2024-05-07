@@ -43,7 +43,6 @@
 
 #define _USE_MATH_DEFINES
 #include <math.h>
-
 #include "fvCFD.H"
 #include "mapPolyMesh.H"
 #include "polyTopoChange.H"
@@ -56,13 +55,15 @@ class Structure
     public:
         explicit Structure
         (
-            const Time& runTime,
+            dynamicRefineFvMesh& mesh,
+            const Time& runTime
+            /*,
             const dimensionedScalar& alpha,
             const volScalarField& T,
             const volScalarField& p,
             const volVectorField& U,
-            dynamicRefineFvMesh& mesh,
             const dimensionedScalar nu
+            */
         );
         ~Structure();
         Structure(const Structure&) = delete;
@@ -71,6 +72,53 @@ class Structure
         label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod);
         
         void solveOneStep();
+        
+        static gsNurbs<scalar> createNurbs
+        (
+            std::vector<scalar> knots,
+            uint degree,
+            std::vector<scalar> weights,
+            std::vector<scalar> coefficients
+        )
+        {
+            gsKnotVector<scalar> cKnots(knots,degree);
+            Info<<"Generated gsKnotVector"<<Foam::endl;
+            gsMatrix<scalar> cWeight(weights.size(),1);
+            for(label i=0; i<weights.size(); i++)
+                cWeight.at(i) = weights[i];
+            Info<<"Generated weights"<<Foam::endl;
+            gsMatrix<scalar> cCoeff(coefficients.size(),1);
+            for(label i=0; i<coefficients.size(); i++)
+                cCoeff.at(i) = coefficients[i];
+            Info<<"Generated coefficients"<<Foam::endl;
+            return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+        }
+        
+        static gsNurbs<scalar> createNurbs
+        (
+            std::vector<scalar> knots,
+            uint degree,
+            std::vector<scalar> weights,
+            std::vector<vector> coefficients
+        )
+        {
+            gsKnotVector<scalar> cKnots(knots,degree);
+            gsMatrix<scalar> cWeight(weights.size(),1);
+            for(label i=0; i<weights.size(); i++)
+                cWeight.at(i) = weights[i];
+            gsMatrix<scalar> cCoeff(coefficients.size(),3);
+            for(int i=0; i<coefficients.size(); i++)
+            {
+                for(label d=0;d<3;d++)
+                {
+                    cCoeff(i,d) = coefficients[i][d];
+                }
+            }            
+            return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+        }
+
+        static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
+        static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         
     protected:
         const Time& runTime;
@@ -136,13 +184,16 @@ class Structure
 
 
         //******************* Parameters *******************//
+        /*
         const dimensionedScalar& alpha;
         const volScalarField& T;
         const volScalarField& p;
         const volVectorField& U;
-        dynamicRefineFvMesh& mesh;
         label IBPatchID;
         const dimensionedScalar nu;
+        */
+        dynamicRefineFvMesh& mesh;
+
         
         void computeIBHeatFlux();
         void computeIBTemperature();
@@ -156,9 +207,6 @@ class Structure
         void assignForceOnCurve();        
         std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
         void moveNurbs();
-
-        static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
-        static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
 };
 }
 #endif

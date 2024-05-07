@@ -13,45 +13,53 @@ class LagrangianMarker
         (
             const scalar markerParameter,
             const vector markerPosition,
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod
         ):
         markerParameter(markerParameter),
         markerPosition(markerPosition),
+        rodNumber(rodNumber),
         baseRod(baseRod)
         {}
         
         vector getMarkerVelocity();
+        scalar getMarkerTemperature();
 
         const scalar markerParameter;
         const vector markerPosition;
+        const label rodNumber;
         const ActiveRodMesh::rodCosserat* baseRod;
         scalar markerVolume;
         std::unordered_set<label> supportCells;
         label markerCell;
         std::string to_string();
-        
 };
 
 class FieldMarkerStructureInteraction
 {
     public:
+        enum markerMeshType {Uniform, NonUniform};
         explicit FieldMarkerStructureInteraction
         (
-            dynamicRefineFvMesh& mesh
+            dynamicRefineFvMesh& mesh,
+            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
+            markerMeshType modusMarkerToField = markerMeshType::Uniform
+
         );
-        
         ActiveRodMesh::rodMesh* rodMesh;
         std::vector<LagrangianMarker*> markers;
         dynamicRefineFvMesh& mesh;
         
     protected:
+        const markerMeshType modusFieldToMarker;
+        const markerMeshType modusMarkerToField;
         scalar phiFunction(scalar r);
         scalar deltaDirac(vector X, vector x, scalar h);
         template<typename T>
         void fieldToMarker
         (
-            GeometricField<T,fvPatchField,volMesh>& fieldData,
-            std::vector<T>& markerData
+            const GeometricField<T,fvPatchField,volMesh>& fieldData,
+            DynamicList<T>& markerData
         )
         {
             Info<<"Transfer field to markers"<<Foam::endl;
@@ -68,21 +76,82 @@ class FieldMarkerStructureInteraction
                 const LagrangianMarker& oneMarker = *(markers[index]);
                 const vector& oneMarkerPos = oneMarker.markerPosition;
                 scalar factorSum = 0;
+                DynamicList<label> supportCells;
                 for(auto cellIter=oneMarker.supportCells.begin();
-                    cellIter!=oneMarker.supportCells.end();
-                    cellIter++)
+                        cellIter!=oneMarker.supportCells.end();
+                        cellIter++)
+                    supportCells.append(*cellIter);
+                List<scalar> cellVols(supportCells.size());
+                List<vector> cellCentres(supportCells.size());
+                List<scalar> cellDistances(supportCells.size());
+                for(label i=0; i<supportCells.size(); i++)
                 {
-                    label cellInd = *cellIter;
-                    const cell& oneCell = cells[cellInd];
-                    scalar cellVol = oneCell.mag(points,faces);
-                    point cellCentre = oneCell.centre(points,faces);
-                    scalar h = std::cbrt(cellVol);
-                    scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*cellVol;
-                    value += fieldData[cellInd]*factor;
-                    //Info<<factor<<"  ";
-                    factorSum+=factor;
+                    label cellInd = supportCells[i];
+                    cellVols[i] = cells[cellInd].mag(points,faces);
+                    cellCentres[i] = cells[cellInd].centre(points,faces);
+                    vector markerToCell = cellCentres[i]-oneMarkerPos;
+                    cellDistances[i] = std::sqrt(markerToCell&markerToCell);
                 }
-                //Info<<factorSum<<Foam::endl;
+                scalar h = std::accumulate(cellDistances.begin(),cellDistances.end(),0.0,std::plus<scalar>());
+                if(supportCells.size()>0)
+                    h/=supportCells.size();
+                
+                if(modusFieldToMarker==markerMeshType::Uniform)
+                {
+                    for(label i=0; i<supportCells.size(); i++)
+                    {
+                        label cellInd = supportCells[i];
+                        scalar factor = deltaDirac(cellCentres[i],oneMarkerPos,h);
+                        value += fieldData[cellInd]*factor*cellVols[i];
+                        //Info<<cellInd<<":"<<fieldData[cellInd]<<" factor:"<<factor<<Foam::endl;
+                        factorSum+=factor;
+                    }
+                    /*
+                    if(supportCells.size()>0)
+                    {
+                        Info<<"cellVols:"<<cellVols<<Foam::endl;
+                        Info<<"cellCentres:"<<cellCentres<<Foam::endl;
+                        Info<<"cellDistances:"<<cellDistances<<Foam::endl;
+                        Info<<"h:"<<h<<Foam::endl;
+                        Info<<"oneMarkerPos:"<<oneMarkerPos<<Foam::endl;
+                        Info<<"value:"<<value<<Foam::endl;
+                        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+                    }
+                    */
+                }
+                else
+                {
+                    DynamicList<scalar> epsilon;
+                    SymmetricSquareMatrix<scalar> A(oneMarker.supportCells.size());
+                    for(label i=0; i<supportCells.size(); i++)
+                    {
+                        
+                        for(label j=i+1; j<supportCells.size(); j++)
+                        {
+                            label cellInd = supportCells[i];
+                            scalar factor = deltaDirac(cellCentres[i],oneMarkerPos,h)*cellVols[i];
+                            value += fieldData[cellInd]*factor;
+                            factorSum+=factor;
+                        }
+                    }                    
+                    for(auto cellIter=oneMarker.supportCells.begin();
+                        cellIter!=oneMarker.supportCells.end();
+                        cellIter++)
+                    {
+                        label cellInd = *cellIter;
+                        const cell& oneCell = cells[cellInd];
+                        scalar cellVol = oneCell.mag(points,faces);
+                        point cellCentre = oneCell.centre(points,faces);
+                        //scalar h = std::cbrt(cellVol);
+                        scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*cellVol;
+                        value += fieldData[cellInd]*factor;
+                        //Info<<factor<<"  ";
+                        factorSum+=factor;
+                    }
+                    
+                    
+                }
+                //Info<<"value:"<<value<<Foam::endl;
                 markerData[index] = value;
                 if(oneMarker.supportCells.size()>0)
                 {
@@ -91,16 +160,19 @@ class FieldMarkerStructureInteraction
                 }
             }
             factorSumAvg/=count;
-            Info<<"-------------"<<factorSumAvg<<"--------"<<Foam::endl;
+            Info<<"--------fieldToMarker  factorSumAvg:"<<factorSumAvg<<"------"<<Foam::endl;
+            //Info<<markerData<<Foam::endl;
         }
+        
         template<typename T>
         void markerToField
         (
-            std::vector<T>& markerData,
+            const DynamicList<T>& markerData,
             GeometricField<T,fvPatchField,volMesh>& fieldData
         )
         {
             Info<<"Transfer markers to field"<<Foam::endl;
+            fieldData = Foam::zero();
             const cellList& cells = mesh.cells();
             const faceList& faces = mesh.faces();
             const pointField& points = mesh.points();
@@ -144,19 +216,91 @@ class FieldMarkerStructureInteraction
                         factorSum+=factor;
                         value += markerData[markerInd]*factor;
                     }
-                    fieldData[cellInd] = value;
+                    fieldData[cellInd] += value;
                     //Info<<factorSum<<Foam::endl;
                     count++;
                     factorSumAvg+=factorSum;
                 }
-                else
-                {
-                    fieldData[cellInd] = Foam::zero();
-                }
             }
             factorSumAvg/=count;
-            Info<<"-------------"<<factorSumAvg<<"--------"<<Foam::endl;
+            Info<<"---markerToField factorSumAvg:"<<factorSumAvg<<"--------"<<Foam::endl;
         }
+        
+        void scatterNurbs(std::pair<gsNurbs<scalar>,label> in, std::pair<gsNurbs<scalar>,label>& out);
+        
+        template<typename T>
+        void gatherMarkerData
+        (
+            std::tuple<List<scalar>,List<List<T>>,label> in,
+            std::tuple<List<scalar>,List<List<T>>,label>& out
+        )
+        {
+            List<label> rodInIndex(Pstream::nProcs(),-1);
+            rodInIndex[Pstream::myProcNo()] = std::get<2>(in);
+            Pstream::gatherList(rodInIndex);
+            if(Pstream::master())
+            {
+                for(label ind : rodInIndex)
+                    if(ind!=std::get<2>(in))
+                        FatalErrorInFunction<<"Inconsistent rod index"<< exit(FatalError);
+            }
+            
+            if(std::get<0>(in).size()!=std::get<1>(in).size())
+                FatalErrorInFunction<<"Inconsistent marker array length"<< exit(FatalError);
+            
+            List<List<scalar>> globalMarkerParam(Pstream::nProcs());
+            globalMarkerParam[Pstream::myProcNo()] = std::get<0>(in);
+            Pstream::gatherList(globalMarkerParam);
+            
+            List<List<List<T>>> globalMarkerData(Pstream::nProcs());
+            globalMarkerData[Pstream::myProcNo()] = std::get<1>(in);
+            Pstream::gatherList(globalMarkerData);
+            
+            if(Pstream::master())
+            {
+                std::map<scalar,List<T>> mergedData;
+                label elemLen = -1;
+                for(label proc=0; proc<globalMarkerParam.size(); proc++)
+                {
+                    for(label ind=0; ind<globalMarkerParam[proc].size(); ind++)
+                    {
+                        scalar param = globalMarkerParam[proc][ind];
+                        const List<T>& values = globalMarkerData[proc][ind];
+                        if(elemLen==-1)
+                            elemLen = values.size();
+                        else
+                            if(elemLen!=values.size())
+                                FatalErrorInFunction<<"Inconsistent marker data array length"<< exit(FatalError);
+                        auto iter = mergedData.find(param);
+                        if(iter==mergedData.end())
+                        {
+                            mergedData.insert({param,values});
+                        }
+                        else
+                        {
+                            for(label i=0; i<values.size(); i++)
+                                iter->second[i] += values[i];
+                        }
+                    }
+                }
+                
+                List<scalar> masterParams(mergedData.size());
+                List<List<T>> masterData(mergedData.size());
+                label index=0;
+                for(auto iter=mergedData.begin(); iter!=mergedData.end(); iter++)
+                {
+                    masterParams[index] = iter->first;
+                    masterData[index] = iter->second;
+                    index++;
+                }
+                
+                std::get<0>(out) = masterParams;
+                std::get<1>(out) = masterData;
+                std::get<2>(out) = std::get<2>(in);
+            }
+        }
+        
+        const scalar h;
 };
 
 class LineStructure : public Structure
@@ -165,11 +309,13 @@ class LineStructure : public Structure
         explicit LineStructure
         (
             dynamicRefineFvMesh& mesh,
+            /*
             const dimensionedScalar& alpha,
             const volScalarField& T,
             const volScalarField& p,
             const volVectorField& U,
             const dimensionedScalar nu,
+            */
             const List<scalar> crossSecArea
         );
         LineStructure(const LineStructure&) = delete;
@@ -224,12 +370,13 @@ class LineStructure : public Structure
         LagrangianMarker createLagrangianMarker
         (
             scalar markerParameter,
+            label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod
         );
         
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
         
-        const label minRefinement = 3;
+        const label minRefinement = 1;
         
     private:
         const List<scalar> crossSecArea;
@@ -238,6 +385,7 @@ class LineStructure : public Structure
         
         std::unique_ptr<std::vector<LagrangianMarker>> constructMarkerSet
         (
+            label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar crossSecArea
         );
