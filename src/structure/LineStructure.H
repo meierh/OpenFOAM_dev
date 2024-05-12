@@ -11,28 +11,34 @@ class LagrangianMarker
     public:
         explicit LagrangianMarker
         (
-            const scalar markerParameter,
-            const vector markerPosition,
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* baseRod
-        ):
-        markerParameter(markerParameter),
-        markerPosition(markerPosition),
-        rodNumber(rodNumber),
-        baseRod(baseRod)
-        {}
+            const dynamicRefineFvMesh& mesh,
+            const label rodNumber
+            const ActiveRodMesh::rodCosserat* baseRod,
+            const scalar markerParameter
+        );
         
         vector getMarkerVelocity();
         scalar getMarkerTemperature();
-
-        const scalar markerParameter;
-        const vector markerPosition;
-        const label rodNumber;
-        const ActiveRodMesh::rodCosserat* baseRod;
-        scalar markerVolume;
-        std::unordered_set<label> supportCells;
-        label markerCell;
         std::string to_string();
+
+    private:
+        dynamicRefineFvMesh& mesh;
+        label rodNumber;
+        ActiveRodMesh::rodCosserat* baseRod;
+        scalar markerParameter;
+        vector markerPosition;
+        label markerCell;
+        scalar markerVolume;
+        
+        DynamicList<label> supportCells;
+        vector h_plus;
+        vector h_minus;
+        vector dilation;
+        vector getDilation() const {return dilation;}        
+        
+        void computeSupport(label iterations=1);
+        void minMaxSupportWidth();
+        void dilationFactors();
 };
 
 class FieldMarkerStructureInteraction
@@ -55,6 +61,9 @@ class FieldMarkerStructureInteraction
         const markerMeshType modusMarkerToField;
         scalar phiFunction(scalar r);
         scalar deltaDirac(vector X, vector x, scalar h);
+        scalar deltaDirac(vector X, vector x, vector h);
+        scalar correctedDeltaDirac(vector X, vector x, scalar h, std::array<scalar,10> b);
+        scalar moment(const LagrangianMarker& marker,vector indices);
         template<typename T>
         void fieldToMarker
         (
@@ -309,26 +318,18 @@ class LineStructure : public Structure
         explicit LineStructure
         (
             dynamicRefineFvMesh& mesh,
-            /*
-            const dimensionedScalar& alpha,
-            const volScalarField& T,
-            const volScalarField& p,
-            const volVectorField& U,
-            const dimensionedScalar nu,
-            */
             const List<scalar> crossSecArea
         );
         LineStructure(const LineStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
+        
+        static std::unique_ptr<std::vector<scalar>> createSpacedPointsOnRod
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar spacing
+        );
 
     protected:
-        void getSupportDomain
-        (
-            label cellInd,
-            std::unordered_set<label>& neighbourhoodCells,
-            label iterations=1
-        );
-        
         std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
         
         void cellDistances
@@ -352,15 +353,7 @@ class LineStructure : public Structure
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter
         );
-        
-        /*
-        vector evaluateRodDeriv
-        (
-            const ActiveRodMesh::rodCosserat* oneRod,
-            scalar parameter
-        );
-        */
-        
+                
         bool doSubdivision
         (
             const LagrangianMarker& smallerSide,
@@ -374,6 +367,26 @@ class LineStructure : public Structure
             const ActiveRodMesh::rodCosserat* oneRod
         );
         
+        template<typename T>
+        static T integrateRodwise
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            std::function<T(scalar)> function
+        );
+        template<typename T>
+        static T integrateRodwise
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parA,
+            scalar parB,
+            std::function<T(scalar)> function
+        );
+        static scalar distance
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parA,
+            scalar parB,
+        );
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
         
         const label minRefinement = 1;

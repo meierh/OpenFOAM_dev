@@ -662,6 +662,27 @@ label Foam::Structure::getMaxDegree
     return std::max<label>(baseDegreeX,defDegreeX);
 }
 
+vector Foam::Structure::rodDerivEval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    gsMatrix<scalar> baseDeriv;
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    curve.deriv_into(parMat,baseDeriv);
+
+    gsMatrix<scalar> defDeriv;
+    const gsNurbs<scalar>& def = rod->m_Def;
+    def.deriv_into(parMat,defDeriv);
+    
+    gsMatrix<scalar> pnt = baseDeriv+defDeriv;    
+    return vector(pnt(0,0),pnt(1,0),pnt(2,0));    
+}
+
 void Foam::Structure::rodEval
 (
     const ActiveRodMesh::rodCosserat* rod,
@@ -686,7 +707,6 @@ void Foam::Structure::rodEval
     gsMatrix<scalar> pnt = basePnt+defPnt;    
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 
-    
     gsMatrix<scalar> rotQuat;
     const gsNurbs<scalar>& quat = rod->m_Rot;
     quat.eval_into(parMat,rotQuat);

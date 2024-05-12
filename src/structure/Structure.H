@@ -116,7 +116,7 @@ class Structure
             }            
             return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
         }
-
+        static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         
