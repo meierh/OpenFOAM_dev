@@ -35,11 +35,22 @@ class CrossSection
             std::vector<gsNurbs<scalar>> b_k,
             gsNurbs<scalar> phaseShift
         );
-        scalar operator()(scalar parameter, scalar rad) const;
+        scalar operator()(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getEvalOnPoint(scalar parameter) const;
         
+        scalar deriv_angle(scalar parameter, scalar angle) const;
+        std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
+                
         scalar domainStart(){return domStart;}
         scalar domainEnd(){return domEnd;}
+        
+        scalar lowerLimitRadius(scalar parameter) const;
+        scalar upperLimitRadius(scalar parameter) const;
+        
+        const gsNurbs<scalar>& get_a_0() const {return a_0;}
+        const std::vector<gsNurbs<scalar>>& get_a_k() const {return a_k;}
+        const std::vector<gsNurbs<scalar>>& get_b_k() const {return b_k;}
+        uint getNumberCoeffs() const {return numberCoeffs;}
 
     private:
         std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> constCrossSec
@@ -79,23 +90,28 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
     public:
         explicit LagrangianMarkerOnCrossSec
         (
-            const scalar markerParameter,
-            const vector markerPosition,
+            const dynamicRefineFvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
-            const scalar markerAngle,
+            const scalar markerParameter,
             const CrossSection baseCrossSec,
+            const scalar markerAngle,
             const scalar radiusFrac
         ):
-        LagrangianMarker(markerParameter,markerPosition,rodNumber,baseRod),
+        LagrangianMarker(mesh,rodNumber,baseRod,markerParameter),
         markerAngle(markerAngle),
         baseCrossSec(baseCrossSec),
         markerRadiusFrac(radiusFrac)
         {}
         
-        const scalar markerAngle;
-        const scalar markerRadiusFrac;
-        const CrossSection baseCrossSec;        
+        inline scalar getMarkerAngle() const {return markerAngle;}
+        inline scalar getMarkerRadiusFrac() const {return markerRadiusFrac;}
+        inline CrossSection getBaseCrossSec() const {return baseCrossSec;}
+        
+    private:
+        scalar markerAngle;
+        scalar markerRadiusFrac;
+        CrossSection baseCrossSec;        
 };
 
 class CrossSectionStructure : public LineStructure
@@ -104,19 +120,19 @@ class CrossSectionStructure : public LineStructure
         explicit CrossSectionStructure
         (
             dynamicRefineFvMesh& mesh,
-            /*
-            const dimensionedScalar& alpha,
-            const volScalarField& T,
-            const volScalarField& p,
-            const volVectorField& U,
-            const dimensionedScalar nu,
-            */
             std::vector<CrossSection> rodCrossSection
         );
         CrossSectionStructure(const CrossSectionStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
     protected:
+        std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSec
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            const CrossSection& crossSec,            
+            scalar spacing
+        );
+        
         scalar evaluateCircumArcLen
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -138,6 +154,16 @@ class CrossSectionStructure : public LineStructure
             scalar var_para = 0,
             scalar var_radius = 0
         );
+        
+        static vector evaluateRodCircumDerivAngle
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            const CrossSection& oneCrossSec,
+            scalar angle,
+            scalar radiusFrac=1
+        );
+        
         bool doSubdivision
         (
             const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
@@ -150,7 +176,42 @@ class CrossSectionStructure : public LineStructure
         );
         
         static scalar restrictAngle(scalar angle);
-        static scalar distance(const LagrangianMarkerOnCrossSec& A, const LagrangianMarkerOnCrossSec& B);
+        
+        template<typename T>
+        static T integrateCircumwise
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            const CrossSection& crossSec,
+            std::function<T(scalar)> function
+        );
+        
+        template<typename T>
+        static T integrateCircumwise
+        (   
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            const CrossSection& crossSec,
+            scalar angleStart,
+            scalar angleEnd,
+            std::function<T(scalar)> function
+        );
+        
+        static scalar distance
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            const CrossSection& crossSec,
+            scalar angleStart,
+            scalar angleEnd,
+            scalar radiusFrac
+        );
+        
+        static scalar distance
+        (
+            const LagrangianMarkerOnCrossSec& A,
+            const LagrangianMarkerOnCrossSec& B
+        );
 
     
     private:
@@ -158,15 +219,6 @@ class CrossSectionStructure : public LineStructure
         
         std::vector<std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>>> rodMarkers;
         
-        LagrangianMarkerOnCrossSec createLagrangianMarkerOnCrossSec
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod,
-            scalar parameter,
-            const CrossSection& oneCrossSec,
-            scalar angle,
-            scalar radius
-        );
         std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>> constructMarkerSet
         (
             const label rodNumber,

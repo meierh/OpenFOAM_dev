@@ -12,7 +12,7 @@ class LagrangianMarker
         explicit LagrangianMarker
         (
             const dynamicRefineFvMesh& mesh,
-            const label rodNumber
+            const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter
         );
@@ -20,11 +20,21 @@ class LagrangianMarker
         vector getMarkerVelocity();
         scalar getMarkerTemperature();
         std::string to_string();
+        
+        inline label getRodNumber() const {return rodNumber;}
+        inline const ActiveRodMesh::rodCosserat* getBaseRod() const {return baseRod;}
+        inline scalar getMarkerParameter() const {return markerParameter;}
+        inline vector getMarkerPosition() const {return markerPosition;}
+        inline label getMarkerCell() const {return markerCell;}
+        inline void setMarkerVolume(scalar volume) {markerVolume=volume;}
+        inline scalar getMarkerVolume() const {return markerVolume;}
+        inline const DynamicList<label>& getSupportCells() const {return supportCells;}
+        inline vector getDilation() const {return dilation;}
 
     private:
-        dynamicRefineFvMesh& mesh;
+        const dynamicRefineFvMesh& mesh;
         label rodNumber;
-        ActiveRodMesh::rodCosserat* baseRod;
+        const ActiveRodMesh::rodCosserat* baseRod;
         scalar markerParameter;
         vector markerPosition;
         label markerCell;
@@ -34,7 +44,6 @@ class LagrangianMarker
         vector h_plus;
         vector h_minus;
         vector dilation;
-        vector getDilation() const {return dilation;}        
         
         void computeSupport(label iterations=1);
         void minMaxSupportWidth();
@@ -63,7 +72,11 @@ class FieldMarkerStructureInteraction
         scalar deltaDirac(vector X, vector x, scalar h);
         scalar deltaDirac(vector X, vector x, vector h);
         scalar correctedDeltaDirac(vector X, vector x, scalar h, std::array<scalar,10> b);
-        scalar moment(const LagrangianMarker& marker,vector indices);
+        scalar computeMoment(const LagrangianMarker& marker,vector indices);
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix(const LagrangianMarker& marker);
+        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal(const LagrangianMarker& marker);
+        std::unique_ptr<std::array<scalar,10>> computeCorrectionWeights(const LagrangianMarker& marker);
+
         template<typename T>
         void fieldToMarker
         (
@@ -83,11 +96,11 @@ class FieldMarkerStructureInteraction
             {
                 T value = Foam::zero();
                 const LagrangianMarker& oneMarker = *(markers[index]);
-                const vector& oneMarkerPos = oneMarker.markerPosition;
+                const vector& oneMarkerPos = oneMarker.getMarkerPosition();
                 scalar factorSum = 0;
                 DynamicList<label> supportCells;
-                for(auto cellIter=oneMarker.supportCells.begin();
-                        cellIter!=oneMarker.supportCells.end();
+                for(auto cellIter=oneMarker.getSupportCells().begin();
+                        cellIter!=oneMarker.getSupportCells().end();
                         cellIter++)
                     supportCells.append(*cellIter);
                 List<scalar> cellVols(supportCells.size());
@@ -131,7 +144,7 @@ class FieldMarkerStructureInteraction
                 else
                 {
                     DynamicList<scalar> epsilon;
-                    SymmetricSquareMatrix<scalar> A(oneMarker.supportCells.size());
+                    SymmetricSquareMatrix<scalar> A(oneMarker.getSupportCells().size());
                     for(label i=0; i<supportCells.size(); i++)
                     {
                         
@@ -143,8 +156,8 @@ class FieldMarkerStructureInteraction
                             factorSum+=factor;
                         }
                     }                    
-                    for(auto cellIter=oneMarker.supportCells.begin();
-                        cellIter!=oneMarker.supportCells.end();
+                    for(auto cellIter=oneMarker.getSupportCells().begin();
+                        cellIter!=oneMarker.getSupportCells().end();
                         cellIter++)
                     {
                         label cellInd = *cellIter;
@@ -162,7 +175,7 @@ class FieldMarkerStructureInteraction
                 }
                 //Info<<"value:"<<value<<Foam::endl;
                 markerData[index] = value;
-                if(oneMarker.supportCells.size()>0)
+                if(oneMarker.getSupportCells().size()>0)
                 {
                     factorSumAvg+=factorSum;
                     count++;
@@ -193,8 +206,8 @@ class FieldMarkerStructureInteraction
             for(label markerInd=0; markerInd<markers.size(); markerInd++)
             {
                 const LagrangianMarker& oneMarker = *(markers[markerInd]);
-                for(auto cellIter=oneMarker.supportCells.begin();
-                    cellIter!=oneMarker.supportCells.end();
+                for(auto cellIter=oneMarker.getSupportCells().begin();
+                    cellIter!=oneMarker.getSupportCells().end();
                     cellIter++)
                 {
                     label cellInd = *cellIter;
@@ -217,8 +230,8 @@ class FieldMarkerStructureInteraction
                     for(label markerInd : cellMarkers[cellInd])
                     {
                         const LagrangianMarker& oneMarker = *(markers[markerInd]);
-                        const vector& oneMarkerPos = oneMarker.markerPosition;
-                        scalar markerVolume = oneMarker.markerVolume;
+                        const vector& oneMarkerPos = oneMarker.getMarkerPosition();
+                        scalar markerVolume = oneMarker.getMarkerVolume();
                         scalar h = std::cbrt(markerVolume);
                         scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*markerVolume;
                         //Info<<"dd:"<<deltaDirac(cellCentre,oneMarkerPos,h)<<" mV:"<<markerVolume<<" f:"<<factor<<" m:"<<markerData[markerInd]<<"   ";
@@ -323,13 +336,19 @@ class LineStructure : public Structure
         LineStructure(const LineStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
+        static vector evaluateRodPos
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter
+        );
+        
+    protected:
         static std::unique_ptr<std::vector<scalar>> createSpacedPointsOnRod
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar spacing
         );
-
-    protected:
+        
         std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
         
         void cellDistances
@@ -338,8 +357,8 @@ class LineStructure : public Structure
             std::vector<scalar>&
         );
         
-        scalar supportDomainMinSize(label cellInd);
-        scalar supportDomainMinSize(const std::unordered_set<label>& supportDomainCells);
+        //scalar supportDomainMinSize(label cellInd);
+        scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
         
         static scalar evaluateRodArcLen
         (
@@ -347,24 +366,11 @@ class LineStructure : public Structure
             scalar parA,
             scalar parB
         );
-        
-        static vector evaluateRodPos
-        (
-            const ActiveRodMesh::rodCosserat* oneRod,
-            scalar parameter
-        );
                 
         bool doSubdivision
         (
             const LagrangianMarker& smallerSide,
             const LagrangianMarker& largerSide
-        );
-        
-        LagrangianMarker createLagrangianMarker
-        (
-            scalar markerParameter,
-            label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod
         );
         
         template<typename T>
@@ -385,7 +391,7 @@ class LineStructure : public Structure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parA,
-            scalar parB,
+            scalar parB
         );
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
         

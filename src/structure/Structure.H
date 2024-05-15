@@ -57,13 +57,6 @@ class Structure
         (
             dynamicRefineFvMesh& mesh,
             const Time& runTime
-            /*,
-            const dimensionedScalar& alpha,
-            const volScalarField& T,
-            const volScalarField& p,
-            const volVectorField& U,
-            const dimensionedScalar nu
-            */
         );
         ~Structure();
         Structure(const Structure&) = delete;

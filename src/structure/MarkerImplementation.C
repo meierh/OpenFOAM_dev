@@ -76,14 +76,14 @@ void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
     for(label markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarker = markers[markerInd];
-        scalar volume = oneMarker->markerVolume;
+        scalar volume = oneMarker->getMarkerVolume();
         scalar rho = 1.225;
         
         rodForce[markerInd] = rho*volume*makerCouplingForce[markerInd];
         
         vector basePnt;
-        Structure::rodEval(oneMarker->baseRod,oneMarker->markerParameter,basePnt);
-        vector vectorToMarker = oneMarker->markerPosition-basePnt;
+        Structure::rodEval(oneMarker->getBaseRod(),oneMarker->getMarkerParameter(),basePnt);
+        vector vectorToMarker = oneMarker->getMarkerPosition()-basePnt;
         vector momentum = vectorToMarker^makerCouplingForce[markerInd];
         rodMoment[markerInd] = rho*momentum*volume;
     }
@@ -97,8 +97,8 @@ void Foam::VelocityPressureForceInteraction::assignForceOnRod()
     for(label markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarker = markers[markerInd];
-        label rodNumber = oneMarker->rodNumber;
-        scalar markerParameter = oneMarker->markerParameter;
+        label rodNumber = oneMarker->getRodNumber();
+        scalar markerParameter = oneMarker->getMarkerParameter();
         forces[rodNumber].insert({markerParameter,rodForce[markerInd]});
         moments[rodNumber].insert({markerParameter,rodMoment[markerInd]});        
     }
@@ -191,7 +191,7 @@ void Foam::TemperatureInteraction::computeRodHeating()
     for(label markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarker = markers[markerInd];
-        scalar volume = oneMarker->markerVolume;
+        scalar volume = oneMarker->getMarkerVolume();
         scalar cp = 1.0035;
         scalar rho = 1.225;
         
@@ -236,8 +236,8 @@ void Foam::TestInteraction::printSupportToField()
     for(label markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarkerPtr = markers[markerInd];
-        for(auto cellIter=oneMarkerPtr->supportCells.begin();
-            cellIter!=oneMarkerPtr->supportCells.end();
+        for(auto cellIter=oneMarkerPtr->getSupportCells().begin();
+            cellIter!=oneMarkerPtr->getSupportCells().end();
             cellIter++)
         {
             testField[*cellIter] += 1;
