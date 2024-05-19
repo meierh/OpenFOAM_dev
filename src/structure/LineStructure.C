@@ -34,6 +34,40 @@ scalar Foam::LagrangianMarker::getMarkerTemperature()
     return 1;
 }
 
+scalar Foam::LagrangianMarker::getMarkerCellVolume()
+{
+    if(markerCell<0)
+        return std::numeric_limits<scalar>::max();
+    else
+        return mesh.cells()[markerCell].mag(mesh.points(),mesh.faces());
+}
+
+std::pair<scalar,scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
+{
+    if(markerCell<0)
+    {
+        scalar maxLen = std::numeric_limits<scalar>::max();
+        return {std::numeric_limits<scalar>::max(),std::numeric_limits<scalar>::min()};
+    }
+    else
+    {
+        const edgeList cellEdges = mesh.cells()[markerCell].edgeList(mesh.faces());
+        scalar minLen = std::numeric_limits<scalar>::max();
+        scalar maxLen = std::numeric_limits<scalar>::min();
+        for(edge oneEdge : cellEdges)
+        {
+            minLen = std::min(oneEdge.mag(mesh.points()),minLen);
+            maxLen = std::min(oneEdge.mag(mesh.points()),maxLen);
+        }
+        return {minLen,maxLen};
+    }
+}
+
+scalar Foam::LagrangianMarker::getMarkerCellMinSpacing()
+{
+    return getMarkerCellSpacing().first;
+}
+
 void Foam::LagrangianMarker::computeSupport
 (
     label iterations
@@ -521,14 +555,15 @@ std::unique_ptr<std::vector<scalar>> Foam::LineStructure::createSpacedPointsOnRo
     bool refined=true;
     while(refined)
     {
-        //Info<<"Refine "<<refinementCount<<" size:"<<markers.size()<<Foam::endl;
         refined = false;
         bool cond = true;
+        scalar summedDist = 0;
         auto pntsIter0 = points.begin();
         auto pntsIter1 = ++(points.begin());
         for( ; pntsIter1!=points.end() ; )
         {
             scalar dist = distance(oneRod,*pntsIter0,*pntsIter1);
+            summedDist+=dist;
             if(dist>spacing)
             {
                 scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
@@ -541,7 +576,9 @@ std::unique_ptr<std::vector<scalar>> Foam::LineStructure::createSpacedPointsOnRo
     }
     
     for(scalar para : points)
+    {
         pointsVec.push_back(para);
+    }
     
     return pointsPtr;
 }
@@ -625,27 +662,21 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
 (
     label rodNumber,
     const ActiveRodMesh::rodCosserat* oneRod,
-    scalar crossSecArea
+    scalar crossSecArea,
+    scalar initialSpacing
 )
 {
-    Info<<"constructMarkerSet"<<Foam::endl;
-    
+    //Create initial spacing
+    std::unique_ptr<std::vector<scalar>> spacedPoints = createSpacedPointsOnRod(oneRod,initialSpacing);
+    if(spacedPoints->size()<2)
+        FatalErrorInFunction<<"Initial spaced points must be at least two"<< exit(FatalError);
+
+    //Create initial markers
     std::list<LagrangianMarker> markers;
-    
-    // Insert start marker
-    scalar startPar = oneRod->m_Curve.domainStart();
-    LagrangianMarker startMarker(mesh,rodNumber,oneRod,startPar);
-    markers.push_back(startMarker);
-    Info<<"Start marker created: "<<startPar<<Foam::endl;
-    Info<<"markers.back():"<<markers.back().getMarkerParameter()<<" - "<<markers.back().getMarkerPosition()<<Foam::endl;
-    
-    // Insert end marker
-    scalar endPar = oneRod->m_Curve.domainEnd();
-    LagrangianMarker endMarker(mesh,rodNumber,oneRod,endPar);
-    markers.push_back(endMarker);
-    Info<<"End marker created: "<<endPar<<Foam::endl;
-    Info<<"markers.back():"<<markers.back().getMarkerParameter()<<" - "<<markers.back().getMarkerPosition()<<Foam::endl;
-    
+    for(scalar point : *spacedPoints)
+        markers.push_back(LagrangianMarker(mesh,rodNumber,oneRod,point));
+
+    //Marker refinement
     bool refined=true;
     label refinementCount = 0;
     while(refined)
@@ -677,7 +708,8 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
         }
         refinementCount++;
     }
-        
+
+    // Compute marker volume
     std::list<LagrangianMarker>::iterator iterPrev = markers.end();
     std::list<LagrangianMarker>::iterator iterNext;
     for(auto iter=markers.begin(); iter!=markers.end(); iter++)
@@ -714,6 +746,7 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
         iterPrev = iter;
     }
 
+    //Transfer to std::vector
     std::unique_ptr<std::vector<LagrangianMarker>> markersPtr(new std::vector<LagrangianMarker>());
     for(auto iter=markers.begin(); iter!=markers.end(); iter++)
     {
@@ -736,61 +769,6 @@ Foam::vector Foam::LineStructure::evaluateRodPos
     rodEval(oneRod,parameter,r);
     return r;
 }
-
-template<typename T>
-static T integrateRodwise
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    std::function<T(scalar)> function
-)
-{
-    return integrateRodwise<T>(oneRod,oneRod->m_Curve.knots().first(),oneRod->m_Curve.knots().last(),function);
-}
-
-template<typename T>
-static T integrateRodwise
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parA,
-    scalar parB,
-    std::function<T(scalar)> function
-)
-{
-    if(parA>parB)
-        FatalErrorInFunction<<"Integration from higher to lower value"<<exit(FatalError);
-    
-    std::set<scalar> knotSet;
-    for(scalar knot : oneRod->m_Curve.knots())
-        knotSet.insert(knot);
-    
-    label degree = oneRod->m_Curve.knots().degree();
-    auto start = knotSet.insert(parA);
-    auto end = knotSet.insert(parB);
-    
-    label numberOfAbcissa = (degree+1)*(degree+1);
-    
-    T totalValue = Foam::zero();
-    
-    std::set<scalar>::iterator currNode = start.first;
-    std::set<scalar>::iterator nextNode = ++(start.first);
-    for(; currNode!=knotSet.end() && nextNode!=knotSet.end() && currNode!=end.first ; )
-    {
-        scalar startPar = *currNode;
-        scalar endPar = *nextNode;
-        scalar dist = endPar-startPar;
-        scalar step = dist/numberOfAbcissa;
-        scalar initialStep = startPar+step/2;
-        T summedValue = Foam::zero();
-        for(label i=0;i<numberOfAbcissa;i++)
-        {
-            summedValue += function(initialStep)*step;
-            initialStep+=step;
-        }
-        totalValue+=summedValue;
-    }
-    return totalValue;
-}
-
 
 scalar Foam::LineStructure::distance
 (

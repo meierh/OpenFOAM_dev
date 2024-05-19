@@ -29,49 +29,74 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
+#include "LineStructure.H"
+#include "CrossSectionStructure.H"
+#include "MarkerImplementation.H"
 #include <memory>
-//#include "fvCFD.H"
-//#include "pisoControl.H"
-//#include "dynamicRefineFvMesh.H"
-#include "cutCellFvMesh.H"
+#include "fvCFD.H"
+#include "dynamicRefineFvMesh.H"
+#include "pisoControl.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
 {
     #include "setRootCaseLists.H"
-    //#include "createTime.H"
-    //#include "createCutMesh.H"
+    #include "createTime.H"
+    #include "createMesh.H"    
+    pisoControl piso(mesh);
+    #include "createFields.H"
+    #include "initContinuityErrs.H"
 
-    //pisoControl piso(mesh);
-
-    //#include "createFields.H"
-    //#include "initContinuityErrs.H"
-
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-    Info<< "\nStarting time loop\n" << endl;
+    LineStructure structure(mesh,{0.1});
+    VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
+    structure.transferMarkers(Uf_Interaction);
+    
+    /*
+    scalar pi = constant::mathematical::pi;
+    CrossSection crossSecN(0.1);
+    CrossSectionStructure structure(mesh,{crossSecN});
+    VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
+    structure.transferMarkers(Uf_Interaction);
+    */
+    
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
 
     /*
+    scalar pi = constant::mathematical::pi;
+    CrossSection crossSecN(0.1);   
+    CrossSectionStructure structure(mesh,{crossSecN});
+    VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
+    structure.transferMarkers(Uf_Interaction);
+
+    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+    
+    Info<< "\nStarting time loop\n" << endl;
     while (runTime.loop())
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
-
         #include "CourantNo.H"
 
         // Momentum predictor
-
         fvVectorMatrix UEqn
         (
             fvm::ddt(U)
-          + fvm::div(phi, U)
-          - fvm::laplacian(nu, U)
+            + fvm::div(phi, U)
+            - fvm::laplacian(nu, U)
         );
-
+        
         if (piso.momentumPredictor())
         {
             solve(UEqn == -fvc::grad(p));
         }
+        
+        Uf_Interaction.interpolateFluidVelocityToMarkers();
+        Uf_Interaction.computeCouplingForceOnMarkers();
+        Uf_Interaction.computeRodForceMoment();
+        Uf_Interaction.interpolateFluidForceField();
+        Info<<"sum Force:"<<Uf_Interaction.sumForces()<<Foam::endl;
+        
+        U = U + runTime.deltaT()*Uf;
 
         // --- PISO loop
         while (piso.correct())
@@ -82,7 +107,7 @@ int main(int argc, char *argv[])
             (
                 "phiHbyA",
                 fvc::flux(HbyA)
-              + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
+                + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
             );
 
             adjustPhi(phiHbyA, U, p);
@@ -94,7 +119,6 @@ int main(int argc, char *argv[])
             while (piso.correctNonOrthogonal())
             {
                 // Pressure corrector
-
                 fvScalarMatrix pEqn
                 (
                     fvm::laplacian(rAU, p) == fvc::div(phiHbyA)
@@ -111,17 +135,9 @@ int main(int argc, char *argv[])
             }
 
             #include "continuityErrs.H"
-
             U = HbyA - rAU*fvc::grad(p);
             U.correctBoundaryConditions();
         }
-
-        solve
-        (
-            fvm::ddt(T)
-            + fvm::div(phi,T)
-            - fvm::laplacian(alpha,T)
-        );
         
         runTime.write();
 
@@ -129,9 +145,8 @@ int main(int argc, char *argv[])
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
             << nl << endl;
     }
-    */
-    
     Info<< "End\n" << endl;
+    */
 
     return 0;
 }

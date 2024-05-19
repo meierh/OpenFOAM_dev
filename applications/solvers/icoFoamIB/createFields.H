@@ -19,11 +19,6 @@ dimensionedScalar nu
     transportProperties.lookup("nu")
 );
 
-dimensionedScalar alpha
-(
-    transportProperties.lookup("alpha")
-);
-
 Info<< "Reading field p\n" << endl;
 volScalarField p
 (
@@ -53,13 +48,12 @@ volVectorField U
     mesh
 );
 
-
-Info<< "Reading field T\n" << endl;
-volScalarField T
+Info<< "Reading field U_F\n" << endl;
+volVectorField Uf
 (
     IOobject
     (
-        "T",
+        "Uf",
         runTime.timeName(),
         mesh,
         IOobject::MUST_READ,
@@ -68,10 +62,7 @@ volScalarField T
     mesh
 );
 
-
 #include "createPhi.H"
-
-
 label pRefCell = 0;
 scalar pRefValue = 0.0;
 setRefCell(p, mesh.solutionDict().subDict("PISO"), pRefCell, pRefValue);

@@ -48,6 +48,9 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
 
+    
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+
     scalar pi = constant::mathematical::pi;
     CrossSection crossSecN(0.1);   
     CrossSectionStructure structure(mesh,{crossSecN});

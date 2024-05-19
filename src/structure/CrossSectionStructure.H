@@ -94,7 +94,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter,
-            const CrossSection baseCrossSec,
+            const CrossSection* baseCrossSec,
             const scalar markerAngle,
             const scalar radiusFrac
         ):
@@ -106,12 +106,12 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         
         inline scalar getMarkerAngle() const {return markerAngle;}
         inline scalar getMarkerRadiusFrac() const {return markerRadiusFrac;}
-        inline CrossSection getBaseCrossSec() const {return baseCrossSec;}
+        inline const CrossSection* getBaseCrossSec() const {return baseCrossSec;}
         
     private:
         scalar markerAngle;
         scalar markerRadiusFrac;
-        CrossSection baseCrossSec;        
+        const CrossSection* baseCrossSec;        
 };
 
 class CrossSectionStructure : public LineStructure
@@ -126,7 +126,18 @@ class CrossSectionStructure : public LineStructure
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
     protected:
-        std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSec
+        void createSpacedPointsOnCrossSec
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            const CrossSection& oneCrossSec,
+            scalar radFrac,
+            scalar spacing,
+            std::vector<scalar>& angleData
+        )
+        
+        // vector<para,vector<radial,vector<angle>>>
+        std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnRodCrossSec
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection& crossSec,            
@@ -225,6 +236,26 @@ class CrossSectionStructure : public LineStructure
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection& oneCrossSec
         );
+        
+        void refineCircumferential
+        (
+            std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
+            std::pair<bool,scalar> refineSpacing = {false,0};
+        );
+
+        void refineRadial
+        (
+            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0};
+        );
+        
+        void refineTangential
+        (
+            std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0};
+        );        
         
         void constructMarkerSetCircumferential
         (
