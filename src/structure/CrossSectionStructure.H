@@ -130,17 +130,17 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& oneCrossSec,
+            const CrossSection* oneCrossSec,
             scalar radFrac,
             scalar spacing,
             std::vector<scalar>& angleData
-        )
+        );
         
         // vector<para,vector<radial,vector<angle>>>
-        std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnRodCrossSec
+        std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSecRod
         (
             const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection& crossSec,            
+            const CrossSection* crossSec,            
             scalar spacing
         );
         
@@ -149,7 +149,7 @@ class CrossSectionStructure : public LineStructure
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameterA,
             scalar parameterB,
-            const CrossSection& oneCrossSec,
+            const CrossSection* oneCrossSec,
             scalar angleA,
             scalar angleB,
             scalar radiusFracA,
@@ -159,7 +159,7 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& oneCrossSec,
+            const CrossSection* oneCrossSec,
             scalar angle,
             scalar radiusFrac,
             scalar var_para = 0,
@@ -170,7 +170,7 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& oneCrossSec,
+            const CrossSection* oneCrossSec,
             scalar angle,
             scalar radiusFrac=1
         );
@@ -193,7 +193,7 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& crossSec,
+            const CrossSection* crossSec,
             std::function<T(scalar)> function
         );
         
@@ -202,7 +202,7 @@ class CrossSectionStructure : public LineStructure
         (   
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& crossSec,
+            const CrossSection* crossSec,
             scalar angleStart,
             scalar angleEnd,
             std::function<T(scalar)> function
@@ -212,7 +212,7 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& crossSec,
+            const CrossSection* crossSec,
             scalar angleStart,
             scalar angleEnd,
             scalar radiusFrac
@@ -227,41 +227,53 @@ class CrossSectionStructure : public LineStructure
     
     private:
         std::vector<CrossSection> rodCrossSection;
+        std::vector<std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>> rodMarkers;
         
-        std::vector<std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>>> rodMarkers;
+        void computeMarkerVolume
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            const CrossSection* oneCrossSec,
+            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+        );
         
-        std::unique_ptr<std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>> constructMarkerSet
+        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reduceSurplusMarkers
+        (
+            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+        );
+        
+        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
         (
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection& oneCrossSec
+            const CrossSection* oneCrossSec,
+            scalar initialSpacing
         );
         
         void refineCircumferential
         (
             std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
-            std::pair<bool,scalar> refineSpacing = {false,0};
+            std::pair<bool,scalar> refineSpacing = {false,0}
         );
 
         void refineRadial
         (
             std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
             scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0};
+            std::pair<bool,scalar> refineSpacing = {false,0}
         );
         
         void refineTangential
         (
             std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
             scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0};
+            std::pair<bool,scalar> refineSpacing = {false,0}
         );        
         
         void constructMarkerSetCircumferential
         (
             const label rodNumber,
             const ActiveRodMesh::rodCosserat*,
-            const CrossSection&,
+            const CrossSection*,
             std::list<LagrangianMarkerOnCrossSec>&,
             scalar radiusFrac = 1
         );
@@ -271,7 +283,7 @@ class CrossSectionStructure : public LineStructure
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             const scalar parameter,
-            const CrossSection& oneCrossSec,
+            const CrossSection* oneCrossSec,
             std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers
         );
         
@@ -280,7 +292,7 @@ class CrossSectionStructure : public LineStructure
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection& oneCrossSec,
+            const CrossSection* oneCrossSec,
             scalar radiusFrac = 1
         );
 };

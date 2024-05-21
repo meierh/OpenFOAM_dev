@@ -68,17 +68,31 @@ class FieldMarkerStructureInteraction
         std::vector<LagrangianMarker*> markers;
         dynamicRefineFvMesh& mesh;
         
+        static scalar deltaDirac(vector X, vector x, scalar h);
+        static scalar deltaDirac(vector X, vector x, vector h);
+        
     protected:
         const markerMeshType modusFieldToMarker;
         const markerMeshType modusMarkerToField;
-        scalar phiFunction(scalar r);
-        scalar deltaDirac(vector X, vector x, scalar h);
-        scalar deltaDirac(vector X, vector x, vector h);
-        scalar correctedDeltaDirac(vector X, vector x, scalar h, std::array<scalar,10> b);
-        scalar computeMoment(const LagrangianMarker& marker,vector indices);
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix(const LagrangianMarker& marker);
-        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal(const LagrangianMarker& marker);
-        std::unique_ptr<std::array<scalar,10>> computeCorrectionWeights(const LagrangianMarker& marker);
+        static scalar phiFunction(scalar r);
+        static scalar correctedDeltaDirac(vector X, vector x, scalar h, std::array<scalar,10> b);
+        static scalar computeMoment
+        (
+            const dynamicRefineFvMesh& mesh,
+            const LagrangianMarker& marker,
+            vector indices
+        );
+        static std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix
+        (
+            const dynamicRefineFvMesh& mesh,
+            const LagrangianMarker& marker
+        );
+        static std::unique_ptr<std::array<scalar,10>> rescalingDiagonal(const LagrangianMarker& marker);
+        std::unique_ptr<std::array<scalar,10>> computeCorrectionWeights
+        (
+            const dynamicRefineFvMesh& mesh,
+            const LagrangianMarker& marker
+        );
 
         template<typename T>
         void fieldToMarker
@@ -458,6 +472,11 @@ class LineStructure : public Structure
             scalar crossSecArea,
             scalar initialSpacing
         );
+        
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerWeightMatrix
+        (
+            std::vector<LagrangianMarker*> markers
+        )
         
 };
 }

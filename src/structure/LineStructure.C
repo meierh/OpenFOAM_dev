@@ -51,7 +51,7 @@ std::pair<scalar,scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
     }
     else
     {
-        const edgeList cellEdges = mesh.cells()[markerCell].edgeList(mesh.faces());
+        const edgeList cellEdges = mesh.cells()[markerCell].edges(mesh.faces());
         scalar minLen = std::numeric_limits<scalar>::max();
         scalar maxLen = std::numeric_limits<scalar>::min();
         for(edge oneEdge : cellEdges)
@@ -239,6 +239,7 @@ scalar Foam::FieldMarkerStructureInteraction::correctedDeltaDirac
 
 scalar Foam::FieldMarkerStructureInteraction::computeMoment
 (
+    const dynamicRefineFvMesh& mesh,
     const LagrangianMarker& marker,
     vector indices
 )
@@ -273,6 +274,7 @@ scalar Foam::FieldMarkerStructureInteraction::computeMoment
 
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::computeMomentMatrix
 (
+    const dynamicRefineFvMesh& mesh,
     const LagrangianMarker& marker
 )
 {
@@ -280,87 +282,87 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
     
     //Diagonal
-    moments3D(0,0) = computeMoment(marker,vector(0,0,0));
-    moments3D(1,1) = computeMoment(marker,vector(2,0,0));
-    moments3D(2,2) = computeMoment(marker,vector(0,2,0));
-    moments3D(3,3) = computeMoment(marker,vector(0,0,2));
-    moments3D(4,4) = computeMoment(marker,vector(2,2,0));
-    moments3D(5,5) = computeMoment(marker,vector(0,2,2));
-    moments3D(6,6) = computeMoment(marker,vector(2,0,2));
-    moments3D(7,7) = computeMoment(marker,vector(4,0,0));
-    moments3D(8,8) = computeMoment(marker,vector(0,4,0));
-    moments3D(9,9) = computeMoment(marker,vector(0,0,4));
+    moments3D(0,0) = computeMoment(mesh,marker,vector(0,0,0));
+    moments3D(1,1) = computeMoment(mesh,marker,vector(2,0,0));
+    moments3D(2,2) = computeMoment(mesh,marker,vector(0,2,0));
+    moments3D(3,3) = computeMoment(mesh,marker,vector(0,0,2));
+    moments3D(4,4) = computeMoment(mesh,marker,vector(2,2,0));
+    moments3D(5,5) = computeMoment(mesh,marker,vector(0,2,2));
+    moments3D(6,6) = computeMoment(mesh,marker,vector(2,0,2));
+    moments3D(7,7) = computeMoment(mesh,marker,vector(4,0,0));
+    moments3D(8,8) = computeMoment(mesh,marker,vector(0,4,0));
+    moments3D(9,9) = computeMoment(mesh,marker,vector(0,0,4));
     
     //Row / Column 0
-    moments3D(0,1) = moments3D(1,0) = computeMoment(marker,vector(1,0,0));
-    moments3D(0,2) = moments3D(2,0) = computeMoment(marker,vector(0,1,0));
-    moments3D(0,3) = moments3D(3,0) = computeMoment(marker,vector(0,0,1));
-    moments3D(0,4) = moments3D(4,0) = computeMoment(marker,vector(1,1,0));
-    moments3D(0,5) = moments3D(5,0) = computeMoment(marker,vector(0,1,1));
-    moments3D(0,6) = moments3D(6,0) = computeMoment(marker,vector(1,0,1));
-    moments3D(0,7) = moments3D(7,0) = computeMoment(marker,vector(2,0,0));
-    moments3D(0,8) = moments3D(8,0) = computeMoment(marker,vector(0,2,0));
-    moments3D(0,9) = moments3D(9,0) = computeMoment(marker,vector(0,0,2));
+    moments3D(0,1) = moments3D(1,0) = computeMoment(mesh,marker,vector(1,0,0));
+    moments3D(0,2) = moments3D(2,0) = computeMoment(mesh,marker,vector(0,1,0));
+    moments3D(0,3) = moments3D(3,0) = computeMoment(mesh,marker,vector(0,0,1));
+    moments3D(0,4) = moments3D(4,0) = computeMoment(mesh,marker,vector(1,1,0));
+    moments3D(0,5) = moments3D(5,0) = computeMoment(mesh,marker,vector(0,1,1));
+    moments3D(0,6) = moments3D(6,0) = computeMoment(mesh,marker,vector(1,0,1));
+    moments3D(0,7) = moments3D(7,0) = computeMoment(mesh,marker,vector(2,0,0));
+    moments3D(0,8) = moments3D(8,0) = computeMoment(mesh,marker,vector(0,2,0));
+    moments3D(0,9) = moments3D(9,0) = computeMoment(mesh,marker,vector(0,0,2));
 
     //Row / Column 1
-    moments3D(1,2) = moments3D(2,1) = computeMoment(marker,vector(1,1,0));
-    moments3D(1,3) = moments3D(3,1) = computeMoment(marker,vector(1,0,1));
-    moments3D(1,4) = moments3D(4,1) = computeMoment(marker,vector(2,1,0));
-    moments3D(1,5) = moments3D(5,1) = computeMoment(marker,vector(1,1,1));
-    moments3D(1,6) = moments3D(6,1) = computeMoment(marker,vector(2,0,1));
-    moments3D(1,7) = moments3D(7,1) = computeMoment(marker,vector(3,0,0));
-    moments3D(1,8) = moments3D(8,1) = computeMoment(marker,vector(1,2,0));
-    moments3D(1,9) = moments3D(9,1) = computeMoment(marker,vector(1,0,2));
+    moments3D(1,2) = moments3D(2,1) = computeMoment(mesh,marker,vector(1,1,0));
+    moments3D(1,3) = moments3D(3,1) = computeMoment(mesh,marker,vector(1,0,1));
+    moments3D(1,4) = moments3D(4,1) = computeMoment(mesh,marker,vector(2,1,0));
+    moments3D(1,5) = moments3D(5,1) = computeMoment(mesh,marker,vector(1,1,1));
+    moments3D(1,6) = moments3D(6,1) = computeMoment(mesh,marker,vector(2,0,1));
+    moments3D(1,7) = moments3D(7,1) = computeMoment(mesh,marker,vector(3,0,0));
+    moments3D(1,8) = moments3D(8,1) = computeMoment(mesh,marker,vector(1,2,0));
+    moments3D(1,9) = moments3D(9,1) = computeMoment(mesh,marker,vector(1,0,2));
     
     //Row / Column 2
-    moments3D(2,3) = moments3D(3,2) = computeMoment(marker,vector(0,1,1));
-    moments3D(2,4) = moments3D(4,2) = computeMoment(marker,vector(1,2,0));
-    moments3D(2,5) = moments3D(5,2) = computeMoment(marker,vector(0,2,1));
-    moments3D(2,6) = moments3D(6,2) = computeMoment(marker,vector(1,1,1));
-    moments3D(2,7) = moments3D(7,2) = computeMoment(marker,vector(2,1,0));
-    moments3D(2,8) = moments3D(8,2) = computeMoment(marker,vector(0,3,0));
-    moments3D(2,9) = moments3D(9,2) = computeMoment(marker,vector(0,1,2));
+    moments3D(2,3) = moments3D(3,2) = computeMoment(mesh,marker,vector(0,1,1));
+    moments3D(2,4) = moments3D(4,2) = computeMoment(mesh,marker,vector(1,2,0));
+    moments3D(2,5) = moments3D(5,2) = computeMoment(mesh,marker,vector(0,2,1));
+    moments3D(2,6) = moments3D(6,2) = computeMoment(mesh,marker,vector(1,1,1));
+    moments3D(2,7) = moments3D(7,2) = computeMoment(mesh,marker,vector(2,1,0));
+    moments3D(2,8) = moments3D(8,2) = computeMoment(mesh,marker,vector(0,3,0));
+    moments3D(2,9) = moments3D(9,2) = computeMoment(mesh,marker,vector(0,1,2));
     
     //Row / Column 3
-    moments3D(3,4) = moments3D(4,3) = computeMoment(marker,vector(1,1,1));
-    moments3D(3,5) = moments3D(5,3) = computeMoment(marker,vector(0,1,2));
-    moments3D(3,6) = moments3D(6,3) = computeMoment(marker,vector(1,0,2));
-    moments3D(3,7) = moments3D(7,3) = computeMoment(marker,vector(2,0,1));
-    moments3D(3,8) = moments3D(8,3) = computeMoment(marker,vector(0,2,1));
-    moments3D(3,9) = moments3D(9,3) = computeMoment(marker,vector(0,0,3));
+    moments3D(3,4) = moments3D(4,3) = computeMoment(mesh,marker,vector(1,1,1));
+    moments3D(3,5) = moments3D(5,3) = computeMoment(mesh,marker,vector(0,1,2));
+    moments3D(3,6) = moments3D(6,3) = computeMoment(mesh,marker,vector(1,0,2));
+    moments3D(3,7) = moments3D(7,3) = computeMoment(mesh,marker,vector(2,0,1));
+    moments3D(3,8) = moments3D(8,3) = computeMoment(mesh,marker,vector(0,2,1));
+    moments3D(3,9) = moments3D(9,3) = computeMoment(mesh,marker,vector(0,0,3));
 
     //Row / Column 4
-    moments3D(3,4) = moments3D(4,3) = computeMoment(marker,vector(1,1,1));
-    moments3D(3,5) = moments3D(5,3) = computeMoment(marker,vector(0,1,2));
-    moments3D(3,6) = moments3D(6,3) = computeMoment(marker,vector(1,0,2));
-    moments3D(3,7) = moments3D(7,3) = computeMoment(marker,vector(2,0,1));
-    moments3D(3,8) = moments3D(8,3) = computeMoment(marker,vector(0,2,1));
-    moments3D(3,9) = moments3D(9,3) = computeMoment(marker,vector(0,0,3));
+    moments3D(3,4) = moments3D(4,3) = computeMoment(mesh,marker,vector(1,1,1));
+    moments3D(3,5) = moments3D(5,3) = computeMoment(mesh,marker,vector(0,1,2));
+    moments3D(3,6) = moments3D(6,3) = computeMoment(mesh,marker,vector(1,0,2));
+    moments3D(3,7) = moments3D(7,3) = computeMoment(mesh,marker,vector(2,0,1));
+    moments3D(3,8) = moments3D(8,3) = computeMoment(mesh,marker,vector(0,2,1));
+    moments3D(3,9) = moments3D(9,3) = computeMoment(mesh,marker,vector(0,0,3));
 
     //Row / Column 5
-    moments3D(4,5) = moments3D(5,4) = computeMoment(marker,vector(1,2,1));
-    moments3D(4,6) = moments3D(6,4) = computeMoment(marker,vector(2,1,1));
-    moments3D(4,7) = moments3D(7,4) = computeMoment(marker,vector(3,1,0));
-    moments3D(4,8) = moments3D(8,4) = computeMoment(marker,vector(1,3,0));
-    moments3D(4,9) = moments3D(9,4) = computeMoment(marker,vector(1,1,2));
+    moments3D(4,5) = moments3D(5,4) = computeMoment(mesh,marker,vector(1,2,1));
+    moments3D(4,6) = moments3D(6,4) = computeMoment(mesh,marker,vector(2,1,1));
+    moments3D(4,7) = moments3D(7,4) = computeMoment(mesh,marker,vector(3,1,0));
+    moments3D(4,8) = moments3D(8,4) = computeMoment(mesh,marker,vector(1,3,0));
+    moments3D(4,9) = moments3D(9,4) = computeMoment(mesh,marker,vector(1,1,2));
     
     //Row / Column 6
-    moments3D(5,6) = moments3D(6,5) = computeMoment(marker,vector(1,1,2));
-    moments3D(5,7) = moments3D(7,5) = computeMoment(marker,vector(2,1,1));
-    moments3D(5,8) = moments3D(8,5) = computeMoment(marker,vector(0,3,1));
-    moments3D(5,9) = moments3D(9,5) = computeMoment(marker,vector(0,1,3));
+    moments3D(5,6) = moments3D(6,5) = computeMoment(mesh,marker,vector(1,1,2));
+    moments3D(5,7) = moments3D(7,5) = computeMoment(mesh,marker,vector(2,1,1));
+    moments3D(5,8) = moments3D(8,5) = computeMoment(mesh,marker,vector(0,3,1));
+    moments3D(5,9) = moments3D(9,5) = computeMoment(mesh,marker,vector(0,1,3));
     
     //Row / Column 7
-    moments3D(6,7) = moments3D(7,6) = computeMoment(marker,vector(3,0,1));
-    moments3D(6,8) = moments3D(8,6) = computeMoment(marker,vector(1,2,1));
-    moments3D(6,9) = moments3D(9,6) = computeMoment(marker,vector(1,0,3));
+    moments3D(6,7) = moments3D(7,6) = computeMoment(mesh,marker,vector(3,0,1));
+    moments3D(6,8) = moments3D(8,6) = computeMoment(mesh,marker,vector(1,2,1));
+    moments3D(6,9) = moments3D(9,6) = computeMoment(mesh,marker,vector(1,0,3));
     
     //Row / Column 8
-    moments3D(7,8) = moments3D(8,7) = computeMoment(marker,vector(2,2,0));
-    moments3D(7,9) = moments3D(9,7) = computeMoment(marker,vector(2,0,2));
+    moments3D(7,8) = moments3D(8,7) = computeMoment(mesh,marker,vector(2,2,0));
+    moments3D(7,9) = moments3D(9,7) = computeMoment(mesh,marker,vector(2,0,2));
     
     //Row / Column 9
-    moments3D(8,9) = moments3D(9,8) = computeMoment(marker,vector(0,2,2));
+    moments3D(8,9) = moments3D(9,8) = computeMoment(mesh,marker,vector(0,2,2));
     
     return moments3DPtr;
 }
@@ -389,13 +391,14 @@ std::unique_ptr<std::array<scalar,10>> Foam::FieldMarkerStructureInteraction::re
 
 std::unique_ptr<std::array<scalar,10>> Foam::FieldMarkerStructureInteraction::computeCorrectionWeights
 (
+    const dynamicRefineFvMesh& mesh,
     const LagrangianMarker& marker
 )
 {
     auto bPtr = std::unique_ptr<std::array<scalar,10>>(new std::array<scalar,10>());
     std::array<scalar,10>& b = *bPtr;
     
-    std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix(marker);
+    std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix(mesh,marker);
     std::unique_ptr<std::array<scalar,10>> H = rescalingDiagonal(marker);
     gismo::gsMatrix<scalar> e(10,1),c(10,1);
     for(label i=0; i<10; i++)
@@ -524,13 +527,15 @@ void Foam::LineStructure::transferMarkers(FieldMarkerStructureInteraction& conne
     if(crossSecArea.size()!=rodMarkers.size())
         FatalErrorInFunction<<"Mismatch in size of crossSecArea and rodMarkers"<<exit(FatalError);
     
+    scalar initialSpacing = 0;
+    
     for(uint rodIndex=0; rodIndex<rodMarkers.size(); rodIndex++)
     {
         std::unique_ptr<std::vector<LagrangianMarker>>& oneRodMarkers = rodMarkers[rodIndex];
         if(!oneRodMarkers)
         {
             myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
-            oneRodMarkers = constructMarkerSet(rodIndex,myMesh->m_Rods[rodIndex],crossSecArea[rodIndex]);
+            oneRodMarkers = constructMarkerSet(rodIndex,myMesh->m_Rods[rodIndex],crossSecArea[rodIndex],initialSpacing);
         }
         for(LagrangianMarker& marker : *oneRodMarkers)
         {
@@ -887,4 +892,57 @@ bool Foam::LineStructure::doSubdivision
             return true;        
     }
     */
+}
+
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LineStructure::computeMarkerWeightMatrix
+(
+    std::vector<LagrangianMarker*> markers
+)
+{
+    auto result = std::unique_ptr<gismo::gsMatrix<scalar>>
+    (
+        new gismo::gsMatrix<scalar>(markers.size(),markers.size())
+    );
+    gismo::gsMatrix<scalar>& resultM = *result;
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    for(label I=0; I<markers.size(); I++)
+    {
+        LagrangianMarker* markerI = markers[I];
+        vector XI = markerI->getMarkerPosition();
+        vector dilationI = markerI->getDilation();
+        const DynamicList<label>& supportI = markerI->getSupportCells();
+        std::unordered_set<label> supportSetI(supportI.begin(),supportI.end());
+        
+        for(label K=0; K<markers.size(); K++)
+        {
+            LagrangianMarker* markerK = markers[K];
+            vector XK = markerK->getMarkerPosition();
+            vector dilationK = markerK->getDilation();
+            scalar markerKVol = markerK->getMarkerVolume();
+            const DynamicList<label>& supportK = markerK->getSupportCells();
+            
+            scalar matrixEntry = 0;
+            for(label cellK : supportK)
+            {
+                if(supportSetI.find(cellK)!=supportSetI.end())
+                {
+                    const cell& overlapCell = cells[cellK];
+                    scalar overlapCellVol = overlapCell.mag(points,faces);
+                    vector overlapCellCentre = overlapCell.centre(points,faces);
+                    
+                    scalar weightI = deltaDirac(XI,overlapCellCentre,dilationI);
+                    scalar weightK = deltaDirac(XK,overlapCellCentre,dilationK);
+
+                    matrixEntry += weightK*weightI*overlapCellVol;
+                }
+            }
+            matrixEntry *= markerKVol;
+            resultM(I,K) = matrixEntry;
+        }
+    }
+    return result;
 }
