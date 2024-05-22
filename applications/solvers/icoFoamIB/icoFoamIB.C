@@ -48,18 +48,18 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
 
-    LineStructure structure(mesh,{0.1});
-    VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
-    structure.transferMarkers(Uf_Interaction);
-    
     /*
-    scalar pi = constant::mathematical::pi;
-    CrossSection crossSecN(0.1);
-    CrossSectionStructure structure(mesh,{crossSecN});
+    LineStructure structure(mesh,{0.1});
     VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
     structure.transferMarkers(Uf_Interaction);
     */
     
+    scalar pi = constant::mathematical::pi;
+    CrossSection crossSecN(0.05);
+    CrossSectionStructure structure(mesh,{crossSecN});
+    VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
+    structure.transferMarkers(Uf_Interaction);
+        
     FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
 
     /*

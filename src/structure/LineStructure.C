@@ -114,8 +114,8 @@ void Foam::LagrangianMarker::minMaxSupportWidth()
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
     
-    scalar min = std::numeric_limits<scalar>::min();
-    scalar max = std::numeric_limits<scalar>::max();
+    scalar min = std::numeric_limits<scalar>::max();
+    scalar max = std::numeric_limits<scalar>::min();
     vector minSpan(max,max,max);
     vector maxSpan(min,min,min);
 
@@ -165,6 +165,7 @@ h(std::cbrt(mesh.cells()[0].mag(mesh.points(),mesh.faces()))),
 modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {
+    Info<<"Completed FieldMarkerStructureInteraction setup"<<Foam::endl;
 }
 
 Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
@@ -508,10 +509,10 @@ Foam::LineStructure::LineStructure
     dynamicRefineFvMesh& mesh,
     const List<scalar> crossSecArea
 ):
-Structure(mesh,mesh.time()/*,alpha,T,p,U,nu*/),
-crossSecArea(crossSecArea)
+Structure(mesh,mesh.time()),
+crossSecArea(crossSecArea),
+initialSpacing(initialSpacingFromMesh())
 {
-    
 }
 
 void Foam::LineStructure::transferMarkers(FieldMarkerStructureInteraction& connector)
@@ -526,11 +527,10 @@ void Foam::LineStructure::transferMarkers(FieldMarkerStructureInteraction& conne
     
     if(crossSecArea.size()!=rodMarkers.size())
         FatalErrorInFunction<<"Mismatch in size of crossSecArea and rodMarkers"<<exit(FatalError);
-    
-    scalar initialSpacing = 0;
-    
+        
     for(uint rodIndex=0; rodIndex<rodMarkers.size(); rodIndex++)
     {
+        //Info<<"rodIndex:"<<rodIndex<<" initialSpacing:"<<initialSpacing<<Foam::endl;
         std::unique_ptr<std::vector<LagrangianMarker>>& oneRodMarkers = rodMarkers[rodIndex];
         if(!oneRodMarkers)
         {
@@ -619,7 +619,7 @@ void Foam::LineStructure::cellDistances
                 spans.push_back(distanceVal);
             }
         }
-    }    
+    }
 }
 
 /*
@@ -668,7 +668,8 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
     label rodNumber,
     const ActiveRodMesh::rodCosserat* oneRod,
     scalar crossSecArea,
-    scalar initialSpacing
+    scalar initialSpacing,
+    std::pair<bool,scalar> refineSpacing
 )
 {
     //Create initial spacing
@@ -683,35 +684,47 @@ std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMar
 
     //Marker refinement
     bool refined=true;
-    label refinementCount = 0;
     while(refined)
     {
-        //Info<<"Refine "<<refinementCount<<" size:"<<markers.size()<<Foam::endl;
         refined = false;
         bool cond = true;
         auto markersIter0 = markers.begin();
         auto markersIter1 = ++(markers.begin());
         for( ; markersIter1!=markers.end() ; )
         {
-            bool subdivide = doSubdivision(*markersIter0, *markersIter1);
-            if(refinementCount<minRefinement)
-                subdivide = true;
+            scalar markers0Para = markersIter0->getMarkerParameter();
+            scalar markers0CellSpacing = markersIter0->getMarkerCellMinSpacing();
+            bool markers0InCell = (markersIter0->getMarkerCell()!=-1);
+            
+            scalar markers1Para = markersIter0->getMarkerParameter();
+            scalar markers1CellSpacing = markersIter0->getMarkerCellMinSpacing();
+            bool markers1InCell = (markersIter1->getMarkerCell()!=-1);
+            
+            scalar dist = distance(oneRod,markers0Para,markers1Para);
+            
+            bool subdivide = false;
+            if(refineSpacing.first)
+            {
+                if(dist>refineSpacing.second)
+                    subdivide=true;
+            }
+            if(markers0InCell || markers1InCell)
+            {
+                scalar minSpacing = std::min(markers0CellSpacing,markers1CellSpacing);
+                if(dist>minSpacing)
+                    subdivide=true;
+            }
+        
             if(subdivide)
             {
-                scalar middlePar = 0.5*(markersIter0->getMarkerParameter()+markersIter1->getMarkerParameter());
+                scalar middlePar = 0.5*(markers0Para+markers1Para);
                 LagrangianMarker middleMarker(mesh,rodNumber,oneRod,middlePar);
                 auto inserted = markers.insert(markersIter1,middleMarker);
                 refined=true;
-                //Info<<"   Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<" / "<<middlePar<<Foam::endl;
-            }
-            else
-            {
-                //Info<<"   Non Subdivision:"<<markersIter0->markerParameter<<"--"<<markersIter1->markerParameter<<Foam::endl;
             }
             markersIter0 = markersIter1;
             markersIter1++;
         }
-        refinementCount++;
     }
 
     // Compute marker volume
@@ -816,6 +829,7 @@ Foam::scalar Foam::LineStructure::evaluateRodArcLen
     return Foam::mag(connec);
 }
 
+/*
 bool Foam::LineStructure::doSubdivision
 (
     const LagrangianMarker& smallerSide,
@@ -824,7 +838,6 @@ bool Foam::LineStructure::doSubdivision
 {
     FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
     
-    /*
     bool supportDomainOverlap = false;
     for(auto iterSm=smallerSide.getSupportCells().begin();
         iterSm!=smallerSide.getSupportCells().end(); iterSm++)
@@ -891,8 +904,8 @@ bool Foam::LineStructure::doSubdivision
         else
             return true;        
     }
-    */
 }
+*/
 
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LineStructure::computeMarkerWeightMatrix
 (
@@ -934,8 +947,9 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LineStructure::computeMarkerWeigh
                     scalar overlapCellVol = overlapCell.mag(points,faces);
                     vector overlapCellCentre = overlapCell.centre(points,faces);
                     
-                    scalar weightI = deltaDirac(XI,overlapCellCentre,dilationI);
-                    scalar weightK = deltaDirac(XK,overlapCellCentre,dilationK);
+                    using FMSI=FieldMarkerStructureInteraction;
+                    scalar weightI = FMSI::deltaDirac(XI,overlapCellCentre,dilationI);
+                    scalar weightK = FMSI::deltaDirac(XK,overlapCellCentre,dilationK);
 
                     matrixEntry += weightK*weightI*overlapCellVol;
                 }
@@ -945,4 +959,25 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LineStructure::computeMarkerWeigh
         }
     }
     return result;
+}
+
+scalar Foam::LineStructure::initialSpacingFromMesh()
+{
+    const cell& oneCell = mesh.cells()[0];
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    const pointField& oneCellPoints = oneCell.points(faces,points);
+    vector oneCellCentre = oneCell.centre(points,faces);
+    scalar minHalfDist = std::numeric_limits<scalar>::max();
+    for(vector pnt : oneCellPoints)
+    {
+        vector conn = pnt-oneCellCentre;
+        for(label dim=0; dim<3; dim++)
+        {
+            scalar connD = std::abs(conn[dim]);
+            if(connD<minHalfDist)
+                minHalfDist=connD;
+        }
+    }
+    return 2*minHalfDist;
 }

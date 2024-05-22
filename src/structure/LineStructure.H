@@ -62,7 +62,6 @@ class FieldMarkerStructureInteraction
             dynamicRefineFvMesh& mesh,
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform
-
         );
         ActiveRodMesh::rodMesh* rodMesh;
         std::vector<LagrangianMarker*> markers;
@@ -385,12 +384,14 @@ class LineStructure : public Structure
             scalar parA,
             scalar parB
         );
-                
+             
+        /*
         bool doSubdivision
         (
             const LagrangianMarker& smallerSide,
             const LagrangianMarker& largerSide
         );
+        */
         
         template<typename T>
         static T integrateRodwise
@@ -465,19 +466,23 @@ class LineStructure : public Structure
         
         std::vector<std::unique_ptr<std::vector<LagrangianMarker>>> rodMarkers;
         
+        scalar initialSpacing;
+        
         std::unique_ptr<std::vector<LagrangianMarker>> constructMarkerSet
         (
             label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar crossSecArea,
-            scalar initialSpacing
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0}
         );
         
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerWeightMatrix
         (
             std::vector<LagrangianMarker*> markers
-        )
+        );
         
+        scalar initialSpacingFromMesh();
 };
 }
 #endif

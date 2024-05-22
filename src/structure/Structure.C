@@ -4,29 +4,13 @@ Foam::Structure::Structure
 (
     dynamicRefineFvMesh& mesh,
     const Time& runTime
-    /*,
-    const dimensionedScalar& alpha,
-    const volScalarField& T,
-    const volScalarField& p,
-    const volVectorField& U,
-    const dimensionedScalar nu
-    */
 ):
 runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
 xmlPath(getXMLPath()),
 nR(loadRodsFromXML()),
-/*
-alpha(alpha),
-T(T),
-p(p),
-U(U),
-*/
 mesh(mesh)
-/*,
-nu(nu)
-*/
 {
     cntOpt.ptsType = 2;
     cntOpt.ptsN = 2;
@@ -44,8 +28,6 @@ nu(nu)
     auto cutCellBound = this->mesh.Sf().boundaryField();
     const fvBoundaryMesh& bound = mesh.boundary();
     
-    //createDeformationCurve();    
-    //assignBoundaryFacesToNurbsCurves();
     Info<<"Completed Structure setup"<<Foam::endl;
 }
 
