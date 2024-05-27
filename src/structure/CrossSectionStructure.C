@@ -1,330 +1,5 @@
 #include "CrossSectionStructure.H"
 
-
-Foam::CrossSection::CrossSection
-(
-    scalar radius
-)
-{
-    std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> nurbs;
-    nurbs = constCrossSec(2*radius,{},{});
-    init(std::get<0>(nurbs),std::get<1>(nurbs),std::get<2>(nurbs),std::get<3>(nurbs));
-}
-
-Foam::CrossSection::CrossSection
-(
-    scalar a_0,
-    std::vector<scalar> a_k,
-    std::vector<scalar> b_k,
-    scalar phaseShift
-)        
-{
-    std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> nurbs;
-    nurbs = constCrossSec(a_0,a_k,b_k,phaseShift);
-    init(std::get<0>(nurbs),std::get<1>(nurbs),std::get<2>(nurbs),std::get<3>(nurbs));
-}
-
-Foam::CrossSection::CrossSection
-(
-    scalar a_0,
-    std::vector<scalar> a_k,
-    std::vector<scalar> b_k,
-    gsNurbs<scalar> phaseShift
-)        
-{
-    std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> nurbs;
-    nurbs = twistedConstCrossSec(a_0,a_k,b_k,phaseShift);
-    init(std::get<0>(nurbs),std::get<1>(nurbs),std::get<2>(nurbs),std::get<3>(nurbs));
-}
-
-Foam::CrossSection::CrossSection
-(
-    gsNurbs<scalar> a_0,
-    std::vector<gsNurbs<scalar>> a_k,
-    std::vector<gsNurbs<scalar>> b_k,
-    gsNurbs<scalar> phaseShift
-)
-{
-    init(a_0,a_k,b_k,phaseShift);
-}
-
-std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> Foam::CrossSection::constCrossSec
-(
-    scalar a_0,
-    std::vector<scalar> a_k,
-    std::vector<scalar> b_k,
-    scalar phaseShift
-)
-{        
-    gsNurbs<scalar> n_a0 = createConstNurbs(a_0);
-    
-    std::vector<gsNurbs<scalar>> n_ak;
-    for(scalar a : a_k)
-        n_ak.push_back(createConstNurbs(a));
-    
-    std::vector<gsNurbs<scalar>> n_bk;
-    for(scalar b : b_k)
-        n_bk.push_back(createConstNurbs(b));
-    
-    gsNurbs<scalar> pS = createConstNurbs(phaseShift);
-    
-    return std::make_tuple(n_a0,n_ak,n_bk,pS);
-}
-
-std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> Foam::CrossSection::twistedConstCrossSec
-(
-    scalar a_0,
-    std::vector<scalar> a_k,
-    std::vector<scalar> b_k,
-    gsNurbs<scalar> phaseShift
-)
-{       
-    gsNurbs<scalar> n_a0 = createConstNurbs(a_0);
-    
-    std::vector<gsNurbs<scalar>> n_ak;
-    for(scalar a : a_k)
-        n_ak.push_back(createConstNurbs(a));
-    
-    std::vector<gsNurbs<scalar>> n_bk;
-    for(scalar b : b_k)
-        n_bk.push_back(createConstNurbs(b));
-
-    return std::make_tuple(n_a0,n_ak,n_bk,phaseShift);
-}
-
-void Foam::CrossSection::init
-(
-    gsNurbs<scalar> a_0,
-    std::vector<gsNurbs<scalar>> a_k,
-    std::vector<gsNurbs<scalar>> b_k,
-    gsNurbs<scalar> phaseShift
-)
-{
-    this->a_0 = a_0;
-    this->a_k = a_k;
-    this->b_k = b_k;
-    this->phaseShift = phaseShift;
-    
-    if(this->a_k.size() != this->b_k.size())
-        FatalErrorInFunction<<"Coefficient number mismatch!"<<exit(FatalError);
-    numberCoeffs = a_k.size();
-    
-    domStart = a_0.domainStart();
-    domEnd = a_0.domainEnd();
-    
-    for(const gsNurbs<scalar>& oneCoeff : a_k)
-        if(oneCoeff.domainDim()!=1)
-            FatalErrorInFunction<<"Coeff Nurbs must have a Basis of dimension 1"<<exit(FatalError);
-    for(const gsNurbs<scalar>& oneCoeff : b_k)
-        if(oneCoeff.domainDim()!=1)
-            FatalErrorInFunction<<"Coeff Nurbs must have a Basis of dimension 1"<<exit(FatalError);
-    if(phaseShift.domainDim()!=1)
-        FatalErrorInFunction<<"Coeff Nurbs must have a Basis of dimension 1"<<exit(FatalError);
-    
-    for(const gsNurbs<scalar>& oneCoeff : a_k)
-        if(oneCoeff.size()!=1)
-            FatalErrorInFunction<<"Coeff Nurbs must have a dimension of 1"<<exit(FatalError);
-    for(const gsNurbs<scalar>& oneCoeff : b_k)
-        if(oneCoeff.size()!=1)
-            FatalErrorInFunction<<"Coeff Nurbs must have a dimension of 1"<<exit(FatalError);
-    if(phaseShift.size()!=1)
-        FatalErrorInFunction<<"Coeff Nurbs must have a Basis of dimension 1"<<exit(FatalError);
-    
-    for(const gsNurbs<scalar>& oneCoeff : a_k)
-    {
-        if(oneCoeff.domainStart()!=domStart)
-            FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);
-        if(oneCoeff.domainEnd()!=domEnd)
-            FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);        
-    }
-    for(const gsNurbs<scalar>& oneCoeff : b_k)
-    {
-        if(oneCoeff.domainStart()!=domStart)
-            FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);
-        if(oneCoeff.domainEnd()!=domEnd)
-            FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);
-    }
-    if(phaseShift.domainStart()!=domStart)
-        FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);
-    if(phaseShift.domainEnd()!=domEnd)
-        FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);
-}
-
-scalar Foam::CrossSection::operator()(scalar parameter,scalar angle) const
-{
-    //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
-    std::function<scalar(scalar)> evalOnPoint = getEvalOnPoint(parameter);
-    return evalOnPoint(angle);
-}
-
-std::function<scalar(scalar)> Foam::CrossSection::getEvalOnPoint(scalar parameter) const
-{
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-    
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-
-    scalar a0Coeff;
-    gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
-    a0Coeff = a0CoeffI.at(0);
-    
-    //Info<<"a0Coeff:"<<a0Coeff<<Foam::endl;
-    
-    auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
-    auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
-    
-    scalar phShift;
-    gsMatrix<scalar> phaseShiftM = phaseShift.eval(parMat);
-    phShift = phaseShiftM.at(0);
-    
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-    return [num_Coeff=numberCoeffs,a_0=a0Coeff,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar rad)
-    {
-        scalar value = a_0/2;
-        for(label coeffI=0; coeffI<num_Coeff; coeffI++)
-        {
-            label k=coeffI+1;
-            value += (*a_k)[coeffI]*std::cos(k*rad+pS);
-            value += (*b_k)[coeffI]*std::sin(k*rad+pS);
-        }
-        return value;
-    };
-}
-
-scalar Foam::CrossSection::deriv_angle(scalar parameter,scalar angle) const
-{
-    //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
-    std::function<scalar(scalar)> derivOnPoint = getDerivAngleOnPoint(parameter);
-    return derivOnPoint(angle);
-}
-
-std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar parameter) const
-{
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-    
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-
-    scalar a0Coeff;
-    gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
-    a0Coeff = a0CoeffI.at(0);
-    
-    //Info<<"a0Coeff:"<<a0Coeff<<Foam::endl;
-    
-    auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
-    auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
-    
-    scalar phShift;
-    gsMatrix<scalar> phaseShiftM = phaseShift.eval(parMat);
-    phShift = phaseShiftM.at(0);
-    
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-    return [num_Coeff=numberCoeffs,a_0=a0Coeff,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
-    {
-        scalar value = 0;
-        for(label coeffI=0; coeffI<num_Coeff; coeffI++)
-        {
-            label k=coeffI+1;
-            value += (*a_k)[coeffI]*std::sin(k*angle+pS)*(-k);
-            value += (*b_k)[coeffI]*std::cos(k*angle+pS)*k;
-        }
-        return value;
-    };
-}
-
-scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const
-{
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-    
-    scalar a0Coeff;
-    gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
-    a0Coeff = a0CoeffI.at(0);
-        
-    auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
-    auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
-    
-    scalar minValue = a0Coeff/2;
-    for(scalar ak : *aCoeffs)
-        minValue -= std::abs(ak);
-    for(scalar bk : *bCoeffs)
-        minValue -= std::abs(bk);
-    return minValue;
-}
-
-scalar Foam::CrossSection::upperLimitRadius(scalar parameter) const
-{
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-    
-    scalar a0Coeff;
-    gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
-    a0Coeff = a0CoeffI.at(0);
-        
-    auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
-    auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
-    
-    scalar maxValue = a0Coeff/2;
-    for(scalar ak : *aCoeffs)
-        maxValue += std::abs(ak);
-    for(scalar bk : *bCoeffs)
-        maxValue += std::abs(bk);
-    return maxValue;
-}
-
-gsNurbs<scalar> Foam::CrossSection::createConstNurbs(scalar coeff) const
-{
-    std::vector<scalar> knotContainer = {0,0,1,1};
-    gsKnotVector<scalar> cKnots(knotContainer,1);
-    gsMatrix<scalar> cWeight(2,1); cWeight.at(0) = 1; cWeight.at(1) = 1;
-    gsMatrix<scalar> cCoeff(2,1); cCoeff.at(0) = coeff; cCoeff.at(1) = coeff;
-    return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
-};
-
 scalar Foam::CrossSectionStructure::restrictAngle
 (
     scalar angle
@@ -519,7 +194,7 @@ Foam::CrossSectionStructure::CrossSectionStructure
     dynamicRefineFvMesh& mesh,
     std::vector<CrossSection> rodCrossSection
 ):
-LineStructure(mesh/*alpha,T,p,U,nu*/,{}),
+LineStructure(mesh,{}),
 rodCrossSection(rodCrossSection)
 {
 }
@@ -864,81 +539,108 @@ void Foam::CrossSectionStructure::computeMarkerVolume
                 
                 if(singleMarker.getMarkerCell()!=-1)
                 {
-                    scalar h = std::cbrt(cells[singleMarker.getMarkerCell()].mag(points,faces));
-                    
-                    /*
-                    Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::endl;
-                    Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
-                    Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::endl;
-                    */
-                    
-                    std::array<std::array<std::array<label,2>,2>,2> paraRadAnglePnts;
-                    pointField points(8);
-                    paraRadAnglePnts[0][0][0] = 0;
-                    paraRadAnglePnts[0][0][1] = 1;
-                    paraRadAnglePnts[0][1][0] = 2;
-                    paraRadAnglePnts[0][1][1] = 3;
-                    paraRadAnglePnts[1][0][0] = 4;
-                    paraRadAnglePnts[1][0][1] = 5;
-                    paraRadAnglePnts[1][1][0] = 6;
-                    paraRadAnglePnts[1][1][1] = 7;
-                    if(surfaceType==Surface::Circumferential)
-                    {                       
-                        points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,-h/2);
-                        points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,-h/2);
-                        points[2] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,h/2);
-                        points[3] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,h/2);
-                        points[4] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,-h/2);
-                        points[5] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,-h/2);
-                        points[6] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,h/2);
-                        points[7] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,h/2);
+                    if(modusMarkerToField == markerMeshType::Uniform)
+                    {
+                        scalar h = std::cbrt(cells[singleMarker.getMarkerCell()].mag(points,faces));
+                        
+                        /*
+                        Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::endl;
+                        Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
+                        Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::endl;
+                        */
+                        
+                        std::array<std::array<std::array<label,2>,2>,2> paraRadAnglePnts;
+                        pointField points(8);
+                        paraRadAnglePnts[0][0][0] = 0;
+                        paraRadAnglePnts[0][0][1] = 1;
+                        paraRadAnglePnts[0][1][0] = 2;
+                        paraRadAnglePnts[0][1][1] = 3;
+                        paraRadAnglePnts[1][0][0] = 4;
+                        paraRadAnglePnts[1][0][1] = 5;
+                        paraRadAnglePnts[1][1][0] = 6;
+                        paraRadAnglePnts[1][1][1] = 7;
+                        if(surfaceType==Surface::Circumferential)
+                        {                       
+                            points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,-h/2);
+                            points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,-h/2);
+                            points[2] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,h/2);
+                            points[3] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,h/2);
+                            points[4] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,-h/2);
+                            points[5] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,-h/2);
+                            points[6] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,h/2);
+                            points[7] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,h/2);
+                        }
+                        else
+                        {
+                            points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,-h/2,0);
+                            points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,-h/2,0);
+                            points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,-h/2,0);
+                            points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,-h/2,0);
+                            points[4] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,h/2,0);
+                            points[5] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,h/2,0);
+                            points[6] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,h/2,0);
+                            points[7] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,h/2,0);
+                        }
+                
+                        face prevFace({0,1,3,2});
+                        face subseqFace({4,5,7,6});
+                        face innerFace({0,1,5,4});
+                        face outerFace({2,3,7,6});
+                        face lowerFace({0,2,6,4});
+                        face upperFace({1,3,7,5});
+                        
+                        List<face> faces(12);
+                        faces[0] = {prevFace[0],prevFace[1],prevFace[3]};
+                        faces[1] = {prevFace[1],prevFace[2],prevFace[3]};
+                        
+                        faces[2] = {subseqFace[0],subseqFace[1],subseqFace[3]};
+                        faces[3] = {subseqFace[1],subseqFace[2],subseqFace[3]};
+                        
+                        faces[4] = {innerFace[0],innerFace[1],innerFace[3]};
+                        faces[5] = {innerFace[1],innerFace[2],innerFace[3]};
+                        
+                        faces[6] = {outerFace[0],outerFace[1],outerFace[3]};
+                        faces[7] = {outerFace[1],outerFace[2],outerFace[3]};
+                        
+                        faces[8] = {lowerFace[0],lowerFace[1],lowerFace[3]};
+                        faces[9] = {lowerFace[1],lowerFace[2],lowerFace[3]};
+                        
+                        faces[10] = {upperFace[0],upperFace[1],upperFace[3]};
+                        faces[11] = {upperFace[1],upperFace[2],upperFace[3]};
+                        
+                        List<label> cellList(12);
+                        for(label ind=0; ind<cellList.size(); ind++)
+                            cellList[ind] = ind;
+                        cell thisCell(cellList);
+                        
+                        singleMarker.setMarkerVolume(thisCell.mag(points,faces));
+                        //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
+                        sumVolume+=singleMarker.getMarkerVolume();
                     }
                     else
                     {
-                        points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,-h/2,0);
-                        points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,-h/2,0);
-                        points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,-h/2,0);
-                        points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,-h/2,0);
-                        points[4] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,h/2,0);
-                        points[5] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,h/2,0);
-                        points[6] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,h/2,0);
-                        points[7] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,h/2,0);
+                        pointField points(4);
+                        if(surfaceType==Surface::Circumferential)
+                        {                       
+                            points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle);
+                            points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle);
+                            points[2] = getPosition(subseqParameter,radialIndexFrac,upperAngle);
+                            points[3] = getPosition(subseqParameter,radialIndexFrac,lowerAngle);
+                        }
+                        else
+                        {
+                            points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle);
+                            points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle);
+                            points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle);
+                            points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle);
+                        }
+                        face thisFace({0,1,2,3});
+                        
+                        singleMarker.setMarkerVolume(thisFace.mag(points));
+                        //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
+                        sumVolume+=singleMarker.getMarkerVolume();
+                        
                     }
-            
-                    face prevFace({0,1,3,2});
-                    face subseqFace({4,5,7,6});
-                    face innerFace({0,1,5,4});
-                    face outerFace({2,3,7,6});
-                    face lowerFace({0,2,6,4});
-                    face upperFace({1,3,7,5});
-                    
-                    List<face> faces(12);
-                    faces[0] = {prevFace[0],prevFace[1],prevFace[3]};
-                    faces[1] = {prevFace[1],prevFace[2],prevFace[3]};
-                    
-                    faces[2] = {subseqFace[0],subseqFace[1],subseqFace[3]};
-                    faces[3] = {subseqFace[1],subseqFace[2],subseqFace[3]};
-                    
-                    faces[4] = {innerFace[0],innerFace[1],innerFace[3]};
-                    faces[5] = {innerFace[1],innerFace[2],innerFace[3]};
-                    
-                    faces[6] = {outerFace[0],outerFace[1],outerFace[3]};
-                    faces[7] = {outerFace[1],outerFace[2],outerFace[3]};
-                    
-                    faces[8] = {lowerFace[0],lowerFace[1],lowerFace[3]};
-                    faces[9] = {lowerFace[1],lowerFace[2],lowerFace[3]};
-                    
-                    faces[10] = {upperFace[0],upperFace[1],upperFace[3]};
-                    faces[11] = {upperFace[1],upperFace[2],upperFace[3]};
-                    
-                    List<label> cellList(12);
-                    for(label ind=0; ind<cellList.size(); ind++)
-                        cellList[ind] = ind;
-                    cell thisCell(cellList);
-                    
-                    singleMarker.setMarkerVolume(thisCell.mag(points,faces));
-                    //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
-                    sumVolume+=singleMarker.getMarkerVolume();
                 }
             }
         }
@@ -1088,25 +790,18 @@ std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStruc
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* oneRod,
     const CrossSection* oneCrossSec,
-    scalar initialSpacing
+    scalar initialSpacing,
+    std::pair<bool,scalar> refineSpacing,
+    bool reInitialize
 )
 {
-    // vector<para,vector<radial,vector<angle>>>
-    std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> spacedPoints;
-    spacedPoints = createSpacedPointsOnCrossSecRod(oneRod,oneCrossSec,initialSpacing);
-    
-    /*
-    Info<<"spacedPoints->size():"<<spacedPoints->size()<<Foam::endl;
-    for(auto radial : *spacedPoints)
+    //Create initial spacing
+    std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>& spacedPoints = initialRodPoints[rodNumber];
+    if(reInitialize || !spacedPoints)
     {
-        Info<<"   para:"<<radial.first<<"  radial.size():"<<radial.second.size()<<Foam::endl;
-        for(auto circum : radial.second)
-        {
-            //Info<<"   rad:"<<circum.first<<"  circum.size():"<<circum.second.size()<<Foam::endl;
-        }
+        spacedPoints = createSpacedPointsOnCrossSecRod(oneRod,oneCrossSec,initialSpacing);
     }
-    */
-    
+        
     // Transfer vector to list
     //(para (radial (angle)))
     std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>> markers;
@@ -1682,6 +1377,7 @@ void Foam::CrossSectionStructure::constructMarkerSetCircumferential
 }
 */
 
+/*
 bool Foam::CrossSectionStructure::doSubdivision
 (
     const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
@@ -1809,6 +1505,7 @@ bool Foam::CrossSectionStructure::doSubdivisionCircumferential
             return true;        
     }
 }
+*/
 
 /*
 std::list<Foam::LagrangianMarkerOnCrossSec> Foam::CrossSectionStructure::createInitialCircumMarkers
