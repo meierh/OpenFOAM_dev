@@ -47,6 +47,7 @@
 #include "mapPolyMesh.H"
 #include "polyTopoChange.H"
 #include "dynamicRefineFvMesh.H"
+#include <array>
 
 namespace Foam
 {

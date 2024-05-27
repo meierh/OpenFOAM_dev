@@ -5,6 +5,7 @@
 
 namespace Foam
 {
+
 class CrossSection
 {
     public:
@@ -84,7 +85,7 @@ class CrossSection
         scalar domStart;
         scalar domEnd;
 };
-
+    
 class LagrangianMarkerOnCrossSec : public LagrangianMarker
 {
     public:
@@ -175,6 +176,7 @@ class CrossSectionStructure : public LineStructure
             scalar radiusFrac=1
         );
         
+        /*
         bool doSubdivision
         (
             const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
@@ -185,6 +187,7 @@ class CrossSectionStructure : public LineStructure
             const LagrangianMarkerOnCrossSec& smallerSide,
             const LagrangianMarkerOnCrossSec& largerSide
         );
+        */
         
         static scalar restrictAngle(scalar angle);
         
@@ -228,6 +231,8 @@ class CrossSectionStructure : public LineStructure
     private:
         std::vector<CrossSection> rodCrossSection;
         std::vector<std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>> rodMarkers;
+        std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
+
         
         void computeMarkerVolume
         (
@@ -246,7 +251,9 @@ class CrossSectionStructure : public LineStructure
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection* oneCrossSec,
-            scalar initialSpacing
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0},
+            bool reInitialize = false
         );
         
         void refineCircumferential
@@ -269,6 +276,7 @@ class CrossSectionStructure : public LineStructure
             std::pair<bool,scalar> refineSpacing = {false,0}
         );        
         
+        /*
         void constructMarkerSetCircumferential
         (
             const label rodNumber,
@@ -277,7 +285,9 @@ class CrossSectionStructure : public LineStructure
             std::list<LagrangianMarkerOnCrossSec>&,
             scalar radiusFrac = 1
         );
+        */
         
+        /*
         void constructMarkerSetRadial
         (
             const label rodNumber,
@@ -286,7 +296,9 @@ class CrossSectionStructure : public LineStructure
             const CrossSection* oneCrossSec,
             std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers
         );
+        */
         
+        /*
         std::list<LagrangianMarkerOnCrossSec> createInitialCircumMarkers
         (
             const label rodNumber,
@@ -295,6 +307,8 @@ class CrossSectionStructure : public LineStructure
             const CrossSection* oneCrossSec,
             scalar radiusFrac = 1
         );
+        */
 };
+
 }
 #endif

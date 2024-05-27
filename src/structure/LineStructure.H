@@ -70,6 +70,12 @@ class FieldMarkerStructureInteraction
         static scalar deltaDirac(vector X, vector x, scalar h);
         static scalar deltaDirac(vector X, vector x, vector h);
         
+        void computeMarkerEpsilon
+        (
+            const dynamicRefineFvMesh& mesh,
+            const DynamicList<LagrangianMarker*>& markers
+        );
+
     protected:
         const markerMeshType modusFieldToMarker;
         const markerMeshType modusMarkerToField;
@@ -91,6 +97,12 @@ class FieldMarkerStructureInteraction
         (
             const dynamicRefineFvMesh& mesh,
             const LagrangianMarker& marker
+        );
+        
+        static std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerEpsilonMatrix
+        (
+            const dynamicRefineFvMesh& mesh,
+            const DynamicList<LagrangianMarker*>& markers
         );
 
         template<typename T>
@@ -344,10 +356,13 @@ class FieldMarkerStructureInteraction
 class LineStructure : public Structure
 {
     public:
+        enum markerMeshType {Uniform, NonUniform};
         explicit LineStructure
         (
             dynamicRefineFvMesh& mesh,
-            const List<scalar> crossSecArea
+            const List<scalar> crossSecArea,            
+            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
+            markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
         LineStructure(const LineStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
@@ -361,6 +376,9 @@ class LineStructure : public Structure
         void test();
         
     protected:
+        markerMeshType modusFieldToMarker;
+        markerMeshType modusMarkerToField;
+        
         static std::unique_ptr<std::vector<scalar>> createSpacedPointsOnRod
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -465,6 +483,7 @@ class LineStructure : public Structure
         const List<scalar> crossSecArea;
         
         std::vector<std::unique_ptr<std::vector<LagrangianMarker>>> rodMarkers;
+        std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
         
         scalar initialSpacing;
         
@@ -474,13 +493,16 @@ class LineStructure : public Structure
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar crossSecArea,
             scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0}
+            std::pair<bool,scalar> refineSpacing = {false,0},
+            bool reInitialize = false
         );
         
+        /*
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerWeightMatrix
         (
             std::vector<LagrangianMarker*> markers
         );
+        */
         
         scalar initialSpacingFromMesh();
 };
