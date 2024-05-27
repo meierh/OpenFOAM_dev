@@ -9,7 +9,7 @@ Foam::LineStructure::LineStructure
 ):
 Structure(mesh,mesh.time()),
 modusFieldToMarker(modusFieldToMarker),
-modusMarkerToField(modusMarkerToField)
+modusMarkerToField(modusMarkerToField),
 crossSecArea(crossSecArea),
 initialSpacing(initialSpacingFromMesh())
 {

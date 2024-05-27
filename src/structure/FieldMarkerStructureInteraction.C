@@ -14,30 +14,6 @@ modusMarkerToField(modusMarkerToField)
     Info<<"Completed FieldMarkerStructureInteraction setup"<<Foam::endl;
 }
 
-Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
-{
-    //Info<<"phiFunction -- r:"<<r<<Foam::endl;
-    
-    scalar abs_r = std::abs(r);
-    if(abs_r < 0.5)
-    {
-        scalar result = (1.0/3.0)*(1+std::sqrt(-3*(abs_r*abs_r)+1));
-        //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
-        return result;
-    }
-    else if(abs_r <= 1.5)
-    {
-        scalar result = (1.0/6.0)*(5.0-3.0*abs_r-std::sqrt(-3.0*((1-abs_r)*(1-abs_r))+1));
-        //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
-        return result;        
-    }
-    else
-    {
-        //Info<<"abs_r:"<<abs_r<<" -> "<<0<<Foam::endl;
-        return 0;
-    }
-}
-
 Foam::scalar Foam::FieldMarkerStructureInteraction::deltaDirac
 (
     Foam::vector X,
@@ -83,15 +59,37 @@ void Foam::FieldMarkerStructureInteraction::computeMarkerEpsilon
         ones(I,0) = 1;
     }
 
-    gismo::gsGMRes HM(*M);
+    gismo::gsGMRes HM(*markerAreaMatrix);
     HM.solve(ones,epsilon);
 
     for(label I=0; I<markers.size(); I++)
     {
-        marker->setMarkerVolume(marker->getMarkerVolume()*epsilon(I,0));
+        markers[I]->setMarkerVolume(markers[I]->getMarkerVolume()*epsilon(I,0));
     }
+}
 
-    return bPtr;
+Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
+{
+    //Info<<"phiFunction -- r:"<<r<<Foam::endl;
+    
+    scalar abs_r = std::abs(r);
+    if(abs_r < 0.5)
+    {
+        scalar result = (1.0/3.0)*(1+std::sqrt(-3*(abs_r*abs_r)+1));
+        //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
+        return result;
+    }
+    else if(abs_r <= 1.5)
+    {
+        scalar result = (1.0/6.0)*(5.0-3.0*abs_r-std::sqrt(-3.0*((1-abs_r)*(1-abs_r))+1));
+        //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
+        return result;        
+    }
+    else
+    {
+        //Info<<"abs_r:"<<abs_r<<" -> "<<0<<Foam::endl;
+        return 0;
+    }
 }
 
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::computeMarkerEpsilonMatrix

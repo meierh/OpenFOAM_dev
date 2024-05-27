@@ -48,15 +48,14 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
 
-    
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
-
-    scalar pi = constant::mathematical::pi;
-    CrossSection crossSecN(0.1);   
+    CrossSection crossSecN(0.05);   
     CrossSectionStructure structure(mesh,{crossSecN});
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+    
     VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
     structure.transferMarkers(Uf_Interaction);
 
+    
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
     
     Info<< "\nStarting time loop\n" << endl;

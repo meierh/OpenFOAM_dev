@@ -77,8 +77,6 @@ class FieldMarkerStructureInteraction
         );
 
     protected:
-        const markerMeshType modusFieldToMarker;
-        const markerMeshType modusMarkerToField;
         static scalar phiFunction(scalar r);
         static scalar correctedDeltaDirac(vector X, vector x, scalar h, std::array<scalar,10> b);
         static scalar computeMoment
@@ -351,6 +349,8 @@ class FieldMarkerStructureInteraction
         }
         
         const scalar h;
+        const markerMeshType modusFieldToMarker;
+        const markerMeshType modusMarkerToField;
 };
 
 class LineStructure : public Structure
@@ -375,10 +375,7 @@ class LineStructure : public Structure
         
         void test();
         
-    protected:
-        markerMeshType modusFieldToMarker;
-        markerMeshType modusMarkerToField;
-        
+    protected:        
         static std::unique_ptr<std::vector<scalar>> createSpacedPointsOnRod
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -478,7 +475,8 @@ class LineStructure : public Structure
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
         
         const label minRefinement = 1;
-        
+        markerMeshType modusFieldToMarker;
+        markerMeshType modusMarkerToField;        
     private:
         const List<scalar> crossSecArea;
         

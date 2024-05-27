@@ -121,12 +121,24 @@ class CrossSectionStructure : public LineStructure
         explicit CrossSectionStructure
         (
             dynamicRefineFvMesh& mesh,
-            std::vector<CrossSection> rodCrossSection
+            std::vector<CrossSection> rodCrossSection,
+            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
+            markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
         CrossSectionStructure(const CrossSectionStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
-    protected:
+    private:
+        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
+        (
+            const label rodNumber,
+            const ActiveRodMesh::rodCosserat* oneRod,
+            const CrossSection* oneCrossSec,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0},
+            bool reInitialize = false
+        );
+        
         void createSpacedPointsOnCrossSec
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -137,12 +149,43 @@ class CrossSectionStructure : public LineStructure
             std::vector<scalar>& angleData
         );
         
-        // vector<para,vector<radial,vector<angle>>>
         std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSecRod
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection* crossSec,            
             scalar spacing
+        );
+        
+        void refineCircumferential
+        (
+            std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
+
+        void refineRadial
+        (
+            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
+        
+        void refineTangential
+        (
+            std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
+        
+        void computeMarkerVolume
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            const CrossSection* oneCrossSec,
+            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+        );
+        
+        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reduceSurplusMarkers
+        (
+            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
         );
         
         scalar evaluateCircumArcLen
@@ -156,6 +199,7 @@ class CrossSectionStructure : public LineStructure
             scalar radiusFracA,
             scalar radiusFracB
         );
+        
         static vector evaluateRodCircumPos
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -175,20 +219,7 @@ class CrossSectionStructure : public LineStructure
             scalar angle,
             scalar radiusFrac=1
         );
-        
-        /*
-        bool doSubdivision
-        (
-            const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
-            const std::list<LagrangianMarkerOnCrossSec>& largerSide
-        );
-        bool doSubdivisionCircumferential
-        (
-            const LagrangianMarkerOnCrossSec& smallerSide,
-            const LagrangianMarkerOnCrossSec& largerSide
-        );
-        */
-        
+                
         static scalar restrictAngle(scalar angle);
         
         template<typename T>
@@ -227,55 +258,23 @@ class CrossSectionStructure : public LineStructure
             const LagrangianMarkerOnCrossSec& B
         );
 
-    
-    private:
         std::vector<CrossSection> rodCrossSection;
         std::vector<std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>> rodMarkers;
-        std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
+        std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;        
 
-        
-        void computeMarkerVolume
+        /*
+        bool doSubdivision
         (
-            const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection* oneCrossSec,
-            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+            const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
+            const std::list<LagrangianMarkerOnCrossSec>& largerSide
         );
-        
-        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reduceSurplusMarkers
+        bool doSubdivisionCircumferential
         (
-            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+            const LagrangianMarkerOnCrossSec& smallerSide,
+            const LagrangianMarkerOnCrossSec& largerSide
         );
-        
-        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection* oneCrossSec,
-            scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0},
-            bool reInitialize = false
-        );
-        
-        void refineCircumferential
-        (
-            std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
-
-        void refineRadial
-        (
-            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
-            scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
-        
-        void refineTangential
-        (
-            std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
-            scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );        
-        
+        */
+    
         /*
         void constructMarkerSetCircumferential
         (

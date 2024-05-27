@@ -1,198 +1,11 @@
 #include "CrossSectionStructure.H"
 
-scalar Foam::CrossSectionStructure::restrictAngle
-(
-    scalar angle
-)
-{
-    while(angle<0)
-    {
-        angle += 2*Foam::constant::mathematical::pi;
-    }
-    while(angle>2*Foam::constant::mathematical::pi)
-    {
-        angle -= 2*Foam::constant::mathematical::pi;
-    }
-    return angle;
-}
-
-template<typename T>
-T Foam::CrossSectionStructure::integrateCircumwise
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* crossSec,
-    std::function<T(scalar)> function
-)
-{
-    return integrateCircumwise<T>(oneRod,parameter,crossSec,0,2*Foam::constant::mathematical::pi,function);
-}
-
-template<typename T>
-T Foam::CrossSectionStructure::integrateCircumwise
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* crossSec,
-    scalar angleStart,
-    scalar angleEnd,
-    std::function<T(scalar)> function
-)
-{
-    while(angleEnd<angleStart)
-        angleEnd += 2*Foam::constant::mathematical::pi;
-    
-    label highestWaveNumber = (crossSec->getNumberCoeffs()+1)*2;
-    
-    scalar integrationLen = angleEnd-angleStart;
-    scalar segmentLen = integrationLen/highestWaveNumber;
-    std::vector<scalar> segmentSet;
-    for(label i=0; i<highestWaveNumber; i++)
-        segmentSet.push_back(angleStart+segmentLen*i);
-    segmentSet.push_back(angleEnd);
-    
-    label numberOfAbcissa = 20;
-
-    T totalValue = Foam::zero();
-    for(label i=0; i<segmentSet.size()-1;i++)
-    {
-        scalar startAngle = segmentSet[i];
-        scalar endAngle = segmentSet[i+1];
-        scalar dist = endAngle-startAngle;
-        scalar step = dist/numberOfAbcissa;
-        scalar initialStep = startAngle+step/2;
-        T summedValue = Foam::zero();
-        for(label i=0;i<numberOfAbcissa;i++)
-        {
-            summedValue += function(initialStep)*step;
-            initialStep+=step;
-        }
-        totalValue+=summedValue;
-    }
-    return totalValue;
-}
-
-scalar Foam::CrossSectionStructure::distance
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* crossSec,
-    scalar angleStart,
-    scalar angleEnd,
-    scalar radiusFrac
-)
-{
-    //Info<<"computeDist:"<<angleStart<<"-"<<angleEnd<<Foam::endl;
-    std::function<scalar(scalar)> curveLen = 
-    [rodPtr=oneRod, para=parameter, crossSecRef=crossSec, radFrac=radiusFrac](scalar angle)
-    {
-        vector derivCrossSec = evaluateRodCircumDerivAngle(rodPtr,para,crossSecRef,angle,radFrac);
-        return std::sqrt(derivCrossSec&derivCrossSec);
-    };
-    return integrateCircumwise<scalar>(oneRod,parameter,crossSec,angleStart,angleEnd,curveLen);
-}
-
-scalar Foam::CrossSectionStructure::distance
-(
-    const LagrangianMarkerOnCrossSec& A,
-    const LagrangianMarkerOnCrossSec& B
-)
-{
-    if(A.getBaseRod()!=B.getBaseRod())
-        FatalErrorInFunction<<"Distance can not be computed between points on different rods"<<exit(FatalError);
-    
-    //markerParameter,markerAngle,radiusFrac,markerPosition
-    using node = std::tuple<scalar,scalar,scalar,vector>;
-
-    node start = {A.getMarkerParameter(),A.getMarkerAngle(),A.getMarkerRadiusFrac(),A.getMarkerPosition()};
-    std::get<1>(start) = restrictAngle(std::get<1>(start));
-    node end = {B.getMarkerParameter(),B.getMarkerAngle(),B.getMarkerRadiusFrac(),B.getMarkerPosition()};
-    std::get<1>(end) = restrictAngle(std::get<1>(end));
-    
-    std::list<node> nodes;
-    nodes.push_back(start);
-    nodes.push_back(end);
-    
-    scalar distance = std::numeric_limits<scalar>::max();
-    bool errorSufficient = false;
-    while(!errorSufficient)
-    {
-        auto node0 = nodes.begin();
-        auto node1 = ++nodes.begin();
-        for( ; node1!=nodes.end() ; )
-        {
-            node insertNode;
-            std::get<0>(insertNode) = (std::get<0>(*node0)+std::get<0>(*node1))/2;
-            std::get<2>(insertNode) = (std::get<2>(*node0)+std::get<2>(*node1))/2;
-            
-            scalar anglNode0 = std::get<1>(*node0);
-            scalar anglNode1 = std::get<1>(*node1);
-            scalar anglNodeInter;
-            scalar distInner = std::abs(anglNode0-anglNode1);
-            if(anglNode0<anglNode1)
-            {
-                scalar distToUp = 2*Foam::constant::mathematical::pi-anglNode1;
-                scalar outerDist = distToUp+anglNode0;
-                if(outerDist>distInner)
-                    anglNodeInter = (anglNode0+anglNode1)/2;
-                else
-                {
-                    scalar halfOuterDist = outerDist/2;
-                    if(distToUp<anglNode0)
-                        anglNodeInter = anglNode0-halfOuterDist;
-                    else
-                        anglNodeInter = anglNode1+halfOuterDist;
-                }
-            }
-            else
-            {
-                scalar distToUp = 2*Foam::constant::mathematical::pi-anglNode0;
-                scalar outerDist = distToUp+anglNode1;
-                if(outerDist>distInner)
-                    anglNodeInter = (anglNode0+anglNode1)/2;
-                else
-                {
-                    scalar halfOuterDist = outerDist/2;
-                    if(distToUp<anglNode1)
-                        anglNodeInter = anglNode1-halfOuterDist;
-                    else
-                        anglNodeInter = anglNode0+halfOuterDist;
-                }
-            }
-            std::get<1>(insertNode) = anglNodeInter;
-            std::get<3>(insertNode) = CrossSectionStructure::evaluateRodCircumPos
-                                    (A.getBaseRod(),std::get<0>(insertNode),
-                                     A.getBaseCrossSec(),std::get<1>(insertNode),
-                                     std::get<2>(insertNode));
-            auto inserted = nodes.insert(node1,insertNode);
-            node0 = node1;
-            node1++;
-        }
-        
-        scalar newDist = 0;
-        node0 = nodes.begin();
-        node1 = ++nodes.begin();
-        for( ; node1!=nodes.end() ; )
-        {
-            vector connec = std::get<3>(*node1) - std::get<3>(*node0);
-            newDist += std::sqrt(connec&connec);
-            node0++;
-            node1++;
-        }
-        
-        scalar change = std::abs(newDist-distance);
-        scalar changePerc = change/newDist;
-        distance = newDist;
-        if(nodes.size()>10 && changePerc<1e-3)
-            errorSufficient=true;
-    }
-    return distance;
-}
-
 Foam::CrossSectionStructure::CrossSectionStructure
 (
     dynamicRefineFvMesh& mesh,
-    std::vector<CrossSection> rodCrossSection
+    std::vector<CrossSection> rodCrossSection,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
 LineStructure(mesh,{}),
 rodCrossSection(rodCrossSection)
@@ -236,6 +49,129 @@ void Foam::CrossSectionStructure::transferMarkers(FieldMarkerStructureInteractio
         }
     }
     Info<<"Transfer markers done"<<Foam::endl;
+}
+
+std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStructure::constructMarkerSet
+(
+    const label rodNumber,
+    const ActiveRodMesh::rodCosserat* oneRod,
+    const CrossSection* oneCrossSec,
+    scalar initialSpacing,
+    std::pair<bool,scalar> refineSpacing,
+    bool reInitialize
+)
+{
+    //Create initial spacing
+    std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>& spacedPoints = initialRodPoints[rodNumber];
+    if(reInitialize || !spacedPoints)
+    {
+        spacedPoints = createSpacedPointsOnCrossSecRod(oneRod,oneCrossSec,initialSpacing);
+    }
+        
+    // Transfer vector to list
+    //(para (radial (angle)))
+    std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>> markers;
+    for(label paraInd=0; paraInd<spacedPoints->size(); paraInd++)
+    {
+        scalar para = (*spacedPoints)[paraInd].first;
+        const std::vector<std::pair<scalar,std::vector<scalar>>>& radialPoints = (*spacedPoints)[paraInd].second;
+        
+        std::list<std::list<LagrangianMarkerOnCrossSec>> nextPara;
+        markers.push_back(nextPara);
+        
+        //Info<<paraInd<<" para:"<<para<<"  "<<radialPoints.size()<<Foam::endl;
+        
+        for(label radialInd=0; radialInd<radialPoints.size(); radialInd++)
+        {
+            scalar radiusFrac = radialPoints[radialInd].first;
+            const std::vector<scalar>& circumPoints = radialPoints[radialInd].second;
+            
+            std::list<LagrangianMarkerOnCrossSec> nextRadial;
+            markers.back().push_back(nextRadial);
+            
+            //Info<<"     "<<radialInd<<"     radiusFrac:"<<radiusFrac<<"  "<<circumPoints.size()<<Foam::endl;
+        
+            for(label angleInd=0; angleInd<circumPoints.size(); angleInd++)
+            {
+                scalar angle = circumPoints[angleInd];
+                
+                //Info<<"     "<<angleInd<<"             angle:"<<angle<<Foam::endl;
+                
+                LagrangianMarkerOnCrossSec nextAngleMarker
+                (
+                    mesh,rodNumber,oneRod,para,oneCrossSec,angle,radiusFrac
+                );
+                markers.back().back().push_back(nextAngleMarker);
+            }
+        }
+    }
+    Info<<"Transfered to vector"<<Foam::endl;
+    
+    /*
+    Info<<"markers.size():"<<markers.size()<<Foam::endl;
+    for(auto radial : markers)
+    {
+        Info<<"     radial.size():"<<radial.size()<<Foam::endl;
+        for(auto circum : radial)
+        {
+            Info<<"         circum.size():"<<circum.size()<<Foam::endl;
+        }
+    }
+    */
+    
+    //Refine circumferential
+    for(auto iterPara=markers.begin(); iterPara!=markers.end(); iterPara++)
+    {
+        for(auto iterRadial=iterPara->begin(); iterRadial!=iterPara->end(); iterRadial++)
+        {
+            if(iterRadial->size()<1)
+                FatalErrorInFunction<<"Must be at least one marker in list"<< exit(FatalError);
+            if(iterRadial->front().getMarkerRadiusFrac()!=0)
+                refineCircumferential(*iterRadial);
+        }
+    }
+    Info<<"Circum refined"<<Foam::endl;
+    
+    // Refine rod endings radially
+    refineRadial(markers.front(),initialSpacing);
+    refineRadial(markers.back(),initialSpacing);
+    
+    refineTangential(markers,initialSpacing);
+    
+    Info<<"markers.size():"<<markers.size()<<Foam::endl;
+    for(auto radial : markers)
+    {
+        Info<<"     radial.size():"<<radial.size()<<Foam::endl;
+        for(auto circum : radial)
+        {
+            Info<<"         circum.size():"<<circum.size()<<Foam::endl;
+        }
+    }    
+
+    
+    //Transfer list to vector data structure
+    std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>> markersVec;
+    for(auto iter=markers.begin(); iter!=markers.end(); iter++)
+    {
+        markersVec.push_back(std::vector<std::vector<LagrangianMarkerOnCrossSec>>());
+        for(auto iterSub=iter->begin(); iterSub!=iter->end(); iterSub++)
+        {
+            markersVec.back().push_back(std::vector<LagrangianMarkerOnCrossSec>());
+            for(auto iterSubSub=iterSub->begin(); iterSubSub!=iterSub->end(); iterSubSub++)
+            {
+                markersVec.back().back().push_back(*iterSubSub);
+            }
+        }
+    }
+    
+    computeMarkerVolume(oneRod,oneCrossSec,markersVec);
+
+    std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reducedMarkersPtr = reduceSurplusMarkers(markersVec);
+    
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+
+
+    return reducedMarkersPtr;
 }
 
 void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
@@ -373,539 +309,6 @@ std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::v
     }
     Info<<"createSpacedPointsOnCrossSecRod done"<<Foam::endl;
     return result;
-}
-
-Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameterA,
-    scalar parameterB,
-    const CrossSection* oneCrossSec,
-    scalar angleA,
-    scalar angleB,
-    scalar radiusFracA,
-    scalar radiusFracB
-)
-{
-    vector parAVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterA,oneCrossSec,angleA,radiusFracA);
-    vector parBVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterB,oneCrossSec,angleB,radiusFracB);
-    vector connec = parAVec-parBVec;
-    return Foam::mag(connec);
-}
-
-Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* oneCrossSec,
-    scalar angle,
-    scalar radiusFrac,
-    scalar var_para,
-    scalar var_radius
-)
-{
-    vector d1,d2,d3,r;
-    rodEval(oneRod,parameter,d1,d2,d3,r);
-    vector tangential = d3;
-    scalar tangentialLen = std::sqrt(tangential&tangential);
-    tangential /= tangentialLen;
-    vector tangentialDev = tangential * var_para;
-    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
-    scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
-    radius +=  var_radius;
-    //Info<<"radius:"<<radius<<Foam::endl;
-    vector coordXDir = std::cos(angle)*radius*d1;
-    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
-    vector coordYDir = std::sin(angle)*radius*d2;
-    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
-    return (r+tangentialDev)+coordXDir+coordYDir;
-}
-
-Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* oneCrossSec,
-    scalar angle,
-    scalar radiusFrac
-)
-{
-    vector d1,d2,d3,r;
-    rodEval(oneRod,parameter,d1,d2,d3,r);
-    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
-    scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
-    //Info<<"radius:"<<radius<<Foam::endl;
-    scalar dradius_dangle = oneCrossSec->deriv_angle(parameter,angle)*radiusFrac;
-    
-    //Info<<"radius:"<<radius<<Foam::endl;
-    vector coordXDerivAngle = (dradius_dangle*std::cos(angle) - radius*std::sin(angle))*d1;
-    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
-    vector coordYDerivAngle = (dradius_dangle*std::sin(angle) + radius*std::cos(angle))*d2;
-    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
-    return coordXDerivAngle+coordYDerivAngle;
-}
-
-void Foam::CrossSectionStructure::computeMarkerVolume
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    const CrossSection* oneCrossSec,
-    std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
-)
-{
-    std::function<vector(scalar,scalar,scalar,scalar,scalar)> getPosition = 
-    [rod=oneRod,crossSec=oneCrossSec]
-    (scalar para, scalar radFrac, scalar angle, scalar paraDev, scalar radiusDev)
-    {
-        return CrossSectionStructure::evaluateRodCircumPos
-        (
-            rod,para,crossSec,angle,radFrac,paraDev,radiusDev
-        );
-    };
-    
-    scalar sumVolume = 0;
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
-    enum Surface {Circumferential, Radial};
-    Surface surfaceType;
-    for(label rodWiseIndex=0; rodWiseIndex<markers.size(); rodWiseIndex++)
-    {
-        //Info<<"rodWiseIndex:"<<rodWiseIndex<<Foam::endl;
-        std::vector<std::vector<LagrangianMarkerOnCrossSec>>& radialMarkers = markers[rodWiseIndex];
-        scalar rodWiseIndexParameter = radialMarkers[0][0].getMarkerParameter();
-        
-        scalar prevParameter;
-        if(rodWiseIndex==0)
-            prevParameter = rodWiseIndexParameter;
-        else
-            prevParameter = (markers[rodWiseIndex-1][0][0].getMarkerParameter()+rodWiseIndexParameter)/2;
-        
-        scalar subseqParameter;
-        if(rodWiseIndex==markers.size()-1)
-            subseqParameter = rodWiseIndexParameter;
-        else
-            subseqParameter = (markers[rodWiseIndex+1][0][0].getMarkerParameter()+rodWiseIndexParameter)/2;
-        
-        for(label radialIndex=0; radialIndex<radialMarkers.size(); radialIndex++)
-        {
-            std::vector<LagrangianMarkerOnCrossSec>& circumMarkers = radialMarkers[radialIndex];
-            scalar radialIndexFrac = circumMarkers[0].getMarkerRadiusFrac();
-            
-            scalar outerRadiusFrac, innerRadiusFrac;
-            if(radialMarkers.size()==1)
-            {
-                outerRadiusFrac = 1;
-                innerRadiusFrac = 0;
-                surfaceType = Surface::Circumferential;
-            }
-            else 
-            {
-                surfaceType = Surface::Radial;
-                if(radialIndex==0)
-                    outerRadiusFrac = radialIndexFrac;
-                else
-                    outerRadiusFrac = (radialMarkers[radialIndex-1][0].getMarkerRadiusFrac()+radialIndexFrac)/2;
-                
-                if(radialIndex==radialMarkers.size()-1)
-                    innerRadiusFrac = radialIndexFrac;
-                else
-                    innerRadiusFrac = (radialMarkers[radialIndex+1][0].getMarkerRadiusFrac()+radialIndexFrac)/2;
-            }
-            //Info<<"\tradialIndex:"<<radialIndex<<" - "<<circumMarkers.size()<<Foam::endl;
-            for(label circIndex=0; circIndex<circumMarkers.size(); circIndex++)
-            {
-                //Info<<"\t\tcircIndex:"<<circIndex<<"/"<<circumMarkers.size()<<Foam::endl;
-
-                LagrangianMarkerOnCrossSec& singleMarker = circumMarkers[circIndex];
-                scalar circIndexAngle = singleMarker.getMarkerAngle();
-
-                scalar lowerAngle, upperAngle;
-                if(circIndex==0)
-                    lowerAngle = circumMarkers.back().getMarkerAngle()-2*Foam::constant::mathematical::pi;
-                else
-                    lowerAngle = circumMarkers[circIndex-1].getMarkerAngle();
-                lowerAngle += circIndexAngle;
-                lowerAngle /= 2;
-                lowerAngle = CrossSectionStructure::restrictAngle(lowerAngle);
-                
-                if(circIndex==circumMarkers.size()-1)
-                    upperAngle = circumMarkers[0].getMarkerAngle()+2*Foam::constant::mathematical::pi;
-                else
-                    upperAngle = circumMarkers[circIndex+1].getMarkerAngle();
-                //Info<<"\t\tdistAngle:"<<"("<<lowerAngle<<"/"<<circIndexAngle<<"/"<<upperAngle<<"):"<<upperAngle-lowerAngle;
-                upperAngle += circIndexAngle;
-                upperAngle /= 2;
-                upperAngle = CrossSectionStructure::restrictAngle(upperAngle);
-                
-                if(singleMarker.getMarkerCell()!=-1)
-                {
-                    if(modusMarkerToField == markerMeshType::Uniform)
-                    {
-                        scalar h = std::cbrt(cells[singleMarker.getMarkerCell()].mag(points,faces));
-                        
-                        /*
-                        Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::endl;
-                        Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
-                        Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::endl;
-                        */
-                        
-                        std::array<std::array<std::array<label,2>,2>,2> paraRadAnglePnts;
-                        pointField points(8);
-                        paraRadAnglePnts[0][0][0] = 0;
-                        paraRadAnglePnts[0][0][1] = 1;
-                        paraRadAnglePnts[0][1][0] = 2;
-                        paraRadAnglePnts[0][1][1] = 3;
-                        paraRadAnglePnts[1][0][0] = 4;
-                        paraRadAnglePnts[1][0][1] = 5;
-                        paraRadAnglePnts[1][1][0] = 6;
-                        paraRadAnglePnts[1][1][1] = 7;
-                        if(surfaceType==Surface::Circumferential)
-                        {                       
-                            points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,-h/2);
-                            points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,-h/2);
-                            points[2] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,h/2);
-                            points[3] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,h/2);
-                            points[4] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,-h/2);
-                            points[5] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,-h/2);
-                            points[6] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,h/2);
-                            points[7] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,h/2);
-                        }
-                        else
-                        {
-                            points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,-h/2,0);
-                            points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,-h/2,0);
-                            points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,-h/2,0);
-                            points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,-h/2,0);
-                            points[4] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,h/2,0);
-                            points[5] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,h/2,0);
-                            points[6] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,h/2,0);
-                            points[7] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,h/2,0);
-                        }
-                
-                        face prevFace({0,1,3,2});
-                        face subseqFace({4,5,7,6});
-                        face innerFace({0,1,5,4});
-                        face outerFace({2,3,7,6});
-                        face lowerFace({0,2,6,4});
-                        face upperFace({1,3,7,5});
-                        
-                        List<face> faces(12);
-                        faces[0] = {prevFace[0],prevFace[1],prevFace[3]};
-                        faces[1] = {prevFace[1],prevFace[2],prevFace[3]};
-                        
-                        faces[2] = {subseqFace[0],subseqFace[1],subseqFace[3]};
-                        faces[3] = {subseqFace[1],subseqFace[2],subseqFace[3]};
-                        
-                        faces[4] = {innerFace[0],innerFace[1],innerFace[3]};
-                        faces[5] = {innerFace[1],innerFace[2],innerFace[3]};
-                        
-                        faces[6] = {outerFace[0],outerFace[1],outerFace[3]};
-                        faces[7] = {outerFace[1],outerFace[2],outerFace[3]};
-                        
-                        faces[8] = {lowerFace[0],lowerFace[1],lowerFace[3]};
-                        faces[9] = {lowerFace[1],lowerFace[2],lowerFace[3]};
-                        
-                        faces[10] = {upperFace[0],upperFace[1],upperFace[3]};
-                        faces[11] = {upperFace[1],upperFace[2],upperFace[3]};
-                        
-                        List<label> cellList(12);
-                        for(label ind=0; ind<cellList.size(); ind++)
-                            cellList[ind] = ind;
-                        cell thisCell(cellList);
-                        
-                        singleMarker.setMarkerVolume(thisCell.mag(points,faces));
-                        //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
-                        sumVolume+=singleMarker.getMarkerVolume();
-                    }
-                    else
-                    {
-                        pointField points(4);
-                        if(surfaceType==Surface::Circumferential)
-                        {                       
-                            points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle);
-                            points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle);
-                            points[2] = getPosition(subseqParameter,radialIndexFrac,upperAngle);
-                            points[3] = getPosition(subseqParameter,radialIndexFrac,lowerAngle);
-                        }
-                        else
-                        {
-                            points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle);
-                            points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle);
-                            points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle);
-                            points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle);
-                        }
-                        face thisFace({0,1,2,3});
-                        
-                        singleMarker.setMarkerVolume(thisFace.mag(points));
-                        //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
-                        sumVolume+=singleMarker.getMarkerVolume();
-                        
-                    }
-                }
-            }
-        }
-    }
-}
-
-std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStructure::reduceSurplusMarkers
-(
-    std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
-)
-{
-    Info<<"reduceSurplusMarkers"<<Foam::endl;
-    std::unordered_map<label,DynamicList<LagrangianMarkerOnCrossSec*>> cellToMarker;
-    for(std::vector<std::vector<LagrangianMarkerOnCrossSec>>& radMarker : markers)
-    {
-        for(std::vector<LagrangianMarkerOnCrossSec>& circMarker : radMarker)
-        {
-            for(LagrangianMarkerOnCrossSec& marker : circMarker)
-            {
-                if(marker.getMarkerCell()!=-1)
-                    cellToMarker[marker.getMarkerCell()].append(&marker);
-            }
-        }
-    }
-    
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
-    
-    Info<<"structured"<<Foam::endl;
-    
-    auto reducededMarkers = std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>(new std::vector<LagrangianMarkerOnCrossSec>());
-    for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
-    {
-        label cellInd = iter->first;
-        const cell& oneCell = cells[cellInd];
-        vector cellCentre = oneCell.centre(points,faces);
-        std::pair<
-            std::pair<
-                std::pair<
-                    DynamicList<LagrangianMarkerOnCrossSec*>,
-                    DynamicList<LagrangianMarkerOnCrossSec*>
-                >,
-                std::pair<
-                    DynamicList<LagrangianMarkerOnCrossSec*>,
-                    DynamicList<LagrangianMarkerOnCrossSec*>
-                >
-            >,
-            std::pair<
-                std::pair<
-                    DynamicList<LagrangianMarkerOnCrossSec*>,
-                    DynamicList<LagrangianMarkerOnCrossSec*>
-                >,
-                std::pair<
-                    DynamicList<LagrangianMarkerOnCrossSec*>,
-                    DynamicList<LagrangianMarkerOnCrossSec*>
-                >
-            >
-        > xyz_split;
-        for(LagrangianMarkerOnCrossSec* markerPtr : iter->second)
-        {
-            vector markerPos = markerPtr->getMarkerPosition();
-            
-            std::pair<
-                std::pair<
-                    DynamicList<LagrangianMarkerOnCrossSec*>,
-                    DynamicList<LagrangianMarkerOnCrossSec*>
-                >,
-                std::pair<
-                    DynamicList<LagrangianMarkerOnCrossSec*>,
-                    DynamicList<LagrangianMarkerOnCrossSec*>
-                >
-            >* x_side;
-            if(markerPos[0]<cellCentre[0])
-                x_side = &(xyz_split.first);
-            else
-                x_side = &(xyz_split.second);
-            
-            std::pair<
-                DynamicList<LagrangianMarkerOnCrossSec*>,
-                DynamicList<LagrangianMarkerOnCrossSec*>
-            >* xy_side;
-            if(markerPos[1]<cellCentre[1])
-                xy_side = &(x_side->first);
-            else
-                xy_side = &(x_side->second);
-            
-            DynamicList<LagrangianMarkerOnCrossSec*>* xyz_side;
-            if(markerPos[2]<cellCentre[2])
-                xyz_side = &(xy_side->first);
-            else
-                xyz_side = &(xy_side->second);
-            
-            xyz_side->append(markerPtr);
-        }
-
-        std::vector<DynamicList<LagrangianMarkerOnCrossSec*>*> subCells = 
-        {
-            &(xyz_split.first.first.first),
-            &(xyz_split.first.first.second),
-            &(xyz_split.first.second.first),
-            &(xyz_split.first.second.second),
-            &(xyz_split.second.first.first),
-            &(xyz_split.second.first.second),
-            &(xyz_split.second.second.first),
-            &(xyz_split.second.second.first)
-        };
-        
-        for(DynamicList<LagrangianMarkerOnCrossSec*>* subCell : subCells)
-        {
-            if(subCell->size()>0)
-            {
-                vector averagePosition = vector(0,0,0);
-                scalar totalVolume = 0;
-                for(LagrangianMarkerOnCrossSec* marker : *subCell)
-                {
-                    averagePosition += marker->getMarkerPosition();
-                    totalVolume += marker->getMarkerVolume();
-                }
-                averagePosition /= subCell->size();
-                
-                LagrangianMarkerOnCrossSec* optMarker;
-                scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
-                for(LagrangianMarkerOnCrossSec* marker : *subCell)
-                {
-                    Info<<"markerPtr:"<<marker<<Foam::endl;
-                    vector distVec = marker->getMarkerPosition() - averagePosition;
-                    Info<<"distVec:"<<distVec<<Foam::endl;
-                    scalar dist = std::sqrt(distVec&distVec);
-                    Info<<"dist:"<<dist<<Foam::endl;
-                    if(dist<optMarkerDistToAvgPos)
-                    {
-                        optMarker = marker;
-                        optMarkerDistToAvgPos = dist;
-                    }
-                    Info<<"optMarkerDistToAvgPos:"<<optMarkerDistToAvgPos<<Foam::endl;
-                }
-                reducededMarkers->push_back(*optMarker);
-            }
-        }
-    }
-    return reducededMarkers;
-}
-
-std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStructure::constructMarkerSet
-(
-    const label rodNumber,
-    const ActiveRodMesh::rodCosserat* oneRod,
-    const CrossSection* oneCrossSec,
-    scalar initialSpacing,
-    std::pair<bool,scalar> refineSpacing,
-    bool reInitialize
-)
-{
-    //Create initial spacing
-    std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>& spacedPoints = initialRodPoints[rodNumber];
-    if(reInitialize || !spacedPoints)
-    {
-        spacedPoints = createSpacedPointsOnCrossSecRod(oneRod,oneCrossSec,initialSpacing);
-    }
-        
-    // Transfer vector to list
-    //(para (radial (angle)))
-    std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>> markers;
-    for(label paraInd=0; paraInd<spacedPoints->size(); paraInd++)
-    {
-        scalar para = (*spacedPoints)[paraInd].first;
-        const std::vector<std::pair<scalar,std::vector<scalar>>>& radialPoints = (*spacedPoints)[paraInd].second;
-        
-        std::list<std::list<LagrangianMarkerOnCrossSec>> nextPara;
-        markers.push_back(nextPara);
-        
-        //Info<<paraInd<<" para:"<<para<<"  "<<radialPoints.size()<<Foam::endl;
-        
-        for(label radialInd=0; radialInd<radialPoints.size(); radialInd++)
-        {
-            scalar radiusFrac = radialPoints[radialInd].first;
-            const std::vector<scalar>& circumPoints = radialPoints[radialInd].second;
-            
-            std::list<LagrangianMarkerOnCrossSec> nextRadial;
-            markers.back().push_back(nextRadial);
-            
-            //Info<<"     "<<radialInd<<"     radiusFrac:"<<radiusFrac<<"  "<<circumPoints.size()<<Foam::endl;
-        
-            for(label angleInd=0; angleInd<circumPoints.size(); angleInd++)
-            {
-                scalar angle = circumPoints[angleInd];
-                
-                //Info<<"     "<<angleInd<<"             angle:"<<angle<<Foam::endl;
-                
-                LagrangianMarkerOnCrossSec nextAngleMarker
-                (
-                    mesh,rodNumber,oneRod,para,oneCrossSec,angle,radiusFrac
-                );
-                markers.back().back().push_back(nextAngleMarker);
-            }
-        }
-    }
-    Info<<"Transfered to vector"<<Foam::endl;
-    
-    /*
-    Info<<"markers.size():"<<markers.size()<<Foam::endl;
-    for(auto radial : markers)
-    {
-        Info<<"     radial.size():"<<radial.size()<<Foam::endl;
-        for(auto circum : radial)
-        {
-            Info<<"         circum.size():"<<circum.size()<<Foam::endl;
-        }
-    }
-    */
-    
-    //Refine circumferential
-    for(auto iterPara=markers.begin(); iterPara!=markers.end(); iterPara++)
-    {
-        for(auto iterRadial=iterPara->begin(); iterRadial!=iterPara->end(); iterRadial++)
-        {
-            if(iterRadial->size()<1)
-                FatalErrorInFunction<<"Must be at least one marker in list"<< exit(FatalError);
-            if(iterRadial->front().getMarkerRadiusFrac()!=0)
-                refineCircumferential(*iterRadial);
-        }
-    }
-    Info<<"Circum refined"<<Foam::endl;
-    
-    // Refine rod endings radially
-    refineRadial(markers.front(),initialSpacing);
-    refineRadial(markers.back(),initialSpacing);
-    
-    refineTangential(markers,initialSpacing);
-    
-    Info<<"markers.size():"<<markers.size()<<Foam::endl;
-    for(auto radial : markers)
-    {
-        Info<<"     radial.size():"<<radial.size()<<Foam::endl;
-        for(auto circum : radial)
-        {
-            Info<<"         circum.size():"<<circum.size()<<Foam::endl;
-        }
-    }    
-
-    
-    //Transfer list to vector data structure
-    std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>> markersVec;
-    for(auto iter=markers.begin(); iter!=markers.end(); iter++)
-    {
-        markersVec.push_back(std::vector<std::vector<LagrangianMarkerOnCrossSec>>());
-        for(auto iterSub=iter->begin(); iterSub!=iter->end(); iterSub++)
-        {
-            markersVec.back().push_back(std::vector<LagrangianMarkerOnCrossSec>());
-            for(auto iterSubSub=iterSub->begin(); iterSubSub!=iterSub->end(); iterSubSub++)
-            {
-                markersVec.back().back().push_back(*iterSubSub);
-            }
-        }
-    }
-    
-    computeMarkerVolume(oneRod,oneCrossSec,markersVec);
-
-    std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reducedMarkersPtr = reduceSurplusMarkers(markersVec);
-    
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
-
-
-    return reducedMarkersPtr;
 }
 
 void Foam::CrossSectionStructure::refineCircumferential
@@ -1220,6 +623,606 @@ void Foam::CrossSectionStructure::refineTangential
             tangMarkerIter1++;
         }
     }
+}
+
+void Foam::CrossSectionStructure::computeMarkerVolume
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    const CrossSection* oneCrossSec,
+    std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+)
+{
+    std::function<vector(scalar,scalar,scalar,scalar,scalar)> getPosition = 
+    [rod=oneRod,crossSec=oneCrossSec]
+    (scalar para, scalar radFrac, scalar angle, scalar paraDev, scalar radiusDev)
+    {
+        return CrossSectionStructure::evaluateRodCircumPos
+        (
+            rod,para,crossSec,angle,radFrac,paraDev,radiusDev
+        );
+    };
+    
+    scalar sumVolume = 0;
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    enum Surface {Circumferential, Radial};
+    Surface surfaceType;
+    for(label rodWiseIndex=0; rodWiseIndex<markers.size(); rodWiseIndex++)
+    {
+        //Info<<"rodWiseIndex:"<<rodWiseIndex<<Foam::endl;
+        std::vector<std::vector<LagrangianMarkerOnCrossSec>>& radialMarkers = markers[rodWiseIndex];
+        scalar rodWiseIndexParameter = radialMarkers[0][0].getMarkerParameter();
+        
+        scalar prevParameter;
+        if(rodWiseIndex==0)
+            prevParameter = rodWiseIndexParameter;
+        else
+            prevParameter = (markers[rodWiseIndex-1][0][0].getMarkerParameter()+rodWiseIndexParameter)/2;
+        
+        scalar subseqParameter;
+        if(rodWiseIndex==markers.size()-1)
+            subseqParameter = rodWiseIndexParameter;
+        else
+            subseqParameter = (markers[rodWiseIndex+1][0][0].getMarkerParameter()+rodWiseIndexParameter)/2;
+        
+        for(label radialIndex=0; radialIndex<radialMarkers.size(); radialIndex++)
+        {
+            std::vector<LagrangianMarkerOnCrossSec>& circumMarkers = radialMarkers[radialIndex];
+            scalar radialIndexFrac = circumMarkers[0].getMarkerRadiusFrac();
+            
+            scalar outerRadiusFrac, innerRadiusFrac;
+            if(radialMarkers.size()==1)
+            {
+                outerRadiusFrac = 1;
+                innerRadiusFrac = 0;
+                surfaceType = Surface::Circumferential;
+            }
+            else 
+            {
+                surfaceType = Surface::Radial;
+                if(radialIndex==0)
+                    outerRadiusFrac = radialIndexFrac;
+                else
+                    outerRadiusFrac = (radialMarkers[radialIndex-1][0].getMarkerRadiusFrac()+radialIndexFrac)/2;
+                
+                if(radialIndex==radialMarkers.size()-1)
+                    innerRadiusFrac = radialIndexFrac;
+                else
+                    innerRadiusFrac = (radialMarkers[radialIndex+1][0].getMarkerRadiusFrac()+radialIndexFrac)/2;
+            }
+            //Info<<"\tradialIndex:"<<radialIndex<<" - "<<circumMarkers.size()<<Foam::endl;
+            for(label circIndex=0; circIndex<circumMarkers.size(); circIndex++)
+            {
+                //Info<<"\t\tcircIndex:"<<circIndex<<"/"<<circumMarkers.size()<<Foam::endl;
+
+                LagrangianMarkerOnCrossSec& singleMarker = circumMarkers[circIndex];
+                scalar circIndexAngle = singleMarker.getMarkerAngle();
+
+                scalar lowerAngle, upperAngle;
+                if(circIndex==0)
+                    lowerAngle = circumMarkers.back().getMarkerAngle()-2*Foam::constant::mathematical::pi;
+                else
+                    lowerAngle = circumMarkers[circIndex-1].getMarkerAngle();
+                lowerAngle += circIndexAngle;
+                lowerAngle /= 2;
+                lowerAngle = CrossSectionStructure::restrictAngle(lowerAngle);
+                
+                if(circIndex==circumMarkers.size()-1)
+                    upperAngle = circumMarkers[0].getMarkerAngle()+2*Foam::constant::mathematical::pi;
+                else
+                    upperAngle = circumMarkers[circIndex+1].getMarkerAngle();
+                //Info<<"\t\tdistAngle:"<<"("<<lowerAngle<<"/"<<circIndexAngle<<"/"<<upperAngle<<"):"<<upperAngle-lowerAngle;
+                upperAngle += circIndexAngle;
+                upperAngle /= 2;
+                upperAngle = CrossSectionStructure::restrictAngle(upperAngle);
+                
+                if(singleMarker.getMarkerCell()!=-1)
+                {
+                    if(modusMarkerToField == markerMeshType::Uniform)
+                    {
+                        scalar h = std::cbrt(cells[singleMarker.getMarkerCell()].mag(points,faces));
+                        
+                        /*
+                        Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::endl;
+                        Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
+                        Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::endl;
+                        */
+                        
+                        std::array<std::array<std::array<label,2>,2>,2> paraRadAnglePnts;
+                        pointField points(8);
+                        paraRadAnglePnts[0][0][0] = 0;
+                        paraRadAnglePnts[0][0][1] = 1;
+                        paraRadAnglePnts[0][1][0] = 2;
+                        paraRadAnglePnts[0][1][1] = 3;
+                        paraRadAnglePnts[1][0][0] = 4;
+                        paraRadAnglePnts[1][0][1] = 5;
+                        paraRadAnglePnts[1][1][0] = 6;
+                        paraRadAnglePnts[1][1][1] = 7;
+                        if(surfaceType==Surface::Circumferential)
+                        {                       
+                            points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,-h/2);
+                            points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,-h/2);
+                            points[2] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,h/2);
+                            points[3] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,h/2);
+                            points[4] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,-h/2);
+                            points[5] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,-h/2);
+                            points[6] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,h/2);
+                            points[7] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,h/2);
+                        }
+                        else
+                        {
+                            points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,-h/2,0);
+                            points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,-h/2,0);
+                            points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,-h/2,0);
+                            points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,-h/2,0);
+                            points[4] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,h/2,0);
+                            points[5] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,h/2,0);
+                            points[6] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,h/2,0);
+                            points[7] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,h/2,0);
+                        }
+                
+                        face prevFace({0,1,3,2});
+                        face subseqFace({4,5,7,6});
+                        face innerFace({0,1,5,4});
+                        face outerFace({2,3,7,6});
+                        face lowerFace({0,2,6,4});
+                        face upperFace({1,3,7,5});
+                        
+                        List<face> faces(12);
+                        faces[0] = {prevFace[0],prevFace[1],prevFace[3]};
+                        faces[1] = {prevFace[1],prevFace[2],prevFace[3]};
+                        
+                        faces[2] = {subseqFace[0],subseqFace[1],subseqFace[3]};
+                        faces[3] = {subseqFace[1],subseqFace[2],subseqFace[3]};
+                        
+                        faces[4] = {innerFace[0],innerFace[1],innerFace[3]};
+                        faces[5] = {innerFace[1],innerFace[2],innerFace[3]};
+                        
+                        faces[6] = {outerFace[0],outerFace[1],outerFace[3]};
+                        faces[7] = {outerFace[1],outerFace[2],outerFace[3]};
+                        
+                        faces[8] = {lowerFace[0],lowerFace[1],lowerFace[3]};
+                        faces[9] = {lowerFace[1],lowerFace[2],lowerFace[3]};
+                        
+                        faces[10] = {upperFace[0],upperFace[1],upperFace[3]};
+                        faces[11] = {upperFace[1],upperFace[2],upperFace[3]};
+                        
+                        List<label> cellList(12);
+                        for(label ind=0; ind<cellList.size(); ind++)
+                            cellList[ind] = ind;
+                        cell thisCell(cellList);
+                        
+                        singleMarker.setMarkerVolume(thisCell.mag(points,faces));
+                        //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
+                        sumVolume+=singleMarker.getMarkerVolume();
+                    }
+                    else
+                    {
+                        pointField points(4);
+                        if(surfaceType==Surface::Circumferential)
+                        {                       
+                            points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,0);
+                            points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,0);
+                            points[2] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,0);
+                            points[3] = getPosition(subseqParameter,radialIndexFrac,lowerAngle,0,0);
+                        }
+                        else
+                        {
+                            points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,0,0);
+                            points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,0,0);
+                            points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,0,0);
+                            points[3] = getPosition(rodWiseIndexParameter,outerRadiusFrac,lowerAngle,0,0);
+                        }
+                        face thisFace({0,1,2,3});
+                        
+                        singleMarker.setMarkerVolume(thisFace.mag(points));
+                        //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
+                        sumVolume+=singleMarker.getMarkerVolume();
+                        
+                    }
+                }
+            }
+        }
+    }
+}
+
+std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStructure::reduceSurplusMarkers
+(
+    std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+)
+{
+    Info<<"reduceSurplusMarkers"<<Foam::endl;
+    std::unordered_map<label,DynamicList<LagrangianMarkerOnCrossSec*>> cellToMarker;
+    for(std::vector<std::vector<LagrangianMarkerOnCrossSec>>& radMarker : markers)
+    {
+        for(std::vector<LagrangianMarkerOnCrossSec>& circMarker : radMarker)
+        {
+            for(LagrangianMarkerOnCrossSec& marker : circMarker)
+            {
+                if(marker.getMarkerCell()!=-1)
+                    cellToMarker[marker.getMarkerCell()].append(&marker);
+            }
+        }
+    }
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    Info<<"structured"<<Foam::endl;
+    
+    auto reducededMarkers = std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>(new std::vector<LagrangianMarkerOnCrossSec>());
+    for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
+    {
+        label cellInd = iter->first;
+        const cell& oneCell = cells[cellInd];
+        vector cellCentre = oneCell.centre(points,faces);
+        std::pair<
+            std::pair<
+                std::pair<
+                    DynamicList<LagrangianMarkerOnCrossSec*>,
+                    DynamicList<LagrangianMarkerOnCrossSec*>
+                >,
+                std::pair<
+                    DynamicList<LagrangianMarkerOnCrossSec*>,
+                    DynamicList<LagrangianMarkerOnCrossSec*>
+                >
+            >,
+            std::pair<
+                std::pair<
+                    DynamicList<LagrangianMarkerOnCrossSec*>,
+                    DynamicList<LagrangianMarkerOnCrossSec*>
+                >,
+                std::pair<
+                    DynamicList<LagrangianMarkerOnCrossSec*>,
+                    DynamicList<LagrangianMarkerOnCrossSec*>
+                >
+            >
+        > xyz_split;
+        for(LagrangianMarkerOnCrossSec* markerPtr : iter->second)
+        {
+            vector markerPos = markerPtr->getMarkerPosition();
+            
+            std::pair<
+                std::pair<
+                    DynamicList<LagrangianMarkerOnCrossSec*>,
+                    DynamicList<LagrangianMarkerOnCrossSec*>
+                >,
+                std::pair<
+                    DynamicList<LagrangianMarkerOnCrossSec*>,
+                    DynamicList<LagrangianMarkerOnCrossSec*>
+                >
+            >* x_side;
+            if(markerPos[0]<cellCentre[0])
+                x_side = &(xyz_split.first);
+            else
+                x_side = &(xyz_split.second);
+            
+            std::pair<
+                DynamicList<LagrangianMarkerOnCrossSec*>,
+                DynamicList<LagrangianMarkerOnCrossSec*>
+            >* xy_side;
+            if(markerPos[1]<cellCentre[1])
+                xy_side = &(x_side->first);
+            else
+                xy_side = &(x_side->second);
+            
+            DynamicList<LagrangianMarkerOnCrossSec*>* xyz_side;
+            if(markerPos[2]<cellCentre[2])
+                xyz_side = &(xy_side->first);
+            else
+                xyz_side = &(xy_side->second);
+            
+            xyz_side->append(markerPtr);
+        }
+
+        std::vector<DynamicList<LagrangianMarkerOnCrossSec*>*> subCells = 
+        {
+            &(xyz_split.first.first.first),
+            &(xyz_split.first.first.second),
+            &(xyz_split.first.second.first),
+            &(xyz_split.first.second.second),
+            &(xyz_split.second.first.first),
+            &(xyz_split.second.first.second),
+            &(xyz_split.second.second.first),
+            &(xyz_split.second.second.first)
+        };
+        
+        for(DynamicList<LagrangianMarkerOnCrossSec*>* subCell : subCells)
+        {
+            if(subCell->size()>0)
+            {
+                vector averagePosition = vector(0,0,0);
+                scalar totalVolume = 0;
+                for(LagrangianMarkerOnCrossSec* marker : *subCell)
+                {
+                    averagePosition += marker->getMarkerPosition();
+                    totalVolume += marker->getMarkerVolume();
+                }
+                averagePosition /= subCell->size();
+                
+                LagrangianMarkerOnCrossSec* optMarker;
+                scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
+                for(LagrangianMarkerOnCrossSec* marker : *subCell)
+                {
+                    Info<<"markerPtr:"<<marker<<Foam::endl;
+                    vector distVec = marker->getMarkerPosition() - averagePosition;
+                    Info<<"distVec:"<<distVec<<Foam::endl;
+                    scalar dist = std::sqrt(distVec&distVec);
+                    Info<<"dist:"<<dist<<Foam::endl;
+                    if(dist<optMarkerDistToAvgPos)
+                    {
+                        optMarker = marker;
+                        optMarkerDistToAvgPos = dist;
+                    }
+                    Info<<"optMarkerDistToAvgPos:"<<optMarkerDistToAvgPos<<Foam::endl;
+                }
+                reducededMarkers->push_back(*optMarker);
+            }
+        }
+    }
+    return reducededMarkers;
+}
+
+Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameterA,
+    scalar parameterB,
+    const CrossSection* oneCrossSec,
+    scalar angleA,
+    scalar angleB,
+    scalar radiusFracA,
+    scalar radiusFracB
+)
+{
+    vector parAVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterA,oneCrossSec,angleA,radiusFracA);
+    vector parBVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterB,oneCrossSec,angleB,radiusFracB);
+    vector connec = parAVec-parBVec;
+    return Foam::mag(connec);
+}
+
+Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* oneCrossSec,
+    scalar angle,
+    scalar radiusFrac,
+    scalar var_para,
+    scalar var_radius
+)
+{
+    vector d1,d2,d3,r;
+    rodEval(oneRod,parameter,d1,d2,d3,r);
+    vector tangential = d3;
+    scalar tangentialLen = std::sqrt(tangential&tangential);
+    tangential /= tangentialLen;
+    vector tangentialDev = tangential * var_para;
+    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
+    scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
+    radius +=  var_radius;
+    //Info<<"radius:"<<radius<<Foam::endl;
+    vector coordXDir = std::cos(angle)*radius*d1;
+    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
+    vector coordYDir = std::sin(angle)*radius*d2;
+    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
+    return (r+tangentialDev)+coordXDir+coordYDir;
+}
+
+
+Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* oneCrossSec,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    vector d1,d2,d3,r;
+    rodEval(oneRod,parameter,d1,d2,d3,r);
+    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
+    scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
+    //Info<<"radius:"<<radius<<Foam::endl;
+    scalar dradius_dangle = oneCrossSec->deriv_angle(parameter,angle)*radiusFrac;
+    
+    //Info<<"radius:"<<radius<<Foam::endl;
+    vector coordXDerivAngle = (dradius_dangle*std::cos(angle) - radius*std::sin(angle))*d1;
+    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
+    vector coordYDerivAngle = (dradius_dangle*std::sin(angle) + radius*std::cos(angle))*d2;
+    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
+    return coordXDerivAngle+coordYDerivAngle;
+}
+
+scalar Foam::CrossSectionStructure::restrictAngle
+(
+    scalar angle
+)
+{
+    while(angle<0)
+    {
+        angle += 2*Foam::constant::mathematical::pi;
+    }
+    while(angle>2*Foam::constant::mathematical::pi)
+    {
+        angle -= 2*Foam::constant::mathematical::pi;
+    }
+    return angle;
+}
+
+template<typename T>
+T Foam::CrossSectionStructure::integrateCircumwise
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* crossSec,
+    std::function<T(scalar)> function
+)
+{
+    return integrateCircumwise<T>(oneRod,parameter,crossSec,0,2*Foam::constant::mathematical::pi,function);
+}
+
+template<typename T>
+T Foam::CrossSectionStructure::integrateCircumwise
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* crossSec,
+    scalar angleStart,
+    scalar angleEnd,
+    std::function<T(scalar)> function
+)
+{
+    while(angleEnd<angleStart)
+        angleEnd += 2*Foam::constant::mathematical::pi;
+    
+    label highestWaveNumber = (crossSec->getNumberCoeffs()+1)*2;
+    
+    scalar integrationLen = angleEnd-angleStart;
+    scalar segmentLen = integrationLen/highestWaveNumber;
+    std::vector<scalar> segmentSet;
+    for(label i=0; i<highestWaveNumber; i++)
+        segmentSet.push_back(angleStart+segmentLen*i);
+    segmentSet.push_back(angleEnd);
+    
+    label numberOfAbcissa = 20;
+
+    T totalValue = Foam::zero();
+    for(label i=0; i<segmentSet.size()-1;i++)
+    {
+        scalar startAngle = segmentSet[i];
+        scalar endAngle = segmentSet[i+1];
+        scalar dist = endAngle-startAngle;
+        scalar step = dist/numberOfAbcissa;
+        scalar initialStep = startAngle+step/2;
+        T summedValue = Foam::zero();
+        for(label i=0;i<numberOfAbcissa;i++)
+        {
+            summedValue += function(initialStep)*step;
+            initialStep+=step;
+        }
+        totalValue+=summedValue;
+    }
+    return totalValue;
+}
+
+scalar Foam::CrossSectionStructure::distance
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* crossSec,
+    scalar angleStart,
+    scalar angleEnd,
+    scalar radiusFrac
+)
+{
+    //Info<<"computeDist:"<<angleStart<<"-"<<angleEnd<<Foam::endl;
+    std::function<scalar(scalar)> curveLen = 
+    [rodPtr=oneRod, para=parameter, crossSecRef=crossSec, radFrac=radiusFrac](scalar angle)
+    {
+        vector derivCrossSec = evaluateRodCircumDerivAngle(rodPtr,para,crossSecRef,angle,radFrac);
+        return std::sqrt(derivCrossSec&derivCrossSec);
+    };
+    return integrateCircumwise<scalar>(oneRod,parameter,crossSec,angleStart,angleEnd,curveLen);
+}
+
+scalar Foam::CrossSectionStructure::distance
+(
+    const LagrangianMarkerOnCrossSec& A,
+    const LagrangianMarkerOnCrossSec& B
+)
+{
+    if(A.getBaseRod()!=B.getBaseRod())
+        FatalErrorInFunction<<"Distance can not be computed between points on different rods"<<exit(FatalError);
+    
+    //markerParameter,markerAngle,radiusFrac,markerPosition
+    using node = std::tuple<scalar,scalar,scalar,vector>;
+
+    node start = {A.getMarkerParameter(),A.getMarkerAngle(),A.getMarkerRadiusFrac(),A.getMarkerPosition()};
+    std::get<1>(start) = restrictAngle(std::get<1>(start));
+    node end = {B.getMarkerParameter(),B.getMarkerAngle(),B.getMarkerRadiusFrac(),B.getMarkerPosition()};
+    std::get<1>(end) = restrictAngle(std::get<1>(end));
+    
+    std::list<node> nodes;
+    nodes.push_back(start);
+    nodes.push_back(end);
+    
+    scalar distance = std::numeric_limits<scalar>::max();
+    bool errorSufficient = false;
+    while(!errorSufficient)
+    {
+        auto node0 = nodes.begin();
+        auto node1 = ++nodes.begin();
+        for( ; node1!=nodes.end() ; )
+        {
+            node insertNode;
+            std::get<0>(insertNode) = (std::get<0>(*node0)+std::get<0>(*node1))/2;
+            std::get<2>(insertNode) = (std::get<2>(*node0)+std::get<2>(*node1))/2;
+            
+            scalar anglNode0 = std::get<1>(*node0);
+            scalar anglNode1 = std::get<1>(*node1);
+            scalar anglNodeInter;
+            scalar distInner = std::abs(anglNode0-anglNode1);
+            if(anglNode0<anglNode1)
+            {
+                scalar distToUp = 2*Foam::constant::mathematical::pi-anglNode1;
+                scalar outerDist = distToUp+anglNode0;
+                if(outerDist>distInner)
+                    anglNodeInter = (anglNode0+anglNode1)/2;
+                else
+                {
+                    scalar halfOuterDist = outerDist/2;
+                    if(distToUp<anglNode0)
+                        anglNodeInter = anglNode0-halfOuterDist;
+                    else
+                        anglNodeInter = anglNode1+halfOuterDist;
+                }
+            }
+            else
+            {
+                scalar distToUp = 2*Foam::constant::mathematical::pi-anglNode0;
+                scalar outerDist = distToUp+anglNode1;
+                if(outerDist>distInner)
+                    anglNodeInter = (anglNode0+anglNode1)/2;
+                else
+                {
+                    scalar halfOuterDist = outerDist/2;
+                    if(distToUp<anglNode1)
+                        anglNodeInter = anglNode1-halfOuterDist;
+                    else
+                        anglNodeInter = anglNode0+halfOuterDist;
+                }
+            }
+            std::get<1>(insertNode) = anglNodeInter;
+            std::get<3>(insertNode) = CrossSectionStructure::evaluateRodCircumPos
+                                    (A.getBaseRod(),std::get<0>(insertNode),
+                                     A.getBaseCrossSec(),std::get<1>(insertNode),
+                                     std::get<2>(insertNode));
+            auto inserted = nodes.insert(node1,insertNode);
+            node0 = node1;
+            node1++;
+        }
+        
+        scalar newDist = 0;
+        node0 = nodes.begin();
+        node1 = ++nodes.begin();
+        for( ; node1!=nodes.end() ; )
+        {
+            vector connec = std::get<3>(*node1) - std::get<3>(*node0);
+            newDist += std::sqrt(connec&connec);
+            node0++;
+            node1++;
+        }
+        
+        scalar change = std::abs(newDist-distance);
+        scalar changePerc = change/newDist;
+        distance = newDist;
+        if(nodes.size()>10 && changePerc<1e-3)
+            errorSufficient=true;
+    }
+    return distance;
 }
 
 /*
