@@ -31,7 +31,7 @@ class LagrangianMarker
         inline label getMarkerCell() const {return markerCell;}
         inline void setMarkerVolume(scalar volume) {markerVolume=volume;}
         inline scalar getMarkerVolume() const {return markerVolume;}
-        inline const DynamicList<label>& getSupportCells() const {return supportCells;}
+        inline const DynamicList<std::tuple<bool,label,label>>& getSupportCells() const {return supportCells;}
         inline vector getDilation() const {return dilation;}
 
     private:
@@ -43,7 +43,8 @@ class LagrangianMarker
         label markerCell;
         scalar markerVolume;
         
-        DynamicList<label> supportCells;
+        // std::tuple<own processor,processor ID,cell ID>
+        DynamicList<std::tuple<bool,label,label>> supportCells;
         vector h_plus;
         vector h_minus;
         vector dilation;
@@ -128,7 +129,9 @@ class FieldMarkerStructureInteraction
                 for(auto cellIter=oneMarker.getSupportCells().begin();
                         cellIter!=oneMarker.getSupportCells().end();
                         cellIter++)
-                    supportCells.append(*cellIter);
+                {
+                    supportCells.append(std::get<2>(*cellIter));
+                }
                 List<scalar> cellVols(supportCells.size());
                 List<vector> cellCentres(supportCells.size());
                 List<scalar> cellDistances(supportCells.size());
@@ -186,7 +189,7 @@ class FieldMarkerStructureInteraction
                         cellIter!=oneMarker.getSupportCells().end();
                         cellIter++)
                     {
-                        label cellInd = *cellIter;
+                        label cellInd = std::get<2>(*cellIter);
                         const cell& oneCell = cells[cellInd];
                         scalar cellVol = oneCell.mag(points,faces);
                         point cellCentre = oneCell.centre(points,faces);
@@ -236,7 +239,7 @@ class FieldMarkerStructureInteraction
                     cellIter!=oneMarker.getSupportCells().end();
                     cellIter++)
                 {
-                    label cellInd = *cellIter;
+                    label cellInd = std::get<2>(*cellIter);
                     cellMarkers[cellInd].append(markerInd);
                 }
             }
@@ -502,7 +505,36 @@ class LineStructure : public Structure
         );
         */
         
+        void collectMeshHalos(label iterations=1);
+        std::unique_ptr<std::pair<
+            std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<vector>>>>,
+            std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<scalar>>>>
+        >>shareMarkerData
+        (
+            const std::vector<LagrangianMarker*>& markers,
+            const std::vector<std::vector<vector>>& markersVecValues={},
+            const std::vector<std::vector<scalar>>& markersScalValues={}  
+        );
         scalar initialSpacingFromMesh();
+        
+        typedef struct
+        {
+            label neighbourProcess;
+            label neighbourProcessPatchIndex;
+            label neighbourProcessFaceLocalIndex;
+            DynamicList<DynamicList<label>> cells;
+            DynamicList<DynamicList<vector>> cellsCentre;
+            DynamicList<DynamicList<scalar>> cellsMag;
+        } singleFaceHalo;
+        // faceInd -> halo
+        std::unordered_map<label,singleFaceHalo> haloData;
+                
+        // cell -> [neighbourProcesses]
+        std::unordered_map<label,DynamicList<label>> selfHaloSet;
+        
+        // neighbourProcess -> cell -> markersData
+        std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::pair<vector,scalar>>>> globalMarkerData;
+
 };
 }
 #endif

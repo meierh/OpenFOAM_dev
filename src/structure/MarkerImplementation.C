@@ -240,7 +240,7 @@ void Foam::TestInteraction::printSupportToField()
             cellIter!=oneMarkerPtr->getSupportCells().end();
             cellIter++)
         {
-            testField[*cellIter] += 1;
+            testField[std::get<2>(*cellIter)] += 1;
         }
     }
 }

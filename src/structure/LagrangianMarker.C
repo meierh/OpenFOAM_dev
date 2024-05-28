@@ -77,34 +77,45 @@ void Foam::LagrangianMarker::computeSupport
     const faceList& facesList = mesh.faces();
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
-    std::unordered_set<label> supportCells;
+    // std::pair<level,cell>
+    
+    struct FirstHash
+    {
+        label operator()(const std::pair<label, label> &p) const
+        {
+            return std::hash<label>{}(p.first);
+        }
+    };
+    std::unordered_set<std::pair<label,label>,FirstHash> supportCells;
+    std::unordered_set<std::pair<label,label>,FirstHash> supportFaces;
     this->supportCells.resize(0);
     if(markerCell!=-1)
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
-        supportCells.insert(markerCell);
+        supportCells.insert({-1,markerCell});
         
         for(label iter=0; iter<iterations; iter++)
         {
-            DynamicList<label> newCells;
+            //DynamicList<label> newCells;
             for(auto cellIter=supportCells.begin(); cellIter!=supportCells.end(); cellIter++)
             {
-                label cellInd = *cellIter;
+                label cellInd = cellIter->first;
                 const cell& thisCell = cellList[cellInd];
                 for(label faceInd : thisCell)
                 {
-                    supportCells.insert(owners[faceInd]);
+                    
+                    supportCells.insert({owners[faceInd],iter});
                     if(faceInd<neighbours.size())
-                        supportCells.insert(neighbours[faceInd]);                    
+                        supportCells.insert({neighbours[faceInd],iter});                    
                 }
             }
-            supportCells.insert(newCells.begin(),newCells.end());
+            //supportCells.insert(newCells.begin(),newCells.end());
         }
     }
     for(auto iterCells=supportCells.begin(); iterCells!=supportCells.end(); iterCells++)
     {
-        this->supportCells.append(*iterCells);
+        //this->supportCells.append(*iterCells);
     }
 }
 
@@ -119,6 +130,7 @@ void Foam::LagrangianMarker::minMaxSupportWidth()
     vector minSpan(max,max,max);
     vector maxSpan(min,min,min);
 
+    /*
     for(label i=0; i<supportCells.size(); i++)
     {
         vector cellCentreA = cells[supportCells[i]].centre(points,faces);
@@ -137,6 +149,7 @@ void Foam::LagrangianMarker::minMaxSupportWidth()
             }
         }
     }
+    */
     h_plus = maxSpan;
     h_minus = minSpan;
 }

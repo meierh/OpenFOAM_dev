@@ -115,8 +115,11 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::
         vector dilationI = markerI.getDilation();
         scalar dilationIMax = std::max<scalar>(dilationI[0],dilationI[1]);
         dilationIMax = std::max<scalar>(dilationIMax,dilationI[2]);
-        const DynamicList<label>& supportI = markerI.getSupportCells();
-        std::unordered_set<label> supportSetI(supportI.begin(),supportI.end());
+        const DynamicList<std::tuple<bool,label,label>>& supportI = markerI.getSupportCells();
+        std::unordered_set<label> supportSetI;
+        for(auto tupl : supportI)
+            supportSetI.insert(std::get<0>(tupl));
+            
         
         for(label K=0; K<markers.size(); K++)
         {
@@ -126,7 +129,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::
             scalar dilationKMax = std::max<scalar>(dilationK[0],dilationK[1]);
             dilationKMax = std::max<scalar>(dilationKMax,dilationK[2]);
             scalar markerKVol = markerK.getMarkerVolume();
-            const DynamicList<label>& supportK = markerK.getSupportCells();
+            const DynamicList<std::tuple<bool,label,label>>& supportK = markerK.getSupportCells();
             
             vector distVec = XI-XK;
             scalar distMag = std::sqrt(distVec&distVec);
@@ -134,8 +137,9 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::
             scalar matrixEntry = 0;
             if(distMag < 10*dilationIMax || distMag < 10*dilationKMax)
             {
-                for(label cellK : supportK)
+                for(auto cellKT : supportK)
                 {
+                    label cellK = std::get<2>(cellKT);
                     if(supportSetI.find(cellK)!=supportSetI.end())
                     {
                         const cell& overlapCell = cells[cellK];
@@ -185,12 +189,12 @@ scalar Foam::FieldMarkerStructureInteraction::computeMoment
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
-    const DynamicList<label>& supportCells = marker.getSupportCells();
+    const DynamicList<std::tuple<bool,label,label>>& supportCells = marker.getSupportCells();
     
     scalar moment = 0;
     for(label i=0; i<supportCells.size(); i++)
     {
-        label cellInd = supportCells[i];
+        label cellInd = std::get<2>(supportCells[i]);
         vector x = cells[cellInd].centre(points,faces);
         vector conn = x-X;
         vector coeff(1,1,1);
