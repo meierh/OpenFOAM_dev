@@ -479,7 +479,18 @@ class LineStructure : public Structure
         
         const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
-        markerMeshType modusMarkerToField;        
+        markerMeshType modusMarkerToField;
+        
+        /*****************************************Collect halo markers******************************************/
+        void extractStructureHaloMarkers(const std::vector<LagrangianMarker*> markers);
+        // cell --> [markers]
+        List<DynamicList<LagrangianMarker*>> haloMarkers;
+        
+        void extractStructureHaloMarkers(const std::vector<LagrangianMarker*> markers);
+        
+        
+        
+        
     private:
         const List<scalar> crossSecArea;
         
@@ -505,7 +516,6 @@ class LineStructure : public Structure
         );
         */
         
-        void collectMeshHalos(label iterations=1);
         std::unique_ptr<std::pair<
             std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<vector>>>>,
             std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<scalar>>>>
@@ -517,24 +527,29 @@ class LineStructure : public Structure
         );
         scalar initialSpacingFromMesh();
         
-        typedef struct
-        {
-            label neighbourProcess;
-            label neighbourProcessPatchIndex;
-            label neighbourProcessFaceLocalIndex;
-            DynamicList<DynamicList<label>> cells;
-            DynamicList<DynamicList<vector>> cellsCentre;
-            DynamicList<DynamicList<scalar>> cellsMag;
-        } singleFaceHalo;
-        // faceInd -> halo
-        std::unordered_map<label,singleFaceHalo> haloData;
-                
-        // cell -> [neighbourProcesses]
-        std::unordered_map<label,DynamicList<label>> selfHaloSet;
-        
         // neighbourProcess -> cell -> markersData
         std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::pair<vector,scalar>>>> globalMarkerData;
-
+        
+        template<typename T>
+        std::unique_ptr<List<List<T>>> exchangeHaloFields
+        (
+            const GeometricField<T,fvPatchField,volMesh>& fieldData
+        )
+        {
+            const DynamicList<label>& selfHalo = getSelfHaloCells();
+            auto results = std::unique_ptr<List<List<T>>>(new List<List<T>>(Pstream::nProcs()));
+            List<List<T>>& haloData = *results;
+            haloData[Pstream::myProcNo()].resize(selfHalo.size());
+            for(label haloCellInd=0; haloCellInd<selfHalo.size(); haloCellInd++)
+            {
+                label cell = selfHalo[haloCellInd];
+                T cellValue = fieldData[cell];
+                haloData[haloCellInd] = cellValue;
+            }
+            Pstream::gatherList(haloData);
+            Pstream::scatterList(haloData);
+            return results;
+        }
 };
 }
 #endif

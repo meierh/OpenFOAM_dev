@@ -201,6 +201,38 @@ class Structure
         void assignForceOnCurve();        
         std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
         void moveNurbs();
+        
+        
+        const std::unordered_map<label,DynamicList<label>>& getHaloCellMap() {return selfHaloSet;}
+
+        const DynamicList<label>& getSelfHaloCells() {return selfHaloList;}
+        const List<DynamicList<label>>& getGlobalHaloCells() {return globalHaloCellList;}
+        const std::unordered_map<label,label>& getSelfHaloListIndexMap() {return selfHaloListIndexMap;}
+        
+    private:
+        /*************************************Initially collect the halo***************************************/       
+        typedef struct
+        {
+            label neighbourProcess;
+            label neighbourProcessPatchIndex;
+            label neighbourProcessFaceLocalIndex;
+            DynamicList<DynamicList<label>> cells;
+            DynamicList<DynamicList<vector>> cellsCentre;
+            DynamicList<DynamicList<scalar>> cellsMag;
+        } singleFaceHalo;
+        
+        // faceInd -> halo
+        std::unordered_map<label,singleFaceHalo> haloData;
+                
+        // cell -> [neighbourProcesses]
+        std::unordered_map<label,DynamicList<label>> selfHaloSet;
+        // DynamicList< cell >
+        DynamicList<label> selfHaloList;
+        List<DynamicList<label>> globalHaloCellList;
+        // cell -> index
+        std::unordered_map<label,label> selfHaloListIndexMap;
+        
+        void collectMeshHalos(label iterations=1);
 };
 }
 #endif
