@@ -125,6 +125,8 @@ class CrossSectionStructure : public LineStructure
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
+        void check();
+
         CrossSectionStructure(const CrossSectionStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
@@ -135,8 +137,8 @@ class CrossSectionStructure : public LineStructure
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection* oneCrossSec,
             scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0},
             bool reInitialize = false
+            std::pair<bool,scalar> refineSpacing = {false,0},
         );
         
         void createSpacedPointsOnCrossSec

@@ -7,25 +7,26 @@ Foam::CrossSectionStructure::CrossSectionStructure
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-LineStructure(mesh,{}),
+LineStructure(mesh,{},modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
+    check();
 }
 
-void Foam::CrossSectionStructure::transferMarkers(FieldMarkerStructureInteraction& connector)
+void Foam::CrossSectionStructure::check()
 {
-    Info<<"Transfer markers"<<Foam::endl;
     if(!myMesh)
         FatalErrorInFunction<<"Rod Mesh not set!"<<exit(FatalError);
     if(myMesh->m_nR!=rodMarkers.size())
     {
         rodMarkers.resize(myMesh->m_nR);
-    }
-    connector.markers.resize(0);
-    
+    }   
     if(rodCrossSection.size()!=rodMarkers.size())
         FatalErrorInFunction<<"Mismatch in size of rodCrossSection and rodMarkers"<<exit(FatalError);
-    
+}
+
+void Foam::CrossSectionStructure::transferMarkers(FieldMarkerStructureInteraction& connector)
+{   
     scalar initialSpacing = 0.01;
     
     for(uint rodIndex=0; rodIndex<rodMarkers.size(); rodIndex++)

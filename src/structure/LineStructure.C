@@ -13,33 +13,56 @@ modusMarkerToField(modusMarkerToField),
 crossSecArea(crossSecArea),
 initialSpacing(initialSpacingFromMesh())
 {
+    check();
 }
 
-void Foam::LineStructure::transferMarkers(FieldMarkerStructureInteraction& connector)
+void Foam::LineStructure::check()
 {
     if(!myMesh)
         FatalErrorInFunction<<"Rod Mesh not set!"<<exit(FatalError);
     if(myMesh->m_nR!=rodMarkers.size())
     {
         rodMarkers.resize(myMesh->m_nR);
-    }
-    connector.markers.resize(0);
-    
+    }   
     if(crossSecArea.size()!=rodMarkers.size())
         FatalErrorInFunction<<"Mismatch in size of crossSecArea and rodMarkers"<<exit(FatalError);
-        
+}
+
+void Foam::LineStructure::connect
+(
+    FieldMarkerStructureInteraction& connector
+)
+{
+    connector.markers.resize(rodMarkers.size());
+    connectedInteractions.push_back(&connector);
+}
+
+void Foam::LineStructure::initializeMarkers()
+{
+    reInitializeMarkers(false,false);
+}
+
+void Foam::LineStructure::reInitializeMarkers
+(
+    bool keepMarkers
+    bool keepSeedPoints,
+)
+{
     for(uint rodIndex=0; rodIndex<rodMarkers.size(); rodIndex++)
     {
-        //Info<<"rodIndex:"<<rodIndex<<" initialSpacing:"<<initialSpacing<<Foam::endl;
         std::unique_ptr<std::vector<LagrangianMarker>>& oneRodMarkers = rodMarkers[rodIndex];
-        if(!oneRodMarkers)
+        if(!oneRodMarkers || !keepMarkers)
         {
             myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
-            oneRodMarkers = constructMarkerSet(rodIndex,myMesh->m_Rods[rodIndex],crossSecArea[rodIndex],initialSpacing);
+            oneRodMarkers = constructMarkerSet
+            (
+                rodIndex,myMesh->m_Rods[rodIndex],crossSecArea[rodIndex],initialSpacing,keepSeedPoints
+            );
         }
-        for(LagrangianMarker& marker : *oneRodMarkers)
+        onnector.markers[rodIndex].resize(0);
+        for(LagrangianMarker* oneMarkerPtr : *oneRodMarkers)
         {
-            connector.markers.push_back(&marker);
+            onnector.markers[rodIndex].push_back(oneMarkerPtr);
         }
     }
 }
