@@ -571,6 +571,15 @@ void Foam::Structure::moveNurbs()
     }    
 }
 
+void Foam::Structure::updateRodCoordinateSystem()
+{
+    for(uint rodIndex=0; rodIndex<myMesh->m_Rods.size(); rodIndex++)
+    {
+        myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
+    }
+}
+
+
 void Foam::Structure::createDeformationCurve()
 {
     /*
@@ -728,6 +737,7 @@ void Foam::Structure::collectMeshHalos
     label iterations
 )
 {
+    /*
     if(iterations<1)
         FatalErrorInFunction<<"Must be at least two iterations"<<exit(FatalError);
     
@@ -962,5 +972,56 @@ void Foam::Structure::collectMeshHalos
             }
         }
     }
+    */
+}
+
+std::pair<double,double> Foam::Structure::minMaxSpan
+(
+    const cell& thisCell
+)
+{
+    std::vector<double> spans;
+    cellDistances(thisCell,spans);
+    std::sort(spans.begin(),spans.end());
+    if(spans.size()<24)
+        FatalErrorInFunction<<"Cell can not have less than 24 spans"<< exit(FatalError);
+    return {spans.front(),spans.back()};
+}
+
+void Foam::Structure::cellDistances
+(
+    const cell& thisCell,
+    std::vector<double>& spans
+)
+{
+    const pointField& cellPoints = thisCell.points(mesh.faces(),mesh.points());
+    for(label pntI=0; pntI<cellPoints.size(); pntI++)
+    {
+        for(label pntJ=0; pntJ<cellPoints.size(); pntJ++)
+        {
+            if(pntI!=pntJ)
+            {
+                vector distanceVec = cellPoints[pntI]-cellPoints[pntJ];
+                scalar distanceVal = Foam::mag(distanceVec);
+                spans.push_back(distanceVal);
+            }
+        }
+    }
+}
+
+scalar Foam::Structure::supportDomainMinSize
+(
+    const DynamicList<label>& supportDomainCells
+)
+{    
+    const cellList& cells = mesh.cells();    
+    double minSuppSize = std::numeric_limits<double>::max(); 
+    for(auto cellIter=supportDomainCells.begin(); cellIter!=supportDomainCells.end(); cellIter++)
+    {
+        const cell& suppCell = cells[*cellIter];
+        double minSpan = minMaxSpan(suppCell).first;
+        minSuppSize = std::min<double>(minSuppSize,minSpan);
+    }
+    return minSuppSize;
 }
 

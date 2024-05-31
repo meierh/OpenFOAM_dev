@@ -38,16 +38,19 @@ void Foam::CrossSectionStructure::transferMarkers(FieldMarkerStructureInteractio
             myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
             oneRodMarkers = constructMarkerSet(rodIndex,myMesh->m_Rods[rodIndex],&(rodCrossSection[rodIndex]),initialSpacing);
         }
+        /*
         for(LagrangianMarker& marker : *oneRodMarkers)
         {
             connector.markers.push_back(&marker);
         }
+        */
         
-        
+        /*
         for(LagrangianMarkerOnCrossSec& marker : *oneRodMarkers)
         {
             connector.markers.push_back(&marker);
         }
+        */
     }
     Info<<"Transfer markers done"<<Foam::endl;
 }
@@ -58,15 +61,15 @@ std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStruc
     const ActiveRodMesh::rodCosserat* oneRod,
     const CrossSection* oneCrossSec,
     scalar initialSpacing,
-    std::pair<bool,scalar> refineSpacing,
-    bool reInitialize
+    bool reInitialize,
+    std::pair<bool,scalar> refineSpacing
 )
 {
     //Create initial spacing
     std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>& spacedPoints = initialRodPoints[rodNumber];
     if(reInitialize || !spacedPoints)
     {
-        spacedPoints = createSpacedPointsOnCrossSecRod(oneRod,oneCrossSec,initialSpacing);
+        spacedPoints = createSpacedPointsOnCrossSecRod(rodNumber,oneCrossSec,initialSpacing);
     }
         
     // Transfer vector to list
@@ -218,13 +221,14 @@ void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
 
 std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> Foam::CrossSectionStructure::createSpacedPointsOnCrossSecRod
 (
-    const ActiveRodMesh::rodCosserat* oneRod,
+    label rodNumber,
     const CrossSection* crossSec,            
     scalar spacing
 )
 {
     Info<<"createSpacedPointsOnCrossSec"<<Foam::endl;
-    std::unique_ptr<std::vector<scalar>> spacedPointsOnRod = createSpacedPointsOnRod(oneRod,spacing);
+    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
+    std::unique_ptr<std::vector<scalar>> spacedPointsOnRod;// = createSpacedPointsOnRod(rodNumber,spacing);
     
     std::list<scalar> onRodPoints;
     onRodPoints.insert(onRodPoints.end(),spacedPointsOnRod->begin(),spacedPointsOnRod->end());

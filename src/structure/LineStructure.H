@@ -23,6 +23,7 @@ class LagrangianMarker
         std::pair<scalar,scalar> getMarkerCellSpacing();
         scalar getMarkerCellMinSpacing();
         std::string to_string();
+        void evaluateMarker();
         
         inline label getRodNumber() const {return rodNumber;}
         inline const ActiveRodMesh::rodCosserat* getBaseRod() const {return baseRod;}
@@ -111,6 +112,7 @@ class FieldMarkerStructureInteraction
             DynamicList<T>& markerData
         )
         {
+            /*
             Info<<"Transfer field to markers"<<Foam::endl;
             const cellList& cells = mesh.cells();
             const faceList& faces = mesh.faces();
@@ -157,18 +159,6 @@ class FieldMarkerStructureInteraction
                         //Info<<cellInd<<":"<<fieldData[cellInd]<<" factor:"<<factor<<Foam::endl;
                         factorSum+=factor;
                     }
-                    /*
-                    if(supportCells.size()>0)
-                    {
-                        Info<<"cellVols:"<<cellVols<<Foam::endl;
-                        Info<<"cellCentres:"<<cellCentres<<Foam::endl;
-                        Info<<"cellDistances:"<<cellDistances<<Foam::endl;
-                        Info<<"h:"<<h<<Foam::endl;
-                        Info<<"oneMarkerPos:"<<oneMarkerPos<<Foam::endl;
-                        Info<<"value:"<<value<<Foam::endl;
-                        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
-                    }
-                    */
                 }
                 else
                 {
@@ -213,6 +203,7 @@ class FieldMarkerStructureInteraction
             factorSumAvg/=count;
             Info<<"--------fieldToMarker  factorSumAvg:"<<factorSumAvg<<"------"<<Foam::endl;
             //Info<<markerData<<Foam::endl;
+            */
         }
         
         template<typename T>
@@ -222,6 +213,7 @@ class FieldMarkerStructureInteraction
             GeometricField<T,fvPatchField,volMesh>& fieldData
         )
         {
+            /*
             Info<<"Transfer markers to field"<<Foam::endl;
             fieldData = Foam::zero();
             const cellList& cells = mesh.cells();
@@ -275,6 +267,7 @@ class FieldMarkerStructureInteraction
             }
             factorSumAvg/=count;
             Info<<"---markerToField factorSumAvg:"<<factorSumAvg<<"--------"<<Foam::endl;
+            */
         }
         
         void scatterNurbs(std::pair<gsNurbs<scalar>,label> in, std::pair<gsNurbs<scalar>,label>& out);
@@ -368,10 +361,10 @@ class LineStructure : public Structure
             markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
         LineStructure(const LineStructure&) = delete;
-        void check();
         void connect(FieldMarkerStructureInteraction& connector);
         
-        void initializeMarkers();
+        void createMarkers();
+        
         void reInitializeMarkers(bool keepMarkers=false,bool keepSeedPoints=false);
         
         static vector evaluateRodPos
@@ -383,6 +376,56 @@ class LineStructure : public Structure
         void test();
         
     protected:
+        
+        void createSpacingPoints();
+        void createSpacedPointsOnRod
+        (
+            label rodNumber,
+            scalar spacing
+        );
+        
+        void createMarkersFromSpacedPoints();
+        void createMarkersFromSpacedPointsOnRod
+        (
+            label rodNumber
+        );
+        
+        void refineMarkers
+        (
+            std::pair<bool,scalar> forcedSpacing = {false,-1}
+        );
+        void refineMarkersOnRod
+        (
+            label rodNumber,
+            std::pair<bool,scalar> forcedSpacing = {false,-1}
+        );
+        
+        void setMarkerVolume();
+        void setMarkerVolumeOnRod
+        (
+            label rodNumber
+        );
+        
+        void evaluateMarkerMeshRelation();
+        void evaluateMarkerMeshRelation(std::list<LagrangianMarker>& markerList);
+        
+        void reduceMarkers();
+        void reduceMarkers
+        (
+            const std::vector<std::pair<std::list<LagrangianMarker>::iterator,std::list<LagrangianMarker>*>>&
+        );
+        
+        void collectHaloMarkers();
+        
+        void exchangeHaloMarkersData();
+        
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerEpsilonMatrix();
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerEpsilonMatrix(std::vector<LagrangianMarker*>);
+
+        void computeMarkerWeights();
+        
+        
+        /*
         std::unique_ptr<std::vector<LagrangianMarker>> constructMarkerSet
         (
             label rodNumber,
@@ -392,23 +435,7 @@ class LineStructure : public Structure
             bool reInitialize,
             std::pair<bool,scalar> refineSpacing = {false,0},
         );
-        
-        static std::unique_ptr<std::vector<scalar>> createSpacedPointsOnRod
-        (
-            const ActiveRodMesh::rodCosserat* oneRod,
-            scalar spacing
-        );
-        
-        std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
-        
-        void cellDistances
-        (
-            const cell& thisCell,
-            std::vector<scalar>&
-        );
-        
-        //scalar supportDomainMinSize(label cellInd);
-        scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
+        */
         
         static scalar evaluateRodArcLen
         (
@@ -416,15 +443,7 @@ class LineStructure : public Structure
             scalar parA,
             scalar parB
         );
-             
-        /*
-        bool doSubdivision
-        (
-            const LagrangianMarker& smallerSide,
-            const LagrangianMarker& largerSide
-        );
-        */
-        
+                    
         template<typename T>
         static T integrateRodwise
         (
@@ -497,29 +516,31 @@ class LineStructure : public Structure
         markerMeshType modusMarkerToField;
         
         /*****************************************Collect halo markers******************************************/
-        void extractStructureHaloMarkers(const std::vector<LagrangianMarker*> markers);
+        //void extractStructureHaloMarkers(const std::vector<LagrangianMarker*> markers);
         // cell --> [markers]
         List<DynamicList<LagrangianMarker*>> haloMarkers;
-        
-        void extractStructureHaloMarkers(const std::vector<LagrangianMarker*> markers);
-        
-        
         
         
     private:
         const List<scalar> crossSecArea;
-        
-        std::vector<std::unique_ptr<std::vector<LagrangianMarker>>> rodMarkers;
+        const scalar initialSpacing;
+        // [rodNumber] -> ...
         std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
+        std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         
-        scalar initialSpacing;
-        
-        /*
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerWeightMatrix
-        (
-            std::vector<LagrangianMarker*> markers
-        );
-        */
+        /******************Halo markers data************************/
+        // [haloCells] -> [marker of cell] -> ptr        
+        std::vector<std::vector<const LagrangianMarker*>> haloCellsRodMarkersList;
+        // [nProc] -> [haloCells] -> [markers] -> position        
+        List<List<DynamicList<vector>>> globalHaloCellsMarkerPos;
+        // [nProc] -> [haloCells] -> [markers] -> volume        
+        List<List<DynamicList<scalar>>> globalHaloCellsMarkerVolume;
+        // [nProc] -> [haloCells] -> [markers] -> volume        
+        List<List<DynamicList<vector>>> globalHaloCellsMarkerDilation;
+        // [nProc] -> [haloCells] -> [markers] -> volume
+        List<List<DynamicList<DynamicList<vector>>>> globalHaloCellsMarkerSupportCellCentres;
+        // [nProc] -> [haloCells] -> [markers] -> volume
+        List<List<DynamicList<DynamicList<scalar>>>> globalHaloCellsMarkerSupportCellVolume;
         
         std::unique_ptr<std::pair<
             std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<vector>>>>,
@@ -541,7 +562,7 @@ class LineStructure : public Structure
             const GeometricField<T,fvPatchField,volMesh>& fieldData
         )
         {
-            const DynamicList<label>& selfHalo = getSelfHaloCells();
+            const DynamicList<label>& selfHalo = getSelfHaloList_Sorted();
             auto results = std::unique_ptr<List<List<T>>>(new List<List<T>>(Pstream::nProcs()));
             List<List<T>>& haloData = *results;
             haloData[Pstream::myProcNo()].resize(selfHalo.size());
@@ -555,6 +576,9 @@ class LineStructure : public Structure
             Pstream::scatterList(haloData);
             return results;
         }
+        
+        void check();
+
 };
 }
 #endif

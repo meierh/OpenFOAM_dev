@@ -19,11 +19,6 @@ markerCell(mesh.findCell(markerPosition))
     dilationFactors();
 }
 
-std::string Foam::LagrangianMarker::to_string()
-{
-    return std::to_string(markerParameter);
-}
-
 vector Foam::LagrangianMarker::getMarkerVelocity()
 {
     return vector(0,0,0);
@@ -66,6 +61,20 @@ std::pair<scalar,scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
 scalar Foam::LagrangianMarker::getMarkerCellMinSpacing()
 {
     return getMarkerCellSpacing().first;
+}
+
+std::string Foam::LagrangianMarker::to_string()
+{
+    return std::to_string(markerParameter);
+}
+
+void Foam::LagrangianMarker::evaluateMarker()
+{
+    markerPosition = LineStructure::evaluateRodPos(baseRod,markerParameter);
+    markerCell = mesh.findCell(markerPosition);
+    computeSupport();
+    minMaxSupportWidth();
+    dilationFactors();
 }
 
 void Foam::LagrangianMarker::computeSupport

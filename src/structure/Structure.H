@@ -202,15 +202,42 @@ class Structure
         std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
         void moveNurbs();
         
+        void updateRodCoordinateSystem();
         
-        const std::unordered_map<label,DynamicList<label>>& getHaloCellMap() {return selfHaloSet;}
-
-        const DynamicList<label>& getSelfHaloCells() {return selfHaloList;}
-        const List<DynamicList<label>>& getGlobalHaloCells() {return globalHaloCellList;}
-        const std::unordered_map<label,label>& getSelfHaloListIndexMap() {return selfHaloListIndexMap;}
+        
+        /*********************************Getter: Collect halo cells***********************************/
+        const std::unordered_map<label,DynamicList<label>>& getSelfHaloCellToNeighboursMap()
+        {
+            return selfHaloCellToNeighboursMap;
+        }
+        const DynamicList<label>& getSelfHaloList_Sorted() {return selfHaloList_Sorted;}
+        const List<DynamicList<label>>& getGlobalSelfHaloList_Sorted() {return globalSelfHaloList_Sorted;}
+        const std::unordered_map<label,label>& getSelfHaloList_Sorted_IndexMap() {return selfHaloList_Sorted_IndexMap;}
+        /*************************************Collect halo cells***************************************/
+        
+        
+        std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
+        
+        void cellDistances
+        (
+            const cell& thisCell,
+            std::vector<scalar>&
+        );
+        
+        scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
         
     private:
-        /*************************************Initially collect the halo***************************************/       
+        /*************************************Collect halo cells***************************************/
+        // cell -> [neighbourProcesses]
+        std::unordered_map<label,DynamicList<label>> selfHaloCellToNeighboursMap;
+        // DynamicList< cell >
+        DynamicList<label> selfHaloList_Sorted;
+        List<DynamicList<label>> globalSelfHaloList_Sorted;
+        // cell -> index
+        std::unordered_map<label,label> selfHaloList_Sorted_IndexMap;
+        
+        /*************************************Collect halo cells***************************************/
+        
         typedef struct
         {
             label neighbourProcess;
@@ -224,13 +251,7 @@ class Structure
         // faceInd -> halo
         std::unordered_map<label,singleFaceHalo> haloData;
                 
-        // cell -> [neighbourProcesses]
-        std::unordered_map<label,DynamicList<label>> selfHaloSet;
-        // DynamicList< cell >
-        DynamicList<label> selfHaloList;
-        List<DynamicList<label>> globalHaloCellList;
-        // cell -> index
-        std::unordered_map<label,label> selfHaloListIndexMap;
+
         
         void collectMeshHalos(label iterations=1);
 };

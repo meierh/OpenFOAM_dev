@@ -1,5 +1,6 @@
 #include "MarkerImplementation.H"
 
+/*
 Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
 (
     dynamicRefineFvMesh& mesh,
@@ -25,12 +26,15 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
     scalar deltaT = mesh.time().deltaTValue();
     
     makerCouplingForce.resize(markers.size());
-    for(label markerInd=0; markerInd<markers.size(); markerInd++)
+    for(label rodInd=0; rodInd<markers.size(); rodInd++)
     {
-        LagrangianMarker* oneMarkerPtr = markers[markerInd];
-        vector markerVelocity = oneMarkerPtr->getMarkerVelocity();
-        vector fluidVelocity = markerFluidVelocity[markerInd];
-        makerCouplingForce[markerInd] = (markerVelocity-fluidVelocity)/deltaT;
+        for(label markerInd=0; markerInd<markers.size(); markerInd++)
+        {
+            LagrangianMarker* oneMarkerPtr = markers[rodInd][markerInd];
+            vector markerVelocity = oneMarkerPtr->getMarkerVelocity();
+            vector fluidVelocity = markerFluidVelocity[rodInd][markerInd];
+            makerCouplingForce[markerInd] = (markerVelocity-fluidVelocity)/deltaT;
+        }
     }
 }
 
@@ -38,10 +42,6 @@ void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
     scalar deltaT = mesh.time().deltaTValue();
     markerToField<vector>(makerCouplingForce,output_Uf);
-    /*
-    for(vector uf : output_Uf)
-        uf = uf*deltaT;
-    */
 }
 
 vector Foam::VelocityPressureForceInteraction::sumForces
@@ -244,3 +244,4 @@ void Foam::TestInteraction::printSupportToField()
         }
     }
 }
+*/

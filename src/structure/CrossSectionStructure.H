@@ -137,8 +137,8 @@ class CrossSectionStructure : public LineStructure
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection* oneCrossSec,
             scalar initialSpacing,
-            bool reInitialize = false
-            std::pair<bool,scalar> refineSpacing = {false,0},
+            bool reInitialize = false,
+            std::pair<bool,scalar> refineSpacing = {false,0}
         );
         
         void createSpacedPointsOnCrossSec
@@ -153,7 +153,7 @@ class CrossSectionStructure : public LineStructure
         
         std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSecRod
         (
-            const ActiveRodMesh::rodCosserat* oneRod,
+            label rodNumber,
             const CrossSection* crossSec,            
             scalar spacing
         );
