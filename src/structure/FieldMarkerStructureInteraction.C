@@ -14,6 +14,7 @@ modusMarkerToField(modusMarkerToField)
     Info<<"Completed FieldMarkerStructureInteraction setup"<<Foam::endl;
 }
 
+/*
 Foam::scalar Foam::FieldMarkerStructureInteraction::deltaDirac
 (
     Foam::vector X,
@@ -43,7 +44,9 @@ Foam::scalar Foam::FieldMarkerStructureInteraction::deltaDirac
     //Info<<h<<"  X:"<<X<<"  x:"<<x<<" -> "<<deltaDir<<Foam::endl;
     return deltaDir;
 }
+*/
 
+/*
 void Foam::FieldMarkerStructureInteraction::computeMarkerEpsilon
 (
     const dynamicRefineFvMesh& mesh,
@@ -67,7 +70,9 @@ void Foam::FieldMarkerStructureInteraction::computeMarkerEpsilon
         markers[I]->setMarkerVolume(markers[I]->getMarkerVolume()*epsilon(I,0));
     }
 }
+*/
 
+/*
 Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
 {
     //Info<<"phiFunction -- r:"<<r<<Foam::endl;
@@ -91,7 +96,9 @@ Foam::scalar Foam::FieldMarkerStructureInteraction::phiFunction(Foam::scalar r)
         return 0;
     }
 }
+*/
 
+/*
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::computeMarkerEpsilonMatrix
 (
     const dynamicRefineFvMesh& mesh,
@@ -160,7 +167,9 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::FieldMarkerStructureInteraction::
     }
     return result;
 }
+*/
 
+/*
 scalar Foam::FieldMarkerStructureInteraction::correctedDeltaDirac
 (
     vector X,
@@ -176,7 +185,9 @@ scalar Foam::FieldMarkerStructureInteraction::correctedDeltaDirac
                                 conn[0]*conn[0]*b[7] + conn[1]*conn[1]*b[8] + conn[2]*conn[2]*b[9];
     return correctionFactor*deltaDirac(X,x,h);
 }
+*/
 
+/*
 scalar Foam::FieldMarkerStructureInteraction::computeMoment
 (
     const dynamicRefineFvMesh& mesh,
@@ -357,7 +368,7 @@ std::unique_ptr<std::array<scalar,10>> Foam::FieldMarkerStructureInteraction::co
 
     return bPtr;
 }
-
+*/
 
 void Foam::FieldMarkerStructureInteraction::scatterNurbs
 (

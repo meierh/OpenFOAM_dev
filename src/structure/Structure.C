@@ -445,6 +445,7 @@ Foam::Structure::~Structure()
 	Rods.clear();
 }
 
+/*
 void Foam::Structure::solveOneStep()
 {
     Info<<"Solve Nurbs structure"<<Foam::endl;
@@ -570,6 +571,7 @@ void Foam::Structure::moveNurbs()
         }
     }    
 }
+*/
 
 void Foam::Structure::updateRodCoordinateSystem()
 {
@@ -579,10 +581,9 @@ void Foam::Structure::updateRodCoordinateSystem()
     }
 }
 
-
+/*
 void Foam::Structure::createDeformationCurve()
 {
-    /*
     label nbrNurbs = myMesh->m_Rods.size();
     label nbrNurbs2 = myMesh->m_nR;
     Info<<"nbrNurbs:"<<nbrNurbs<<Foam::endl;
@@ -622,8 +623,8 @@ void Foam::Structure::createDeformationCurve()
             nurbs_to_knots.back()[n] = knots[n];
         }
     }
-    */
 }
+*/
 
 label Foam::Structure::getNumberRods()
 {

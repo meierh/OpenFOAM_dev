@@ -189,6 +189,7 @@ class Structure
         dynamicRefineFvMesh& mesh;
 
         
+        /*
         void computeIBHeatFlux();
         void computeIBTemperature();
         void assignBoundaryFacesToNurbsCurves();
@@ -201,9 +202,11 @@ class Structure
         void assignForceOnCurve();        
         std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
         void moveNurbs();
+        */
+        
+        
         
         void updateRodCoordinateSystem();
-        
         
         /*********************************Getter: Collect halo cells***********************************/
         const std::unordered_map<label,DynamicList<label>>& getSelfHaloCellToNeighboursMap()

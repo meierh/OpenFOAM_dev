@@ -34,7 +34,13 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline const DynamicList<std::tuple<bool,label,label>>& getSupportCells() const {return supportCells;}
         inline vector getDilation() const {return dilation;}
-
+        
+        static scalar deltaDirac(vector X, vector x, scalar h);
+        static scalar deltaDirac(vector X, vector x, vector h);
+        static scalar correctedDeltaDirac(vector X, vector x, scalar h, const std::array<scalar,10>& b);
+        static scalar correctedDeltaDirac(vector X, vector x, vector h, const std::array<scalar,10>& b);
+        static scalar phiFunction(scalar r);
+        
     private:
         const dynamicRefineFvMesh& mesh;
         label rodNumber;
@@ -53,6 +59,16 @@ class LagrangianMarker
         void computeSupport(label iterations=1);
         void minMaxSupportWidth();
         void dilationFactors();
+        
+        std::array<scalar,10> b;
+        
+        scalar computeMoment(vector indices);
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix();
+        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal();
+        void computeCorrectionWeights();
+        
+        scalar deltaDirac(vector X, vector x);
+        scalar correctedDeltaDirac(vector X, vector x);
 };
 
 class FieldMarkerStructureInteraction
@@ -69,18 +85,26 @@ class FieldMarkerStructureInteraction
         std::vector<std::vector<LagrangianMarker*>> markers;
         dynamicRefineFvMesh& mesh;
         
+        /*
         static scalar deltaDirac(vector X, vector x, scalar h);
         static scalar deltaDirac(vector X, vector x, vector h);
+        */
         
+        /*
         void computeMarkerEpsilon
         (
             const dynamicRefineFvMesh& mesh,
             const DynamicList<LagrangianMarker*>& markers
         );
+        */
 
     protected:
+        /*
         static scalar phiFunction(scalar r);
         static scalar correctedDeltaDirac(vector X, vector x, scalar h, std::array<scalar,10> b);
+        */
+        
+        /*
         static scalar computeMoment
         (
             const dynamicRefineFvMesh& mesh,
@@ -98,12 +122,15 @@ class FieldMarkerStructureInteraction
             const dynamicRefineFvMesh& mesh,
             const LagrangianMarker& marker
         );
+        */
         
+        /*
         static std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerEpsilonMatrix
         (
             const dynamicRefineFvMesh& mesh,
             const DynamicList<LagrangianMarker*>& markers
         );
+        */
 
         template<typename T>
         void fieldToMarker
@@ -418,11 +445,35 @@ class LineStructure : public Structure
         void collectHaloMarkers();
         
         void exchangeHaloMarkersData();
+                
+        template<typename T>
+        std::unique_ptr<List<List<DynamicList<T>>>> exchangeHaloMarkersValues
+        (
+            const List<DynamicList<T>>& values
+        )
+        {
+            auto result = std::unique_ptr<List<List<DynamicList<T>>>>(new List<List<DynamicList<T>>>(Pstream::nProcs()));
+            List<List<DynamicList<T>>>& globalValues = *result;
+            globalValues[Pstream::myProcNo()] = values;
+            
+            Pstream::gatherList(globalValues);
+            Pstream::scatterList(globalValues);
+            
+            return result;
+        }
         
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerEpsilonMatrix();
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMarkerEpsilonMatrix(std::vector<LagrangianMarker*>);
+        using LinearSystem = std::tuple
+        <
+            std::vector<LagrangianMarker*>,
+            gismo::gsMatrix<scalar>,
+            std::unordered_map<label,DynamicList<std::tuple<label,label,label,scalar>>>
+        >;
+        std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
+        std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix(const std::vector<LagrangianMarker*>&);
 
         void computeMarkerWeights();
+        
+        void computeMarkerCellWeights();
         
         
         /*
