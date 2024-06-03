@@ -178,47 +178,10 @@ class Structure
 
 
         //******************* Parameters *******************//
-        /*
-        const dimensionedScalar& alpha;
-        const volScalarField& T;
-        const volScalarField& p;
-        const volVectorField& U;
-        label IBPatchID;
-        const dimensionedScalar nu;
-        */
         dynamicRefineFvMesh& mesh;
 
-        
-        /*
-        void computeIBHeatFlux();
-        void computeIBTemperature();
-        void assignBoundaryFacesToNurbsCurves();
-        template<typename Tensor_Type>
-        std::unique_ptr<List<List<Tensor_Type>>> computeDistributedLoad
-        (
-            const Field<Tensor_Type> immersedBoundaryField
-        );
-        
-        void assignForceOnCurve();        
-        std::vector<std::unique_ptr<gismo::gsNurbs<double>>> forceCurveStorage;
-        void moveNurbs();
-        */
-        
-        
-        
         void updateRodCoordinateSystem();
-        
-        /*********************************Getter: Collect halo cells***********************************/
-        const std::unordered_map<label,DynamicList<label>>& getSelfHaloCellToNeighboursMap()
-        {
-            return selfHaloCellToNeighboursMap;
-        }
-        const DynamicList<label>& getSelfHaloList_Sorted() {return selfHaloList_Sorted;}
-        const List<DynamicList<label>>& getGlobalSelfHaloList_Sorted() {return globalSelfHaloList_Sorted;}
-        const std::unordered_map<label,label>& getSelfHaloList_Sorted_IndexMap() {return selfHaloList_Sorted_IndexMap;}
-        /*************************************Collect halo cells***************************************/
-        
-        
+
         std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
         
         void cellDistances
@@ -229,15 +192,40 @@ class Structure
         
         scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
         
+    protected:
+        /*********************************Getter: Collect halo cells***********************************/
+        typedef struct
+        {
+            label index;
+            vector centre;
+            scalar volume;
+        } CellDescription;     
+        
+        const DynamicList<CellDescription>& getHaloCellList(label process)
+        {
+            return globalHaloCellList_Sorted[process];
+        }
+        const std::unordered_map<label,label>& getHaloCellToIndexMap(label process)
+        {
+            return globalHaloCellToIndexMap[process];
+        }
+        const std::unordered_map<label,DynamicList<std::pair<label,label>>>& getPatchFaceToCellMap(label process)
+        {
+            return patchFaceToCellMap;
+        }
+        /*************************************Collect halo cells***************************************/
     private:
         /*************************************Collect halo cells***************************************/
-        // cell -> [neighbourProcesses]
-        std::unordered_map<label,DynamicList<label>> selfHaloCellToNeighboursMap;
-        // DynamicList< cell >
-        DynamicList<label> selfHaloList_Sorted;
-        List<DynamicList<label>> globalSelfHaloList_Sorted;
-        // cell -> index
-        std::unordered_map<label,label> selfHaloList_Sorted_IndexMap;
+        // [proc] -> processes' halo cells >
+        List<DynamicList<CellDescription>> globalHaloCellList_Sorted;
+        // [proc] -> cell -> index
+        List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
+        //faceInd -> {proc,cells}
+        std::unordered_map<label,DynamicList<std::pair<label,label>>> patchFaceToCellMap;
+
+        
+        //std::unordered_map<label,label> selfHaloList_Sorted_IndexMap;
+        //std::unordered_map<label,DynamicList<label>> selfHaloCellToNeighboursMap;
         
         /*************************************Collect halo cells***************************************/
         
@@ -256,7 +244,7 @@ class Structure
                 
 
         
-        void collectMeshHalos(label iterations=1);
+        void collectMeshHaloData(label iterations=1);
 };
 }
 #endif

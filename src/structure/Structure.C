@@ -24,32 +24,19 @@ mesh(mesh)
     createNurbsStructure();
     createNurbsBoundary();
     setSolverOptions();
-    
-    //auto cutCellBound = this->mesh.Sf().boundaryField();
-    //const fvBoundaryMesh& bound = mesh.boundary();
-    //Info<<"Completed Structure setup"<<Foam::endl;
-    
-    collectMeshHalos();
+       
+    collectMeshHaloData();
 }
 
-void Foam::Structure::assignBoundaryFacesToNurbsCurves()
+Foam::Structure::~Structure()
 {
-}
-
-template<typename Tensor_Type>
-std::unique_ptr<Foam::List<Foam::List<Tensor_Type>>> Foam::Structure::computeDistributedLoad
-(
-    const Foam::Field<Tensor_Type> immersedBoundaryField
-)
-{
-}
-
-void Foam::Structure::assignForceOnCurve()
-{
-}
-
-void Foam::Structure::computeIBHeatFlux()
-{
+    for (int i = 0; i < nR; i++)
+	{
+		delete Geo[i];
+		delete Rods[i];
+	}
+	Geo.clear();
+	Rods.clear();
 }
 
 Foam::word Foam::Structure::getXMLPath()
@@ -250,7 +237,6 @@ void Foam::Structure::createNurbsStructure()
         if (applyGravity)
             Rods[i]->set_force_lG(loadG);
     }
-    forceCurveStorage.resize(nR);
     
     for(ActiveRodMesh::rodCosserat* rodPtr : Rods)
         std::cout<<rodPtr->m_Curve.coefs()<<std::endl;
@@ -434,145 +420,6 @@ void Foam::Structure::setSolverOptions()
     outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
 }
 
-Foam::Structure::~Structure()
-{
-    for (int i = 0; i < nR; i++)
-	{
-		delete Geo[i];
-		delete Rods[i];
-	}
-	Geo.clear();
-	Rods.clear();
-}
-
-/*
-void Foam::Structure::solveOneStep()
-{
-    Info<<"Solve Nurbs structure"<<Foam::endl;
-    assignForceOnCurve();
-
-    if(Pstream::master())
-        myMesh->solve(1.0,solveOpt);
-    
-    moveNurbs();
-}
-
-void Foam::Structure::moveNurbs()
-{
-    Info<<"Mesh assign Deformation curve"<<Foam::endl;
-    label nbrNurbs = myMesh->m_Rods.size();
-    std::vector<List<List<vector>>> nurbs_to_new_controlPoints;
-    
-    //Insert deformation CP_s into data structure in master and resize otherwise
-    if(Pstream::master())
-    {
-        for(int i=0;i<nbrNurbs;i++)
-        {
-            gsMatrix<double> new_CPs = myMesh->m_Rods[i]->m_Def_coefs;
-            label nbrControlPoints = new_CPs.cols();
-            nurbs_to_new_controlPoints.push_back(List<List<vector>>(1,List<vector>(nbrControlPoints)));
-            for(int n=0;n<nbrControlPoints;n++)
-            {
-                for(int d=0;d<3;d++)
-                {
-                    nurbs_to_new_controlPoints.back()[0][n][d] = new_CPs(d,n);
-                }
-            }
-        }
-    }
-    else
-    {
-        nurbs_to_new_controlPoints.resize(nbrNurbs);
-    }
-    
-    //Transfer first dimension of CP list
-    labelList controlPntDim1Size(nbrNurbs,0);
-    if(Pstream::master())
-    {
-        for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
-        {
-            controlPntDim1Size[nurbsInd] = nurbs_to_new_controlPoints[nurbsInd].size();
-        }
-    }
-    Pstream::scatterList(controlPntDim1Size);
-    if(!Pstream::master())
-    {
-        for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
-        {
-            nurbs_to_new_controlPoints[nurbsInd].setSize(controlPntDim1Size[nurbsInd]);
-        }
-    }
-    
-    //Transfer second dimension of CP list
-    DynamicList<scalar> CP_data;
-    for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
-    {
-        labelList controlPntDim2Size(nurbs_to_new_controlPoints[nurbsInd].size(),0);
-        if(Pstream::master())
-        {
-            for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
-            {
-                controlPntDim2Size[firstDimInd] = nurbs_to_new_controlPoints[nurbsInd][firstDimInd].size();
-            }
-        }
-        Pstream::scatterList(controlPntDim2Size);
-        if(!Pstream::master())
-        {
-            for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
-            {
-                nurbs_to_new_controlPoints[nurbsInd][firstDimInd].setSize(controlPntDim2Size[firstDimInd]);
-            }
-        }
-        
-        for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
-        {
-            for(label secondDimInd=0;
-                secondDimInd<nurbs_to_new_controlPoints[nurbsInd][firstDimInd].size();
-                secondDimInd++
-               )
-            {
-                for(label vecDimInd=0;vecDimInd<3;vecDimInd++)
-                {
-                    if(Pstream::master())
-                    {
-                        CP_data.append(nurbs_to_new_controlPoints[nurbsInd][firstDimInd][secondDimInd][vecDimInd]);
-                    }
-                    else
-                    {
-                        CP_data.append(0);
-                    }
-                }
-            }
-        }
-    }
-    Pstream::scatterList(CP_data);
-    label CP_data_index=0;
-    if(!Pstream::master())
-    {
-        for(label nurbsInd=0;nurbsInd<nbrNurbs;nurbsInd++)
-        {
-            for(label firstDimInd=0;firstDimInd<nurbs_to_new_controlPoints[nurbsInd].size();firstDimInd++)
-            {
-                for(label secondDimInd=0;
-                    secondDimInd<nurbs_to_new_controlPoints[nurbsInd][firstDimInd].size();
-                    secondDimInd++
-                   )
-                {
-                    for(label vecDimInd=0;vecDimInd<3;vecDimInd++)
-                    {
-                        if(CP_data_index<CP_data.size())
-                            FatalErrorInFunction<<"Invalid index"<< exit(FatalError); 
-
-                        nurbs_to_new_controlPoints[nurbsInd][firstDimInd][secondDimInd][vecDimInd] = CP_data[CP_data_index];
-                        CP_data_index++;
-                    }
-                }
-            }
-        }
-    }    
-}
-*/
-
 void Foam::Structure::updateRodCoordinateSystem()
 {
     for(uint rodIndex=0; rodIndex<myMesh->m_Rods.size(); rodIndex++)
@@ -580,51 +427,6 @@ void Foam::Structure::updateRodCoordinateSystem()
         myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
     }
 }
-
-/*
-void Foam::Structure::createDeformationCurve()
-{
-    label nbrNurbs = myMesh->m_Rods.size();
-    label nbrNurbs2 = myMesh->m_nR;
-    Info<<"nbrNurbs:"<<nbrNurbs<<Foam::endl;
-    Info<<"nbrNurbs2:"<<nbrNurbs2<<Foam::endl;
-    //FatalIOError<<"Temp Stop"<<exit(FatalIOError);
-
-    std::vector<scalarList> nurbs_to_knots;
-    std::vector<List<vector>> nurbs_to_controlPoints;
-    std::vector<scalarList> nurbs_to_weights;
-    std::vector<label> nurbs_to_degree;
-
-    for(int i=0;i<nbrNurbs;i++)
-    {
-        gsMatrix<double> P = myMesh->m_Rods[i]->m_Def_coefs;
-        gsNurbs<double> curve = myMesh->m_Rods[i]->m_Def;
-        gismo::gsKnotVector<double> knots = curve.knots();
-        label nbrKnots = knots.size();
-        label degree = knots.degree();
-        label nbrControlPoints = P.cols();
-        if(P.rows()!=3)
-            FatalErrorInFunction<<"Wrong Deformation curve dimension"<< exit(FatalError);
-
-        nurbs_to_controlPoints.push_back(List<vector>(nbrControlPoints));
-        nurbs_to_weights.push_back(scalarList(nbrControlPoints));
-        for(int n=0;n<nbrControlPoints;n++)
-        {
-            for(int d=0;d<3;d++)
-            {
-                nurbs_to_controlPoints.back()[n][d] = P(d,n);
-            }
-            nurbs_to_weights.back()[n] = 1;
-        }
-        nurbs_to_degree.push_back(degree);
-        nurbs_to_knots.push_back(scalarList(nbrKnots));
-        for(int n=0;n<nbrKnots;n++)
-        {
-            nurbs_to_knots.back()[n] = knots[n];
-        }
-    }
-}
-*/
 
 label Foam::Structure::getNumberRods()
 {
@@ -733,249 +535,6 @@ void Foam::Structure::rodEval
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
 
-void Foam::Structure::collectMeshHalos
-(
-    label iterations
-)
-{
-    /*
-    if(iterations<1)
-        FatalErrorInFunction<<"Must be at least two iterations"<<exit(FatalError);
-    
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const labelList& owner = mesh.owner();
-    const labelList& neighbour = mesh.neighbour();
-    const pointField& points = mesh.points();
-    const polyBoundaryMesh& boundaries = mesh.boundaryMesh();
-    
-    // DynamicList<std::pair<neighborProcess,size of border>>
-    DynamicList<std::pair<label,label>> neighborProcesses;
-    
-    // Collect halo data for own process
-    List<DynamicList<label>> procPatchOwner(Pstream::nProcs());
-    List<DynamicList<label>> procPatchNeighbour(Pstream::nProcs());
-    List<DynamicList<label>> procPatchIndex(Pstream::nProcs());
-    List<DynamicList<label>> procPatchFaceLocalIndex(Pstream::nProcs());
-    List<DynamicList<List<DynamicList<label>>>> procCellInds(Pstream::nProcs());
-    List<DynamicList<List<DynamicList<vector>>>> procCellCentres(Pstream::nProcs());
-    List<DynamicList<List<DynamicList<scalar>>>> procCellMags(Pstream::nProcs());
-    
-    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
-    {
-        const polyPatch& patch = boundaries[patchIndex];
-        if(isA<processorPolyPatch>(patch))
-        {
-            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
-            label neighborProcess = pPP->neighbProcNo();
-            label patchStartFace = pPP->start();
-            label patchSizeFaces = pPP->size();
-
-            neighborProcesses.append({neighborProcess,patchSizeFaces});
-
-            for(label locFaceInd=0; locFaceInd<patchSizeFaces; locFaceInd++)
-            {
-                label faceInd = locFaceInd+patchStartFace;
-                if(faceInd<neighbour.size())
-                    FatalErrorInFunction<<"Boundary face has a neighbour"<<exit(FatalError);
-                
-                procPatchOwner[Pstream::myProcNo()].append(Pstream::myProcNo());
-                procPatchNeighbour[Pstream::myProcNo()].append(neighborProcess);
-                procPatchIndex[Pstream::myProcNo()].append(patchIndex);
-                procPatchFaceLocalIndex[Pstream::myProcNo()].append(locFaceInd);
-                procCellInds[Pstream::myProcNo()].append(List<DynamicList<label>>());                procCellCentres[Pstream::myProcNo()].append(List<DynamicList<vector>>());
-                procCellMags[Pstream::myProcNo()].append(List<DynamicList<scalar>>());
-                
-                List<DynamicList<label>>& thiFaceCellInds = procCellInds[Pstream::myProcNo()].last();
-                thiFaceCellInds.resize(iterations);
-                List<DynamicList<vector>>& thiFaceCellCentres = procCellCentres[Pstream::myProcNo()].last();
-                thiFaceCellCentres.resize(iterations);
-                List<DynamicList<scalar>>& thiFaceCellMags = procCellMags[Pstream::myProcNo()].last();
-                thiFaceCellMags.resize(iterations);
-
-                std::unordered_set<label> borderCells;
-                label cellInd = owner[faceInd];
-                
-                auto addCellData = [&](label cellInd,label k)
-                {
-                    thiFaceCellInds[k].append(cellInd);
-                    borderCells.insert(cellInd);
-                    thiFaceCellCentres[k].append(cells[cellInd].centre(points,faces));
-                    thiFaceCellMags[k].append(cells[cellInd].mag(points,faces));
-                };
-                
-                addCellData(cellInd,0);
-                for(label k=1; k<iterations; k++)
-                {
-                    for(label frontCellInd : thiFaceCellInds[k-1])
-                    {
-                        const cell& frontCell = cells[frontCellInd];
-                        for(label faceInd : frontCell)
-                        {
-                            if(owner[faceInd]!=frontCellInd)
-                            {
-                                if(borderCells.find(owner[faceInd])==borderCells.end())
-                                {
-                                    addCellData(owner[faceInd],k);
-                                }
-                            }
-                            if(faceInd<neighbour.size())
-                            {
-                                if(neighbour[faceInd]!=frontCellInd)
-                                {
-                                    if(borderCells.find(neighbour[faceInd])==borderCells.end())
-                                    {
-                                        addCellData(neighbour[faceInd],k);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    selfHaloSet.clear();
-    for(label interiorFaceInd=0; interiorFaceInd<procCellInds[Pstream::myProcNo()].size(); interiorFaceInd++)
-    {
-        label owner = procPatchOwner[Pstream::myProcNo()][interiorFaceInd];
-        label neighbour = procPatchNeighbour[Pstream::myProcNo()][interiorFaceInd];
-        label patchIndex = procPatchIndex[Pstream::myProcNo()][interiorFaceInd];
-        label patchLocalIndex = procPatchFaceLocalIndex[Pstream::myProcNo()][interiorFaceInd];
-        const List<DynamicList<label>>& cellInds = procCellInds[Pstream::myProcNo()][interiorFaceInd];
-        const List<DynamicList<vector>>& cellCentres = procCellCentres[Pstream::myProcNo()][interiorFaceInd];
-        const List<DynamicList<scalar>>& cellMags = procCellMags[Pstream::myProcNo()][interiorFaceInd];
-
-        if(owner!=Pstream::myProcNo())
-            FatalErrorInFunction<<"Mismatch in own process number"<<exit(FatalError);
-
-        for(const DynamicList<label>& cellsFromFacesLevel : cellInds)
-        {
-            for(label cell : cellsFromFacesLevel)
-            {
-                selfHaloSet[cell].append(neighbour);
-            }
-        }
-    }
-    selfHaloList.resize(0);
-    for(auto iter=selfHaloSet.begin(); iter!=selfHaloSet.end(); iter++)
-        selfHaloList.append(iter->first);
-    std::sort(selfHaloList.begin(),selfHaloList.end());
-    for(label index=0; index<selfHaloList.size(); index++)
-        selfHaloListIndex[selfHaloList[index]] = index;
-    globalHaloCellList.resize(Pstream::nProcs());
-    globalHaloCellList[Pstream::myProcNo()] = selfHaloList;
-    
-    //Exchange data
-    Pstream::gatherList(procPatchOwner);
-    Pstream::gatherList(procPatchNeighbour);
-    Pstream::gatherList(procPatchIndex);
-    Pstream::gatherList(procPatchFaceLocalIndex);
-    Pstream::gatherList(procCellInds);
-    Pstream::gatherList(procCellCentres);
-    Pstream::gatherList(procCellMags);
-    Pstream::gatherList(globalHaloCellList);
-    
-    Pstream::scatterList(procPatchOwner);
-    Pstream::scatterList(procPatchNeighbour);
-    Pstream::scatterList(procPatchIndex);
-    Pstream::scatterList(procPatchFaceLocalIndex);
-    Pstream::scatterList(procCellInds);
-    Pstream::scatterList(procCellCentres);
-    Pstream::scatterList(procCellMags);
-    Pstream::scatterList(globalHaloCellList);
-        
-    // neighbourID -> neighPatchID -> faceID : std::pair<procNo,arrayIndex>
-    std::unordered_map<label,std::unordered_map<label,std::map<label,std::pair<label,label>>>> correspondenceData;
-    for(std::pair<label,label> neighbourProc_Size : neighborProcesses)
-    {
-        label neighbourProc = neighbourProc_Size.first;
-        label neighbourProcPatchSize = neighbourProc_Size.second;
-        
-        const DynamicList<label>& neighOwner = procPatchOwner[neighbourProc];
-        const DynamicList<label>& neighNeighbour = procPatchNeighbour[neighbourProc];
-        const DynamicList<label>& neighPatchIndex = procPatchIndex[neighbourProc];
-        const DynamicList<label>& neighPatchLocalFaceIndex = procPatchFaceLocalIndex[neighbourProc];
-        const DynamicList<List<DynamicList<label>>>& neighCellInds = procCellInds[neighbourProc];
-        const DynamicList<List<DynamicList<vector>>>& neighCellCentres = procCellCentres[neighbourProc];
-        const DynamicList<List<DynamicList<scalar>>>& neighCellMags = procCellMags[neighbourProc];
-
-        if(correspondenceData.find(neighbourProc)!=correspondenceData.end())
-            FatalErrorInFunction<<"Duplicate neighbour not allowed"<<exit(FatalError);
-        
-        for(label patchFaceInd=0; patchFaceInd<procPatchOwner.size(); patchFaceInd++)
-        {
-            label owner = neighOwner[patchFaceInd];
-            if(owner!=neighbourProc)
-                FatalErrorInFunction<<"Data owner must be the neighbour"<<exit(FatalError);
-            label neighbour = neighNeighbour[patchFaceInd];
-            label patchIndex = neighPatchIndex[patchFaceInd];
-            label patchLocalFaceIndex = neighPatchLocalFaceIndex[patchFaceInd];
-            const List<DynamicList<label>>& cellInds = neighCellInds[patchFaceInd];
-            const List<DynamicList<vector>>& cellCentres = neighCellCentres[patchFaceInd];
-            const List<DynamicList<scalar>>& cellMags = neighCellMags[patchFaceInd];
-            
-            if(neighbour==Pstream::myProcNo())
-            {
-                correspondenceData[neighbourProc][patchIndex][patchLocalFaceIndex] = {neighbourProc,patchFaceInd};
-            }
-        }
-        if(correspondenceData[neighbourProc].size()!=1)
-            FatalErrorInFunction<<"Each neighbor must have exactly one patch id"<<exit(FatalError);
-        if(correspondenceData[neighbourProc].cbegin()->second.size()!=neighbourProcPatchSize)
-            FatalErrorInFunction<<"Each neighbor must have exactly the number of faces in patch than the own process"<<exit(FatalError);
-    }
-    
-    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
-    {
-        const polyPatch& patch = boundaries[patchIndex];
-        if(isA<processorPolyPatch>(patch))
-        {
-            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
-            label neighborProcess = pPP->neighbProcNo();
-            label patchStartFace = pPP->start();
-            label patchSizeFaces = pPP->size();
-            
-            auto iter = correspondenceData.find(neighborProcess);
-            if(iter==correspondenceData.end())
-                FatalErrorInFunction<<"Missing boundary data"<<exit(FatalError);
-            
-            std::unordered_map<label,std::map<label,std::pair<label,label>>>& oneNeighbourCorrData = iter->second;
-            if(oneNeighbourCorrData.size()!=1)
-                FatalErrorInFunction<<"Invalid patch number"<<exit(FatalError);
-            
-            label neighPatchID = oneNeighbourCorrData.cbegin()->first;
-            const std::map<label,std::pair<label,label>>& onePatchData = oneNeighbourCorrData.cbegin()->second;
-            
-            if(onePatchData.size()!=patchSizeFaces)
-                FatalErrorInFunction<<"Missing patch data"<<exit(FatalError);
-            
-            for(label locFaceInd=0; locFaceInd<patchSizeFaces; locFaceInd++)
-            {
-                label faceInd = locFaceInd+patchStartFace;
-                if(faceInd<neighbour.size())
-                    FatalErrorInFunction<<"Boundary face has a neighbour"<<exit(FatalError);
-                
-                auto iter = onePatchData.find(locFaceInd);
-                if(iter==onePatchData.end())
-                    FatalErrorInFunction<<"Missing boundary face data"<<exit(FatalError);
-                std::pair<label,label> neiProc_CorrK = iter->second;
-                
-                singleFaceHalo& thisFaceData = haloData[faceInd];
-                
-                thisFaceData.neighbourProcess = procPatchNeighbour[neiProc_CorrK.first][neiProc_CorrK.second];
-                thisFaceData.neighbourProcessPatchIndex = procPatchIndex[neiProc_CorrK.first][neiProc_CorrK.second];
-                thisFaceData.neighbourProcessFaceLocalIndex = procPatchFaceLocalIndex[neiProc_CorrK.first][neiProc_CorrK.second];
-                thisFaceData.cells = procCellInds[neiProc_CorrK.first][neiProc_CorrK.second];
-                thisFaceData.cellsCentre = procCellCentres[neiProc_CorrK.first][neiProc_CorrK.second];
-                thisFaceData.cellsMag = procCellMags[neiProc_CorrK.first][neiProc_CorrK.second];
-            }
-        }
-    }
-    */
-}
-
 std::pair<double,double> Foam::Structure::minMaxSpan
 (
     const cell& thisCell
@@ -1026,3 +585,281 @@ scalar Foam::Structure::supportDomainMinSize
     return minSuppSize;
 }
 
+void Foam::Structure::collectMeshHaloData
+(
+    label iterations
+)
+{
+    if(iterations<1)
+        FatalErrorInFunction<<"Must be at least one iterations"<<exit(FatalError);
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const labelList& owner = mesh.owner();
+    const labelList& neighbour = mesh.neighbour();
+    const pointField& points = mesh.points();
+    const polyBoundaryMesh& boundaries = mesh.boundaryMesh();
+    
+    // DynamicList<std::tuple<neighborProcess,start of faces,size of border>>
+    DynamicList<std::tuple<label,label,label>> neighborProcesses;
+    
+    // Collect halo data for own process along the processor boundary patches
+    label nbrPatchFaces = 0;
+    List<DynamicList<label>> procPatchOwner(Pstream::nProcs());
+    List<DynamicList<label>> procPatchNeighbour(Pstream::nProcs());
+    List<DynamicList<label>> procPatchIndex(Pstream::nProcs());
+    List<DynamicList<label>> procPatchFaceLocalIndex(Pstream::nProcs());
+    List<DynamicList<List<DynamicList<label>>>> procCellInds(Pstream::nProcs());
+    List<DynamicList<List<DynamicList<vector>>>> procCellCentres(Pstream::nProcs());
+    List<DynamicList<List<DynamicList<scalar>>>> procCellMags(Pstream::nProcs());
+    
+    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
+    {
+        const polyPatch& patch = boundaries[patchIndex];
+        if(isA<processorPolyPatch>(patch))
+        {
+            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
+            label neighborProcess = pPP->neighbProcNo();
+            label patchStartFace = pPP->start();
+            label patchSizeFaces = pPP->size();
+
+            neighborProcesses.append({neighborProcess,patchStartFace,patchSizeFaces});
+
+            for(label locFaceInd=0; locFaceInd<patchSizeFaces; locFaceInd++)
+            {
+                label faceInd = locFaceInd+patchStartFace;
+                if(faceInd<neighbour.size())
+                    FatalErrorInFunction<<"Boundary face has a neighbour"<<exit(FatalError);
+                
+                procPatchOwner[Pstream::myProcNo()].append(Pstream::myProcNo());
+                procPatchNeighbour[Pstream::myProcNo()].append(neighborProcess);
+                procPatchIndex[Pstream::myProcNo()].append(patchIndex);
+                procPatchFaceLocalIndex[Pstream::myProcNo()].append(locFaceInd);
+                
+                procCellInds[Pstream::myProcNo()].append(List<DynamicList<label>>());                procCellCentres[Pstream::myProcNo()].append(List<DynamicList<vector>>());
+                procCellMags[Pstream::myProcNo()].append(List<DynamicList<scalar>>());
+                
+                List<DynamicList<label>>& thisFaceCellInds = procCellInds[Pstream::myProcNo()].last();
+                thisFaceCellInds.resize(iterations);
+                List<DynamicList<vector>>& thiFaceCellCentres = procCellCentres[Pstream::myProcNo()].last();
+                thiFaceCellCentres.resize(iterations);
+                List<DynamicList<scalar>>& thiFaceCellMags = procCellMags[Pstream::myProcNo()].last();
+                thiFaceCellMags.resize(iterations);
+
+                std::unordered_set<label> borderCells;
+                label cellInd = owner[faceInd];
+                
+                auto addCellData = [&](label cellInd,label k)
+                {
+                    thisFaceCellInds[k].append(cellInd);
+                    borderCells.insert(cellInd);
+                    thiFaceCellCentres[k].append(cells[cellInd].centre(points,faces));
+                    thiFaceCellMags[k].append(cells[cellInd].mag(points,faces));
+                };
+                
+                addCellData(cellInd,0);
+                for(label k=1; k<iterations; k++)
+                {
+                    for(label frontCellInd : thisFaceCellInds[k-1])
+                    {
+                        const cell& frontCell = cells[frontCellInd];
+                        for(label faceInd : frontCell)
+                        {
+                            if(owner[faceInd]!=frontCellInd)
+                            {
+                                if(borderCells.find(owner[faceInd])==borderCells.end())
+                                {
+                                    addCellData(owner[faceInd],k);
+                                }
+                            }
+                            if(faceInd<neighbour.size())
+                            {
+                                if(neighbour[faceInd]!=frontCellInd)
+                                {
+                                    if(borderCells.find(neighbour[faceInd])==borderCells.end())
+                                    {
+                                        addCellData(neighbour[faceInd],k);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                nbrPatchFaces++;
+            }
+        }
+    }
+        
+    //Exchange data
+    Pstream::gatherList(procPatchOwner);
+    Pstream::gatherList(procPatchNeighbour);
+    Pstream::gatherList(procPatchIndex);
+    Pstream::gatherList(procPatchFaceLocalIndex);
+    Pstream::gatherList(procCellInds);
+    Pstream::gatherList(procCellCentres);
+    Pstream::gatherList(procCellMags);
+    
+    Pstream::scatterList(procPatchOwner);
+    Pstream::scatterList(procPatchNeighbour);
+    Pstream::scatterList(procPatchIndex);
+    Pstream::scatterList(procPatchFaceLocalIndex);
+    Pstream::scatterList(procCellInds);
+    Pstream::scatterList(procCellCentres);
+    Pstream::scatterList(procCellMags);
+    
+    globalHaloCellList_Sorted.resize(Pstream::nProcs());
+    globalHaloCellToIndexMap.resize(Pstream::nProcs());
+    for(label process=0; process<Pstream::nProcs(); process++)
+    {
+        const DynamicList<label>& patchOwner = procPatchOwner[process];
+        const DynamicList<label>& patchNeighbour = procPatchNeighbour[process];
+        const DynamicList<label>& patchIndex = procPatchIndex[process];
+        const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[process];
+        const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[process];
+        const DynamicList<List<DynamicList<vector>>>& patchCellCentres = procCellCentres[process];
+        const DynamicList<List<DynamicList<scalar>>>& patchCellMags = procCellMags[process];
+        
+        std::unordered_map<label,std::tuple<label,label,label>> uniqueHaloCells;
+        for(label patchFaceInd=0; patchFaceInd<patchOwner.size(); patchFaceInd++)
+        {
+            label owner = patchOwner[patchFaceInd];
+            label neighbour = patchNeighbour[patchFaceInd];
+            label index = patchIndex[patchFaceInd];
+            label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
+            const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
+            //const List<DynamicList<vector>>& cellCentres = patchCellCentres[patchFaceInd];
+            //const List<DynamicList<scalar>>& cellMags = patchCellMags[patchFaceInd];
+            
+            if(owner!=process)
+                FatalErrorInFunction<<"Invalid data"<<exit(FatalError);
+            
+            for(label iteration=0; iteration<cellInds.size(); iteration++)
+            {
+                const DynamicList<label>& iterCellInds = cellInds[iteration];
+                //const DynamicList<vector>& iterCellCentres = cellCentres[iteration];
+                //const DynamicList<scalar>& iterCellMags = cellMags[iteration];
+                
+                for(label i=0; i<iterCellInds.size(); i++)
+                {
+                    label cellInd = iterCellInds[i];
+                    if(uniqueHaloCells.find(cellInd)==uniqueHaloCells.end())
+                    {
+                        uniqueHaloCells[cellInd] = {patchFaceInd,iteration,i};
+                    }
+                }
+            }
+        }
+        
+        DynamicList<CellDescription>& haloCellList_Sorted = globalHaloCellList_Sorted[Pstream::myProcNo()];
+        for(auto iter=uniqueHaloCells.begin(); iter!=uniqueHaloCells.end(); iter++)
+        {
+            label cellInd = iter->first;
+            label patchFaceInd = std::get<0>(iter->second);
+            label iterNbr = std::get<1>(iter->second);
+            label i = std::get<2>(iter->second);
+            if(cellInd!=patchCellInds[patchFaceInd][iterNbr][i])
+                FatalErrorInFunction<<"Invalid data"<<exit(FatalError);
+            CellDescription oneCellData =
+            {
+                patchCellInds[patchFaceInd][iterNbr][i],
+                patchCellCentres[patchFaceInd][iterNbr][i],
+                patchCellMags[patchFaceInd][iterNbr][i]
+            };
+            haloCellList_Sorted.append(oneCellData);
+        }
+        std::sort(haloCellList_Sorted.begin(),haloCellList_Sorted.end(),
+                  [](const CellDescription& a, const CellDescription& b)
+                    {
+                        return a.index < b.index;
+                    }
+                );
+        for(label index=0; index<haloCellList_Sorted.size(); index++)
+        {
+            globalHaloCellToIndexMap[process][haloCellList_Sorted[index].index] = index;
+        }
+    }
+    
+    // [proc] -> neighbour -> patchInd -> locFaceInd -> index
+    List<std::unordered_map<label,std::unordered_map<label,std::map<label,label>>>> globalProcessToPatchIndToLocInd(Pstream::nProcs());
+    for(label process=0; process<Pstream::nProcs(); process++)
+    {
+        const DynamicList<label>& patchOwner = procPatchOwner[process];
+        const DynamicList<label>& patchNeighbour = procPatchNeighbour[process];
+        const DynamicList<label>& patchIndex = procPatchIndex[process];
+        const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[process];
+        const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[process];
+        
+        for(label patchFaceInd=0; patchFaceInd<patchOwner.size(); patchFaceInd++)
+        {
+            label owner = patchOwner[patchFaceInd];
+            label neighbour = patchNeighbour[patchFaceInd];
+            label index = patchIndex[patchFaceInd];
+            label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
+            const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
+            
+            if(owner!=process)
+                FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+            
+            globalProcessToPatchIndToLocInd[process][neighbour][index][faceLocalIndex] = patchFaceInd;
+        }
+    }    
+    
+    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
+    {
+        const polyPatch& patch = boundaries[patchIndex];
+        if(isA<processorPolyPatch>(patch))
+        {
+            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
+            label neighborProcess = pPP->neighbProcNo();
+            label patchStartFace = pPP->start();
+            label patchSizeFaces = pPP->size();
+            
+            auto iter = globalProcessToPatchIndToLocInd[neighborProcess].find(Pstream::myProcNo());
+            if(iter==globalProcessToPatchIndToLocInd[neighborProcess].end())
+                FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+                
+            // patchInd -> locFaceInd -> index
+            const std::unordered_map<label,std::map<label,label>>& patchIndToLocInd = iter->second;
+            if(patchIndToLocInd.size()!=1)
+                FatalErrorInFunction<<"Neighbour must have only one patch type"<<exit(FatalError);
+            const std::map<label,label>& locFaceIndToListInd = patchIndToLocInd.cbegin()->second;
+            
+            const DynamicList<label>& patchOwner = procPatchOwner[neighborProcess];
+            const DynamicList<label>& patchNeighbour = procPatchNeighbour[neighborProcess];
+            const DynamicList<label>& patchIndex = procPatchIndex[neighborProcess];
+            const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[neighborProcess];
+            const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[neighborProcess];
+
+            for(label locFacePatchInd=0; locFacePatchInd<patchSizeFaces; locFacePatchInd++)
+            {
+                auto iter = locFaceIndToListInd.find(locFacePatchInd);
+                if(iter==locFaceIndToListInd.end())
+                    FatalErrorInFunction<<"Missing local face indice in patch"<<exit(FatalError);
+                label patchFaceInd = iter->second;             
+
+                label owner = patchOwner[patchFaceInd];
+                label neighbour = patchNeighbour[patchFaceInd];
+                label index = patchIndex[patchFaceInd];
+                label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
+                const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
+                
+                if(owner!=neighborProcess)
+                    FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+                if(neighbour!=Pstream::myProcNo())
+                    FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+                if(faceLocalIndex!=locFacePatchInd)
+                    FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+
+                label faceInd = patchStartFace+locFacePatchInd;
+                for(const DynamicList<label>& iterCell : cellInds)
+                {
+                    for(label cellInd : iterCell)
+                    {
+                        patchFaceToCellMap[faceInd].append({neighborProcess,cellInd});
+                    }
+                }
+            }
+        }
+    }
+}
