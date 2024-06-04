@@ -2,11 +2,13 @@
 
 Foam::LagrangianMarker::LagrangianMarker
 (
+    const Structure& structure,
     const dynamicRefineFvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod,
     const scalar markerParameter
 ):
+structure(structure),
 mesh(mesh),
 rodNumber(rodNumber),
 baseRod(baseRod),
@@ -86,7 +88,9 @@ void Foam::LagrangianMarker::computeSupport
     const faceList& facesList = mesh.faces();
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
-    
+    //faceInd -> [{proc,cell}]
+    const std::unordered_map<label,DynamicList<std::pair<label,label>>>& patchFaceToCell = structure.getPatchFaceToCellMap();
+
     struct FirstHash
     {
         label operator()(const std::pair<label, label> &p) const
@@ -94,36 +98,66 @@ void Foam::LagrangianMarker::computeSupport
             return std::hash<label>{}(p.first);
         }
     };
-    // std::pair<level,cell>
+    std::unordered_set<label> treatedCell;
+    //pair{iteration,cellInd}
     std::unordered_set<std::pair<label,label>,FirstHash> supportCells;
-    std::unordered_set<std::pair<label,label>,FirstHash> supportFaces;
+    //process -> {cellInd}
+    std::unordered_map<label,std::unordered_set<label>> foreignHaloCells;
     this->supportCells.resize(0);
     if(markerCell!=-1)
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
         supportCells.insert({-1,markerCell});
+        treatedCell.insert(markerCell);
         
         for(label iter=0; iter<iterations; iter++)
         {
-            //DynamicList<label> newCells;
             for(auto cellIter=supportCells.begin(); cellIter!=supportCells.end(); cellIter++)
             {
-                label cellInd = cellIter->first;
-                const cell& thisCell = cellList[cellInd];
-                for(label faceInd : thisCell)
+                if(cellIter->first==iter-1)
                 {
-                    supportCells.insert({owners[faceInd],iter});
-                    if(faceInd<neighbours.size())
-                        supportCells.insert({neighbours[faceInd],iter});                    
+                    label cellInd = cellIter->second;
+                    const cell& thisCell = cellList[cellInd];
+                    for(label faceInd : thisCell)
+                    {
+                        label owner = owners[faceInd];
+                        if(treatedCell.find(owner)==treatedCell.end())
+                        {
+                            supportCells.insert({iter,owner});
+                            treatedCell.insert(owner);
+                            if(faceInd<neighbours.size())
+                            {
+                                auto iter = patchFaceToCell.find(faceInd);
+                                if(iter!=patchFaceToCell.end())
+                                {
+                                    const DynamicList<std::pair<label,label>>& haloCells = iter->second;
+                                    for(const std::pair<label,label> haloCell : haloCells)
+                                    {
+                                        label process = haloCell.first;
+                                        label cellInd = haloCell.second;
+                                        foreignHaloCells[process].insert(cellInd);
+                                    }
+                                }
+                            }
+                        }         
+                    }
                 }
             }
-            //supportCells.insert(newCells.begin(),newCells.end());
         }
     }
     for(auto iterCells=supportCells.begin(); iterCells!=supportCells.end(); iterCells++)
     {
-        //this->supportCells.append(*iterCells);
+        this->supportCells.append({true,Pstream::myProcNo(),iterCells->second);
+    }
+    for(auto iterProc=foreignHaloCells.begin(); iterProc!=foreignHaloCells.end(); iterProc++)
+    {
+        label processNo = iterProc->first;
+        for(auto iterCell=iterProc->second.begin(); iterCell!=iterProc->second.end(); iterCell++)
+        {
+            label cellInd = *iterCell;
+            this->supportCells.append({false,processNo,cellInd);
+        }
     }
 }
 

@@ -193,7 +193,7 @@ class Structure
         scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
         
     protected:
-        /*********************************Getter: Collect halo cells***********************************/
+        /*****************************Getter: Collect halo cells*******************************/
         typedef struct
         {
             label index;
@@ -201,33 +201,34 @@ class Structure
             scalar volume;
         } CellDescription;     
         
-        const DynamicList<CellDescription>& getHaloCellList(label process)
+        const DynamicList<CellDescription>& getHaloCellList(label process) const
         {
             return globalHaloCellList_Sorted[process];
         }
-        const std::unordered_map<label,label>& getHaloCellToIndexMap(label process)
+        const std::unordered_map<label,label>& getHaloCellToIndexMap(label process) const
         {
             return globalHaloCellToIndexMap[process];
         }
-        const std::unordered_map<label,DynamicList<std::pair<label,label>>>& getPatchFaceToCellMap(label process)
+    public:
+        const std::unordered_map<label,DynamicList<std::pair<label,label>>>& getPatchFaceToCellMap() const
         {
             return patchFaceToCellMap;
         }
-        /*************************************Collect halo cells***************************************/
+        /*********************************Collect halo cells***********************************/
     private:
-        /*************************************Collect halo cells***************************************/
+        /*********************************Collect halo cells***********************************/
         // [proc] -> processes' halo cells >
         List<DynamicList<CellDescription>> globalHaloCellList_Sorted;
         // [proc] -> cell -> index
         List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
-        //faceInd -> {proc,cells}
+        //faceInd -> [{proc,cell}]
         std::unordered_map<label,DynamicList<std::pair<label,label>>> patchFaceToCellMap;
 
         
         //std::unordered_map<label,label> selfHaloList_Sorted_IndexMap;
         //std::unordered_map<label,DynamicList<label>> selfHaloCellToNeighboursMap;
         
-        /*************************************Collect halo cells***************************************/
+        /*********************************Collect halo cells***********************************/
         
         typedef struct
         {

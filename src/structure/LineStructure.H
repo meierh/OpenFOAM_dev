@@ -11,6 +11,7 @@ class LagrangianMarker
     public:
         explicit LagrangianMarker
         (
+            const Structure& structure,
             const dynamicRefineFvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
@@ -42,6 +43,7 @@ class LagrangianMarker
         static scalar phiFunction(scalar r);
         
     private:
+        const Structure& structure;
         const dynamicRefineFvMesh& mesh;
         label rodNumber;
         const ActiveRodMesh::rodCosserat* baseRod;

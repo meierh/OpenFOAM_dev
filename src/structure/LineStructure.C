@@ -19,18 +19,21 @@ initialSpacing(initialSpacingFromMesh())
     initialRodPoints.resize(nbrOfRods);
     createSpacingPoints();
     rodMarkersList.resize(nbrOfRods);
-    haloCellsRodMarkersList.resize(getSelfHaloList_Sorted().size());
+    
+    const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo())
+    
+    haloCellsRodMarkersList.resize(selfHaloCellList.size());
     
     globalHaloCellsMarkerPos.resize(Pstream::nProcs());
-    globalHaloCellsMarkerPos[Pstream::myProcNo()].resize(getSelfHaloList_Sorted().size());
+    globalHaloCellsMarkerPos[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerVolume.resize(Pstream::nProcs());
-    globalHaloCellsMarkerVolume[Pstream::myProcNo()].resize(getSelfHaloList_Sorted().size());
+    globalHaloCellsMarkerVolume[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerDilation.resize(Pstream::nProcs());
-    globalHaloCellsMarkerDilation[Pstream::myProcNo()].resize(getSelfHaloList_Sorted().size());
+    globalHaloCellsMarkerDilation[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerSupportCellCentres.resize(Pstream::nProcs());
-    globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].resize(getSelfHaloList_Sorted().size());
+    globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].resize(selfHaloCellList).size());
     globalHaloCellsMarkerSupportCellVolume.resize(Pstream::nProcs());
-    globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].resize(getSelfHaloList_Sorted().size());    
+    globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].resize(selfHaloCellList.size());    
 }
 
 void Foam::LineStructure::check()
@@ -441,7 +444,8 @@ void Foam::LineStructure::reduceMarkers
 
 void Foam::LineStructure::collectHaloMarkers()
 {
-    const std::unordered_map<label,DynamicList<label>>& haloCellToNeighbours = getSelfHaloCellToNeighboursMap();
+    const std::unordered_map<label,label>& selfHaloCellToIndex = getHaloCellToIndexMap(Pstream::myProcNo();)
+    //const std::unordered_map<label,DynamicList<label>>& haloCellToNeighbours = getSelfHaloCellToNeighboursMap();
     const std::unordered_map<label,label>& haloCellToIndex = getSelfHaloList_Sorted_IndexMap();
     for(const std::unique_ptr<std::list<LagrangianMarker>>& oneRodMarkers : rodMarkersList)
     {
@@ -450,7 +454,7 @@ void Foam::LineStructure::collectHaloMarkers()
             for(const LagrangianMarker& marker : *oneRodMarkers)
             {
                 label cellOfMarker = marker.getMarkerCell();
-                if(haloCellToNeighbours.find(cellOfMarker)!=haloCellToNeighbours.end())
+                if(selfHaloCellToIndex.find(cellOfMarker)!=selfHaloCellToIndex.end())
                 {
                     auto iter = haloCellToIndex.find(cellOfMarker);
                     if(iter==haloCellToIndex.end())
@@ -548,7 +552,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
 {    
     auto result = std::unique_ptr<LinearSystem>(new LinearSystem());
     std::get<1>(*result) = gismo::gsMatrix<scalar>(markers.size(),markers.size());
-    
+
     std::get<0>(*result) = markers;
     gismo::gsMatrix<scalar>& matrA = std::get<1>(*result);
     // <markerI,DynList<tuple<procK,haloCellIndK,markerIndK,aIK>>>
@@ -611,18 +615,22 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         
         //Compute additional right hand side entries
         std::unordered_set<label> neighborProcesses;
-        const std::unordered_map<label,DynamicList<label>>& selfHaloCellToNeighMap = getSelfHaloCellToNeighboursMap();
-        for(auto tupl : supportI)
+        for(const std::tuple<bool,label,label>& tupl : supportI)
         {
-            if(std::get<0>(tupl))
+            if(!std::get<0>(tupl))
             {
+                label process = std::get<1>(tupl);
                 label cellInd = std::get<2>(tupl);
-                auto iter = selfHaloCellToNeighMap.find(cellInd);
-                if(iter!=selfHaloCellToNeighMap.end())
-                {
-                    for(label process : iter->second)
-                        neighborProcesses.insert(process);
-                }
+                neighborProcesses.insert(process);
+                const std::unordered_map<label,label>& processHaloCellToIndexMap = getHaloCellToIndexMap(process);
+                auto cellIndexIter = processHaloCellToIndexMap.find(cellInd)
+                if(cellIndexIter==processHaloCellToIndexMap.end())
+                    FatalErrorInFunction<<"Cell in process halo not found"<<exit(FatalError);
+                label index = cellIndexIter->second;
+                const DynamicList<CellDescription>& processHaloCellList = getHaloCellList(process);
+                const CellDescription& oneCell = processHaloCellList[index];
+                if(oneCell.index!=cellInd)
+                    FatalErrorInFunction<<"Cell index data mismatch"<<exit(FatalError);
             }
         }
         for(auto iter=neighborProcesses.begin(); iter!=neighborProcesses.end(); iter++)
@@ -664,9 +672,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                             scalar suppKVol = markerKSuppCellVol[suppKInd];
                             vector suppKCentre = markerKSuppCellCentres[suppKInd];
                              
-                             using FMSI=FieldMarkerStructureInteraction;
-                             scalar weightI = FMSI::deltaDirac(XI,suppKCentre,dilationI);
-                             scalar weightK = FMSI::deltaDirac(XK,suppKCentre,dilationK);
+                             using LM=LagrangianMarker;
+                             scalar weightI = LM::deltaDirac(XI,suppKCentre,dilationI);
+                             scalar weightK = LM::deltaDirac(XK,suppKCentre,dilationK);
                              
                              bEntry += weightK*weightI*suppKVol;
                         }
@@ -678,9 +686,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                             scalar suppICellVol = suppICell.mag(points,faces);
                             vector suppICellCentre = suppICell.centre(points,faces);
                             
-                            using FMSI=FieldMarkerStructureInteraction;
-                            scalar weightI = FMSI::deltaDirac(XI,suppICellCentre,dilationI);
-                            scalar weightK = FMSI::deltaDirac(XK,suppICellCentre,dilationK);
+                            using LM=LagrangianMarker;
+                            scalar weightI = LM::deltaDirac(XI,suppICellCentre,dilationI);
+                            scalar weightK = LM::deltaDirac(XK,suppICellCentre,dilationK);
                             
                             bEntry += weightK*weightI*suppICellVol;
                         }
