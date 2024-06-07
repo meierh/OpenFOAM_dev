@@ -609,6 +609,7 @@ class LineStructure : public Structure
         // neighbourProcess -> cell -> markersData
         std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::pair<vector,scalar>>>> globalMarkerData;
         
+        /*
         template<typename T>
         std::unique_ptr<List<List<T>>> exchangeHaloFields
         (
@@ -629,6 +630,7 @@ class LineStructure : public Structure
             Pstream::scatterList(haloData);
             return results;
         }
+        */
         
         void check();
 

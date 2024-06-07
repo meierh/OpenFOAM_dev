@@ -230,6 +230,7 @@ class Structure
         
         /*********************************Collect halo cells***********************************/
         
+        /*
         typedef struct
         {
             label neighbourProcess;
@@ -242,7 +243,7 @@ class Structure
         
         // faceInd -> halo
         std::unordered_map<label,singleFaceHalo> haloData;
-                
+        */
 
         
         void collectMeshHaloData(label iterations=1);

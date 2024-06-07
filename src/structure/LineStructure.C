@@ -20,7 +20,7 @@ initialSpacing(initialSpacingFromMesh())
     createSpacingPoints();
     rodMarkersList.resize(nbrOfRods);
     
-    const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo())
+    const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
     
     haloCellsRodMarkersList.resize(selfHaloCellList.size());
     
@@ -31,7 +31,7 @@ initialSpacing(initialSpacingFromMesh())
     globalHaloCellsMarkerDilation.resize(Pstream::nProcs());
     globalHaloCellsMarkerDilation[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerSupportCellCentres.resize(Pstream::nProcs());
-    globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].resize(selfHaloCellList).size());
+    globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerSupportCellVolume.resize(Pstream::nProcs());
     globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].resize(selfHaloCellList.size());    
 }
@@ -162,7 +162,7 @@ void Foam::LineStructure::createMarkersFromSpacedPointsOnRod
     std::list<LagrangianMarker>& markers = *markersPtr;
     markers.clear();
     for(scalar point : *(initialRodPoints[rodNumber]))
-        markers.push_back(LagrangianMarker(mesh,rodNumber,oneRod,point));
+        markers.push_back(LagrangianMarker(*this,mesh,rodNumber,oneRod,point));
     rodMarkersList[rodNumber] = std::move(markersPtr);
 }
 
@@ -220,7 +220,7 @@ void Foam::LineStructure::refineMarkersOnRod
             if(subdivide)
             {
                 scalar middlePar = 0.5*(markers0Para+markers1Para);
-                LagrangianMarker middleMarker(mesh,rodNumber,oneRod,middlePar);
+                LagrangianMarker middleMarker(*this,mesh,rodNumber,oneRod,middlePar);
                 auto inserted = markers.insert(markersIter1,middleMarker);
                 refined=true;
             }
@@ -444,9 +444,7 @@ void Foam::LineStructure::reduceMarkers
 
 void Foam::LineStructure::collectHaloMarkers()
 {
-    const std::unordered_map<label,label>& selfHaloCellToIndex = getHaloCellToIndexMap(Pstream::myProcNo();)
-    //const std::unordered_map<label,DynamicList<label>>& haloCellToNeighbours = getSelfHaloCellToNeighboursMap();
-    const std::unordered_map<label,label>& haloCellToIndex = getSelfHaloList_Sorted_IndexMap();
+    const std::unordered_map<label,label>& selfHaloCellToIndex = getHaloCellToIndexMap(Pstream::myProcNo());
     for(const std::unique_ptr<std::list<LagrangianMarker>>& oneRodMarkers : rodMarkersList)
     {
         if(oneRodMarkers)
@@ -454,11 +452,9 @@ void Foam::LineStructure::collectHaloMarkers()
             for(const LagrangianMarker& marker : *oneRodMarkers)
             {
                 label cellOfMarker = marker.getMarkerCell();
-                if(selfHaloCellToIndex.find(cellOfMarker)!=selfHaloCellToIndex.end())
+                auto iter = selfHaloCellToIndex.find(cellOfMarker);
+                if(iter!=selfHaloCellToIndex.end())
                 {
-                    auto iter = haloCellToIndex.find(cellOfMarker);
-                    if(iter==haloCellToIndex.end())
-                        FatalErrorInFunction<<"Rod Mesh not set!"<<exit(FatalError);
                     label index = iter->second;
                     haloCellsRodMarkersList[index].push_back(&marker);
                 }
@@ -601,9 +597,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                         scalar overlapCellVol = overlapCell.mag(points,faces);
                         vector overlapCellCentre = overlapCell.centre(points,faces);
                         
-                        using FMSI=FieldMarkerStructureInteraction;
-                        scalar weightI = FMSI::deltaDirac(XI,overlapCellCentre,dilationI);
-                        scalar weightK = FMSI::deltaDirac(XK,overlapCellCentre,dilationK);
+                        using LM=LagrangianMarker;
+                        scalar weightI = LM::deltaDirac(XI,overlapCellCentre,dilationI);
+                        scalar weightK = LM::deltaDirac(XK,overlapCellCentre,dilationK);
 
                         matrixEntry += weightK*weightI*overlapCellVol;
                     }
@@ -623,7 +619,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 label cellInd = std::get<2>(tupl);
                 neighborProcesses.insert(process);
                 const std::unordered_map<label,label>& processHaloCellToIndexMap = getHaloCellToIndexMap(process);
-                auto cellIndexIter = processHaloCellToIndexMap.find(cellInd)
+                auto cellIndexIter = processHaloCellToIndexMap.find(cellInd);
                 if(cellIndexIter==processHaloCellToIndexMap.end())
                     FatalErrorInFunction<<"Cell in process halo not found"<<exit(FatalError);
                 label index = cellIndexIter->second;
@@ -715,12 +711,13 @@ void Foam::LineStructure::computeMarkerWeights()
     // <markerI,DynList<tuple<procK,haloCellIndK,markerIndK,aIK>>>
     const std::unordered_map<label,DynamicList<std::tuple<label,label,label,scalar>>>& bEntry = std::get<2>(*system);
     
-    const DynamicList<label>& selfHaloList = getSelfHaloList_Sorted();
+    const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
     List<List<DynamicList<scalar>>> globalHaloMarkerEpsValues(Pstream::nProcs());
-    List<List<DynamicList<scalar>>> globalHaloMarkerEpsValues(selfHaloList.size());
+    globalHaloMarkerEpsValues[Pstream::myProcNo()].resize(selfHaloCellList.size());
 
-    std::unordered_map<LagrangianMarker*,std::pair<label,label>> markerPtrHaloCellIndex;
-    List<List<DynamicList<vector>>> globalHaloCellsMarkerEpsilon(Pstream::nProcs());
+    // markerPtr -> {cellInd, list index}
+    std::unordered_map<const LagrangianMarker*,std::pair<label,label>> markerPtrHaloCellIndex;
+    List<List<DynamicList<scalar>>> globalHaloCellsMarkerEpsilon(Pstream::nProcs());
     globalHaloCellsMarkerEpsilon[Pstream::myProcNo()].resize(haloCellsRodMarkersList.size());
     for(label haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
@@ -744,7 +741,7 @@ void Foam::LineStructure::computeMarkerWeights()
             markerIIndHaloCellIndex[I] = iter->second;
         }
     }
-    List<std::pair<I,std::pair<label,label>>> I_haloMarkerCellIndex(markerIIndHaloCellIndex.size());
+    List<std::pair<label,std::pair<label,label>>> I_haloMarkerCellIndex(markerIIndHaloCellIndex.size());
     label I=0;
     for(auto iter=markerIIndHaloCellIndex.begin(); iter!=markerIIndHaloCellIndex.end(); iter++,I++)
     {
@@ -789,7 +786,7 @@ void Foam::LineStructure::computeMarkerWeights()
                             label markerIndK = std::get<2>(oneHaloMarkerK);
                             if( procK>=globalHaloCellsMarkerEpsilon.size() ||
                                 haloCellIndK>=globalHaloCellsMarkerEpsilon[Pstream::myProcNo()].size() ||
-                                markerIndK>=globalHaloCellsMarkerEpsilon[Pstream::myProcNo()][haloCellInd].size()
+                                markerIndK>=globalHaloCellsMarkerEpsilon[Pstream::myProcNo()][haloCellIndK].size()
                               )
                                 FatalErrorInFunction<<"Invalid indices of foreign marker"<<exit(FatalError);
 
@@ -815,6 +812,11 @@ void Foam::LineStructure::computeMarkerWeights()
         }
         gismo::gsGMRes WM(A);
         WM.solve(ones,eps);
+    }
+    
+    for(label I=0; I<markers.size(); I++)
+    {
+        
     }
 }
 

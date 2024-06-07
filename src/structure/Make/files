@@ -1,8 +1,9 @@
 Structure.C
-/*
+LineStructure.C
 LagrangianMarker.C
 FieldMarkerStructureInteraction.C
-LineStructure.C
+
+/*
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C

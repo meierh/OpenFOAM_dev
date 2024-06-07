@@ -148,7 +148,7 @@ void Foam::LagrangianMarker::computeSupport
     }
     for(auto iterCells=supportCells.begin(); iterCells!=supportCells.end(); iterCells++)
     {
-        this->supportCells.append({true,Pstream::myProcNo(),iterCells->second);
+        this->supportCells.append({true,Pstream::myProcNo(),iterCells->second});
     }
     for(auto iterProc=foreignHaloCells.begin(); iterProc!=foreignHaloCells.end(); iterProc++)
     {
@@ -156,7 +156,7 @@ void Foam::LagrangianMarker::computeSupport
         for(auto iterCell=iterProc->second.begin(); iterCell!=iterProc->second.end(); iterCell++)
         {
             label cellInd = *iterCell;
-            this->supportCells.append({false,processNo,cellInd);
+            this->supportCells.append({false,processNo,cellInd});
         }
     }
 }

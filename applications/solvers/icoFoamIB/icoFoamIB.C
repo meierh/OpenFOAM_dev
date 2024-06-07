@@ -30,7 +30,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "LineStructure.H"
-#include "CrossSectionStructure.H"
+//#include "CrossSectionStructure.H"
 #include "MarkerImplementation.H"
 #include <memory>
 #include "fvCFD.H"
@@ -48,19 +48,23 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
 
-    /*
     LineStructure structure(mesh,{0.1});
+    
+    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);    
+    
+    /*
     VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
     structure.transferMarkers(Uf_Interaction);
-    */
+
+
     
     scalar pi = constant::mathematical::pi;
     CrossSection crossSecN(0.05);
     CrossSectionStructure structure(mesh,{crossSecN});
+
     VelocityPressureForceInteraction Uf_Interaction(mesh,U,Uf);
     structure.transferMarkers(Uf_Interaction);
-        
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);
+    */
 
     /*
     scalar pi = constant::mathematical::pi;

@@ -25,7 +25,7 @@ mesh(mesh)
     createNurbsBoundary();
     setSolverOptions();
        
-    collectMeshHaloData();
+    collectMeshHaloData(1);
 }
 
 Foam::Structure::~Structure()
@@ -708,6 +708,15 @@ void Foam::Structure::collectMeshHaloData
     Pstream::scatterList(procCellCentres);
     Pstream::scatterList(procCellMags);
     
+    if(Pstream::myProcNo()==0)
+    {
+    Pout<<"procPatchOwner"<<Foam::endl;
+    Pout<<procPatchOwner.size()<<Foam::endl;
+    for(label proc=0; proc<procPatchOwner.size(); proc++)
+        for(label cellInd=0; cellInd<procPatchOwner[proc].size(); cellInd++)
+            Pout<<proc<<":"<<cellInd<<":"<<procPatchOwner[proc][cellInd]<<"|"<<procPatchNeighbour[proc][cellInd]<<"|"<<procPatchIndex[proc][cellInd]<<"|"<<procPatchFaceLocalIndex[proc][cellInd]<<"|"<<procCellInds[proc][cellInd]<<Foam::endl;
+    }
+    
     globalHaloCellList_Sorted.resize(Pstream::nProcs());
     globalHaloCellToIndexMap.resize(Pstream::nProcs());
     for(label process=0; process<Pstream::nProcs(); process++)
@@ -751,7 +760,7 @@ void Foam::Structure::collectMeshHaloData
             }
         }
         
-        DynamicList<CellDescription>& haloCellList_Sorted = globalHaloCellList_Sorted[Pstream::myProcNo()];
+        DynamicList<CellDescription>& haloCellList_Sorted = globalHaloCellList_Sorted[process];
         for(auto iter=uniqueHaloCells.begin(); iter!=uniqueHaloCells.end(); iter++)
         {
             label cellInd = iter->first;
@@ -861,5 +870,14 @@ void Foam::Structure::collectMeshHaloData
                 }
             }
         }
+    }
+    
+    if(Pstream::myProcNo()==0)
+    {
+    Pout<<"globalHaloCellList_Sorted"<<Foam::endl;
+    Pout<<globalHaloCellList_Sorted.size()<<Foam::endl;
+    for(label proc=0; proc<globalHaloCellList_Sorted.size(); proc++)
+        for(label cellInd=0; cellInd<globalHaloCellList_Sorted[proc].size(); cellInd++)
+            Pout<<proc<<":"<<cellInd<<":"<<globalHaloCellList_Sorted[proc][cellInd].index<<Foam::endl;
     }
 }
