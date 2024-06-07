@@ -23,7 +23,7 @@ class LagrangianMarker
         scalar getMarkerCellVolume();
         std::pair<scalar,scalar> getMarkerCellSpacing();
         scalar getMarkerCellMinSpacing();
-        std::string to_string();
+        std::string to_string() const;
         void evaluateMarker();
         
         inline label getRodNumber() const {return rodNumber;}

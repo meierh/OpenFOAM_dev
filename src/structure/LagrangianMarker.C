@@ -65,9 +65,9 @@ scalar Foam::LagrangianMarker::getMarkerCellMinSpacing()
     return getMarkerCellSpacing().first;
 }
 
-std::string Foam::LagrangianMarker::to_string()
+std::string Foam::LagrangianMarker::to_string() const
 {
-    return std::to_string(markerParameter);
+    return std::to_string(markerParameter)+" cell:"+std::to_string(markerCell)+" pos:"+std::to_string(markerPosition[0]);
 }
 
 void Foam::LagrangianMarker::evaluateMarker()

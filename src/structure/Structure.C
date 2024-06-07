@@ -708,14 +708,16 @@ void Foam::Structure::collectMeshHaloData
     Pstream::scatterList(procCellCentres);
     Pstream::scatterList(procCellMags);
     
+    /*
     if(Pstream::myProcNo()==0)
     {
-    Pout<<"procPatchOwner"<<Foam::endl;
-    Pout<<procPatchOwner.size()<<Foam::endl;
-    for(label proc=0; proc<procPatchOwner.size(); proc++)
-        for(label cellInd=0; cellInd<procPatchOwner[proc].size(); cellInd++)
-            Pout<<proc<<":"<<cellInd<<":"<<procPatchOwner[proc][cellInd]<<"|"<<procPatchNeighbour[proc][cellInd]<<"|"<<procPatchIndex[proc][cellInd]<<"|"<<procPatchFaceLocalIndex[proc][cellInd]<<"|"<<procCellInds[proc][cellInd]<<Foam::endl;
+        Pout<<"procPatchOwner"<<Foam::endl;
+        Pout<<procPatchOwner.size()<<Foam::endl;
+        for(label proc=0; proc<procPatchOwner.size(); proc++)
+            for(label cellInd=0; cellInd<procPatchOwner[proc].size(); cellInd++)
+                Pout<<proc<<":"<<cellInd<<":"<<procPatchOwner[proc][cellInd]<<" | "<<procPatchNeighbour[proc][cellInd]<<" | "<<procPatchIndex[proc][cellInd]<<" | "<<procPatchFaceLocalIndex[proc][cellInd]<<" | "<<procCellInds[proc][cellInd]<<procCellCentres[proc][cellInd]<<Foam::endl;
     }
+    */
     
     globalHaloCellList_Sorted.resize(Pstream::nProcs());
     globalHaloCellToIndexMap.resize(Pstream::nProcs());
@@ -872,12 +874,29 @@ void Foam::Structure::collectMeshHaloData
         }
     }
     
+    /*
     if(Pstream::myProcNo()==0)
     {
-    Pout<<"globalHaloCellList_Sorted"<<Foam::endl;
-    Pout<<globalHaloCellList_Sorted.size()<<Foam::endl;
-    for(label proc=0; proc<globalHaloCellList_Sorted.size(); proc++)
-        for(label cellInd=0; cellInd<globalHaloCellList_Sorted[proc].size(); cellInd++)
-            Pout<<proc<<":"<<cellInd<<":"<<globalHaloCellList_Sorted[proc][cellInd].index<<Foam::endl;
+        Pout<<"globalHaloCellToIndexMap"<<Foam::endl;
+        Pout<<globalHaloCellToIndexMap.size()<<Foam::endl;
+        for(label proc=0; proc<globalHaloCellToIndexMap.size(); proc++)
+            for(auto iter=globalHaloCellToIndexMap[proc].begin(); iter!=globalHaloCellToIndexMap[proc].end(); iter++)
+                Pout<<proc<<" : "<<iter->first<<"->"<<iter->second<<Foam::endl;
+            
+        Pout<<"globalHaloCellList_Sorted"<<Foam::endl;
+        Pout<<globalHaloCellList_Sorted.size()<<Foam::endl;
+        for(label proc=0; proc<globalHaloCellList_Sorted.size(); proc++)
+            for(label cellInd=0; cellInd<globalHaloCellList_Sorted[proc].size(); cellInd++)
+                Pout<<proc<<":"<<cellInd<<":"<<globalHaloCellList_Sorted[proc][cellInd].index<<Foam::endl;
+        
+        Pout<<"patchFaceToCellMap"<<Foam::endl;
+        Pout<<patchFaceToCellMap.size()<<Foam::endl;
+        for(auto iter=patchFaceToCellMap.begin(); iter!=patchFaceToCellMap.end(); iter++)
+        {
+            Pout<<"faceInd:"<<iter->first<<"->"<<Foam::endl;
+            for(auto pair : iter->second)
+                Pout<<"\t\t"<<"{"<<pair.first<<","<<pair.second<<"}"<<Foam::endl;
+        }
     }
+    */
 }

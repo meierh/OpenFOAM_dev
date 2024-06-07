@@ -221,7 +221,7 @@ class Structure
         List<DynamicList<CellDescription>> globalHaloCellList_Sorted;
         // [proc] -> cell -> index
         List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
-        //faceInd -> [{proc,cell}]
+        //faceInd -> [{neighbor proc,cell}]
         std::unordered_map<label,DynamicList<std::pair<label,label>>> patchFaceToCellMap;
 
         
