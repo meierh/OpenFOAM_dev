@@ -468,6 +468,7 @@ class LineStructure : public Structure
         <
             std::vector<LagrangianMarker*>,
             gismo::gsMatrix<scalar>,
+            // markerI -> DynList<tuple<procK,haloCellIndK,markerIndK,aIK>>
             std::unordered_map<label,DynamicList<std::tuple<label,label,label,scalar>>>
         >;
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
@@ -576,7 +577,6 @@ class LineStructure : public Structure
         
     private:
         const List<scalar> crossSecArea;
-        const scalar initialSpacing;
         // [rodNumber] -> ...
         std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;

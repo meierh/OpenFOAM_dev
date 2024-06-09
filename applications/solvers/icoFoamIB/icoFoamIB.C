@@ -47,6 +47,8 @@ int main(int argc, char *argv[])
     pisoControl piso(mesh);
     #include "createFields.H"
     #include "initContinuityErrs.H"
+    
+    Info<<"cellNbr:"<<mesh.cells().size()<<Foam::endl;
 
     LineStructure structure(mesh,{0.1});
     

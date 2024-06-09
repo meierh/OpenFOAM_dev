@@ -9,8 +9,10 @@ runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
 xmlPath(getXMLPath()),
+name(getName()),
 nR(loadRodsFromXML()),
-mesh(mesh)
+mesh(mesh),
+initialMeshSpacing(initialSpacingFromMesh(mesh))
 {
     cntOpt.ptsType = 2;
     cntOpt.ptsN = 2;
@@ -25,7 +27,7 @@ mesh(mesh)
     createNurbsBoundary();
     setSolverOptions();
        
-    collectMeshHaloData(1);
+    collectMeshHaloData(2);
 }
 
 Foam::Structure::~Structure()
@@ -41,9 +43,6 @@ Foam::Structure::~Structure()
 
 Foam::word Foam::Structure::getXMLPath()
 {
-    //Info<<"lateScale:"<<latScale<<endl;
-    //Info<<"latDir:"<<latDir<<endl;
-
     fileName caseDirectory = runDirectory+"/"+caseName;
     fileName constantDirectory = caseDirectory;
 
@@ -74,14 +73,21 @@ Foam::word Foam::Structure::getXMLPath()
         FatalIOError<<"No Nurbs file found!"<<exit(FatalIOError);
     if(xmlFiles.size()>1)
         Info<<"Multiple Nurbs files found. First one will be used!"<<endl;
-    word fullPath = constantDirectory+"/"+xmlFiles[0];    
-    name = xmlFiles[0].erase(xmlFiles[0].length()-4,std::string::npos);
-    Info<<"Xml path:"<<fullPath<<Foam::endl;
+    word fullPath = constantDirectory+"/"+xmlFiles[0];
     return fullPath;
+}
+
+Foam::word Foam::Structure::getName()
+{
+    word name = xmlPath;
+    label lastSlash = name.rfind("/");
+    label lastDot = name.rfind(".xml");
+    return name.substr(lastSlash+1,lastDot-lastSlash-1);
 }
 
 int Foam::Structure::loadRodsFromXML()
 {
+    Info<<"loadRodsFromXML"<<Foam::endl;
     //printf("loadRodsFromXML\n");
     std::string rodsXMLFilePath = xmlPath;
     bool importSuccess = ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
@@ -899,4 +905,31 @@ void Foam::Structure::collectMeshHaloData
         }
     }
     */
+}
+
+scalar Foam::Structure::initialSpacingFromMesh
+(
+    const dynamicRefineFvMesh& mesh
+)
+{
+    Info<<"initialSpacingFromMesh cellNbr:"<<mesh.cells().size()<<Foam::endl;
+    if(mesh.cells().size()<1)
+        FatalErrorInFunction<<"Mesh not valid"<<exit(FatalError);
+    const cell& oneCell = mesh.cells()[0];
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    const pointField& oneCellPoints = oneCell.points(faces,points);
+    vector oneCellCentre = oneCell.centre(points,faces);
+    scalar minHalfDist = std::numeric_limits<scalar>::max();
+    for(vector pnt : oneCellPoints)
+    {
+        vector conn = pnt-oneCellCentre;
+        for(label dim=0; dim<3; dim++)
+        {
+            scalar connD = std::abs(conn[dim]);
+            if(connD<minHalfDist)
+                minHalfDist=connD;
+        }
+    }
+    return 2*minHalfDist;
 }

@@ -84,6 +84,7 @@ void Foam::LagrangianMarker::computeSupport
     label iterations
 )
 {
+    //Info<<"Compute support"<<Foam::endl;
     const cellList& cellList = mesh.cells();
     const faceList& facesList = mesh.faces();
     const labelList& owners = mesh.owner();
@@ -100,55 +101,86 @@ void Foam::LagrangianMarker::computeSupport
     };
     std::unordered_set<label> treatedCell;
     //pair{iteration,cellInd}
-    std::unordered_set<std::pair<label,label>,FirstHash> supportCells;
+    std::unordered_set<std::pair<label,label>,FirstHash> ownSupportCells;
     //process -> {cellInd}
     std::unordered_map<label,std::unordered_set<label>> foreignHaloCells;
-    this->supportCells.resize(0);
+    //Info<<"-----------------------markerCell----------------:"<<markerCell<<Foam::endl;
     if(markerCell!=-1)
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
-        supportCells.insert({-1,markerCell});
+        ownSupportCells.insert({-1,markerCell});
         treatedCell.insert(markerCell);
         
         for(label iter=0; iter<iterations; iter++)
         {
-            for(auto cellIter=supportCells.begin(); cellIter!=supportCells.end(); cellIter++)
+            std::vector<std::pair<label,label>> addedOwnSupport;
+            for(auto cellIter=ownSupportCells.begin(); cellIter!=ownSupportCells.end(); cellIter++)
             {
                 if(cellIter->first==iter-1)
                 {
                     label cellInd = cellIter->second;
+                    //Info<<"iteration:"<<iter<<"  base:"<<cellInd<<Foam::endl;
                     const cell& thisCell = cellList[cellInd];
                     for(label faceInd : thisCell)
                     {
-                        label owner = owners[faceInd];
-                        if(treatedCell.find(owner)==treatedCell.end())
+                        bool interProcessBound = false;
+                        label neighborCell=-1;
+                        if(owners[faceInd]==cellInd)
                         {
-                            supportCells.insert({iter,owner});
-                            treatedCell.insert(owner);
                             if(faceInd<neighbours.size())
+                            {
+                                neighborCell = neighbours[faceInd];
+                            }
+                            else
                             {
                                 auto iter = patchFaceToCell.find(faceInd);
                                 if(iter!=patchFaceToCell.end())
+                                    interProcessBound = true;
+                            }
+                        }
+                        else
+                            neighborCell = owners[faceInd];
+                        
+                        //Info<<" faceInd:"<<faceInd<<"  |"<<neighborCell<<"/"<<interProcessBound<<Foam::endl;
+                        
+                        if(interProcessBound)
+                        {
+                            auto iter = patchFaceToCell.find(faceInd);
+                            if(iter!=patchFaceToCell.end())
+                            {
+                                const DynamicList<std::pair<label,label>>& haloCells = iter->second;
+                                for(const std::pair<label,label> haloCell : haloCells)
                                 {
-                                    const DynamicList<std::pair<label,label>>& haloCells = iter->second;
-                                    for(const std::pair<label,label> haloCell : haloCells)
-                                    {
-                                        label process = haloCell.first;
-                                        label cellInd = haloCell.second;
-                                        foreignHaloCells[process].insert(cellInd);
-                                    }
+                                    label process = haloCell.first;
+                                    label cellInd = haloCell.second;
+                                    foreignHaloCells[process].insert(cellInd);
                                 }
                             }
-                        }         
+                        }
+                        else
+                        {
+                            if(neighborCell!=-1)
+                            {
+                                if(treatedCell.find(neighborCell)==treatedCell.end())
+                                {
+                                    addedOwnSupport.push_back({iter,neighborCell});
+                                    treatedCell.insert(neighborCell);
+                                }
+                            }
+                        }
                     }
                 }
             }
+            ownSupportCells.insert(addedOwnSupport.begin(),addedOwnSupport.end());
         }
     }
-    for(auto iterCells=supportCells.begin(); iterCells!=supportCells.end(); iterCells++)
+    //Info<<"ownSupportCells.size():"<<ownSupportCells.size()<<"  iterations:"<<iterations<<Foam::endl;
+    this->supportCells.resize(0);
+    for(auto iterCells=ownSupportCells.begin(); iterCells!=ownSupportCells.end(); iterCells++)
     {
-        this->supportCells.append({true,Pstream::myProcNo(),iterCells->second});
+        std::tuple<bool,label,label> cellData = {true,Pstream::myProcNo(),iterCells->second};
+        this->supportCells.append(cellData);
     }
     for(auto iterProc=foreignHaloCells.begin(); iterProc!=foreignHaloCells.end(); iterProc++)
     {
@@ -156,7 +188,8 @@ void Foam::LagrangianMarker::computeSupport
         for(auto iterCell=iterProc->second.begin(); iterCell!=iterProc->second.end(); iterCell++)
         {
             label cellInd = *iterCell;
-            this->supportCells.append({false,processNo,cellInd});
+            std::tuple<bool,label,label> cellData = {false,processNo,cellInd};
+            this->supportCells.append(cellData);
         }
     }
 }
@@ -167,39 +200,83 @@ void Foam::LagrangianMarker::minMaxSupportWidth()
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
     
-    scalar min = std::numeric_limits<scalar>::max();
-    scalar max = std::numeric_limits<scalar>::min();
-    vector minSpan(max,max,max);
-    vector maxSpan(min,min,min);
-
-    /*
-    for(label i=0; i<supportCells.size(); i++)
+    vector minSpan;
+    vector maxSpan;
+    //Info<<"supportCells.size():"<<supportCells.size()<<Foam::endl;
+    
+    if(supportCells.size()>1)
     {
-        vector cellCentreA = cells[supportCells[i]].centre(points,faces);
-        for(label j=0; j<supportCells.size(); j++)
+        scalar min = std::numeric_limits<scalar>::min();
+        scalar max = std::numeric_limits<scalar>::max();
+        minSpan = vector(max,max,max);
+        maxSpan = vector(min,min,min);
+        
+        for(label i=0; i<supportCells.size(); i++)
         {
-            if(i!=j)
+            const std::tuple<bool,label,label>& suppCellDataA = supportCells[i];
+            vector cellCentreA;
+            if(std::get<0>(suppCellDataA))
+                cellCentreA = cells[std::get<2>(suppCellDataA)].centre(points,faces);
+            else
             {
-                vector cellCentreB = cells[supportCells[j]].centre(points,faces);
-                vector conn = cellCentreA-cellCentreB;
-                for(label d=0; d<3; d++)
+                label neighProcess = std::get<1>(suppCellDataA);
+                const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+                auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellDataA));
+                if(iter==neighborHaloCellToIndexMap.end())
+                    FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+                label index = iter->second;
+                cellCentreA = structure.getHaloCellList(neighProcess)[index].centre;
+            }
+            
+            for(label j=0; j<supportCells.size(); j++)
+            {
+                if(i!=j)
                 {
-                    conn[d] = std::abs(conn[d]);
-                    minSpan[d] = std::min(minSpan[d],conn[d]);
-                    maxSpan[d] = std::max(maxSpan[d],conn[d]);
+                    const std::tuple<bool,label,label>& suppCellDataB = supportCells[j];
+                    vector cellCentreB;
+                    if(std::get<0>(suppCellDataB))
+                        cellCentreB = cells[std::get<2>(suppCellDataB)].centre(points,faces);
+                    else
+                    {
+                        label neighProcess = std::get<1>(suppCellDataB);
+                        const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+                        auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellDataB));
+                        if(iter==neighborHaloCellToIndexMap.end())
+                            FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+                        label index = iter->second;
+                        cellCentreB = structure.getHaloCellList(neighProcess)[index].centre;
+                    }
+                                    
+                    vector conn = cellCentreA-cellCentreB;
+                    for(label d=0; d<3; d++)
+                    {
+                        conn[d] = std::abs(conn[d]);
+                        minSpan[d] = std::min(minSpan[d],conn[d]);
+                        maxSpan[d] = std::max(maxSpan[d],conn[d]);
+                    }
                 }
             }
         }
     }
-    */
+    else
+    {
+        scalar min = structure.initialMeshSpacing;
+        scalar max = structure.initialMeshSpacing;
+        minSpan = vector(max,max,max);
+        maxSpan = vector(min,min,min);
+    }
     h_plus = maxSpan;
     h_minus = minSpan;
+    //Info<<"maxSpan:"<<maxSpan<<Foam::endl;
+    //Info<<"minSpan:"<<minSpan<<Foam::endl;
 }
 
 void Foam::LagrangianMarker::dilationFactors()
 {
     vector minSpan = h_minus;
     vector maxSpan = h_plus;
+    //Info<<"     h_minus:"<<h_minus<<Foam::endl;
+    //Info<<"     h_plus:"<<h_plus<<Foam::endl;
     
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
@@ -207,6 +284,7 @@ void Foam::LagrangianMarker::dilationFactors()
     
     scalar eps = 0.1*std::sqrt(minSpan&minSpan);
     dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
+    //Info<<" dilation:"<<dilation<<Foam::endl;
 }
 
 scalar Foam::LagrangianMarker::computeMoment

@@ -113,14 +113,16 @@ class Structure
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
+        const scalar initialMeshSpacing;
         
     protected:
         const Time& runTime;
-        fileName runDirectory;
-        fileName caseName;
-        fileName xmlPath;
-        word name;
+        const fileName runDirectory;
+        const fileName caseName;
+        const fileName xmlPath;
+        const word name;
         word getXMLPath();
+        word getName();
         int loadRodsFromXML();
         void createNurbsStructure();
         void createNurbsBoundary();
@@ -201,6 +203,7 @@ class Structure
             scalar volume;
         } CellDescription;     
         
+    public:
         const DynamicList<CellDescription>& getHaloCellList(label process) const
         {
             return globalHaloCellList_Sorted[process];
@@ -209,7 +212,6 @@ class Structure
         {
             return globalHaloCellToIndexMap[process];
         }
-    public:
         const std::unordered_map<label,DynamicList<std::pair<label,label>>>& getPatchFaceToCellMap() const
         {
             return patchFaceToCellMap;
@@ -245,7 +247,7 @@ class Structure
         std::unordered_map<label,singleFaceHalo> haloData;
         */
 
-        
+        scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh);
         void collectMeshHaloData(label iterations=1);
 };
 }
