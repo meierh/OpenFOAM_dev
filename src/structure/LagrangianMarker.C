@@ -104,6 +104,8 @@ void Foam::LagrangianMarker::computeSupport
     std::unordered_set<std::pair<label,label>,FirstHash> ownSupportCells;
     //process -> {cellInd}
     std::unordered_map<label,std::unordered_set<label>> foreignHaloCells;
+    std::unordered_set<label> directNeighborFaces;
+    std::unordered_set<label> directNonNeighborFaces;
     //Info<<"-----------------------markerCell----------------:"<<markerCell<<Foam::endl;
     if(markerCell!=-1)
     {
@@ -157,6 +159,7 @@ void Foam::LagrangianMarker::computeSupport
                                     foreignHaloCells[process].insert(cellInd);
                                 }
                             }
+                            directNeighborFaces.insert(faceInd);
                         }
                         else
                         {
@@ -167,7 +170,9 @@ void Foam::LagrangianMarker::computeSupport
                                     addedOwnSupport.push_back({iter,neighborCell});
                                     treatedCell.insert(neighborCell);
                                 }
+                                directNeighborFaces.insert(faceInd);
                             }
+                            elseNonNeighborFaces.insert(faceInd);
                         }
                     }
                 }
@@ -192,6 +197,8 @@ void Foam::LagrangianMarker::computeSupport
             this->supportCells.append(cellData);
         }
     }
+    
+    
 }
 
 void Foam::LagrangianMarker::minMaxSupportWidth()
@@ -290,7 +297,7 @@ void Foam::LagrangianMarker::dilationFactors()
 scalar Foam::LagrangianMarker::computeMoment
 (
     vector indices
-)
+) const
 {
     vector X = getMarkerPosition();
     
@@ -302,8 +309,81 @@ scalar Foam::LagrangianMarker::computeMoment
     scalar moment = 0;
     for(label i=0; i<supportCells.size(); i++)
     {
-        label cellInd = std::get<2>(supportCells[i]);
-        vector x = cells[cellInd].centre(points,faces);
+        const std::tuple<bool,label,label>& suppCellData = supportCells[i];
+        vector cellCentre;
+        scalar cellVolume;
+        if(std::get<0>(suppCellData))
+        {
+            label cellInd = std::get<2>(suppCellData);
+            cellCentre = cells[cellInd].centre(points,faces);
+            cellVolume = cells[cellInd].mag(points,faces);
+        }
+        else
+        {
+            label neighProcess = std::get<1>(suppCellData);
+            const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+            auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellData));
+            if(iter==neighborHaloCellToIndexMap.end())
+                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            label index = iter->second;
+            cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
+            cellVolume = structure.getHaloCellList(neighProcess)[index].volume;
+        }
+        
+        vector x = cellCentre;
+        vector conn = x-X;
+        vector coeff(1,1,1);
+        for(label dim=0; dim<3; dim++)
+        {
+            for(label index=0; index<indices[dim]; index++)
+            {
+                coeff[dim]*=conn[dim];
+            }
+        }
+        scalar dirac = deltaDirac(X,x,getDilation());
+        Info<<conn<<"|"<<dirac<<Foam::endl;
+        moment += coeff[0]*coeff[1]*coeff[2]*dirac*cellVolume;
+    }
+    return moment;
+};
+
+scalar Foam::LagrangianMarker::computeCorrectedMoment
+(
+    vector indices
+) const
+{
+    vector X = getMarkerPosition();
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    const DynamicList<std::tuple<bool,label,label>>& supportCells = getSupportCells();
+    
+    scalar moment = 0;
+    for(label i=0; i<supportCells.size(); i++)
+    {
+        const std::tuple<bool,label,label>& suppCellData = supportCells[i];
+        vector cellCentre;
+        scalar cellVolume;
+        if(std::get<0>(suppCellData))
+        {
+            label cellInd = std::get<2>(suppCellData);
+            cellCentre = cells[cellInd].centre(points,faces);
+            cellVolume = cells[cellInd].mag(points,faces);
+        }
+        else
+        {
+            label neighProcess = std::get<1>(suppCellData);
+            const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+            auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellData));
+            if(iter==neighborHaloCellToIndexMap.end())
+                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            label index = iter->second;
+            cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
+            cellVolume = structure.getHaloCellList(neighProcess)[index].volume;
+        }
+        
+        vector x = cellCentre;
         vector conn = x-X;
         vector coeff(1,1,1);
         for(label dim=0; dim<3; dim++)
@@ -313,18 +393,28 @@ scalar Foam::LagrangianMarker::computeMoment
                 coeff[dim]*=coeff[dim];
             }
         }
-        scalar volume = cells[cellInd].mag(points,faces);
-        scalar dirac = deltaDirac(X,x,getDilation());
-        moment += coeff[0]*coeff[1]*coeff[2]*dirac*volume;
+        scalar dirac = correctedDeltaDirac(X,x,getDilation(),b);
+        moment += coeff[0]*coeff[1]*coeff[2]*dirac*cellVolume;
     }
     return moment;
 };
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix()
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix() const
 {
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
     
+    Info<<"computeMoment(vector(0,0,0)):"<<computeMoment(vector(0,0,0))<<Foam::endl;
+    Info<<"computeMoment(vector(2,0,0)):"<<computeMoment(vector(2,0,0))<<Foam::endl;
+    Info<<"computeMoment(vector(0,2,0)):"<<computeMoment(vector(0,2,0))<<Foam::endl;
+    Info<<"computeMoment(vector(0,0,2)):"<<computeMoment(vector(0,0,2))<<Foam::endl;
+    Info<<"computeMoment(vector(2,2,0)):"<<computeMoment(vector(2,2,0))<<Foam::endl;
+    Info<<"computeMoment(vector(0,2,2)):"<<computeMoment(vector(0,2,2))<<Foam::endl;
+    Info<<"computeMoment(vector(2,0,2)):"<<computeMoment(vector(2,0,2))<<Foam::endl;
+    Info<<"computeMoment(vector(4,0,0)):"<<computeMoment(vector(4,0,0))<<Foam::endl;
+    Info<<"computeMoment(vector(0,4,0)):"<<computeMoment(vector(0,4,0))<<Foam::endl;
+    Info<<"computeMoment(vector(0,0,4)):"<<computeMoment(vector(0,0,4))<<Foam::endl;
+        
     //Diagonal
     moments3D(0,0) = computeMoment(vector(0,0,0));
     moments3D(1,1) = computeMoment(vector(2,0,0));
@@ -347,7 +437,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     moments3D(0,7) = moments3D(7,0) = computeMoment(vector(2,0,0));
     moments3D(0,8) = moments3D(8,0) = computeMoment(vector(0,2,0));
     moments3D(0,9) = moments3D(9,0) = computeMoment(vector(0,0,2));
-
+    
     //Row / Column 1
     moments3D(1,2) = moments3D(2,1) = computeMoment(vector(1,1,0));
     moments3D(1,3) = moments3D(3,1) = computeMoment(vector(1,0,1));
@@ -411,7 +501,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     return moments3DPtr;
 }
 
-std::unique_ptr<std::array<scalar,10>> Foam::LagrangianMarker::rescalingDiagonal()
+std::unique_ptr<std::array<scalar,10>> Foam::LagrangianMarker::rescalingDiagonal() const
 {
     auto diagPtr = std::unique_ptr<std::array<scalar,10>>(new std::array<scalar,10>());
     std::array<scalar,10>& diag = *diagPtr;
@@ -443,11 +533,21 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     }
     e(0,0) = 1;
 
+    std::cout<<"M:"<<std::endl<<*M<<std::endl;
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    
     gismo::gsGMRes HM(*M);
     HM.solve(e,c);
     
+    std::cout<<"M:"<<std::endl<<*M<<std::endl;
+    std::cout<<"c:"<<std::endl<<c<<std::endl;
+    std::cout<<"e:"<<std::endl<<e<<std::endl;
+    
     for(label i=0; i<10; i++)
         b[i] = c(i,0) * (*H)[i];
+    
+    std::unique_ptr<gismo::gsMatrix<scalar>> corrM = computeCorrectedMomentMatrix();
+    //std::cout<<"corrM:"<<*corrM<<std::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac
@@ -484,7 +584,7 @@ scalar Foam::LagrangianMarker::deltaDirac
 (
     vector X,
     vector x
-)
+) const
 {
     return deltaDirac(X,x,dilation);
 }
@@ -539,4 +639,95 @@ scalar Foam::LagrangianMarker::phiFunction
         //Info<<"abs_r:"<<abs_r<<" -> "<<0<<Foam::endl;
         return 0;
     }
+}
+
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeCorrectedMomentMatrix() const
+{
+    auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
+    gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
+    
+    //Diagonal
+    moments3D(0,0) = computeCorrectedMoment(vector(0,0,0));
+    moments3D(1,1) = computeCorrectedMoment(vector(2,0,0));
+    moments3D(2,2) = computeCorrectedMoment(vector(0,2,0));
+    moments3D(3,3) = computeCorrectedMoment(vector(0,0,2));
+    moments3D(4,4) = computeCorrectedMoment(vector(2,2,0));
+    moments3D(5,5) = computeCorrectedMoment(vector(0,2,2));
+    moments3D(6,6) = computeCorrectedMoment(vector(2,0,2));
+    moments3D(7,7) = computeCorrectedMoment(vector(4,0,0));
+    moments3D(8,8) = computeCorrectedMoment(vector(0,4,0));
+    moments3D(9,9) = computeCorrectedMoment(vector(0,0,4));
+    
+    //Row / Column 0
+    moments3D(0,1) = moments3D(1,0) = computeCorrectedMoment(vector(1,0,0));
+    moments3D(0,2) = moments3D(2,0) = computeCorrectedMoment(vector(0,1,0));
+    moments3D(0,3) = moments3D(3,0) = computeCorrectedMoment(vector(0,0,1));
+    moments3D(0,4) = moments3D(4,0) = computeCorrectedMoment(vector(1,1,0));
+    moments3D(0,5) = moments3D(5,0) = computeCorrectedMoment(vector(0,1,1));
+    moments3D(0,6) = moments3D(6,0) = computeCorrectedMoment(vector(1,0,1));
+    moments3D(0,7) = moments3D(7,0) = computeCorrectedMoment(vector(2,0,0));
+    moments3D(0,8) = moments3D(8,0) = computeCorrectedMoment(vector(0,2,0));
+    moments3D(0,9) = moments3D(9,0) = computeCorrectedMoment(vector(0,0,2));
+
+    //Row / Column 1
+    moments3D(1,2) = moments3D(2,1) = computeCorrectedMoment(vector(1,1,0));
+    moments3D(1,3) = moments3D(3,1) = computeCorrectedMoment(vector(1,0,1));
+    moments3D(1,4) = moments3D(4,1) = computeCorrectedMoment(vector(2,1,0));
+    moments3D(1,5) = moments3D(5,1) = computeCorrectedMoment(vector(1,1,1));
+    moments3D(1,6) = moments3D(6,1) = computeCorrectedMoment(vector(2,0,1));
+    moments3D(1,7) = moments3D(7,1) = computeCorrectedMoment(vector(3,0,0));
+    moments3D(1,8) = moments3D(8,1) = computeCorrectedMoment(vector(1,2,0));
+    moments3D(1,9) = moments3D(9,1) = computeCorrectedMoment(vector(1,0,2));
+    
+    //Row / Column 2
+    moments3D(2,3) = moments3D(3,2) = computeCorrectedMoment(vector(0,1,1));
+    moments3D(2,4) = moments3D(4,2) = computeCorrectedMoment(vector(1,2,0));
+    moments3D(2,5) = moments3D(5,2) = computeCorrectedMoment(vector(0,2,1));
+    moments3D(2,6) = moments3D(6,2) = computeCorrectedMoment(vector(1,1,1));
+    moments3D(2,7) = moments3D(7,2) = computeCorrectedMoment(vector(2,1,0));
+    moments3D(2,8) = moments3D(8,2) = computeCorrectedMoment(vector(0,3,0));
+    moments3D(2,9) = moments3D(9,2) = computeCorrectedMoment(vector(0,1,2));
+    
+    //Row / Column 3
+    moments3D(3,4) = moments3D(4,3) = computeCorrectedMoment(vector(1,1,1));
+    moments3D(3,5) = moments3D(5,3) = computeCorrectedMoment(vector(0,1,2));
+    moments3D(3,6) = moments3D(6,3) = computeCorrectedMoment(vector(1,0,2));
+    moments3D(3,7) = moments3D(7,3) = computeCorrectedMoment(vector(2,0,1));
+    moments3D(3,8) = moments3D(8,3) = computeCorrectedMoment(vector(0,2,1));
+    moments3D(3,9) = moments3D(9,3) = computeCorrectedMoment(vector(0,0,3));
+
+    //Row / Column 4
+    moments3D(3,4) = moments3D(4,3) = computeCorrectedMoment(vector(1,1,1));
+    moments3D(3,5) = moments3D(5,3) = computeCorrectedMoment(vector(0,1,2));
+    moments3D(3,6) = moments3D(6,3) = computeCorrectedMoment(vector(1,0,2));
+    moments3D(3,7) = moments3D(7,3) = computeCorrectedMoment(vector(2,0,1));
+    moments3D(3,8) = moments3D(8,3) = computeCorrectedMoment(vector(0,2,1));
+    moments3D(3,9) = moments3D(9,3) = computeCorrectedMoment(vector(0,0,3));
+
+    //Row / Column 5
+    moments3D(4,5) = moments3D(5,4) = computeCorrectedMoment(vector(1,2,1));
+    moments3D(4,6) = moments3D(6,4) = computeCorrectedMoment(vector(2,1,1));
+    moments3D(4,7) = moments3D(7,4) = computeCorrectedMoment(vector(3,1,0));
+    moments3D(4,8) = moments3D(8,4) = computeCorrectedMoment(vector(1,3,0));
+    moments3D(4,9) = moments3D(9,4) = computeCorrectedMoment(vector(1,1,2));
+    
+    //Row / Column 6
+    moments3D(5,6) = moments3D(6,5) = computeCorrectedMoment(vector(1,1,2));
+    moments3D(5,7) = moments3D(7,5) = computeCorrectedMoment(vector(2,1,1));
+    moments3D(5,8) = moments3D(8,5) = computeCorrectedMoment(vector(0,3,1));
+    moments3D(5,9) = moments3D(9,5) = computeCorrectedMoment(vector(0,1,3));
+    
+    //Row / Column 7
+    moments3D(6,7) = moments3D(7,6) = computeCorrectedMoment(vector(3,0,1));
+    moments3D(6,8) = moments3D(8,6) = computeCorrectedMoment(vector(1,2,1));
+    moments3D(6,9) = moments3D(9,6) = computeCorrectedMoment(vector(1,0,3));
+    
+    //Row / Column 8
+    moments3D(7,8) = moments3D(8,7) = computeCorrectedMoment(vector(2,2,0));
+    moments3D(7,9) = moments3D(9,7) = computeCorrectedMoment(vector(2,0,2));
+    
+    //Row / Column 9
+    moments3D(8,9) = moments3D(9,8) = computeCorrectedMoment(vector(0,2,2));
+    
+    return moments3DPtr;
 }

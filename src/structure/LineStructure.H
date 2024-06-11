@@ -42,6 +42,8 @@ class LagrangianMarker
         static scalar correctedDeltaDirac(vector X, vector x, vector h, const std::array<scalar,10>& b);
         static scalar phiFunction(scalar r);
         
+        void compNonUniformCorrWeights() {computeCorrectionWeights();}
+        
     private:
         const Structure& structure;
         const dynamicRefineFvMesh& mesh;
@@ -54,6 +56,7 @@ class LagrangianMarker
         
         // std::tuple<own processor,processor ID,cell ID>
         DynamicList<std::tuple<bool,label,label>> supportCells;
+        Vector<bool> existingDims;
         vector h_plus;
         vector h_minus;
         vector dilation;
@@ -64,13 +67,16 @@ class LagrangianMarker
         
         std::array<scalar,10> b;
         
-        scalar computeMoment(vector indices);
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix();
-        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal();
+        scalar computeMoment(vector indices) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix() const ;
+        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal() const;
         void computeCorrectionWeights();
         
-        scalar deltaDirac(vector X, vector x);
-        scalar correctedDeltaDirac(vector X, vector x);
+        scalar deltaDirac(vector X, vector x) const;
+        scalar correctedDeltaDirac(vector X, vector x) const;
+        
+        scalar computeCorrectedMoment(vector indices) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
 
 class FieldMarkerStructureInteraction
@@ -464,6 +470,10 @@ class LineStructure : public Structure
             return result;
         }
         
+        void computeMarkerCellWeights();
+        void computeMarkerCellWeights(const std::vector<LagrangianMarker*>& markers);
+
+        
         using LinearSystem = std::tuple
         <
             std::vector<LagrangianMarker*>,
@@ -476,7 +486,6 @@ class LineStructure : public Structure
 
         void computeMarkerWeights();
         
-        void computeMarkerCellWeights();
         
         
         /*
