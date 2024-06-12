@@ -64,6 +64,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
     
+    
     auto pointsPtr = std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>
     (
         new std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>()
@@ -202,6 +203,32 @@ void Foam::LineStructure::createMarkersFromSpacedPointsOnRod
 {
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
+    
+    auto markersPtr = std::unique_ptr<std::list<std::list<std::list<LagrangianMarker>>>>
+    (
+        new std::list<std::list<std::list<LagrangianMarker>>>();
+    )
+    
+    //[rod] -> {para , [] -> {rad , [] -> angle}}
+    const std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>& thisRodIniPnts = *(initialRodPoints[rodNumber]);
+    
+    for(label paraInd=0; paraInd<thisRodIniPnts.size(); paraInd++)
+    {
+        scalar parameter = thisRodIniPnts[paraInd].first;
+        const std::vector<std::pair<scalar,std::vector<scalar>>>& radialPnts = thisRodIniPnts[paraInd].second;
+        for(label radInd=0; radInd<radialPnts.size(); radInd++)
+        {
+            scalar radialFrac = radialPnts[radInd].first;
+            const std::vector<scalar>& anglePnts = radialPnts[radInd].second;
+            for(label angleInd=0; angleInd<anglePnts.size(); angleInd++)
+            {
+                scalar angle = anglePnts[angleInd];
+                
+            }
+        }
+    }
+    
+    
     auto markersPtr = std::unique_ptr<std::list<LagrangianMarker>>(new std::list<LagrangianMarker>());
     std::list<LagrangianMarker>& markers = *markersPtr;
     markers.clear();

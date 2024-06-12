@@ -284,8 +284,9 @@ class CrossSectionStructure : public LineStructure
         );
 
         std::vector<CrossSection> rodCrossSection;
+        //[rod] -> {para , [] -> {rad , [] -> angle}}
+        std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
         std::vector<std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>> rodMarkers;
-        std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;        
 
         /*
         bool doSubdivision
