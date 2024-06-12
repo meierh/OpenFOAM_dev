@@ -131,16 +131,12 @@ class CrossSectionStructure : public LineStructure
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
     private:
-        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection* oneCrossSec,
-            scalar initialSpacing,
-            bool reInitialize = false,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
         
+        void createSpacedPointsOnRod
+        (
+            label rodNumber,
+            scalar spacing
+        );
         void createSpacedPointsOnCrossSec
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -151,12 +147,39 @@ class CrossSectionStructure : public LineStructure
             std::vector<scalar>& angleData
         );
         
+        void createMarkersFromSpacedPointsOnRod
+        (
+            label rodNumber
+        );
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
+        (
+            const label rodNumber,
+            const ActiveRodMesh::rodCosserat* oneRod,
+            const CrossSection* oneCrossSec,
+            scalar initialSpacing,
+            bool reInitialize = false,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
+        
+
+        /*
         std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSecRod
         (
             label rodNumber,
             const CrossSection* crossSec,            
             scalar spacing
         );
+        */
         
         void refineCircumferential
         (

@@ -1036,10 +1036,6 @@ void Foam::LineStructure::computeMarkerCellWeights
     }
 }
 
-
-
-
-
 Foam::scalar Foam::LineStructure::evaluateRodArcLen
 (
     const ActiveRodMesh::rodCosserat* oneRod,

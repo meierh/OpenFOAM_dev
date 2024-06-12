@@ -62,14 +62,19 @@ class LagrangianMarker
         vector dilation;
         
         void computeSupport(label iterations=1);
+        void computeSupportDimensions();
         void minMaxSupportWidth();
         void dilationFactors();
         
         std::array<scalar,10> b;
         
         scalar computeMoment(vector indices) const;
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix() const ;
-        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal() const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix3D() const ;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix2D(label normalDim) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix1D(label dim) const;
+        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal3D() const;
+        std::unique_ptr<std::array<scalar,6>> rescalingDiagonal2D(label normalDim) const;
+        std::unique_ptr<std::array<scalar,3>> rescalingDiagonal1D(label dim) const;
         void computeCorrectionWeights();
         
         scalar deltaDirac(vector X, vector x) const;
@@ -574,20 +579,22 @@ class LineStructure : public Structure
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
         
         std::vector<FieldMarkerStructureInteraction*> connectedInteractions;
-        const label minRefinement = 1;
+        //const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
         
         /*****************************************Collect halo markers******************************************/
         //void extractStructureHaloMarkers(const std::vector<LagrangianMarker*> markers);
         // cell --> [markers]
-        List<DynamicList<LagrangianMarker*>> haloMarkers;
+        //List<DynamicList<LagrangianMarker*>> haloMarkers;
         
         
     private:
         const List<scalar> crossSecArea;
         // [rodNumber] -> ...
+    protected:
         std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
+    private:
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         
         /******************Halo markers data************************/
@@ -604,6 +611,7 @@ class LineStructure : public Structure
         // [nProc] -> [haloCells] -> [markers] -> volume
         List<List<DynamicList<DynamicList<scalar>>>> globalHaloCellsMarkerSupportCellVolume;
         
+        /*
         std::unique_ptr<std::pair<
             std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<vector>>>>,
             std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::vector<scalar>>>>
@@ -613,10 +621,12 @@ class LineStructure : public Structure
             const std::vector<std::vector<vector>>& markersVecValues={},
             const std::vector<std::vector<scalar>>& markersScalValues={}  
         );
+        */
+        
         scalar initialSpacingFromMesh();
         
         // neighbourProcess -> cell -> markersData
-        std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::pair<vector,scalar>>>> globalMarkerData;
+        //std::unordered_multimap<label,std::unordered_multimap<label,DynamicList<std::pair<vector,scalar>>>> globalMarkerData;
         
         /*
         template<typename T>

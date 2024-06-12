@@ -55,6 +55,175 @@ void Foam::CrossSectionStructure::transferMarkers(FieldMarkerStructureInteractio
     Info<<"Transfer markers done"<<Foam::endl;
 }
 
+void Foam::CrossSectionStructure::createSpacedPointsOnRod
+(
+    label rodNumber,
+    scalar spacing
+)
+{
+    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
+    const CrossSection& crossSec = rodCrossSection[rodNumber];
+    
+    auto pointsPtr = std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>
+    (
+        new std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>()
+    );
+    std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>& pointsVec = *pointsPtr;
+    
+    createSpacedPointsOnRod(rodNumber,spacing);
+    std::vector<scalar>& spacedPointsOnRod = *(initialRodPoints[rodNumber]);
+    std::list<scalar> onRodPoints;
+    onRodPoints.insert(onRodPoints.end(),spacedPointsOnRod->begin(),spacedPointsOnRod->end());
+    
+    auto pntIter0 = onRodPoints.begin();
+    auto pntIter1 = ++onRodPoints.begin();
+    for( ; pntIter1!=onRodPoints.end() ; )
+    {
+        scalar pnt0Para = *pntIter0;
+        scalar pnt1Para = *pntIter1;
+        
+        vector r,d2,d3;        
+        vector pnt0D1;
+        rodEval(oneRod,pnt0Para,pnt0D1,d2,d3,r);
+        vector pnt1D1;
+        rodEval(oneRod,pnt1Para,pnt1D1,d2,d3,r);
+        
+        if((pnt0D1&pnt1D1) < 0)
+            FatalErrorInFunction<<"Vector can not be pointing in different directions"<< exit(FatalError);
+        
+        scalar angle = std::acos((pnt0D1&pnt1D1)/(std::sqrt(pnt0D1&pnt0D1)*std::sqrt(pnt1D1&pnt1D1)));
+        scalar halfAngle = std::abs(angle/2);
+        scalar rodDistance = LineStructure::distance(oneRod,pnt0Para,pnt1Para);
+        
+        scalar maxRadiusPnt0 = crossSec->upperLimitRadius(pnt0Para);
+        scalar addedDistPnt0 = maxRadiusPnt0*std::sin(halfAngle);
+        scalar maxRadiusPnt1 = crossSec->upperLimitRadius(pnt1Para);
+        scalar addedDistPnt1 = maxRadiusPnt1*std::sin(halfAngle);
+        
+        scalar totalDistance = rodDistance+addedDistPnt0+addedDistPnt1;
+        scalar totalDistanceFrac = totalDistance/spacing;
+        label nbrOfAddIntersec = std::ceil(totalDistanceFrac)-1;
+        
+        scalar subDistPara = (pnt1Para-pnt0Para)/(nbrOfAddIntersec+1);
+        std::vector<scalar> subParas;
+        for(label i=1;i<nbrOfAddIntersec+1;i++)
+            subParas.push_back(pnt0Para+subDistPara*i);
+        onRodPoints.insert(pntIter1,subParas.begin(),subParas.end());
+        
+        pntIter0 = pntIter1;
+        pntIter1++;
+    }
+
+    pointsVec.resize(onRodPoints.size());
+    uint index=0;
+    for(auto iter=onRodPoints.begin(); iter!=onRodPoints.end(); iter++,index++)
+    {
+        scalar parameter = *iter;
+        pointsVec[index].first = parameter;
+    
+        std::vector<std::pair<scalar,std::vector<scalar>>>& radialData = pointsVec[index].second;
+                
+        if(index==0 || index==onRodPoints.size()-1)
+        {
+            scalar upperLimitRadius = crossSec.upperLimitRadius(parameter);
+            scalar radiusSpacing = upperLimitRadius/spacing;
+            label numberOfFracs = std::ceil(radiusSpacing);
+            Info<<"End case:"<<numberOfFracs<<Foam::endl;
+            scalar radFracPart = 1.0/numberOfFracs;
+            scalar radFrac = 1.0;
+            radialData.resize(numberOfFracs+1);
+            
+            for(label r=0; r<numberOfFracs; r++)
+            {
+                radialData[r].first = radFrac;
+                createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,radFrac,spacing,radialData[r].second);
+                radFrac-=radFracPart;
+            }
+            radialData[numberOfFracs].first = 0;
+            radialData[numberOfFracs].second.resize(1);
+            radialData[numberOfFracs].second[0] = 0;
+        }
+        else
+        {
+            radialData.resize(1);
+            radialData[0].first = 1.0;
+            createSpacedPointsOnCrossSec(oneRod,parameter,crossSec,1.0,spacing,radialData[0].second);
+        }
+    }
+    
+    initialRodPoints[rodNumber] = std::move(pointsPtr);
+}
+
+void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* oneCrossSec,
+    scalar radFrac,
+    scalar spacing,
+    std::vector<scalar>& angleData
+)
+{
+    std::list<scalar> points;
+    points.push_back(0);
+    points.push_back(2*Foam::constant::mathematical::pi);
+    bool refined=true;
+    while(refined)
+    {
+        //Info<<"Refine"<<Foam::endl;
+        refined = false;
+        bool cond = true;
+        auto pntsIter0 = points.begin();
+        auto pntsIter1 = ++(points.begin());
+        for( ; pntsIter1!=points.end() ; )
+        {
+            scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
+            //Info<<"   "<<(*pntsIter0)<<"->"<<(*pntsIter1)<<":"<<dist<<Foam::endl;
+            if(dist>spacing)
+            {
+                scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
+                auto inserted = points.insert(pntsIter1,middlePar);
+                refined=true;
+            }
+            pntsIter0 = pntsIter1;
+            pntsIter1++;
+        }
+    }
+    for(auto iter=points.begin(); iter!=points.end(); iter++)
+    {
+        angleData.push_back(*iter);
+    }
+}
+
+void Foam::LineStructure::createMarkersFromSpacedPointsOnRod
+(
+    label rodNumber
+)
+{
+    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
+    const CrossSection& crossSec = rodCrossSection[rodNumber];
+    auto markersPtr = std::unique_ptr<std::list<LagrangianMarker>>(new std::list<LagrangianMarker>());
+    std::list<LagrangianMarker>& markers = *markersPtr;
+    markers.clear();
+    for(scalar point : *(initialRodPoints[rodNumber]))
+        markers.push_back(LagrangianMarker(*this,mesh,rodNumber,oneRod,point));
+    rodMarkersList[rodNumber] = std::move(markersPtr);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStructure::constructMarkerSet
 (
     const label rodNumber,
@@ -177,47 +346,6 @@ std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> Foam::CrossSectionStruc
 
     return reducedMarkersPtr;
 }
-
-void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* oneCrossSec,
-    scalar radFrac,
-    scalar spacing,
-    std::vector<scalar>& angleData
-)
-{
-    std::list<scalar> points;
-    points.push_back(0);
-    points.push_back(2*Foam::constant::mathematical::pi);
-    bool refined=true;
-    while(refined)
-    {
-        //Info<<"Refine"<<Foam::endl;
-        refined = false;
-        bool cond = true;
-        auto pntsIter0 = points.begin();
-        auto pntsIter1 = ++(points.begin());
-        for( ; pntsIter1!=points.end() ; )
-        {
-            scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
-            //Info<<"   "<<(*pntsIter0)<<"->"<<(*pntsIter1)<<":"<<dist<<Foam::endl;
-            if(dist>spacing)
-            {
-                scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
-                auto inserted = points.insert(pntsIter1,middlePar);
-                refined=true;
-            }
-            pntsIter0 = pntsIter1;
-            pntsIter1++;
-        }
-    }
-    for(auto iter=points.begin(); iter!=points.end(); iter++)
-    {
-        angleData.push_back(*iter);
-    }
-};
 
 std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> Foam::CrossSectionStructure::createSpacedPointsOnCrossSecRod
 (

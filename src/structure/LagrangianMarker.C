@@ -89,6 +89,7 @@ void Foam::LagrangianMarker::computeSupport
     const faceList& facesList = mesh.faces();
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
+    const pointField& points = mesh.points();
     //faceInd -> [{proc,cell}]
     const std::unordered_map<label,DynamicList<std::pair<label,label>>>& patchFaceToCell = structure.getPatchFaceToCellMap();
 
@@ -172,7 +173,8 @@ void Foam::LagrangianMarker::computeSupport
                                 }
                                 directNeighborFaces.insert(faceInd);
                             }
-                            elseNonNeighborFaces.insert(faceInd);
+                            else
+                                directNonNeighborFaces.insert(faceInd);
                         }
                     }
                 }
@@ -196,6 +198,70 @@ void Foam::LagrangianMarker::computeSupport
             std::tuple<bool,label,label> cellData = {false,processNo,cellInd};
             this->supportCells.append(cellData);
         }
+    }
+    
+    List<List<bool>> directionsExist(3,List<bool>(2,false));
+    for(label faceInd : directNeighborFaces)
+    {
+        const face& thisFace = facesList[faceInd];
+        vector faceNormal = thisFace.normal(points);
+        faceNormal /= std::sqrt(faceNormal&faceNormal);
+        label dir = -1;
+        label posNeg = 1;
+        if(std::abs(faceNormal[0]) >= 0.9)
+        {
+            dir = 0;
+            if(faceNormal[dir]<0)
+                posNeg = 0;
+        }
+        else if(std::abs(faceNormal[1]) >= 0.9)
+        {
+            dir = 1;
+            if(faceNormal[dir]<0)
+                posNeg = 0;
+        }
+        else if(std::abs(faceNormal[2]) >= 0.9)
+        {
+            dir = 2;
+            if(faceNormal[dir]<0)
+                posNeg = 0;
+        }
+        else
+            FatalErrorInFunction<<"Faces have to be cartesian"<<exit(FatalError);
+
+        directionsExist[dir][posNeg] = true;
+    }
+    for(label dim=0; dim<3; dim++)
+    {
+        existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
+    }
+}
+
+void Foam::LagrangianMarker::computeSupportDimensions()
+{
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    DynamicList<vector> centeredSupport;
+    
+    for(label i=0; i<supportCells.size(); i++)
+    {
+        const std::tuple<bool,label,label>& suppCellData = supportCells[i];
+        vector cellCentre;
+        if(std::get<0>(suppCellData))
+            cellCentre = cells[std::get<2>(suppCellData)].centre(points,faces);
+        else
+        {
+            label neighProcess = std::get<1>(suppCellData);
+            const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+            auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellData));
+            if(iter==neighborHaloCellToIndexMap.end())
+                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            label index = iter->second;
+            cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
+        }
+        centeredSupport.append(cellCentre-markerPosition);
     }
     
     
@@ -399,7 +465,7 @@ scalar Foam::LagrangianMarker::computeCorrectedMoment
     return moment;
 };
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix() const
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix3D() const
 {
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
@@ -501,7 +567,80 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     return moments3DPtr;
 }
 
-std::unique_ptr<std::array<scalar,10>> Foam::LagrangianMarker::rescalingDiagonal() const
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix2D
+(
+    label normalDim
+) const
+{
+    if(normalDim!=0 && normalDim!=1 && normalDim!=2)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    
+    auto moments3DPtr = computeMomentMatrix3D();
+    gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;    
+    
+    auto moments2DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(6,6));
+    gismo::gsMatrix<scalar>& moments2D = *moments2DPtr;
+    
+    std::array<uint,6> indicesDim01 = {0,1,2,4,7,8};
+    std::array<uint,6> indicesDim12 = {0,1,3,6,7,9};
+    std::array<uint,6> indicesDim02 = {0,2,3,5,8,9};
+    List<std::array<uint,6>> indices(3);
+    indices[2] = indicesDim01;
+    indices[0] = indicesDim12;
+    indices[1] = indicesDim02;
+
+    std::array<uint,6> thisIndices = indices[normalDim];
+    
+    for(label i=0; i<6; i++)
+    {
+        for(label j=0; j<6; j++)
+        {
+            label I = thisIndices[i];
+            label J = thisIndices[j];
+            scalar moment = moments3D(I,J);
+            moments2D(i,j) = moment;
+        }
+    }
+
+    return moments2DPtr;
+}
+
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix1D
+(
+    label dim
+) const
+{
+    if(dim!=0 && dim!=1 && dim!=2)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    
+    auto moments1DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(3,3));
+    gismo::gsMatrix<scalar>& moments1D = *moments1DPtr;
+    
+    //Initial
+    moments1D(0,0) = computeMoment(vector(0,0,0));
+    
+    vector indices1(0,0,0);
+    indices1[dim] = 1;    
+    vector indices2(0,0,0);
+    indices2[dim] = 2;    
+    vector indices3(0,0,0);
+    indices3[dim] = 3;    
+    vector indices4(0,0,0);
+    indices4[dim] = 4;
+           
+    //Diagonal
+    moments1D(1,1) = computeMoment(indices2);
+    moments1D(2,2) = computeMoment(indices4);
+    
+    //Lower / Upper triangle
+    moments1D(0,1) = moments1D(1,0) = computeMoment(indices1);
+    moments1D(0,2) = moments1D(2,0) = computeMoment(indices2);
+    moments1D(1,2) = moments1D(2,1) = computeMoment(indices3);
+    
+    return moments1DPtr;
+}
+
+std::unique_ptr<std::array<scalar,10>> Foam::LagrangianMarker::rescalingDiagonal3D() const
 {
     auto diagPtr = std::unique_ptr<std::array<scalar,10>>(new std::array<scalar,10>());
     std::array<scalar,10>& diag = *diagPtr;
@@ -520,31 +659,279 @@ std::unique_ptr<std::array<scalar,10>> Foam::LagrangianMarker::rescalingDiagonal
     return diagPtr;
 }
 
+std::unique_ptr<std::array<scalar,6>> Foam::LagrangianMarker::rescalingDiagonal2D
+(
+    label normalDim
+) const
+{
+    if(normalDim!=0 && normalDim!=1 && normalDim!=2)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    
+    auto diagPtr = std::unique_ptr<std::array<scalar,6>>(new std::array<scalar,6>());
+    std::array<scalar,6>& diag = *diagPtr;
+    vector dilation = getDilation();
+    
+    diag[0] = 1;
+    
+    if(normalDim==0)
+    {
+        diag[1] = 1/dilation[1];
+        diag[2] = 1/dilation[2];
+        diag[3] = 1/(dilation[1]*dilation[2]);
+        diag[4] = 1/(dilation[1]*dilation[1]);
+        diag[5] = 1/(dilation[2]*dilation[2]);
+    }
+    else if(normalDim==1)
+    {
+        diag[1] = 1/dilation[0];
+        diag[2] = 1/dilation[2];
+        diag[3] = 1/(dilation[0]*dilation[2]);
+        diag[4] = 1/(dilation[0]*dilation[0]);
+        diag[5] = 1/(dilation[2]*dilation[2]);
+    }
+    else
+    {
+        diag[1] = 1/dilation[0];
+        diag[2] = 1/dilation[1];
+        diag[3] = 1/(dilation[0]*dilation[1]);
+        diag[4] = 1/(dilation[0]*dilation[0]);
+        diag[5] = 1/(dilation[1]*dilation[1]);
+    }
+    return diagPtr;
+}
+
+std::unique_ptr<std::array<scalar,3>> Foam::LagrangianMarker::rescalingDiagonal1D
+(
+    label dim
+) const
+{
+    if(dim!=0 && dim!=1 && dim!=2)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    
+    auto diagPtr = std::unique_ptr<std::array<scalar,3>>(new std::array<scalar,3>());
+    std::array<scalar,3>& diag = *diagPtr;
+    vector dilation = getDilation();
+    
+    diag[0] = 1;
+    diag[1] = 1/dilation[dim];
+    diag[2] = 1/(dilation[dim]*dilation[dim]);
+    return diagPtr;
+}
+
 void Foam::LagrangianMarker::computeCorrectionWeights()
 {
-    std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix();
-    std::unique_ptr<std::array<scalar,10>> H = rescalingDiagonal();
-    gismo::gsMatrix<scalar> e(10,1),c(10,1);
-    for(label i=0; i<10; i++)
+    label numberDims = 0;
+    DynamicList<label> listDims;
+    for(label dim=0; dim<existingDims.size(); dim++)
     {
-        (*M)(i,i) = (*M)(i,i) * (*H)[i];
-        e(i,0) = 0;
-        c(i,0) = 0;
+        if(existingDims[dim])
+        {
+            numberDims++;
+            listDims.append(dim);
+        }
     }
-    e(0,0) = 1;
-
-    std::cout<<"M:"<<std::endl<<*M<<std::endl;
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-    
-    gismo::gsGMRes HM(*M);
-    HM.solve(e,c);
-    
-    std::cout<<"M:"<<std::endl<<*M<<std::endl;
-    std::cout<<"c:"<<std::endl<<c<<std::endl;
-    std::cout<<"e:"<<std::endl<<e<<std::endl;
     
     for(label i=0; i<10; i++)
-        b[i] = c(i,0) * (*H)[i];
+        b[i] = 0;
+        
+    if(numberDims==0)
+    /*
+        b0 +
+        0    + 0      + 0 +
+        0    + 0      + 0 +
+        0    + 0      + 0
+    */
+    {
+        scalar m000 = computeMoment(vector(0,0,0));
+        b[0] = 1.0/m000;
+    }
+    else if(numberDims==1)
+    {
+        gismo::gsMatrix<scalar> e(3,1),c(3,1);
+        for(label i=0; i<3; i++)
+        {
+            e(i,0) = 0;
+            c(i,0) = 0;
+        }
+        e(0,0) = 1;
+        
+        if(listDims[0]==0)
+        /*
+            b0 +
+            (x-s)b1    + 0      + 0 +
+            0          + 0      + 0 +
+            (x-s)²b7   + 0      + 0
+        */
+        {
+            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix1D(0);
+            std::unique_ptr<std::array<scalar,3>> H = rescalingDiagonal1D(0);
+            for(label i=0; i<3; i++)
+                (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            
+            gismo::gsGMRes HM(*M);
+            HM.solve(e,c);
+            
+            b[0] = c(0,0)*(*H)[0];
+            b[1] = c(1,0)*(*H)[1];
+            b[7] = c(2,0)*(*H)[2];
+        }
+        else if(listDims[0]==1)
+        /*
+            b0 +
+            0  + (y-t)b2      + 0 +
+            0  + 0            + 0 +
+            0  + (y-t)²b8     + 0
+        */
+        {
+            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix1D(1);
+            std::unique_ptr<std::array<scalar,3>> H = rescalingDiagonal1D(1);
+            for(label i=0; i<3; i++)
+                (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            
+            gismo::gsGMRes HM(*M);
+            HM.solve(e,c);
+            
+            b[0] = c(0,0)*(*H)[0];
+            b[2] = c(1,0)*(*H)[1];
+            b[8] = c(2,0)*(*H)[2];            
+        }
+        else if(listDims[0]==2)
+        /*
+            b0 +
+            0  + 0  + (z-v)b3 +
+            0  + 0  +      0  +
+            0  + 0  + (z-v)²b9
+        */
+        {
+            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix1D(2);
+            std::unique_ptr<std::array<scalar,3>> H = rescalingDiagonal1D(2);
+            for(label i=0; i<3; i++)
+                (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            
+            gismo::gsGMRes HM(*M);
+            HM.solve(e,c);
+            
+            b[0] = c(0,0)*(*H)[0];
+            b[3] = c(1,0)*(*H)[1];
+            b[9] = c(2,0)*(*H)[2];            
+        }
+        else
+            FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    }
+    else if(numberDims==2)
+    {
+        gismo::gsMatrix<scalar> e(6,1),c(6,1);
+        for(label i=0; i<6; i++)
+        {
+            e(i,0) = 0;
+            c(i,0) = 0;
+        }
+        e(0,0) = 1;
+        
+        if(listDims[0]==0 && listDims[1]==1)
+        /*
+            b0 +
+            (x-s)b1      + (y-t)b2      + 0 +
+            (x-s)(y-t)b4 + 0            + 0 +
+            (x-s)²b7     + (y-t)²b8     + 0
+        */
+        {
+            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix2D(2);
+            std::unique_ptr<std::array<scalar,6>> H = rescalingDiagonal2D(2);
+            for(label i=0; i<6; i++)
+                (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            
+            gismo::gsGMRes HM(*M);
+            HM.solve(e,c);
+            
+            b[0] = c(0,0)*(*H)[0];
+            b[1] = c(1,0)*(*H)[1];
+            b[2] = c(2,0)*(*H)[2];
+            b[4] = c(3,0)*(*H)[3];
+            b[7] = c(4,0)*(*H)[4];
+            b[8] = c(5,0)*(*H)[5];
+        }
+        else if(listDims[0]==1 && listDims[1]==2)
+        /*
+            b0 +
+            (x-s)b1      + 0    + (z-v)b3 +
+            0            + 0    + (z-v)(x-s)b6 +
+            (x-s)²b7     + 0    + (z-v)²b9
+        */
+        {
+            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix2D(1);
+            std::unique_ptr<std::array<scalar,6>> H = rescalingDiagonal2D(1);
+            for(label i=0; i<6; i++)
+                (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            
+            gismo::gsGMRes HM(*M);
+            HM.solve(e,c);
+            
+            b[0] = c(0,0)*(*H)[0];
+            b[1] = c(1,0)*(*H)[1];
+            b[3] = c(2,0)*(*H)[2];
+            b[6] = c(3,0)*(*H)[3];
+            b[7] = c(4,0)*(*H)[4];
+            b[9] = c(5,0)*(*H)[5];
+        }
+        else if(listDims[0]==0 && listDims[1]==2)
+        /*
+            b0 +
+            0       + (y-t)b2      + (z-v)b3 +
+            0       + (y-t)(z-v)b5 + 0 +
+            0       + (y-t)²b8     + (z-v)²b9
+        */
+        {
+            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix2D(0);
+            std::unique_ptr<std::array<scalar,6>> H = rescalingDiagonal2D(0);
+            for(label i=0; i<6; i++)
+                (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            
+            gismo::gsGMRes HM(*M);
+            HM.solve(e,c);
+            
+            b[0] = c(0,0)*(*H)[0];
+            b[2] = c(1,0)*(*H)[1];
+            b[3] = c(2,0)*(*H)[2];
+            b[5] = c(3,0)*(*H)[3];
+            b[8] = c(4,0)*(*H)[4];
+            b[9] = c(5,0)*(*H)[5];
+        }
+        else
+            FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    }
+    else if(numberDims==3)
+    /*
+        b0 +
+        (x-s)b1      + (y-t)b2      + (z-v)b3 +
+        (x-s)(y-t)b4 + (y-t)(z-v)b5 + (z-v)(x-s)b6 +
+        (x-s)²b7     + (y-t)²b8     + (z-v)²b9
+    */
+    {
+        std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix3D();
+        std::unique_ptr<std::array<scalar,10>> H = rescalingDiagonal3D();
+        gismo::gsMatrix<scalar> e(10,1),c(10,1);
+        for(label i=0; i<10; i++)
+        {
+            (*M)(i,i) = (*M)(i,i) * (*H)[i];
+            e(i,0) = 0;
+            c(i,0) = 0;
+        }
+        e(0,0) = 1;
+
+        std::cout<<"M:"<<std::endl<<*M<<std::endl;
+        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+        
+        gismo::gsGMRes HM(*M);
+        HM.solve(e,c);
+        
+        std::cout<<"M:"<<std::endl<<*M<<std::endl;
+        std::cout<<"c:"<<std::endl<<c<<std::endl;
+        std::cout<<"e:"<<std::endl<<e<<std::endl;
+        
+        for(label i=0; i<10; i++)
+            b[i] = c(i,0) * (*H)[i];
+    }
     
     std::unique_ptr<gismo::gsMatrix<scalar>> corrM = computeCorrectedMomentMatrix();
     //std::cout<<"corrM:"<<*corrM<<std::endl;
