@@ -152,10 +152,33 @@ class CrossSectionStructure : public LineStructure
             label rodNumber
         );
         
+        void refineMarkersOnRod
+        (
+            label rodNumber,
+            std::pair<bool,scalar> forcedSpacing = {false,-1}
+        );
+        void refineCircumferential
+        (
+            std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
+        void refineRadial
+        (
+            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
+        void refineTangential
+        (
+            std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
+            scalar initialSpacing,
+            std::pair<bool,scalar> refineSpacing = {false,0}
+        );
         
-        
-        
-        
+        void setMarkerVolumeOnRod
+        (
+            label rodNumber
+        );
         
         
         
@@ -180,26 +203,6 @@ class CrossSectionStructure : public LineStructure
             scalar spacing
         );
         */
-        
-        void refineCircumferential
-        (
-            std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
-
-        void refineRadial
-        (
-            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
-            scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
-        
-        void refineTangential
-        (
-            std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
-            scalar initialSpacing,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
         
         void computeMarkerVolume
         (
@@ -286,7 +289,7 @@ class CrossSectionStructure : public LineStructure
         std::vector<CrossSection> rodCrossSection;
         //[rod] -> {para , [] -> {rad , [] -> angle}}
         std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
-        std::vector<std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>> rodMarkers;
+        std::vector<std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>> rodMarkersList;
 
         /*
         bool doSubdivision
