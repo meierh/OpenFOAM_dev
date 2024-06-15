@@ -108,6 +108,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         inline scalar getMarkerAngle() const {return markerAngle;}
         inline scalar getMarkerRadiusFrac() const {return markerRadiusFrac;}
         inline const CrossSection* getBaseCrossSec() const {return baseCrossSec;}
+        void evaluateMarker();
         
     private:
         scalar markerAngle;
@@ -180,7 +181,7 @@ class CrossSectionStructure : public LineStructure
             label rodNumber
         );
         
-        
+        void evaluateMarkerMeshRelation();
         
         
         

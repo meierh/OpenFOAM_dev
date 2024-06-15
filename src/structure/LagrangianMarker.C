@@ -12,13 +12,9 @@ structure(structure),
 mesh(mesh),
 rodNumber(rodNumber),
 baseRod(baseRod),
-markerParameter(markerParameter),
-markerPosition(LineStructure::evaluateRodPos(baseRod,markerParameter)),
-markerCell(mesh.findCell(markerPosition))
+markerParameter(markerParameter)
 {
-    computeSupport();
-    minMaxSupportWidth();
-    dilationFactors();
+    evaluateMarker();
 }
 
 vector Foam::LagrangianMarker::getMarkerVelocity()

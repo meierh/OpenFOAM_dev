@@ -35,12 +35,17 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline const DynamicList<std::tuple<bool,label,label>>& getSupportCells() const {return supportCells;}
         inline vector getDilation() const {return dilation;}
+        inline const std::array<scalar,10>& getCorrParaB() const {return b;}
         
         static scalar deltaDirac(vector X, vector x, scalar h);
         static scalar deltaDirac(vector X, vector x, vector h);
         static scalar correctedDeltaDirac(vector X, vector x, scalar h, const std::array<scalar,10>& b);
         static scalar correctedDeltaDirac(vector X, vector x, vector h, const std::array<scalar,10>& b);
         static scalar phiFunction(scalar r);
+        
+        //h=getDilation() b=b;
+        scalar correctedDeltaDirac(vector X, vector x) const;
+        scalar deltaDirac(vector X, vector x) const;
         
         void compNonUniformCorrWeights() {computeCorrectionWeights();}
         
@@ -76,10 +81,7 @@ class LagrangianMarker
         std::unique_ptr<std::array<scalar,6>> rescalingDiagonal2D(label normalDim) const;
         std::unique_ptr<std::array<scalar,3>> rescalingDiagonal1D(label dim) const;
         void computeCorrectionWeights();
-        
-        scalar deltaDirac(vector X, vector x) const;
-        scalar correctedDeltaDirac(vector X, vector x) const;
-        
+                
         scalar computeCorrectedMoment(vector indices) const;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
@@ -91,12 +93,16 @@ class FieldMarkerStructureInteraction
         explicit FieldMarkerStructureInteraction
         (
             dynamicRefineFvMesh& mesh,
+            Structure& structure,
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
         ActiveRodMesh::rodMesh* rodMesh;
-        std::vector<std::vector<LagrangianMarker*>> markers;
+        std::vector<LagrangianMarker*> markers;
+        
+        //std::vector<std::vector<LagrangianMarker*>> markers;
         dynamicRefineFvMesh& mesh;
+        Structure& structure;
         
         /*
         static scalar deltaDirac(vector X, vector x, scalar h);
@@ -144,6 +150,27 @@ class FieldMarkerStructureInteraction
             const DynamicList<LagrangianMarker*>& markers
         );
         */
+        
+        template<typename T>
+        std::unique_ptr<List<List<T>>> fieldHaloExchange
+        (
+            const GeometricField<T,fvPatchField,volMesh>& fieldData
+        )
+        {
+            auto globalHaloDataPtr = std::unique_ptr<List<List<T>>>(new List<List<T>>(Pstream::nProcs()));
+            List<List<T>>& globalHaloData = *globalHaloDataPtr;
+            List<T>& ownHaloData = globalHaloData[Pstream::myProcNo()];
+            const DynamicList<Structure::CellDescription>& ownHaloCells = structure.getHaloCellList(Pstream::myProcNo());
+            ownHaloData.resize(ownHaloCells);
+            for(label haloCellInd=0; haloCellInd<ownHaloCells.size(); haloCellInd++)
+            {
+                const Structure::CellDescription& oneHaloCell = ownHaloCells[haloCellInd];
+                ownHaloData[haloCellInd] = fieldData[oneHaloCell.index];
+            }
+            Pstream::gatherList(globalHaloData);
+            Pstream::scatterList(globalHaloData);
+            return globalHaloDataPtr;
+        }
 
         template<typename T>
         void fieldToMarker
@@ -152,12 +179,14 @@ class FieldMarkerStructureInteraction
             DynamicList<T>& markerData
         )
         {
-            /*
             Info<<"Transfer field to markers"<<Foam::endl;
             const cellList& cells = mesh.cells();
             const faceList& faces = mesh.faces();
             const pointField& points = mesh.points();
             
+            std::unique_ptr<List<List<T>>> haloFieldsPtr = fieldHaloExchange(fieldData);
+            List<List<T>>& haloFields = *haloFieldsPtr;
+
             markerData.resize(markers.size());
             scalar factorSumAvg = 0;
             label count=0;
@@ -167,70 +196,62 @@ class FieldMarkerStructureInteraction
                 const LagrangianMarker& oneMarker = *(markers[index]);
                 const vector& oneMarkerPos = oneMarker.getMarkerPosition();
                 scalar factorSum = 0;
-                DynamicList<label> supportCells;
-                for(auto cellIter=oneMarker.getSupportCells().begin();
-                        cellIter!=oneMarker.getSupportCells().end();
-                        cellIter++)
-                {
-                    supportCells.append(std::get<2>(*cellIter));
-                }
+                const DynamicList<std::tuple<bool,label,label>>& supportCells = oneMarker.getSupportCells();
                 List<scalar> cellVols(supportCells.size());
                 List<vector> cellCentres(supportCells.size());
                 List<scalar> cellDistances(supportCells.size());
-                for(label i=0; i<supportCells.size(); i++)
+                List<T> cellValues(supportCells.size());
+                for(label suppInd=0; suppInd<supportCells.size(); suppInd++)
                 {
-                    label cellInd = supportCells[i];
-                    cellVols[i] = cells[cellInd].mag(points,faces);
-                    cellCentres[i] = cells[cellInd].centre(points,faces);
-                    vector markerToCell = cellCentres[i]-oneMarkerPos;
-                    cellDistances[i] = std::sqrt(markerToCell&markerToCell);
+                    const std::tuple<bool,label,label>& oneSuppCell = supportCells[suppInd];
+                    label proc = std::get<1>(oneSuppCell);
+                    label cellInd = std::get<2>(oneSuppCell);
+                    if(std::get<0>(oneSuppCell))
+                    {
+                        cellVols[suppInd] = cells[cellInd].mag(points,faces);
+                        cellCentres[suppInd] = cells[cellInd].centre(points,faces);
+                        vector markerToCell = cellCentres[suppInd]-oneMarkerPos;
+                        cellDistances[suppInd] = std::sqrt(markerToCell&markerToCell);
+                        cellValues[suppInd] = fieldData[cellInd];
+                    }
+                    else
+                    {
+                        const std::unordered_map<label,label>& procCellToInd = structure.getHaloCellToIndexMap(proc);
+                        auto iterIndex = procCellToInd.find(cellInd);
+                        if(iterIndex!=procCellToInd.end())
+                            FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+                        label haloIndex = iterIndex->second;
+                        const Structure::CellDescription& haloCell = structure.getHaloCellList(proc)[haloIndex];
+
+                        cellVols[suppInd] = haloCell.volume;
+                        cellCentres[suppInd] = haloCell.centre;
+                        vector markerToCell = cellCentres[suppInd]-oneMarkerPos;
+                        cellDistances[suppInd] = std::sqrt(markerToCell&markerToCell);
+                        cellValues[suppInd] = haloFields[proc][haloIndex];
+                    }
                 }
-                scalar h = std::accumulate(cellDistances.begin(),cellDistances.end(),0.0,std::plus<scalar>());
-                if(supportCells.size()>0)
-                    h/=supportCells.size();
                 
                 if(modusFieldToMarker==markerMeshType::Uniform)
                 {
-                    for(label i=0; i<supportCells.size(); i++)
+                    for(label suppCellInd=0; suppCellInd<supportCells.size(); suppCellInd++)
                     {
-                        label cellInd = supportCells[i];
-                        scalar factor = deltaDirac(cellCentres[i],oneMarkerPos,h);
-                        value += fieldData[cellInd]*factor*cellVols[i];
-                        //Info<<cellInd<<":"<<fieldData[cellInd]<<" factor:"<<factor<<Foam::endl;
-                        factorSum+=factor;
+                        using LM=LagrangianMarker;
+                        vector& X = oneMarkerPos;
+                        vector& x = cellCentres[suppCellInd];
+                        scalar factor = oneMarker.correctedDeltaDirac(X,x);
+                        value += factor*cellValues[suppCellInd]*cellVols[suppCellInd];
                     }
                 }
                 else
                 {
-                    DynamicList<scalar> epsilon;
-                    SymmetricSquareMatrix<scalar> A(oneMarker.getSupportCells().size());
-                    for(label i=0; i<supportCells.size(); i++)
+                    for(label suppCellInd=0; suppCellInd<supportCells.size(); suppCellInd++)
                     {
-                        
-                        for(label j=i+1; j<supportCells.size(); j++)
-                        {
-                            label cellInd = supportCells[i];
-                            scalar factor = deltaDirac(cellCentres[i],oneMarkerPos,h)*cellVols[i];
-                            value += fieldData[cellInd]*factor;
-                            factorSum+=factor;
-                        }
-                    }                    
-                    for(auto cellIter=oneMarker.getSupportCells().begin();
-                        cellIter!=oneMarker.getSupportCells().end();
-                        cellIter++)
-                    {
-                        label cellInd = std::get<2>(*cellIter);
-                        const cell& oneCell = cells[cellInd];
-                        scalar cellVol = oneCell.mag(points,faces);
-                        point cellCentre = oneCell.centre(points,faces);
-                        //scalar h = std::cbrt(cellVol);
-                        scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*cellVol;
-                        value += fieldData[cellInd]*factor;
-                        //Info<<factor<<"  ";
-                        factorSum+=factor;
+                        using LM=LagrangianMarker;
+                        vector& X = oneMarkerPos;
+                        vector& x = cellCentres[suppCellInd];
+                        scalar factor = oneMarker.deltaDirac(X,x);
+                        value += factor*cellValues[suppCellInd]*cellVols[suppCellInd];
                     }
-                    
-                    
                 }
                 //Info<<"value:"<<value<<Foam::endl;
                 markerData[index] = value;
@@ -243,7 +264,34 @@ class FieldMarkerStructureInteraction
             factorSumAvg/=count;
             Info<<"--------fieldToMarker  factorSumAvg:"<<factorSumAvg<<"------"<<Foam::endl;
             //Info<<markerData<<Foam::endl;
-            */
+        }
+        
+        template<typename T>
+        std::unique_ptr<List<T>> markerFieldWriteHalo
+        (
+            const List<List<T>>& globalMarkerFieldData
+        )
+        {
+            // writer proc -> cell proc -> haloCells
+            List<List<List<T>>> allProcsGlobalMarkerFieldData(Pstream::nProcs());
+            allProcsGlobalMarkerFieldData[Pstream::myProcNo()] = globalMarkerFieldData;
+            
+            Pstream::gatherList(allProcsGlobalMarkerFieldData);
+            Pstream::scatterList(allProcsGlobalMarkerFieldData);
+            
+            auto ownProcGlobalMarkerFieldDataPtr = std::unique_ptr<List<T>>(new List<T>());
+            List<T>& ownProcGlobalMarkerFieldData = *ownProcGlobalMarkerFieldDataPtr;
+            ownProcGlobalMarkerFieldData.resize(structure.getHaloCellList(Pstream::myProcNo()).size(),Foam::zero());
+            for(label writerProc=0; writerProc<allProcsGlobalMarkerFieldData.size(); writerProc++)
+            {
+                List<List<T>>& oneProcGlobalMarkerFieldData = allProcsGlobalMarkerFieldData[writerProc];
+                List<T>& oneProcOwnProcMarkerFieldData = oneProcGlobalMarkerFieldData[Pstream::myProcNo()];
+                for(label haloCellInd=0; haloCellInd<oneProcOwnProcMarkerFieldData.size(); haloCellInd++)
+                {
+                    ownProcGlobalMarkerFieldData[haloCellInd] += oneProcOwnProcMarkerFieldData[haloCellInd];
+                }
+            }
+            return ownProcGlobalMarkerFieldDataPtr;
         }
         
         template<typename T>
@@ -253,7 +301,6 @@ class FieldMarkerStructureInteraction
             GeometricField<T,fvPatchField,volMesh>& fieldData
         )
         {
-            /*
             Info<<"Transfer markers to field"<<Foam::endl;
             fieldData = Foam::zero();
             const cellList& cells = mesh.cells();
@@ -262,52 +309,59 @@ class FieldMarkerStructureInteraction
             
             if(markerData.size()!=markers.size())
                 FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
+
+            List<List<T>>& haloFields(Pstream::nProcs());
+            for(label proc=0; proc<Pstream::nProcs(); proc++)
+                haloFields[proc].resize(structure.getHaloCellList(proc).size(),Foam::zero());
             
-            List<DynamicList<label>> cellMarkers(cells.size());
-            for(label markerInd=0; markerInd<markers.size(); markerInd++)
-            {
-                const LagrangianMarker& oneMarker = *(markers[markerInd]);
-                for(auto cellIter=oneMarker.getSupportCells().begin();
-                    cellIter!=oneMarker.getSupportCells().end();
-                    cellIter++)
-                {
-                    label cellInd = std::get<2>(*cellIter);
-                    cellMarkers[cellInd].append(markerInd);
-                }
-            }
-            
+            markerData.resize(markers.size());
             scalar factorSumAvg = 0;
-            scalar count = 0;
-            for(label cellInd=0; cellInd<fieldData.size(); cellInd++)
+            label count=0;
+            for(label index=0; index<markerData.size(); index++)
             {
-                const cell& oneCell = cells[cellInd];
-                point cellCentre = oneCell.centre(points,faces);
-                //scalar cellVol = oneCell.mag(points,faces);
+                T value = Foam::zero();
+                const LagrangianMarker& oneMarker = *(markers[index]);
+                const vector& oneMarkerPos = oneMarker.getMarkerPosition();
                 scalar factorSum = 0;
-                if(cellMarkers[cellInd].size()>0)
+                const DynamicList<std::tuple<bool,label,label>>& supportCells = oneMarker.getSupportCells();
+
+                for(label suppInd=0; suppInd<supportCells.size(); suppInd++)
                 {
-                    T value = Foam::zero();
-                    //Info<<cellInd<<" -- ";
-                    for(label markerInd : cellMarkers[cellInd])
+                    const std::tuple<bool,label,label>& oneSuppCell = supportCells[suppInd];
+                    label proc = std::get<1>(oneSuppCell);
+                    label cellInd = std::get<2>(oneSuppCell);
+                    if(std::get<0>(oneSuppCell))
                     {
-                        const LagrangianMarker& oneMarker = *(markers[markerInd]);
-                        const vector& oneMarkerPos = oneMarker.getMarkerPosition();
-                        scalar markerVolume = oneMarker.getMarkerVolume();
-                        scalar h = std::cbrt(markerVolume);
-                        scalar factor = deltaDirac(cellCentre,oneMarkerPos,h)*markerVolume;
-                        //Info<<"dd:"<<deltaDirac(cellCentre,oneMarkerPos,h)<<" mV:"<<markerVolume<<" f:"<<factor<<" m:"<<markerData[markerInd]<<"   ";
-                        factorSum+=factor;
-                        value += markerData[markerInd]*factor;
+                        vector cellCentre = cells[cellInd].centre(points,faces);
+                        scalar factor = oneMarker.deltaDirac(cellCentre,oneMarkerPos);
+                        factor *= oneMarker.getMarkerVolume();
+                        fieldData[cellInd] += markerData[index]*factor;
                     }
-                    fieldData[cellInd] += value;
-                    //Info<<factorSum<<Foam::endl;
-                    count++;
-                    factorSumAvg+=factorSum;
+                    else
+                    {
+                        const std::unordered_map<label,label>& procCellToInd = structure.getHaloCellToIndexMap(proc);
+                        auto iterIndex = procCellToInd.find(cellInd);
+                        if(iterIndex!=procCellToInd.end())
+                            FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+                        label haloIndex = iterIndex->second;
+                        const Structure::CellDescription& haloCell = structure.getHaloCellList(proc)[haloIndex];
+                        vector& cellCentre = haloCell.centre;
+                        scalar factor = oneMarker.deltaDirac(cellCentre,oneMarkerPos);
+                        factor *= oneMarker.getMarkerVolume();
+                        haloFields[proc][haloIndex] += markerData[index]*factor;
+                    }
                 }
             }
-            factorSumAvg/=count;
-            Info<<"---markerToField factorSumAvg:"<<factorSumAvg<<"--------"<<Foam::endl;
-            */
+            
+            std::unique_ptr<List<T>> ownHaloCellValues = markerFieldWriteHalo(haloFields);
+            const DynamicList<Structure::CellDescription> ownHaloCells = structure.getHaloCellList(Pstream::myProcNo());
+            if(ownHaloCells.size()!=ownHaloCellValues.size())
+                FatalErrorInFunction<<"Mismatch in own halo cell size!"<<exit(FatalError);
+            
+            for(label haloCellInd=0; haloCellInd<ownHaloCells.size(); haloCellInd++)
+            {
+                fieldData[ownHaloCells[haloCellInd].index] += ownHaloCellValues[haloCellInd];
+            }
         }
         
         void scatterNurbs(std::pair<gsNurbs<scalar>,label> in, std::pair<gsNurbs<scalar>,label>& out);
@@ -478,7 +532,6 @@ class LineStructure : public Structure
         void computeMarkerCellWeights();
         void computeMarkerCellWeights(const std::vector<LagrangianMarker*>& markers);
 
-        
         using LinearSystem = std::tuple
         <
             std::vector<LagrangianMarker*>,
@@ -488,8 +541,9 @@ class LineStructure : public Structure
         >;
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix(const std::vector<LagrangianMarker*>&);
-
         void computeMarkerWeights();
+        
+        
         
         
         

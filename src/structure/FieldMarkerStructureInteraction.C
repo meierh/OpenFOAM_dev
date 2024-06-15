@@ -3,10 +3,12 @@
 Foam::FieldMarkerStructureInteraction::FieldMarkerStructureInteraction
 (
     dynamicRefineFvMesh& mesh,
+    Structure& structure,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
 mesh(mesh),
+structure(structure),
 h(std::cbrt(mesh.cells()[0].mag(mesh.points(),mesh.faces()))),
 modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)

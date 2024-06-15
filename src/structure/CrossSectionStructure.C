@@ -848,7 +848,6 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                         singleMarker->setMarkerVolume(thisFace.mag(points));
                         //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
                         sumVolume+=singleMarker->getMarkerVolume();
-                        
                     }
                 }
             }
@@ -856,7 +855,19 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
     }
 }
 
-
+void Foam::CrossSectionStructure::evaluateMarkerMeshRelation()
+{
+    for(std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>>& singleRodMarkers :  rodMarkersList)
+    {
+        for(std::list<std::list<LagrangianMarkerOnCrossSec>>& oneParaRodMarkers : *singleRodMarkers)
+        {
+            for(std::list<LagrangianMarkerOnCrossSec>>>& radialFracRodMarkers : oneParaRodMarkers)
+            {
+                evaluateMarkerMeshRelation(radialFracRodMarkers);
+            }
+        }
+    }
+}
 
 
 
