@@ -2,11 +2,9 @@ Structure.C
 LineStructure.C
 LagrangianMarker.C
 FieldMarkerStructureInteraction.C
-
-/*
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
 MarkerImplementation.C
-*/
+
 LIB = $(FOAM_USER_LIBBIN)/libStructure

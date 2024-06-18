@@ -11,15 +11,12 @@ Foam::LagrangianMarkerOnCrossSec::LagrangianMarkerOnCrossSec
     const scalar markerAngle,
     const scalar radiusFrac
 ):
-structure(structure),
-mesh(mesh),
-rodNumber(rodNumber),
-baseRod(baseRod),
-markerParameter(markerParameter),
+LagrangianMarker(structure,mesh,rodNumber,baseRod),
 baseCrossSec(baseCrossSec),
 markerAngle(markerAngle),
 markerRadiusFrac(radiusFrac)
 {
+    this->markerParameter = markerParameter;
     evaluateMarker();
 }
 

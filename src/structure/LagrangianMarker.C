@@ -17,6 +17,20 @@ markerParameter(markerParameter)
     evaluateMarker();
 }
 
+Foam::LagrangianMarker::LagrangianMarker
+(    
+    const Structure& structure,
+    const dynamicRefineFvMesh& mesh,
+    const label rodNumber,
+    const ActiveRodMesh::rodCosserat* baseRod
+):
+structure(structure),
+mesh(mesh),
+rodNumber(rodNumber),
+baseRod(baseRod),
+markerParameter(markerParameter)
+{}
+
 vector Foam::LagrangianMarker::getMarkerVelocity()
 {
     return vector(0,0,0);

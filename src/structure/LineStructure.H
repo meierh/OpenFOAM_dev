@@ -17,7 +17,16 @@ class LagrangianMarker
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter
         );
+    protected:
+        explicit LagrangianMarker
+        (    
+            const Structure& structure,
+            const dynamicRefineFvMesh& mesh,
+            const label rodNumber,
+            const ActiveRodMesh::rodCosserat* baseRod
+        );
         
+    public:
         vector getMarkerVelocity();
         scalar getMarkerTemperature();
         scalar getMarkerCellVolume();
@@ -49,7 +58,7 @@ class LagrangianMarker
         
         void compNonUniformCorrWeights() {computeCorrectionWeights();}
         
-    private:
+    protected:        
         const Structure& structure;
         const dynamicRefineFvMesh& mesh;
         label rodNumber;
@@ -504,10 +513,148 @@ class LineStructure : public Structure
         void evaluateMarkerMeshRelation(std::list<LagrangianMarker>& markerList);
         
         void reduceMarkers();
+        template<typename T>
         void reduceMarkers
         (
-            const std::vector<std::pair<std::list<LagrangianMarker>::iterator,std::list<LagrangianMarker>*>>&
-        );
+            const std::vector<std::pair<std::list<T>::iterator,std::list<T>*>>& allMarkers
+        )
+        {
+            using SingleMarkerRef = std::pair<std::list<T>::iterator,std::list<T>*>;
+
+            std::unordered_map<label,DynamicList<SingleMarkerRef>> cellToMarker;
+            for(SingleMarkerRef markerData : allMarkers)
+            {
+                const T& marker = *(markerData.first);
+                label cellInd = marker.getMarkerCell();
+                cellToMarker[cellInd].append(markerData);
+            }
+            
+            const cellList& cells = mesh.cells();
+            const faceList& faces = mesh.faces();
+            const pointField& points = mesh.points();
+            std::vector<SingleMarkerRef> markersToRemove;
+            for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
+            {
+                label cellInd = iter->first;
+                if(cellInd>=0 && cellInd<mesh.cells().size())
+                {
+
+                    const cell& oneCell = cells[cellInd];
+                    Info<<"Cell:"<<cellInd<<Foam::endl;
+                    vector cellCentre = oneCell.centre(points,faces);
+                    std::pair<
+                        std::pair<
+                            std::pair<
+                                DynamicList<SingleMarkerRef>,
+                                DynamicList<SingleMarkerRef>
+                            >,
+                            std::pair<
+                                DynamicList<SingleMarkerRef>,
+                                DynamicList<SingleMarkerRef>
+                            >
+                        >,
+                        std::pair<
+                            std::pair<
+                                DynamicList<SingleMarkerRef>,
+                                DynamicList<SingleMarkerRef>
+                            >,
+                            std::pair<
+                                DynamicList<SingleMarkerRef>,
+                                DynamicList<SingleMarkerRef>
+                            >
+                        >
+                    > xyz_split;
+                    for(SingleMarkerRef markerPtr : iter->second)
+                    {
+                        vector markerPos = markerPtr.first->getMarkerPosition();
+                        Info<<"\t"<<"Marker:"<<markerPos<<Foam::endl;
+                        
+                        std::pair<
+                            std::pair<
+                                DynamicList<SingleMarkerRef>,
+                                DynamicList<SingleMarkerRef>
+                            >,
+                            std::pair<
+                                DynamicList<SingleMarkerRef>,
+                                DynamicList<SingleMarkerRef>
+                            >
+                        >* x_side;
+                        if(markerPos[0]<cellCentre[0])
+                            x_side = &(xyz_split.first);
+                        else
+                            x_side = &(xyz_split.second);
+                        
+                        std::pair<
+                            DynamicList<SingleMarkerRef>,
+                            DynamicList<SingleMarkerRef>
+                        >* xy_side;
+                        if(markerPos[1]<cellCentre[1])
+                            xy_side = &(x_side->first);
+                        else
+                            xy_side = &(x_side->second);
+                        
+                        DynamicList<SingleMarkerRef>* xyz_side;
+                        if(markerPos[2]<cellCentre[2])
+                            xyz_side = &(xy_side->first);
+                        else
+                            xyz_side = &(xy_side->second);
+                        
+                        xyz_side->append(markerPtr);
+                    }
+
+                    std::vector<DynamicList<SingleMarkerRef>*> subCells = 
+                    {
+                        &(xyz_split.first.first.first),
+                        &(xyz_split.first.first.second),
+                        &(xyz_split.first.second.first),
+                        &(xyz_split.first.second.second),
+                        &(xyz_split.second.first.first),
+                        &(xyz_split.second.first.second),
+                        &(xyz_split.second.second.first),
+                        &(xyz_split.second.second.first)
+                    };
+                    
+                    for(DynamicList<SingleMarkerRef>* subCell : subCells)
+                    {
+                        if(subCell->size()>0)
+                        {
+                            vector averagePosition = vector(0,0,0);
+                            for(SingleMarkerRef marker : *subCell)
+                                averagePosition += marker.first->getMarkerPosition();
+                            averagePosition /= subCell->size();
+                            
+                            SingleMarkerRef optMarker;
+                            scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
+                            for(SingleMarkerRef marker : *subCell)
+                            {
+                                vector distVec = marker.first->getMarkerPosition() - averagePosition;
+                                scalar dist = std::sqrt(distVec&distVec);
+                                if(dist<optMarkerDistToAvgPos)
+                                {
+                                    optMarker = marker;
+                                    optMarkerDistToAvgPos = dist;
+                                }
+                            }
+                            for(SingleMarkerRef marker : *subCell)
+                                if(marker!=optMarker)
+                                    markersToRemove.push_back(optMarker);
+                        }
+                    }
+                }
+                else
+                {
+                    for(SingleMarkerRef markerPtr : iter->second)
+                    {
+                        markersToRemove.push_back(markerPtr);
+                    }
+                }
+            }
+            
+            for(SingleMarkerRef markerToRemove : markersToRemove)
+            {
+                markerToRemove.second->erase(markerToRemove.first);
+            }
+        }
         
         void collectHaloMarkers();
         
@@ -648,7 +795,7 @@ class LineStructure : public Structure
         // [rodNumber] -> ...
     protected:
         std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
-    private:
+
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         
         /******************Halo markers data************************/

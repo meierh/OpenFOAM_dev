@@ -91,6 +91,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
     public:
         explicit LagrangianMarkerOnCrossSec
         (
+            const Structure& structure,
             const dynamicRefineFvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
@@ -98,12 +99,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
             const CrossSection* baseCrossSec,
             const scalar markerAngle,
             const scalar radiusFrac
-        ):
-        LagrangianMarker(mesh,rodNumber,baseRod,markerParameter),
-        markerAngle(markerAngle),
-        baseCrossSec(baseCrossSec),
-        markerRadiusFrac(radiusFrac)
-        {}
+        );
         
         inline scalar getMarkerAngle() const {return markerAngle;}
         inline scalar getMarkerRadiusFrac() const {return markerRadiusFrac;}
@@ -132,11 +128,15 @@ class CrossSectionStructure : public LineStructure
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
     private:
-        
         void createSpacedPointsOnRod
         (
             label rodNumber,
             scalar spacing
+        );
+        
+        void createMarkersFromSpacedPointsOnRod
+        (
+            label rodNumber
         );
         void createSpacedPointsOnCrossSec
         (
@@ -146,13 +146,7 @@ class CrossSectionStructure : public LineStructure
             scalar radFrac,
             scalar spacing,
             std::vector<scalar>& angleData
-        );
-        
-        void createMarkersFromSpacedPointsOnRod
-        (
-            label rodNumber
-        );
-        
+        );        
         void refineMarkersOnRod
         (
             label rodNumber,
@@ -182,9 +176,14 @@ class CrossSectionStructure : public LineStructure
         );
         
         void evaluateMarkerMeshRelation();
+        void evaluateMarkerMeshRelation(std::list<LagrangianMarkerOnCrossSec>& markerList);
+        
+        void reducededMarkers();
+        
+        void collectHaloMarkers();
         
         
-        
+        /*
         std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
         (
             const label rodNumber,
@@ -194,6 +193,7 @@ class CrossSectionStructure : public LineStructure
             bool reInitialize = false,
             std::pair<bool,scalar> refineSpacing = {false,0}
         );
+        */
         
 
         /*
@@ -228,7 +228,8 @@ class CrossSectionStructure : public LineStructure
             scalar radiusFracA,
             scalar radiusFracB
         );
-        
+
+    public:
         static vector evaluateRodCircumPos
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -240,6 +241,7 @@ class CrossSectionStructure : public LineStructure
             scalar var_radius = 0
         );
         
+    private:
         static vector evaluateRodCircumDerivAngle
         (
             const ActiveRodMesh::rodCosserat* oneRod,
