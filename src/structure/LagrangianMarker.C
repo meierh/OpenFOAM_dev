@@ -210,12 +210,23 @@ void Foam::LagrangianMarker::computeSupport
         }
     }
     
+    //Info<<"markerParameter:"<<markerParameter<<"  markerPosition:"<<markerPosition<<"  "<<Foam::endl;
+    
     List<List<bool>> directionsExist(3,List<bool>(2,false));
     for(label faceInd : directNeighborFaces)
     {
         const face& thisFace = facesList[faceInd];
+        label owner = owners[faceInd];
         vector faceNormal = thisFace.normal(points);
+        //Info<<"faceNormal:"<<faceNormal<<Foam::endl;
         faceNormal /= std::sqrt(faceNormal&faceNormal);
+        if(owner!=markerCell)
+        {
+            if(markerCell==-1)
+                FatalErrorInFunction<<"Invalid cell can not have neighbours"<<Foam::endl;
+            faceNormal *= -1;
+        }
+        //Info<<"faceNormal:"<<faceNormal<<Foam::endl;
         label dir = -1;
         label posNeg = 1;
         if(std::abs(faceNormal[0]) >= 0.9)
@@ -241,10 +252,17 @@ void Foam::LagrangianMarker::computeSupport
 
         directionsExist[dir][posNeg] = true;
     }
+    //Info<<"directionsExist:"<<directionsExist<<Foam::endl;
     for(label dim=0; dim<3; dim++)
     {
         existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
     }
+    
+    /*
+    for(auto neighTupl : supportCells)
+        Info<<"     "<<std::get<2>(neighTupl)<<Foam::endl;
+    */
+    
 }
 
 void Foam::LagrangianMarker::computeSupportDimensions()
@@ -417,7 +435,7 @@ scalar Foam::LagrangianMarker::computeMoment
             }
         }
         scalar dirac = deltaDirac(X,x,getDilation());
-        Info<<conn<<"|"<<dirac<<Foam::endl;
+        //Info<<conn<<"|"<<dirac<<Foam::endl;
         moment += coeff[0]*coeff[1]*coeff[2]*dirac*cellVolume;
     }
     return moment;
@@ -741,6 +759,9 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         }
     }
     
+    Info<<"numberDims:"<<numberDims<<Foam::endl;
+    Info<<"listDims:"<<listDims<<Foam::endl;
+    
     for(label i=0; i<10; i++)
         b[i] = 0;
         
@@ -943,8 +964,13 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             b[i] = c(i,0) * (*H)[i];
     }
     
+    Info<<"b:";
+    for(scalar bi : b)
+        Info<<bi<<" ";
+    Info<<Foam::endl;
+    
     std::unique_ptr<gismo::gsMatrix<scalar>> corrM = computeCorrectedMomentMatrix();
-    //std::cout<<"corrM:"<<*corrM<<std::endl;
+    std::cout<<"corrM:"<<*corrM<<std::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac

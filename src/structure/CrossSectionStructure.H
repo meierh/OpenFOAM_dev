@@ -178,7 +178,7 @@ class CrossSectionStructure : public LineStructure
         void evaluateMarkerMeshRelation();
         void evaluateMarkerMeshRelation(std::list<LagrangianMarkerOnCrossSec>& markerList);
         
-        void reducededMarkers();
+        void reduceMarkers();
         
         void collectHaloMarkers();
         

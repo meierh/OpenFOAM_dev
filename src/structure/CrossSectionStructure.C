@@ -882,9 +882,9 @@ void Foam::CrossSectionStructure::evaluateMarkerMeshRelation
         marker.evaluateMarker();
 }
 
-void Foam::CrossSectionStructure::reducededMarkers()
+void Foam::CrossSectionStructure::reduceMarkers()
 {
-    std::vector<std::pair<std::list<LagrangianMarkerOnCrossSec>::iterator,std::list<LagrangianMarkerOnCrossSec>*>> allMarkers;
+    std::vector<MarkerReference<LagrangianMarkerOnCrossSec>> allMarkers;
     for(std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>& singleRodMarkers :  rodMarkersList)
     {
         for(std::list<std::list<LagrangianMarkerOnCrossSec>>& oneParaRodMarkers : *singleRodMarkers)
@@ -894,12 +894,15 @@ void Foam::CrossSectionStructure::reducededMarkers()
                 std::list<LagrangianMarkerOnCrossSec>* singleRadMarkers = &(radialFracRodMarkers);
                 for(auto iter=singleRadMarkers->begin(); iter!=singleRadMarkers->end(); iter++)
                 {
-                    allMarkers.push_back({iter,singleRadMarkers});
+                    allMarkers.push_back
+                    (
+                        MarkerReference<LagrangianMarkerOnCrossSec>(iter,singleRadMarkers)
+                    );
                 }
             }
         }
     }
-    reduceMarkers<LagrangianMarkerOnCrossSec>(allMarkers);
+    LineStructure::reduceMarkers(allMarkers);
 }
 
 void Foam::CrossSectionStructure::collectHaloMarkers()

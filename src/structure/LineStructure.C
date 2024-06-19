@@ -83,7 +83,6 @@ crossSecArea(crossSecArea)
         */
     }
 
-    
     computeMarkerCellWeights();
     
     //std::unique_ptr<LinearSystem> system = computeMarkerEpsilonMatrix();
@@ -364,16 +363,16 @@ void Foam::LineStructure::evaluateMarkerMeshRelation
 
 void Foam::LineStructure::reduceMarkers()
 {
-    std::vector<std::pair<std::list<LagrangianMarker>::iterator,std::list<LagrangianMarker>*>> allMarkers;
+    std::vector<MarkerReference<LagrangianMarker>> allMarkers;
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkersPtr : rodMarkersList)
     {
         std::list<LagrangianMarker>* singleRodMarkers = &(*singleRodMarkersPtr);
         for(auto iter=singleRodMarkers->begin(); iter!=singleRodMarkers->end(); iter++)
         {
-            allMarkers.push_back({iter,singleRodMarkers});
+            allMarkers.push_back(MarkerReference<LagrangianMarker>(iter,singleRodMarkers));
         }
     }
-    reduceMarkers<LagrangianMarker>(allMarkers);
+    reduceMarkers(allMarkers);
 }
 
 void Foam::LineStructure::collectHaloMarkers()
@@ -884,6 +883,7 @@ void Foam::LineStructure::computeMarkerCellWeights
     const std::vector<LagrangianMarker*>& markers
 )
 {
+    Info<<"computeMarkerCellWeights"<<Foam::endl;
     for(LagrangianMarker* markerPtr : markers)
     {
         markerPtr->compNonUniformCorrWeights();

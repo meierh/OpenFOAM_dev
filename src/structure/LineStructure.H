@@ -1,5 +1,6 @@
 #ifndef LINESTRUCTURE_H
 #define LINESTRUCTURE_H
+#include <iterator>
 #include "Structure.H"
 //#include "rodTools.h"
 
@@ -513,70 +514,96 @@ class LineStructure : public Structure
         void evaluateMarkerMeshRelation(std::list<LagrangianMarker>& markerList);
         
         void reduceMarkers();
-        template<typename T>
+        
+        template<typename MARKER>
+        class MarkerReference
+        {
+            public:
+                MarkerReference
+                (
+                    typename std::list<MARKER>::iterator iterator,
+                    typename std::list<MARKER>* listPointer
+                ):
+                iterator(iterator),listPointer(listPointer),markedToDelete(false)
+                {}
+                
+                const MARKER& getMarker() const {return *iterator;}
+                void deleteMarker() {markedToDelete=true;}
+                
+                ~MarkerReference()
+                {
+                    if(markedToDelete)
+                    {
+                        listPointer->erase(iterator);
+                    }
+                }
+            
+            private:
+                typename std::list<MARKER>::iterator iterator;
+                typename std::list<MARKER>* listPointer;
+                bool markedToDelete;
+        };
+        
+        template<class MARKER>
         void reduceMarkers
         (
-            const std::vector<std::pair<std::list<T>::iterator,std::list<T>*>>& allMarkers
+            std::vector<MarkerReference<MARKER>>& allMarkers
         )
         {
-            using SingleMarkerRef = std::pair<std::list<T>::iterator,std::list<T>*>;
-
-            std::unordered_map<label,DynamicList<SingleMarkerRef>> cellToMarker;
-            for(SingleMarkerRef markerData : allMarkers)
+            using SingleMarker = MarkerReference<MARKER>;
+            
+            std::unordered_map<label,std::vector<SingleMarker*>> cellToMarker;
+            for(SingleMarker& markerData : allMarkers)
             {
-                const T& marker = *(markerData.first);
+                const MARKER& marker = markerData.getMarker();
                 label cellInd = marker.getMarkerCell();
-                cellToMarker[cellInd].append(markerData);
+                cellToMarker[cellInd].push_back(&markerData);
             }
             
             const cellList& cells = mesh.cells();
             const faceList& faces = mesh.faces();
             const pointField& points = mesh.points();
-            std::vector<SingleMarkerRef> markersToRemove;
+            
             for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
             {
                 label cellInd = iter->first;
                 if(cellInd>=0 && cellInd<mesh.cells().size())
                 {
-
                     const cell& oneCell = cells[cellInd];
-                    Info<<"Cell:"<<cellInd<<Foam::endl;
                     vector cellCentre = oneCell.centre(points,faces);
                     std::pair<
                         std::pair<
                             std::pair<
-                                DynamicList<SingleMarkerRef>,
-                                DynamicList<SingleMarkerRef>
+                                DynamicList<SingleMarker*>,
+                                DynamicList<SingleMarker*>
                             >,
                             std::pair<
-                                DynamicList<SingleMarkerRef>,
-                                DynamicList<SingleMarkerRef>
+                                DynamicList<SingleMarker*>,
+                                DynamicList<SingleMarker*>
                             >
                         >,
                         std::pair<
                             std::pair<
-                                DynamicList<SingleMarkerRef>,
-                                DynamicList<SingleMarkerRef>
+                                DynamicList<SingleMarker*>,
+                                DynamicList<SingleMarker*>
                             >,
                             std::pair<
-                                DynamicList<SingleMarkerRef>,
-                                DynamicList<SingleMarkerRef>
+                                DynamicList<SingleMarker*>,
+                                DynamicList<SingleMarker*>
                             >
                         >
                     > xyz_split;
-                    for(SingleMarkerRef markerPtr : iter->second)
+                    for(SingleMarker* markerPtr : iter->second)
                     {
-                        vector markerPos = markerPtr.first->getMarkerPosition();
-                        Info<<"\t"<<"Marker:"<<markerPos<<Foam::endl;
-                        
+                        vector markerPos = markerPtr->getMarker().getMarkerPosition();
                         std::pair<
                             std::pair<
-                                DynamicList<SingleMarkerRef>,
-                                DynamicList<SingleMarkerRef>
+                                DynamicList<SingleMarker*>,
+                                DynamicList<SingleMarker*>
                             >,
                             std::pair<
-                                DynamicList<SingleMarkerRef>,
-                                DynamicList<SingleMarkerRef>
+                                DynamicList<SingleMarker*>,
+                                DynamicList<SingleMarker*>
                             >
                         >* x_side;
                         if(markerPos[0]<cellCentre[0])
@@ -585,15 +612,15 @@ class LineStructure : public Structure
                             x_side = &(xyz_split.second);
                         
                         std::pair<
-                            DynamicList<SingleMarkerRef>,
-                            DynamicList<SingleMarkerRef>
+                            DynamicList<SingleMarker*>,
+                            DynamicList<SingleMarker*>
                         >* xy_side;
                         if(markerPos[1]<cellCentre[1])
                             xy_side = &(x_side->first);
                         else
                             xy_side = &(x_side->second);
                         
-                        DynamicList<SingleMarkerRef>* xyz_side;
+                        DynamicList<SingleMarker*>* xyz_side;
                         if(markerPos[2]<cellCentre[2])
                             xyz_side = &(xy_side->first);
                         else
@@ -602,7 +629,7 @@ class LineStructure : public Structure
                         xyz_side->append(markerPtr);
                     }
 
-                    std::vector<DynamicList<SingleMarkerRef>*> subCells = 
+                    std::vector<DynamicList<SingleMarker*>*> subCells = 
                     {
                         &(xyz_split.first.first.first),
                         &(xyz_split.first.first.second),
@@ -614,20 +641,20 @@ class LineStructure : public Structure
                         &(xyz_split.second.second.first)
                     };
                     
-                    for(DynamicList<SingleMarkerRef>* subCell : subCells)
+                    for(DynamicList<SingleMarker*>* subCell : subCells)
                     {
                         if(subCell->size()>0)
                         {
                             vector averagePosition = vector(0,0,0);
-                            for(SingleMarkerRef marker : *subCell)
-                                averagePosition += marker.first->getMarkerPosition();
+                            for(SingleMarker* marker : *subCell)
+                                averagePosition += marker->getMarker().getMarkerPosition();
                             averagePosition /= subCell->size();
                             
-                            SingleMarkerRef optMarker;
+                            SingleMarker* optMarker;
                             scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
-                            for(SingleMarkerRef marker : *subCell)
+                            for(SingleMarker* marker : *subCell)
                             {
-                                vector distVec = marker.first->getMarkerPosition() - averagePosition;
+                                vector distVec = marker->getMarker().getMarkerPosition() - averagePosition;
                                 scalar dist = std::sqrt(distVec&distVec);
                                 if(dist<optMarkerDistToAvgPos)
                                 {
@@ -635,24 +662,19 @@ class LineStructure : public Structure
                                     optMarkerDistToAvgPos = dist;
                                 }
                             }
-                            for(SingleMarkerRef marker : *subCell)
+                            for(SingleMarker* marker : *subCell)
                                 if(marker!=optMarker)
-                                    markersToRemove.push_back(optMarker);
+                                    marker->deleteMarker();
                         }
                     }
                 }
                 else
                 {
-                    for(SingleMarkerRef markerPtr : iter->second)
+                    for(SingleMarker* markerPtr : iter->second)
                     {
-                        markersToRemove.push_back(markerPtr);
+                        markerPtr->deleteMarker();
                     }
                 }
-            }
-            
-            for(SingleMarkerRef markerToRemove : markersToRemove)
-            {
-                markerToRemove.second->erase(markerToRemove.first);
             }
         }
         
