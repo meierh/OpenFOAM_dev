@@ -59,6 +59,33 @@ class LagrangianMarker
         
         void compNonUniformCorrWeights() {computeCorrectionWeights();}
         
+        template<typename VALTYPE>
+        VALTYPE convolute
+        (
+            std::function<scalar(vector,vector)> weightFunction,
+            std::function<VALTYPE(std::tuple<bool,label,label>)> valueFunction
+        ) const
+        {
+            vector X = getMarkerPosition();
+            const DynamicList<std::tuple<bool,label,label>>& supportCells = getSupportCells();
+            
+            VALTYPE convValue = Foam::zero();
+            for(label i=0; i<supportCells.size(); i++)
+            {
+                const std::tuple<bool,label,label>& suppCellData = supportCells[i];
+                vector cellCentre;
+                scalar cellVolume;
+                getCellData(suppCellData,cellCentre,cellVolume);
+                vector x = cellCentre;
+
+                scalar w = weightFunction(X,x);
+                VALTYPE f = valueFunction(suppCellData);
+                
+                convValue += w*f*cellVolume;
+            }
+            return convValue;
+        }
+        
     protected:        
         const Structure& structure;
         const dynamicRefineFvMesh& mesh;
@@ -83,16 +110,79 @@ class LagrangianMarker
         
         std::array<scalar,10> b;
         
+        void getCellData(const std::tuple<bool,label,label>& cell, vector& cellCentre, scalar& volume) const;
+        scalar computeMoment(vector indices, std::function<scalar(vector,vector)> deltaFunction) const;
+        scalar computeCorrectedMoment(vector indices) const;
         scalar computeMoment(vector indices) const;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix3D() const ;
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix2D(label normalDim) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix2D(std::array<label,2> dim) const;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix1D(label dim) const;
         std::unique_ptr<std::array<scalar,10>> rescalingDiagonal3D() const;
         std::unique_ptr<std::array<scalar,6>> rescalingDiagonal2D(label normalDim) const;
         std::unique_ptr<std::array<scalar,3>> rescalingDiagonal1D(label dim) const;
         void computeCorrectionWeights();
-                
-        scalar computeCorrectedMoment(vector indices) const;
+        
+        enum WeightSystemSolve {Raw,GeoRescaled,DiagRescaled};
+        template<uint dim>
+        void solveWeights
+        (
+            std::unique_ptr<std::array<scalar,dim>> Hptr,
+            std::unique_ptr<gismo::gsMatrix<scalar>> Mptr,
+            gismo::gsMatrix<scalar>& x,
+            WeightSystemSolve solutionStrategy = WeightSystemSolve::GeoRescaled
+        )
+        {
+            std::array<scalar,dim>& H = *Hptr;
+            gismo::gsMatrix<scalar>& M = *Mptr;
+            x = gismo::gsMatrix<scalar>(dim,1);
+            gismo::gsMatrix<scalar> e(dim,1);
+            for(label i=0; i<dim; i++)
+            {
+                e(i,0) = 0;
+                x(i,0) = 0;
+            }
+            e(0,0) = 1;
+            
+            gismo::gsMatrix<scalar> P(dim,dim);
+            for(label r=0;r<dim;r++)
+                for(label c=0;c<dim;c++)
+                    P(r,c)=0;
+            if(solutionStrategy==WeightSystemSolve::Raw)
+            {
+                for(label d=0; d<dim; d++)
+                    P(d,d) = 1;
+            }
+            else if(solutionStrategy==WeightSystemSolve::GeoRescaled)
+            {
+                for(label d=0; d<dim; d++)
+                    P(d,d) = H[d];
+            }
+            else
+            {
+                for(label d=0; d<dim; d++)
+                    P(d,d) = 1.0/M(d,d);
+            }
+            
+            gismo::gsMatrix<scalar> A = P*M;
+            
+            gismo::gsConjugateGradient Solver(A);
+            Solver.solve(e,x);
+            gismo::gsMatrix<scalar> resid = A*x-e;
+            scalar residNormL2=0;
+            for(label i=0;i<dim;i++)
+                residNormL2+=(resid(i,0)*resid(i,0));
+                        
+            if(Solver.error()>1e-8 || residNormL2>1e-8)
+            {
+                std::cout<<"P:"<<std::endl<<P<<std::endl;
+                std::cout<<"M:"<<std::endl<<M<<std::endl;
+                std::cout<<"A:"<<std::endl<<A<<std::endl;
+                std::cout<<"residNormL2:"<<std::endl<<residNormL2<<std::endl;
+                std::cout<<"Solver.error():"<<std::endl<<Solver.error()<<std::endl;
+                FatalErrorInFunction<<"Failed computing weights"<<exit(FatalError);
+            }
+        }
+
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
 

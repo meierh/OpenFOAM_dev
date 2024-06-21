@@ -388,9 +388,99 @@ void Foam::LagrangianMarker::dilationFactors()
     //Info<<" dilation:"<<dilation<<Foam::endl;
 }
 
+void Foam::LagrangianMarker::getCellData
+(
+    const std::tuple<bool,label,label>& cell,
+    vector& cellCentre,
+    scalar& cellVolume
+) const
+{
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    const std::tuple<bool,label,label>& suppCellData = cell;
+    if(std::get<0>(suppCellData))
+    {
+        label cellInd = std::get<2>(suppCellData);
+        cellCentre = cells[cellInd].centre(points,faces);
+        cellVolume = cells[cellInd].mag(points,faces);
+    }
+    else
+    {
+        label neighProcess = std::get<1>(suppCellData);
+        const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+        auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellData));
+        if(iter==neighborHaloCellToIndexMap.end())
+            FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+        label index = iter->second;
+        cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
+        cellVolume = structure.getHaloCellList(neighProcess)[index].volume;
+    }
+}
+
+scalar Foam::LagrangianMarker::computeMoment
+(
+    vector indices,
+    std::function<scalar(vector,vector)> deltaFunction
+) const
+{
+    const LagrangianMarker& marker = *this;
+    std::function<scalar(std::tuple<bool,label,label>)> valueFunction = 
+    [marker,indices](std::tuple<bool,label,label> cell)
+    {
+        vector X = marker.getMarkerPosition();
+        vector cellCentre;
+        scalar cellVolume;
+        marker.getCellData(cell,cellCentre,cellVolume);
+        vector x = cellCentre;
+        vector conn = x-X;
+        vector coeff(1,1,1);
+        for(label dim=0; dim<3; dim++)
+        {
+            for(label index=0; index<indices[dim]; index++)
+            {
+                coeff[dim]*=conn[dim];
+            }
+        }
+        return coeff[0]*coeff[1]*coeff[2];
+    };
+    return convolute<scalar>(deltaFunction,valueFunction);
+}
+
+scalar Foam::LagrangianMarker::computeCorrectedMoment
+(
+    vector indices
+) const
+{
+    const LagrangianMarker& marker = *this;
+    std::function<scalar(vector,vector)> deltaFunction = 
+    [marker](vector X, vector x)
+    {
+        return marker.correctedDeltaDirac(X,x);
+    };
+    return computeMoment(indices,deltaFunction);
+}
+
 scalar Foam::LagrangianMarker::computeMoment
 (
     vector indices
+) const
+{
+    const LagrangianMarker& marker = *this;
+    std::function<scalar(vector,vector)> deltaFunction = 
+    [marker](vector X, vector x)
+    {
+        return marker.deltaDirac(X,x);
+    };
+    return computeMoment(indices,deltaFunction);
+}
+
+/*
+scalar Foam::LagrangianMarker::computeMoment
+(
+    vector indices,
+    std::function<scalar(vector,vector)> deltaFunction
 ) const
 {
     vector X = getMarkerPosition();
@@ -434,13 +524,16 @@ scalar Foam::LagrangianMarker::computeMoment
                 coeff[dim]*=conn[dim];
             }
         }
-        scalar dirac = deltaDirac(X,x,getDilation());
+        scalar dirac = deltaFunction(X,x);
         //Info<<conn<<"|"<<dirac<<Foam::endl;
         moment += coeff[0]*coeff[1]*coeff[2]*dirac*cellVolume;
     }
     return moment;
 };
+*/
 
+
+/*
 scalar Foam::LagrangianMarker::computeCorrectedMoment
 (
     vector indices
@@ -492,141 +585,87 @@ scalar Foam::LagrangianMarker::computeCorrectedMoment
     }
     return moment;
 };
+*/
 
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix3D() const
 {
+    std::array<vector,10> gen3DIndices = 
+    {
+        vector(0,0,0),
+        vector(1,0,0),vector(0,1,0),vector(0,0,1),
+        vector(1,1,0),vector(0,1,1),vector(1,0,1),vector(2,0,0),vector(0,2,0),vector(0,0,2)        
+    };
+    
+    List<List<vector>> indices(10,List<vector>(10));
+    for(label i=0; i<gen3DIndices.size(); i++)
+    {
+        vector indi = gen3DIndices[i];
+        for(label j=0; j<gen3DIndices.size(); j++)
+        {
+            vector indj = gen3DIndices[j];
+            vector index = indi+indj;
+            indices[i][j] = index;
+        }
+    }
+
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
-    
-    Info<<"computeMoment(vector(0,0,0)):"<<computeMoment(vector(0,0,0))<<Foam::endl;
-    Info<<"computeMoment(vector(2,0,0)):"<<computeMoment(vector(2,0,0))<<Foam::endl;
-    Info<<"computeMoment(vector(0,2,0)):"<<computeMoment(vector(0,2,0))<<Foam::endl;
-    Info<<"computeMoment(vector(0,0,2)):"<<computeMoment(vector(0,0,2))<<Foam::endl;
-    Info<<"computeMoment(vector(2,2,0)):"<<computeMoment(vector(2,2,0))<<Foam::endl;
-    Info<<"computeMoment(vector(0,2,2)):"<<computeMoment(vector(0,2,2))<<Foam::endl;
-    Info<<"computeMoment(vector(2,0,2)):"<<computeMoment(vector(2,0,2))<<Foam::endl;
-    Info<<"computeMoment(vector(4,0,0)):"<<computeMoment(vector(4,0,0))<<Foam::endl;
-    Info<<"computeMoment(vector(0,4,0)):"<<computeMoment(vector(0,4,0))<<Foam::endl;
-    Info<<"computeMoment(vector(0,0,4)):"<<computeMoment(vector(0,0,4))<<Foam::endl;
-        
-    //Diagonal
-    moments3D(0,0) = computeMoment(vector(0,0,0));
-    moments3D(1,1) = computeMoment(vector(2,0,0));
-    moments3D(2,2) = computeMoment(vector(0,2,0));
-    moments3D(3,3) = computeMoment(vector(0,0,2));
-    moments3D(4,4) = computeMoment(vector(2,2,0));
-    moments3D(5,5) = computeMoment(vector(0,2,2));
-    moments3D(6,6) = computeMoment(vector(2,0,2));
-    moments3D(7,7) = computeMoment(vector(4,0,0));
-    moments3D(8,8) = computeMoment(vector(0,4,0));
-    moments3D(9,9) = computeMoment(vector(0,0,4));
-    
-    //Row / Column 0
-    moments3D(0,1) = moments3D(1,0) = computeMoment(vector(1,0,0));
-    moments3D(0,2) = moments3D(2,0) = computeMoment(vector(0,1,0));
-    moments3D(0,3) = moments3D(3,0) = computeMoment(vector(0,0,1));
-    moments3D(0,4) = moments3D(4,0) = computeMoment(vector(1,1,0));
-    moments3D(0,5) = moments3D(5,0) = computeMoment(vector(0,1,1));
-    moments3D(0,6) = moments3D(6,0) = computeMoment(vector(1,0,1));
-    moments3D(0,7) = moments3D(7,0) = computeMoment(vector(2,0,0));
-    moments3D(0,8) = moments3D(8,0) = computeMoment(vector(0,2,0));
-    moments3D(0,9) = moments3D(9,0) = computeMoment(vector(0,0,2));
-    
-    //Row / Column 1
-    moments3D(1,2) = moments3D(2,1) = computeMoment(vector(1,1,0));
-    moments3D(1,3) = moments3D(3,1) = computeMoment(vector(1,0,1));
-    moments3D(1,4) = moments3D(4,1) = computeMoment(vector(2,1,0));
-    moments3D(1,5) = moments3D(5,1) = computeMoment(vector(1,1,1));
-    moments3D(1,6) = moments3D(6,1) = computeMoment(vector(2,0,1));
-    moments3D(1,7) = moments3D(7,1) = computeMoment(vector(3,0,0));
-    moments3D(1,8) = moments3D(8,1) = computeMoment(vector(1,2,0));
-    moments3D(1,9) = moments3D(9,1) = computeMoment(vector(1,0,2));
-    
-    //Row / Column 2
-    moments3D(2,3) = moments3D(3,2) = computeMoment(vector(0,1,1));
-    moments3D(2,4) = moments3D(4,2) = computeMoment(vector(1,2,0));
-    moments3D(2,5) = moments3D(5,2) = computeMoment(vector(0,2,1));
-    moments3D(2,6) = moments3D(6,2) = computeMoment(vector(1,1,1));
-    moments3D(2,7) = moments3D(7,2) = computeMoment(vector(2,1,0));
-    moments3D(2,8) = moments3D(8,2) = computeMoment(vector(0,3,0));
-    moments3D(2,9) = moments3D(9,2) = computeMoment(vector(0,1,2));
-    
-    //Row / Column 3
-    moments3D(3,4) = moments3D(4,3) = computeMoment(vector(1,1,1));
-    moments3D(3,5) = moments3D(5,3) = computeMoment(vector(0,1,2));
-    moments3D(3,6) = moments3D(6,3) = computeMoment(vector(1,0,2));
-    moments3D(3,7) = moments3D(7,3) = computeMoment(vector(2,0,1));
-    moments3D(3,8) = moments3D(8,3) = computeMoment(vector(0,2,1));
-    moments3D(3,9) = moments3D(9,3) = computeMoment(vector(0,0,3));
+    for(label i=0; i<gen3DIndices.size(); i++)
+    {
+        for(label j=0; j<gen3DIndices.size(); j++)
+        {
+            moments3D(i,j) = computeMoment(indices[i][j]);
+        }
+    }
 
-    //Row / Column 4
-    moments3D(3,4) = moments3D(4,3) = computeMoment(vector(1,1,1));
-    moments3D(3,5) = moments3D(5,3) = computeMoment(vector(0,1,2));
-    moments3D(3,6) = moments3D(6,3) = computeMoment(vector(1,0,2));
-    moments3D(3,7) = moments3D(7,3) = computeMoment(vector(2,0,1));
-    moments3D(3,8) = moments3D(8,3) = computeMoment(vector(0,2,1));
-    moments3D(3,9) = moments3D(9,3) = computeMoment(vector(0,0,3));
-
-    //Row / Column 5
-    moments3D(4,5) = moments3D(5,4) = computeMoment(vector(1,2,1));
-    moments3D(4,6) = moments3D(6,4) = computeMoment(vector(2,1,1));
-    moments3D(4,7) = moments3D(7,4) = computeMoment(vector(3,1,0));
-    moments3D(4,8) = moments3D(8,4) = computeMoment(vector(1,3,0));
-    moments3D(4,9) = moments3D(9,4) = computeMoment(vector(1,1,2));
-    
-    //Row / Column 6
-    moments3D(5,6) = moments3D(6,5) = computeMoment(vector(1,1,2));
-    moments3D(5,7) = moments3D(7,5) = computeMoment(vector(2,1,1));
-    moments3D(5,8) = moments3D(8,5) = computeMoment(vector(0,3,1));
-    moments3D(5,9) = moments3D(9,5) = computeMoment(vector(0,1,3));
-    
-    //Row / Column 7
-    moments3D(6,7) = moments3D(7,6) = computeMoment(vector(3,0,1));
-    moments3D(6,8) = moments3D(8,6) = computeMoment(vector(1,2,1));
-    moments3D(6,9) = moments3D(9,6) = computeMoment(vector(1,0,3));
-    
-    //Row / Column 8
-    moments3D(7,8) = moments3D(8,7) = computeMoment(vector(2,2,0));
-    moments3D(7,9) = moments3D(9,7) = computeMoment(vector(2,0,2));
-    
-    //Row / Column 9
-    moments3D(8,9) = moments3D(9,8) = computeMoment(vector(0,2,2));
-    
     return moments3DPtr;
 }
 
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix2D
 (
-    label normalDim
+    std::array<label,2> dim
 ) const
 {
-    if(normalDim!=0 && normalDim!=1 && normalDim!=2)
-        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    std::array<std::array<label,2>,6> gen2DIndices;
+    gen2DIndices[0] = {0,0}; gen2DIndices[1] = {1,0}; gen2DIndices[2] = {0,1};
+    gen2DIndices[3] = {1,1}; gen2DIndices[4] = {2,0}; gen2DIndices[5] = {0,2};
     
-    auto moments3DPtr = computeMomentMatrix3D();
-    gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;    
+    if(dim[0]!=0 && dim[0]!=1 && dim[0]!=2) 
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    if(dim[1]!=0 && dim[1]!=1 && dim[1]!=2)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    if(dim[0]==dim[1] || dim[0]>dim[1])
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+
+    std::array<vector,6> gen3DIndices;
+    for(label i=0; i<gen3DIndices.size(); i++)
+    {
+        std::array<label,2> singleEntry = gen2DIndices[i];
+        vector indices3D(0,0,0);
+        indices3D[dim[0]] = singleEntry[0];
+        indices3D[dim[1]] = singleEntry[1];
+        gen3DIndices[i] = indices3D;
+    }
+
+    List<List<vector>> indices(6,List<vector>(6));
+    for(label i=0; i<gen3DIndices.size(); i++)
+    {
+        vector indi = gen3DIndices[i];
+        for(label j=0; j<gen3DIndices.size(); j++)
+        {
+            vector indj = gen3DIndices[j];
+            vector index = indi+indj;
+            indices[i][j] = index;
+        }
+    }
     
     auto moments2DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(6,6));
     gismo::gsMatrix<scalar>& moments2D = *moments2DPtr;
-    
-    std::array<uint,6> indicesDim01 = {0,1,2,4,7,8};
-    std::array<uint,6> indicesDim12 = {0,1,3,6,7,9};
-    std::array<uint,6> indicesDim02 = {0,2,3,5,8,9};
-    List<std::array<uint,6>> indices(3);
-    indices[2] = indicesDim01;
-    indices[0] = indicesDim12;
-    indices[1] = indicesDim02;
-
-    std::array<uint,6> thisIndices = indices[normalDim];
-    
-    for(label i=0; i<6; i++)
+    for(label i=0; i<gen3DIndices.size(); i++)
     {
-        for(label j=0; j<6; j++)
+        for(label j=0; j<gen3DIndices.size(); j++)
         {
-            label I = thisIndices[i];
-            label J = thisIndices[j];
-            scalar moment = moments3D(I,J);
-            moments2D(i,j) = moment;
+            moments2D(i,j) = computeMoment(indices[i][j]);
         }
     }
 
@@ -758,9 +797,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             listDims.append(dim);
         }
     }
-    
-    Info<<"numberDims:"<<numberDims<<Foam::endl;
-    Info<<"listDims:"<<listDims<<Foam::endl;
+    WeightSystemSolve solStrategy = WeightSystemSolve::Raw;
     
     for(label i=0; i<10; i++)
         b[i] = 0;
@@ -777,15 +814,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         b[0] = 1.0/m000;
     }
     else if(numberDims==1)
-    {
-        gismo::gsMatrix<scalar> e(3,1),c(3,1);
-        for(label i=0; i<3; i++)
-        {
-            e(i,0) = 0;
-            c(i,0) = 0;
-        }
-        e(0,0) = 1;
-        
+    {        
         if(listDims[0]==0)
         /*
             b0 +
@@ -794,17 +823,11 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             (x-s)²b7   + 0      + 0
         */
         {
-            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix1D(0);
-            std::unique_ptr<std::array<scalar,3>> H = rescalingDiagonal1D(0);
-            for(label i=0; i<3; i++)
-                (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            
-            gismo::gsGMRes HM(*M);
-            HM.solve(e,c);
-            
-            b[0] = c(0,0)*(*H)[0];
-            b[1] = c(1,0)*(*H)[1];
-            b[7] = c(2,0)*(*H)[2];
+            gismo::gsMatrix<scalar> x;
+            solveWeights<3>(rescalingDiagonal1D(0),computeMomentMatrix1D(0),x,solStrategy);
+            b[0] = x(0,0);
+            b[1] = x(1,0);
+            b[7] = x(2,0);            
         }
         else if(listDims[0]==1)
         /*
@@ -814,17 +837,11 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             0  + (y-t)²b8     + 0
         */
         {
-            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix1D(1);
-            std::unique_ptr<std::array<scalar,3>> H = rescalingDiagonal1D(1);
-            for(label i=0; i<3; i++)
-                (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            
-            gismo::gsGMRes HM(*M);
-            HM.solve(e,c);
-            
-            b[0] = c(0,0)*(*H)[0];
-            b[2] = c(1,0)*(*H)[1];
-            b[8] = c(2,0)*(*H)[2];            
+            gismo::gsMatrix<scalar> x;
+            solveWeights<3>(rescalingDiagonal1D(1),computeMomentMatrix1D(1),x,solStrategy);
+            b[0] = x(0,0);
+            b[2] = x(1,0);
+            b[8] = x(2,0);
         }
         else if(listDims[0]==2)
         /*
@@ -834,31 +851,17 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             0  + 0  + (z-v)²b9
         */
         {
-            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix1D(2);
-            std::unique_ptr<std::array<scalar,3>> H = rescalingDiagonal1D(2);
-            for(label i=0; i<3; i++)
-                (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            
-            gismo::gsGMRes HM(*M);
-            HM.solve(e,c);
-            
-            b[0] = c(0,0)*(*H)[0];
-            b[3] = c(1,0)*(*H)[1];
-            b[9] = c(2,0)*(*H)[2];            
+            gismo::gsMatrix<scalar> x;
+            solveWeights<3>(rescalingDiagonal1D(2),computeMomentMatrix1D(2),x,solStrategy);
+            b[0] = x(0,0);
+            b[3] = x(1,0);
+            b[9] = x(2,0);
         }
         else
             FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
     }
     else if(numberDims==2)
-    {
-        gismo::gsMatrix<scalar> e(6,1),c(6,1);
-        for(label i=0; i<6; i++)
-        {
-            e(i,0) = 0;
-            c(i,0) = 0;
-        }
-        e(0,0) = 1;
-        
+    {        
         if(listDims[0]==0 && listDims[1]==1)
         /*
             b0 +
@@ -867,45 +870,16 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             (x-s)²b7     + (y-t)²b8     + 0
         */
         {
-            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix2D(2);
-            std::unique_ptr<std::array<scalar,6>> H = rescalingDiagonal2D(2);
-            for(label i=0; i<6; i++)
-                (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            
-            gismo::gsGMRes HM(*M);
-            HM.solve(e,c);
-            
-            b[0] = c(0,0)*(*H)[0];
-            b[1] = c(1,0)*(*H)[1];
-            b[2] = c(2,0)*(*H)[2];
-            b[4] = c(3,0)*(*H)[3];
-            b[7] = c(4,0)*(*H)[4];
-            b[8] = c(5,0)*(*H)[5];
+            gismo::gsMatrix<scalar> x;
+            solveWeights<6>(rescalingDiagonal2D(2),computeMomentMatrix2D({0,1}),x,solStrategy);
+            b[0] = x(0,0);
+            b[1] = x(1,0);
+            b[2] = x(2,0);
+            b[4] = x(3,0);
+            b[7] = x(4,0);
+            b[8] = x(5,0);
         }
         else if(listDims[0]==1 && listDims[1]==2)
-        /*
-            b0 +
-            (x-s)b1      + 0    + (z-v)b3 +
-            0            + 0    + (z-v)(x-s)b6 +
-            (x-s)²b7     + 0    + (z-v)²b9
-        */
-        {
-            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix2D(1);
-            std::unique_ptr<std::array<scalar,6>> H = rescalingDiagonal2D(1);
-            for(label i=0; i<6; i++)
-                (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            
-            gismo::gsGMRes HM(*M);
-            HM.solve(e,c);
-            
-            b[0] = c(0,0)*(*H)[0];
-            b[1] = c(1,0)*(*H)[1];
-            b[3] = c(2,0)*(*H)[2];
-            b[6] = c(3,0)*(*H)[3];
-            b[7] = c(4,0)*(*H)[4];
-            b[9] = c(5,0)*(*H)[5];
-        }
-        else if(listDims[0]==0 && listDims[1]==2)
         /*
             b0 +
             0       + (y-t)b2      + (z-v)b3 +
@@ -913,20 +887,31 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             0       + (y-t)²b8     + (z-v)²b9
         */
         {
-            std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix2D(0);
-            std::unique_ptr<std::array<scalar,6>> H = rescalingDiagonal2D(0);
-            for(label i=0; i<6; i++)
-                (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            
-            gismo::gsGMRes HM(*M);
-            HM.solve(e,c);
-            
-            b[0] = c(0,0)*(*H)[0];
-            b[2] = c(1,0)*(*H)[1];
-            b[3] = c(2,0)*(*H)[2];
-            b[5] = c(3,0)*(*H)[3];
-            b[8] = c(4,0)*(*H)[4];
-            b[9] = c(5,0)*(*H)[5];
+            gismo::gsMatrix<scalar> x;
+            solveWeights<6>(rescalingDiagonal2D(0),computeMomentMatrix2D({1,2}),x,solStrategy);           
+            b[0] = x(0,0);
+            b[2] = x(1,0);
+            b[3] = x(2,0);
+            b[5] = x(3,0);
+            b[8] = x(4,0);
+            b[9] = x(5,0);
+        }
+        else if(listDims[0]==0 && listDims[1]==2)        
+        /*
+            b0 +
+            (x-s)b1      + 0    + (z-v)b3 +
+            0            + 0    + (z-v)(x-s)b6 +
+            (x-s)²b7     + 0    + (z-v)²b9
+        */
+        {
+            gismo::gsMatrix<scalar> x;
+            solveWeights<6>(rescalingDiagonal2D(1),computeMomentMatrix2D({0,2}),x,solStrategy);
+            b[0] = x(0,0);
+            b[1] = x(1,0);
+            b[3] = x(2,0);
+            b[6] = x(3,0);
+            b[7] = x(4,0);
+            b[9] = x(5,0);
         }
         else
             FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
@@ -939,38 +924,11 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         (x-s)²b7     + (y-t)²b8     + (z-v)²b9
     */
     {
-        std::unique_ptr<gismo::gsMatrix<scalar>> M = computeMomentMatrix3D();
-        std::unique_ptr<std::array<scalar,10>> H = rescalingDiagonal3D();
-        gismo::gsMatrix<scalar> e(10,1),c(10,1);
+        gismo::gsMatrix<scalar> x;
+        solveWeights<10>(rescalingDiagonal3D(),computeMomentMatrix3D(),x,solStrategy);
         for(label i=0; i<10; i++)
-        {
-            (*M)(i,i) = (*M)(i,i) * (*H)[i];
-            e(i,0) = 0;
-            c(i,0) = 0;
-        }
-        e(0,0) = 1;
-
-        std::cout<<"M:"<<std::endl<<*M<<std::endl;
-        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-        
-        gismo::gsGMRes HM(*M);
-        HM.solve(e,c);
-        
-        std::cout<<"M:"<<std::endl<<*M<<std::endl;
-        std::cout<<"c:"<<std::endl<<c<<std::endl;
-        std::cout<<"e:"<<std::endl<<e<<std::endl;
-        
-        for(label i=0; i<10; i++)
-            b[i] = c(i,0) * (*H)[i];
+            b[i] = x(i,0);
     }
-    
-    Info<<"b:";
-    for(scalar bi : b)
-        Info<<bi<<" ";
-    Info<<Foam::endl;
-    
-    std::unique_ptr<gismo::gsMatrix<scalar>> corrM = computeCorrectedMomentMatrix();
-    std::cout<<"corrM:"<<*corrM<<std::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac
@@ -1001,6 +959,15 @@ scalar Foam::LagrangianMarker::deltaDirac
     deltaDir /= (h[0]*h[1]*h[2]);
     //Info<<h<<"  X:"<<X<<"  x:"<<x<<" -> "<<deltaDir<<Foam::endl;
     return deltaDir;
+}
+
+scalar Foam::LagrangianMarker::correctedDeltaDirac
+(
+    vector X,
+    vector x
+) const
+{
+    return correctedDeltaDirac(X,x,dilation,b);
 }
 
 scalar Foam::LagrangianMarker::deltaDirac
