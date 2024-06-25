@@ -43,6 +43,8 @@ class LagrangianMarker
         inline label getMarkerCell() const {return markerCell;}
         inline void setMarkerVolume(scalar volume) {markerVolume=volume;}
         inline scalar getMarkerVolume() const {return markerVolume;}
+        inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
+        inline scalar getMarkerWeight() const {return markerWeight;}
         inline const DynamicList<std::tuple<bool,label,label>>& getSupportCells() const {return supportCells;}
         inline vector getDilation() const {return dilation;}
         inline const std::array<scalar,10>& getCorrParaB() const {return b;}
@@ -95,6 +97,7 @@ class LagrangianMarker
         vector markerPosition;
         label markerCell;
         scalar markerVolume;
+        scalar markerWeight = 1;
         
         // std::tuple<own processor,processor ID,cell ID>
         DynamicList<std::tuple<bool,label,label>> supportCells;

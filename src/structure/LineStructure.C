@@ -692,13 +692,11 @@ void Foam::LineStructure::computeMarkerWeights()
     
     Pout<<"Computed system matrix"<<Foam::endl;
     std::cout<<std::get<1>(*system)<<std::endl;
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     
     std::vector<LagrangianMarker*>& markers = std::get<0>(*system);
     const gismo::gsMatrix<scalar>& A = std::get<1>(*system);
     // <markerI,DynList<tuple<procK,haloCellIndK,markerIndK,aIK>>>
     const std::unordered_map<label,DynamicList<std::tuple<label,label,label,scalar>>>& bEntry = std::get<2>(*system);
-    
     Pout<<"Decomposed system matrix"<<Foam::endl;
     
     const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
@@ -719,7 +717,7 @@ void Foam::LineStructure::computeMarkerWeights()
     Pout<<"localHaloCellsMarkerEpsilon.size():"<<localHaloCellsMarkerEpsilon.size()<<Foam::endl;
 
     Pout<<"haloCellsRodMarkersList.size():"<<haloCellsRodMarkersList.size()<<Foam::endl;
-    
+        
     for(label haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
         Pout<<"haloCellInd:"<<haloCellInd<<Foam::endl;
@@ -738,7 +736,7 @@ void Foam::LineStructure::computeMarkerWeights()
     }
     
     Pout<<"Halo marker to map:"<<Pstream::myProcNo()<<"  "<<markerPtrHaloCellIndex.size()<<Foam::endl;
-    
+        
     // markerI -> pair<haloCellIndK,markerIndK>>
     std::unordered_map<label,std::pair<label,label>> markerIIndHaloCellIndex;
     for(label I=0; I<markers.size(); I++)
@@ -752,6 +750,7 @@ void Foam::LineStructure::computeMarkerWeights()
     }
     
     Pout<<"Halo marker I to map:"<<Pstream::myProcNo()<<"  "<<markerIIndHaloCellIndex.size()<<Foam::endl;
+    
     
     //[i] -> {markerI,{haloCellIndK,markerIndK}}
     List<std::pair<label,std::pair<label,label>>> I_haloMarkerCellIndex(markerIIndHaloCellIndex.size());
@@ -767,10 +766,9 @@ void Foam::LineStructure::computeMarkerWeights()
     Pout<<"I:"<<2<<" "<<I_haloMarkerCellIndex[2].first<<"|"<<I_haloMarkerCellIndex[2].second.first<<"|"<<I_haloMarkerCellIndex[2].second.second<<Foam::endl;
     Pout<<"Halo marker I list:"<<Pstream::myProcNo()<<"  "<<I_haloMarkerCellIndex.size()<<Foam::endl;
     */
-    
-    
+        
     gismo::gsMatrix<scalar> ones(A.cols(),1),eps(A.cols(),1);
-    Info<<"Start solcingequential out"<<Foam::endl;
+    Info<<"Start solving equential out"<<Foam::endl;
     if(Pstream::parRun())
     {
         for(label col=0; col<A.cols(); col++)
@@ -845,12 +843,34 @@ void Foam::LineStructure::computeMarkerWeights()
             ones(col,0) = 1;
             eps(col,0) = 0;
         }
-        std::cout<<"A:"<<A<<std::endl;
-        std::cout<<"ones:"<<ones<<std::endl;
-        std::cout<<"eps"<<eps<<std::endl;
-        gismo::gsGMRes WM(A);
-        WM.solve(ones,eps);
-        std::cout<<"eps"<<eps<<std::endl;
+        std::cout<<"A:"<<std::endl<<A<<std::endl;
+        std::cout<<"ones:"<<std::endl<<ones<<std::endl;
+        std::cout<<"eps"<<std::endl<<eps<<std::endl;
+        gismo::gsConjugateGradient WM(A);
+        //WM.solve(ones,eps);
+        std::cout<<"eps"<<std::endl<<eps<<std::endl;
+        scalar residNormL2=0;
+        gsIdentityOp preConId(A.rows());
+        WM.initIteration(ones, eps, preConId);
+        for(label i=0; i<100; i++)
+        {
+            bool thresholdMet = WM.step(eps,preConId);
+            gismo::gsMatrix<scalar> resid = A*eps-ones;
+            for(label i=0;i<A.cols();i++)
+                residNormL2+=(resid(i,0)*resid(i,0));
+            std::cout<<i<<": residNormL2:"<<residNormL2<<"  "<<thresholdMet<<std::endl;
+        }
+                    
+        if(WM.error()>1e-8 || residNormL2>1e-8)
+        {
+            std::cout<<"A:"<<std::endl<<A<<std::endl;
+            std::cout<<"residNormL2:"<<std::endl<<residNormL2<<std::endl;
+            std::cout<<"WM.error():"<<std::endl<<WM.error()<<std::endl;
+            std::cout<<"WM.iterations():"<<std::endl<<WM.iterations()<<std::endl;
+            FatalErrorInFunction<<"Failed computing weights"<<exit(FatalError);
+        }
+        
+        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     }
     
     for(const cell& oneCell : mesh.cells())
