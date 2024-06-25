@@ -12,6 +12,9 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField),
 crossSecArea(crossSecArea)
 {
+    Info<<"modusFieldToMarker:"<<modusFieldToMarker<<Foam::endl;
+    Info<<"modusMarkerToField:"<<modusMarkerToField<<Foam::endl;
+    
     label nbrOfRods = myMesh->m_nR;
     rodMarkersList.resize(nbrOfRods);
     check();
@@ -47,46 +50,23 @@ crossSecArea(crossSecArea)
     createMarkersFromSpacedPoints();
     refineMarkers();
     setMarkerVolume();
+    for(LagrangianMarker& marker : *(rodMarkersList[0]))
+        Info<<marker.to_string()<<Foam::endl;
+    
+    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[0];
+    Info<<"dist:0.375->0.40625:"<<LineStructure::distance(oneRod,0.375,0.40625)<<Foam::endl;
     evaluateMarkerMeshRelation();
     reduceMarkers();
     collectHaloMarkers();
     exchangeHaloMarkersData();
-    
-    if(Pstream::myProcNo()==1)
-    {
-        /*
-        Pout<<"globalHaloCellsMarkerPos:"<<globalHaloCellsMarkerPos.size()<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerVolume:"<<globalHaloCellsMarkerVolume.size()<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerDilation:"<<globalHaloCellsMarkerDilation.size()<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerSupportCellCentres:"<<globalHaloCellsMarkerSupportCellCentres.size()<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerSupportCellVolume:"<<globalHaloCellsMarkerSupportCellVolume.size()<<Foam::endl;
-        
-        Pout<<"globalHaloCellsMarkerPos:"<<globalHaloCellsMarkerPos<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerVolume:"<<globalHaloCellsMarkerVolume<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerDilation:"<<globalHaloCellsMarkerDilation<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerSupportCellCentres:"<<globalHaloCellsMarkerSupportCellCentres<<Foam::endl;
-        Pout<<"globalHaloCellsMarkerSupportCellVolume:"<<globalHaloCellsMarkerSupportCellVolume<<Foam::endl;
-        
-        Pout<<"haloCellsRodMarkersList.size():"<<haloCellsRodMarkersList.size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[0].size():"<<haloCellsRodMarkersList[0].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[1].size():"<<haloCellsRodMarkersList[1].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[2].size():"<<haloCellsRodMarkersList[2].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[3].size():"<<haloCellsRodMarkersList[3].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[4].size():"<<haloCellsRodMarkersList[4].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[5].size():"<<haloCellsRodMarkersList[5].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[6].size():"<<haloCellsRodMarkersList[6].size()<<Foam::endl;
-        Pout<<"haloCellsRodMarkersList[7].size():"<<haloCellsRodMarkersList[7].size()<<Foam::endl;
-        
-        for(const auto& oneRodPoints : rodMarkersList)
-            for(auto pnt : *oneRodPoints)
-                Pout<<"Marker"<<pnt.to_string()<<Foam::endl;
-        */
-    }
 
     computeMarkerCellWeights();
     
+    for(LagrangianMarker& marker : *(rodMarkersList[0]))
+        Info<<marker.to_string()<<Foam::endl;
+    
     //std::unique_ptr<LinearSystem> system = computeMarkerEpsilonMatrix();
-    //computeMarkerWeights();
+    computeMarkerWeights();
     
     /*
     if(Pstream::myProcNo()==1)
@@ -305,46 +285,53 @@ void Foam::LineStructure::setMarkerVolumeOnRod
     label rodNumber
 )
 {
-   std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
-   
-   std::list<LagrangianMarker>::iterator iterPrev = markers.end();
-   std::list<LagrangianMarker>::iterator iterNext;
-   for(auto iter=markers.begin(); iter!=markers.end(); iter++)
-   {
-       iterNext = iter;
-       iterNext++;
-       
-       scalar spanStart;
-       if(iterPrev!=markers.end())
-       {
-           spanStart = iterPrev->getMarkerParameter();
-           spanStart = spanStart + iter->getMarkerParameter();
-           spanStart /= 2;
-       }
-       else
-           spanStart = iter->getMarkerParameter();
+    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
+    std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
 
-       scalar spanEnd;
-       if(iterNext!=markers.end())
-       {            
-           spanEnd = iterNext->getMarkerParameter();
-           spanEnd = spanEnd + iter->getMarkerParameter();
-           spanEnd /= 2;
-       }
-       else
-           spanEnd = iter->getMarkerParameter();
-       
-       if(iterPrev==markers.end() && iterNext==markers.end())
-           FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
-       
-       scalar span = spanEnd-spanStart;
-       if(modusMarkerToField==markerMeshType::NonUniform)
-           iter->setMarkerVolume(span);
-       else
-           iter->setMarkerVolume(span*crossSecArea[rodNumber]);
-       
-       iterPrev = iter;
-   }
+    std::list<LagrangianMarker>::iterator iterPrev = markers.end();
+    std::list<LagrangianMarker>::iterator iterNext;
+    for(auto iter=markers.begin(); iter!=markers.end(); iter++)
+    {
+        iterNext = iter;
+        iterNext++;
+        
+        scalar spanStart;
+        if(iterPrev!=markers.end())
+        {
+            spanStart = iterPrev->getMarkerParameter();
+            spanStart = spanStart + iter->getMarkerParameter();
+            spanStart /= 2;
+        }
+        else
+            spanStart = iter->getMarkerParameter();
+
+        scalar spanEnd;
+        if(iterNext!=markers.end())
+        {            
+            spanEnd = iterNext->getMarkerParameter();
+            spanEnd = spanEnd + iter->getMarkerParameter();
+            spanEnd /= 2;
+        }
+        else
+            spanEnd = iter->getMarkerParameter();
+        
+        if(iterPrev==markers.end() && iterNext==markers.end())
+            FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
+        
+        scalar span = LineStructure::distance(oneRod,spanStart,spanEnd);
+        Info<<"dist:"<<spanStart<<"->"<<spanEnd<<":"<<LineStructure::distance(oneRod,spanStart,spanEnd)<<Foam::endl;
+        Info<<"span:"<<span<<Foam::endl;
+        if(modusMarkerToField==markerMeshType::NonUniform)
+        {
+            Info<<"Set NonUniform"<<Foam::endl;
+            iter->setMarkerVolume(span);
+        }
+        else
+            iter->setMarkerVolume(span*crossSecArea[rodNumber]);
+        Info<<"getMarkerVolume:"<<iter->getMarkerVolume()<<Foam::endl;
+        
+        iterPrev = iter;
+    }
 }
 
 void Foam::LineStructure::evaluateMarkerMeshRelation()
@@ -515,6 +502,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             scalar markerKVol = markerK.getMarkerVolume();
             const DynamicList<std::tuple<bool,label,label>>& supportK = markerK.getSupportCells();
             
+            if(markerKVol<0)
+                FatalErrorInFunction<<"Error markerKVol < 0"<<exit(FatalError);
+            
             vector distVec = XI-XK;
             scalar distMag = std::sqrt(distVec&distVec);
             
@@ -530,10 +520,20 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                         scalar overlapCellVol = overlapCell.mag(points,faces);
                         vector overlapCellCentre = overlapCell.centre(points,faces);
                         
-                        using LM=LagrangianMarker;
-                        scalar weightI = LM::deltaDirac(XI,overlapCellCentre,dilationI);
-                        scalar weightK = LM::deltaDirac(XK,overlapCellCentre,dilationK);
+                        scalar weightI = markerI.correctedDeltaDirac(XI,overlapCellCentre);
+                        scalar weightK = markerK.correctedDeltaDirac(XK,overlapCellCentre);
 
+                        
+                        if(overlapCellVol<0)
+                            FatalErrorInFunction<<"Error overlapCellVol < 0"<<exit(FatalError);
+                        
+                        /*
+                        if(weightI<0)
+                            FatalErrorInFunction<<"Error weightI < 0"<<exit(FatalError);
+                        if(weightK<0)
+                            FatalErrorInFunction<<"Error weightK < 0"<<exit(FatalError);
+                        */
+                        
                         matrixEntry += weightK*weightI*overlapCellVol;
                     }
                 }
@@ -691,6 +691,8 @@ void Foam::LineStructure::computeMarkerWeights()
     std::unique_ptr<LinearSystem> system = computeMarkerEpsilonMatrix();
     
     Pout<<"Computed system matrix"<<Foam::endl;
+    std::cout<<std::get<1>(*system)<<std::endl;
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     
     std::vector<LagrangianMarker*>& markers = std::get<0>(*system);
     const gismo::gsMatrix<scalar>& A = std::get<1>(*system);
