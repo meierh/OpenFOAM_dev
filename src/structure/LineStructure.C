@@ -847,7 +847,7 @@ void Foam::LineStructure::computeMarkerWeights()
         std::cout<<"ones:"<<std::endl<<ones<<std::endl;
         std::cout<<"eps"<<std::endl<<eps<<std::endl;
         gismo::gsConjugateGradient WM(A);
-        //WM.solve(ones,eps);
+        WM.solve(ones,eps);
         std::cout<<"eps"<<std::endl<<eps<<std::endl;
         scalar residNormL2=0;
         gsIdentityOp preConId(A.rows());
