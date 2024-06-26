@@ -2,7 +2,7 @@
 #define LINESTRUCTURE_H
 #include <iterator>
 #include "Structure.H"
-//#include "rodTools.h"
+#include "LinearSystem.H"
 
 namespace Foam
 {
@@ -165,25 +165,9 @@ class LagrangianMarker
                 for(label d=0; d<dim; d++)
                     P(d,d) = 1.0/M(d,d);
             }
-            
             gismo::gsMatrix<scalar> A = P*M;
-            
-            gismo::gsConjugateGradient Solver(A);
-            Solver.solve(e,x);
-            gismo::gsMatrix<scalar> resid = A*x-e;
-            scalar residNormL2=0;
-            for(label i=0;i<dim;i++)
-                residNormL2+=(resid(i,0)*resid(i,0));
-                        
-            if(Solver.error()>1e-8 || residNormL2>1e-8)
-            {
-                std::cout<<"P:"<<std::endl<<P<<std::endl;
-                std::cout<<"M:"<<std::endl<<M<<std::endl;
-                std::cout<<"A:"<<std::endl<<A<<std::endl;
-                std::cout<<"residNormL2:"<<std::endl<<residNormL2<<std::endl;
-                std::cout<<"Solver.error():"<<std::endl<<Solver.error()<<std::endl;
-                FatalErrorInFunction<<"Failed computing weights"<<exit(FatalError);
-            }
+
+            linearSolve(A,x,e);
         }
 
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;

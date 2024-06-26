@@ -841,35 +841,8 @@ void Foam::LineStructure::computeMarkerWeights()
         for(label col=0; col<A.cols(); col++)
         {
             ones(col,0) = 1;
-            eps(col,0) = 0;
         }
-        std::cout<<"A:"<<std::endl<<A<<std::endl;
-        std::cout<<"ones:"<<std::endl<<ones<<std::endl;
-        std::cout<<"eps"<<std::endl<<eps<<std::endl;
-        gismo::gsConjugateGradient WM(A);
-        WM.solve(ones,eps);
-        std::cout<<"eps"<<std::endl<<eps<<std::endl;
-        scalar residNormL2=0;
-        gsIdentityOp preConId(A.rows());
-        WM.initIteration(ones, eps, preConId);
-        for(label i=0; i<100; i++)
-        {
-            bool thresholdMet = WM.step(eps,preConId);
-            gismo::gsMatrix<scalar> resid = A*eps-ones;
-            for(label i=0;i<A.cols();i++)
-                residNormL2+=(resid(i,0)*resid(i,0));
-            std::cout<<i<<": residNormL2:"<<residNormL2<<"  "<<thresholdMet<<std::endl;
-        }
-                    
-        if(WM.error()>1e-8 || residNormL2>1e-8)
-        {
-            std::cout<<"A:"<<std::endl<<A<<std::endl;
-            std::cout<<"residNormL2:"<<std::endl<<residNormL2<<std::endl;
-            std::cout<<"WM.error():"<<std::endl<<WM.error()<<std::endl;
-            std::cout<<"WM.iterations():"<<std::endl<<WM.iterations()<<std::endl;
-            FatalErrorInFunction<<"Failed computing weights"<<exit(FatalError);
-        }
-        
+        linearSolve(A,eps,ones,1e-60);        
         FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     }
     
