@@ -56,18 +56,12 @@ namespace Foam
     class Vector_par
     {
         public:
-            Vector_par(label localRows, label localRowStart, label globalRows):
-            localRows(localRows),localRowStart(localRowStart),globalRows(globalRows)
-            {V = List<scalar>(localRows);}
+            Vector_par(label localRows, label localRowStart, label globalRows, bool global=true);
+            Vector_par(const Vector_par& vec);
+            Vector_par(bool global=true);
             
-            Vector_par(const Vector_par& vec):
-            localRows(vec.localRows),localRowStart(vec.localRowStart),globalRows(vec.globalRows)
-            {V = vec.V;}
-            
-            Vector_par():localRows(-1),localRowStart(-1),globalRows(-1){}
-            
-            inline scalar& operator [](int idx);
-            inline scalar operator [](int idx) const;
+            inline scalar& operator [](int idx){return V[idx];}
+            inline scalar operator [](int idx) const {return V[idx];}
             scalar operator& (const Vector_par&) const;
             Vector_par operator* (scalar) const;
             Vector_par operator+ (const Vector_par&) const;
@@ -79,35 +73,43 @@ namespace Foam
             label getGlobalSize() const {return globalRows;}
             
             void fill(scalar value);
+            void fill(List<scalar> values);
+            
+            std::string to_string();
             
         private:
             void checkCompatible(const Vector_par& vec) const;
+            void globalCheck() const;
             
             List<scalar> V;
             label localRowStart;
             label localRows;
             label globalRows;
+            bool global;
     };
     
     class CSR_Matrix_par
     {
         public:
-            CSR_Matrix_par(label localRows, label localRowStart, label globalRows, label globalCols):
-            localRows(localRows),localRowStart(localRowStart),globalRows(globalRows),globalCols(globalCols),
-            writtenRow(0),lastWrittenRowIndex(0){}
-            CSR_Matrix_par(): localRows(-1),localRowStart(-1),globalRows(-1),globalCols(-1),writtenRow(0),lastWrittenRowIndex(0){}
+            CSR_Matrix_par(label localRows, label localRowStart, label globalRows, label globalCols, bool global=true);
+            CSR_Matrix_par( bool global=true);
             
             void addRow(List<scalar> row);
             void addRow(List<std::pair<scalar,label>> row);
             
+            void addRows(List<List<scalar>> rows);
+            
             Vector_par operator* (const Vector_par& vec) const;
             CSR_Matrix_par operator* (const CSR_Matrix_par& mat) const;
             scalar getDiagonal(label localRow) const;
-            scalar evalOnDiagonal(const Vector_par& vec, label localRow) const ;
+            scalar evalOnDiagonal(const Vector_par& vec, label localRow) const;
+            bool isSquare() const;
             
         private:
             void checkCompatible(const Vector_par& vec) const;
             void checkCompatible(const CSR_Matrix_par& vec) const;
+            void globalCheck() const;
+            void setComplete();
             
             DynamicList<scalar> V;
             DynamicList<label> Col_Index;
@@ -116,6 +118,8 @@ namespace Foam
             label localRows;
             label globalRows;
             label globalCols;
+            bool complete=false;
+            bool global = true;
             
             label writtenRow;
             label lastWrittenRowIndex;
@@ -145,8 +149,8 @@ namespace Foam
             Vector_par solve(const Vector_par& b, const Vector_par& x);
             
         protected:
-            virtual void initIteration();
-            virtual bool step();
+            virtual void initIteration() = 0;
+            virtual bool step() = 0;
             
             const CSR_Matrix_par& A;
             const CSR_Matrix_par K_inv;
