@@ -87,6 +87,7 @@ class LagrangianMarker
             }
             return convValue;
         }
+        void getCellData(const std::tuple<bool,label,label>& cell, vector& cellCentre, scalar& volume) const;
         
     protected:        
         const Structure& structure;
@@ -113,7 +114,6 @@ class LagrangianMarker
         
         std::array<scalar,10> b;
         
-        void getCellData(const std::tuple<bool,label,label>& cell, vector& cellCentre, scalar& volume) const;
         scalar computeMoment(vector indices, std::function<scalar(vector,vector)> deltaFunction) const;
         scalar computeCorrectedMoment(vector indices) const;
         scalar computeMoment(vector indices) const;
@@ -855,6 +855,8 @@ class LineStructure : public Structure
             }
         }
         
+        void collectMarkers();
+        
         void collectHaloMarkers();
         
         void exchangeHaloMarkersData();
@@ -882,10 +884,8 @@ class LineStructure : public Structure
 
         using LinearSystem = std::tuple
         <
-            std::vector<LagrangianMarker*>,
-            gismo::gsMatrix<scalar>,
-            // markerI -> DynList<tuple<procK,haloCellIndK,markerIndK,aIK>>
-            std::unordered_map<label,DynamicList<std::tuple<label,label,label,scalar>>>
+            CSR_Matrix_par,
+            Vector_par
         >;
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix(const std::vector<LagrangianMarker*>&);
@@ -999,19 +999,62 @@ class LineStructure : public Structure
 
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         
+        std::vector<LagrangianMarker*> collectedMarkers;
+        
         /******************Halo markers data************************/
         // [haloCells] -> [marker of cell] -> ptr        
-        std::vector<std::vector<const LagrangianMarker*>> haloCellsRodMarkersList;
-        // [nProc] -> [haloCells] -> [markers] -> position        
-        List<List<DynamicList<vector>>> globalHaloCellsMarkerPos;
-        // [nProc] -> [haloCells] -> [markers] -> volume        
-        List<List<DynamicList<scalar>>> globalHaloCellsMarkerVolume;
-        // [nProc] -> [haloCells] -> [markers] -> volume        
-        List<List<DynamicList<vector>>> globalHaloCellsMarkerDilation;
-        // [nProc] -> [haloCells] -> [markers] -> volume
-        List<List<DynamicList<DynamicList<vector>>>> globalHaloCellsMarkerSupportCellCentres;
-        // [nProc] -> [haloCells] -> [markers] -> volume
-        List<List<DynamicList<DynamicList<scalar>>>> globalHaloCellsMarkerSupportCellVolume;
+        std::vector<std::vector<std::pair<LagrangianMarker*,label>>> haloCellsRodMarkersList;
+        
+        class GlobalHaloMarkers
+        {
+            public:
+                GlobalHaloMarkers
+                (
+                    // [haloCells] -> [marker of cell] -> ptr,index
+                    std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList
+                );
+                
+                void appendMarkerData
+                (
+                    label haloCellInd,
+                    std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> data
+                );
+                
+                std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> getMarkerData
+                (
+                    label process,
+                    label haloCellInd,
+                    label cellMarkerInd
+                );
+                
+                inline label size_processes();
+                inline label size_haloCells(label process);
+                inline label size_cellMarkers(label process, label haloCellInd);
+                
+                void communicate();
+            
+            private:
+                std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList; 
+                
+                // [nProc] -> [haloCells] -> [markers] -> position
+                List<List<DynamicList<vector>>> globalHaloCellsMarkerPos;
+                // [nProc] -> [haloCells] -> [markers] -> volume
+                List<List<DynamicList<scalar>>> globalHaloCellsMarkerVolume;
+                // [nProc] -> [haloCells] -> [markers] -> volume
+                List<List<DynamicList<label>>> globalHaloCellsLocalIndex;
+                // [nProc] -> [haloCells] -> [markers] -> localIndex
+                List<List<DynamicList<vector>>> globalHaloCellsMarkerDilation;
+                // [nProc] -> [haloCells] -> [markers] -> supportCells[]
+                List<List<DynamicList<DynamicList<vector>>>> globalHaloCellsMarkerSupportCellCentres;
+                // [nProc] -> [haloCells] -> [markers] -> supportCellsVolume[]
+                List<List<DynamicList<DynamicList<scalar>>>> globalHaloCellsMarkerSupportCellVolume;
+                // [nProc] -> [haloCells] -> [markers] -> b[]
+                List<List<DynamicList<List<scalar>>>> globalHaloCellsMarkerb;
+                
+                bool broadcasted;
+        }
+        
+        GlobalHaloMarkers globHaloMarkers;
         
         /*
         std::unique_ptr<std::pair<
