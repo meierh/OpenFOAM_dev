@@ -139,7 +139,7 @@ class LagrangianMarker
             gismo::gsMatrix<scalar>& M = *Mptr;
             x = gismo::gsMatrix<scalar>(dim,1);
             gismo::gsMatrix<scalar> e(dim,1);
-            for(label i=0; i<dim; i++)
+            for(uint i=0; i<dim; i++)
             {
                 e(i,0) = 0;
                 x(i,0) = 0;
@@ -147,22 +147,22 @@ class LagrangianMarker
             e(0,0) = 1;
             
             gismo::gsMatrix<scalar> P(dim,dim);
-            for(label r=0;r<dim;r++)
-                for(label c=0;c<dim;c++)
+            for(uint r=0;r<dim;r++)
+                for(uint c=0;c<dim;c++)
                     P(r,c)=0;
             if(solutionStrategy==WeightSystemSolve::Raw)
             {
-                for(label d=0; d<dim; d++)
+                for(uint d=0; d<dim; d++)
                     P(d,d) = 1;
             }
             else if(solutionStrategy==WeightSystemSolve::GeoRescaled)
             {
-                for(label d=0; d<dim; d++)
+                for(uint d=0; d<dim; d++)
                     P(d,d) = H[d];
             }
             else
             {
-                for(label d=0; d<dim; d++)
+                for(uint d=0; d<dim; d++)
                     P(d,d) = 1.0/M(d,d);
             }
             gismo::gsMatrix<scalar> A = P*M;
@@ -827,7 +827,7 @@ class LineStructure : public Structure
                     
                     if(oneCellMarkers.size()>0)
                     {                        
-                        SingleMarker* optMarker;
+                        SingleMarker* optMarker = nullptr;
                         scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
                         for(SingleMarker* marker : oneCellMarkers)
                         {
@@ -1010,9 +1010,9 @@ class LineStructure : public Structure
             public:
                 GlobalHaloMarkers
                 (
-                    // [haloCells] -> [marker of cell] -> ptr,index
                     std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList
                 );
+                GlobalHaloMarkers(){}
                 
                 void appendMarkerData
                 (
@@ -1034,7 +1034,8 @@ class LineStructure : public Structure
                 void communicate();
             
             private:
-                std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList; 
+                // [haloCells] -> [marker of cell] -> ptr,index
+                std::vector<std::vector<std::pair<LagrangianMarker*,label>>>* selfhaloCellsRodMarkersList; 
                 
                 // [nProc] -> [haloCells] -> [markers] -> position
                 List<List<DynamicList<vector>>> globalHaloCellsMarkerPos;
@@ -1052,7 +1053,7 @@ class LineStructure : public Structure
                 List<List<DynamicList<List<scalar>>>> globalHaloCellsMarkerb;
                 
                 bool broadcasted;
-        }
+        };
         
         GlobalHaloMarkers globHaloMarkers;
         

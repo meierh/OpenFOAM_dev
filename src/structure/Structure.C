@@ -5,14 +5,14 @@ Foam::Structure::Structure
     dynamicRefineFvMesh& mesh,
     const Time& runTime
 ):
+initialMeshSpacing(initialSpacingFromMesh(mesh)),
 runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
 xmlPath(getXMLPath()),
 name(getName()),
 nR(loadRodsFromXML()),
-mesh(mesh),
-initialMeshSpacing(initialSpacingFromMesh(mesh))
+mesh(mesh)
 {
     cntOpt.ptsType = 2;
     cntOpt.ptsN = 2;
@@ -34,7 +34,7 @@ Foam::Structure::~Structure()
 {
     for (int i = 0; i < nR; i++)
 	{
-		delete Geo[i];
+		//delete Geo[i];
 		delete Rods[i];
 	}
 	Geo.clear();
@@ -210,7 +210,7 @@ void Foam::Structure::createNurbsStructure()
     omp_set_num_threads(omp_nthreads);
     #endif	
 
-    #pragma omp parallel for  
+    //#pragma omp parallel for  
     for (int i = 0; i < nR; i++)
     {
         // CS Geometry
@@ -273,11 +273,11 @@ void Foam::Structure::createNurbsBoundary()
     uBCz[2] = false;
     uBCdir[latDir] = false;
     bool rBC0 = false;
-    const double bceps = 1e-5;
-    const int dir1 = (latDir + 1) % 3;
-    const int dir2 = (latDir + 2) % 3;
-    gsVector<double, 3> uBCxV;
-    uBCxV.setZero();
+    //const double bceps = 1e-5;
+    //const int dir1 = (latDir + 1) % 3;
+    //const int dir2 = (latDir + 2) % 3;
+    //gsVector<double, 3> uBCxV;
+    //uBCxV.setZero();
 
     pp_rid = std::vector<int>(0);
     std::vector<bool>	pp_eid(0);
@@ -376,8 +376,8 @@ void Foam::Structure::setSolverOptions()
 // * Parameters
     printf("Setup solve ... \n");
 
-    int solveOK;
-    uint64 tg1, tg2;
+    //int solveOK;
+    //uint64 tg1, tg2;
     myMesh->setNewtonParams(1e-5, 17, 7., 3);
     myMesh->setLinearSolver(1);
     myMesh->setOMPnThreads(omp_nthreads);
@@ -730,9 +730,9 @@ void Foam::Structure::collectMeshHaloData
     for(label process=0; process<Pstream::nProcs(); process++)
     {
         const DynamicList<label>& patchOwner = procPatchOwner[process];
-        const DynamicList<label>& patchNeighbour = procPatchNeighbour[process];
-        const DynamicList<label>& patchIndex = procPatchIndex[process];
-        const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[process];
+        //const DynamicList<label>& patchNeighbour = procPatchNeighbour[process];
+        //const DynamicList<label>& patchIndex = procPatchIndex[process];
+        //const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[process];
         const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[process];
         const DynamicList<List<DynamicList<vector>>>& patchCellCentres = procCellCentres[process];
         const DynamicList<List<DynamicList<scalar>>>& patchCellMags = procCellMags[process];
@@ -741,9 +741,9 @@ void Foam::Structure::collectMeshHaloData
         for(label patchFaceInd=0; patchFaceInd<patchOwner.size(); patchFaceInd++)
         {
             label owner = patchOwner[patchFaceInd];
-            label neighbour = patchNeighbour[patchFaceInd];
-            label index = patchIndex[patchFaceInd];
-            label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
+            //label neighbour = patchNeighbour[patchFaceInd];
+            //label index = patchIndex[patchFaceInd];
+            //label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
             const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
             //const List<DynamicList<vector>>& cellCentres = patchCellCentres[patchFaceInd];
             //const List<DynamicList<scalar>>& cellMags = patchCellMags[patchFaceInd];
@@ -805,7 +805,7 @@ void Foam::Structure::collectMeshHaloData
         const DynamicList<label>& patchNeighbour = procPatchNeighbour[process];
         const DynamicList<label>& patchIndex = procPatchIndex[process];
         const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[process];
-        const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[process];
+        //const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[process];
         
         for(label patchFaceInd=0; patchFaceInd<patchOwner.size(); patchFaceInd++)
         {
@@ -813,7 +813,7 @@ void Foam::Structure::collectMeshHaloData
             label neighbour = patchNeighbour[patchFaceInd];
             label index = patchIndex[patchFaceInd];
             label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
-            const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
+            //const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
             
             if(owner!=process)
                 FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
@@ -844,7 +844,7 @@ void Foam::Structure::collectMeshHaloData
             
             const DynamicList<label>& patchOwner = procPatchOwner[neighborProcess];
             const DynamicList<label>& patchNeighbour = procPatchNeighbour[neighborProcess];
-            const DynamicList<label>& patchIndex = procPatchIndex[neighborProcess];
+            //const DynamicList<label>& patchIndex = procPatchIndex[neighborProcess];
             const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[neighborProcess];
             const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[neighborProcess];
 
@@ -857,7 +857,7 @@ void Foam::Structure::collectMeshHaloData
 
                 label owner = patchOwner[patchFaceInd];
                 label neighbour = patchNeighbour[patchFaceInd];
-                label index = patchIndex[patchFaceInd];
+                //label index = patchIndex[patchFaceInd];
                 label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
                 const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
                 

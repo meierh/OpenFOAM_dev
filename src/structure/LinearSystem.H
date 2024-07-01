@@ -1,7 +1,11 @@
 #ifndef LINEARSYSTEM_H
 #define LINEARSYSTEM_H
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "activeRodMesh.h"
+#pragma GCC diagnostic pop 
+
 #include "fvCFD.H"
 #include <limits>
 #include <queue>
@@ -66,6 +70,7 @@ namespace Foam
             Vector_par operator* (scalar) const;
             Vector_par operator+ (const Vector_par&) const;
             Vector_par operator- (const Vector_par&) const;
+            Vector_par& operator= (const Vector_par&);
             scalar norm2() const;
             void scale(scalar scale);
             
@@ -75,12 +80,14 @@ namespace Foam
             void fill(scalar value);
             void fill(List<scalar> values);
             
-            std::string to_string();
+            void collectGlobal(List<scalar>& globalVector) const;
             
-        private:
+            std::string to_string() const;
+            
             void checkCompatible(const Vector_par& vec) const;
             void globalCheck() const;
             
+        private:            
             List<scalar> V;
             label localRowStart;
             label localRows;
@@ -105,10 +112,16 @@ namespace Foam
             scalar evalOnDiagonal(const Vector_par& vec, label localRow) const;
             bool isSquare() const;
             
-        private:
+            CSR_Matrix_par diagonalMatrix() const;
+            CSR_Matrix_par offDiagonalMatrix() const;
+            
+            std::string to_string() const;
+            
             void checkCompatible(const Vector_par& vec) const;
             void checkCompatible(const CSR_Matrix_par& vec) const;
             void globalCheck() const;
+            
+        private:
             void setComplete();
             
             DynamicList<scalar> V;
@@ -145,6 +158,9 @@ namespace Foam
             ):A(A),K_inv(K_inv),tolerance(tolerance),minIteration(minIteration)
             {}
             
+            virtual ~LinearSolver_par() = default;
+
+            
             Vector_par solve(const Vector_par& b);
             Vector_par solve(const Vector_par& b, const Vector_par& x);
             
@@ -161,10 +177,10 @@ namespace Foam
             Vector_par x,b;
     };
 
-    class GaussSeidel : public LinearSolver_par
+    class Jacobi : public LinearSolver_par
     {
         public:
-            GaussSeidel
+            Jacobi
             (
                 const CSR_Matrix_par& A, 
                 scalar tolerance=1e-10,
@@ -175,6 +191,8 @@ namespace Foam
         protected:
             virtual void initIteration();
             virtual bool step();
+            
+            CSR_Matrix_par OffDiagonal;
     };
     
     class ConjugateGradient : public LinearSolver_par

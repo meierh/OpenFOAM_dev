@@ -28,7 +28,7 @@ structure(structure),
 mesh(mesh),
 rodNumber(rodNumber),
 baseRod(baseRod),
-markerParameter(markerParameter)
+markerParameter(0)
 {}
 
 vector Foam::LagrangianMarker::getMarkerVelocity()
@@ -53,7 +53,7 @@ std::pair<scalar,scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
 {
     if(markerCell<0)
     {
-        scalar maxLen = std::numeric_limits<scalar>::max();
+        //scalar maxLen = std::numeric_limits<scalar>::max();
         return {std::numeric_limits<scalar>::max(),std::numeric_limits<scalar>::min()};
     }
     else
@@ -165,7 +165,7 @@ void Foam::LagrangianMarker::computeSupport
                             if(iter!=patchFaceToCell.end())
                             {
                                 const DynamicList<std::pair<label,label>>& haloCells = iter->second;
-                                for(const std::pair<label,label> haloCell : haloCells)
+                                for(const std::pair<label,label>& haloCell : haloCells)
                                 {
                                     label process = haloCell.first;
                                     label cellInd = haloCell.second;
@@ -381,9 +381,9 @@ void Foam::LagrangianMarker::dilationFactors()
     //Info<<"     h_minus:"<<h_minus<<Foam::endl;
     //Info<<"     h_plus:"<<h_plus<<Foam::endl;
     
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
+    //const cellList& cells = mesh.cells();
+    //const faceList& faces = mesh.faces();
+    //const pointField& points = mesh.points();
     
     scalar eps = 0.1*std::sqrt(minSpan&minSpan);
     dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
@@ -599,10 +599,10 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     };
     
     List<List<vector>> indices(10,List<vector>(10));
-    for(label i=0; i<gen3DIndices.size(); i++)
+    for(uint i=0; i<gen3DIndices.size(); i++)
     {
         vector indi = gen3DIndices[i];
-        for(label j=0; j<gen3DIndices.size(); j++)
+        for(uint j=0; j<gen3DIndices.size(); j++)
         {
             vector indj = gen3DIndices[j];
             vector index = indi+indj;
@@ -612,9 +612,9 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
 
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
-    for(label i=0; i<gen3DIndices.size(); i++)
+    for(uint i=0; i<gen3DIndices.size(); i++)
     {
-        for(label j=0; j<gen3DIndices.size(); j++)
+        for(uint j=0; j<gen3DIndices.size(); j++)
         {
             moments3D(i,j) = computeMoment(indices[i][j]);
         }
@@ -640,7 +640,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
         FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
 
     std::array<vector,6> gen3DIndices;
-    for(label i=0; i<gen3DIndices.size(); i++)
+    for(uint i=0; i<gen3DIndices.size(); i++)
     {
         std::array<label,2> singleEntry = gen2DIndices[i];
         vector indices3D(0,0,0);
@@ -650,10 +650,10 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     }
 
     List<List<vector>> indices(6,List<vector>(6));
-    for(label i=0; i<gen3DIndices.size(); i++)
+    for(uint i=0; i<gen3DIndices.size(); i++)
     {
         vector indi = gen3DIndices[i];
-        for(label j=0; j<gen3DIndices.size(); j++)
+        for(uint j=0; j<gen3DIndices.size(); j++)
         {
             vector indj = gen3DIndices[j];
             vector index = indi+indj;
@@ -663,9 +663,9 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     
     auto moments2DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(6,6));
     gismo::gsMatrix<scalar>& moments2D = *moments2DPtr;
-    for(label i=0; i<gen3DIndices.size(); i++)
+    for(uint i=0; i<gen3DIndices.size(); i++)
     {
-        for(label j=0; j<gen3DIndices.size(); j++)
+        for(uint j=0; j<gen3DIndices.size(); j++)
         {
             moments2D(i,j) = computeMoment(indices[i][j]);
         }

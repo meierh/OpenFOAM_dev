@@ -393,7 +393,7 @@ void Foam::FieldMarkerStructureInteraction::scatterNurbs
         nurbsData[0] = List<scalar>(1);
         nurbsData[0][0] = degree;
         nurbsData[1] = List<scalar>(knots.size());
-        for(label i=0;i<knots.size();i++)
+        for(uint i=0;i<knots.size();i++)
             nurbsData[1][i] = knots[i];
         
         gismo::gsMatrix<scalar> weights = in.first.weights();

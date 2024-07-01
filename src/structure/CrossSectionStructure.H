@@ -180,8 +180,7 @@ class CrossSectionStructure : public LineStructure
         
         void reduceMarkers();
         
-        void collectHaloMarkers();
-        
+        void collectMarkers();
         
         /*
         std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet

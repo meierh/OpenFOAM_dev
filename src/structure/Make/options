@@ -4,24 +4,24 @@ EXE_INC = \
     -I$(LIB_SRC)/dynamicFvMesh/lnInclude \
     -I$(LIB_SRC)/dynamicMesh/lnInclude \
     -I$(LIB_SRC)/fvMotionSolver/lnInclude \
-    -I$(WM_THIRD_PARTY_DIR)/tinyxml2 \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodContact \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodCosserat \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodGeometry \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodMesh \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodOpt \
-    -I$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodTools \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsCore \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsMatrix \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsNurbs \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsSolver \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/extensions \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/external \
-    -I${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
-    -I${WM_THIRD_PARTY_DIR}/SuiteSparse/include \
-    -w
+    -isystem$(WM_THIRD_PARTY_DIR)/tinyxml2 \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodContact \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodCosserat \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodGeometry \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodMesh \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodOpt \
+    -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodTools \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsCore \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsMatrix \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsNurbs \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/src/gsSolver \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/extensions \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/external \
+    -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
+    -isystem${WM_THIRD_PARTY_DIR}/SuiteSparse/include \
+    -std=c++14
 
 LIB_LIBS = \
     -lfiniteVolume \

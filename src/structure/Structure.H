@@ -8,16 +8,16 @@
 #include <chrono>
 #include <memory>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "activeRodMesh.h"
-//#include "rodOpt.h"
 #include "rodTools.h"
-//#include "rodLatticePBC.h"
 #include "rodImport.h"
 #include "rodCScircle.h"
-//#include "rodCSrectangle.h"
 #include "timing.h"
 #include "rodMesh.h"
-//#include "bvh.h"
+#pragma GCC diagnostic pop 
+
 #include <unordered_set>
 #include <unordered_map>
 
@@ -78,11 +78,11 @@ class Structure
             gsKnotVector<scalar> cKnots(knots,degree);
             Info<<"Generated gsKnotVector"<<Foam::endl;
             gsMatrix<scalar> cWeight(weights.size(),1);
-            for(label i=0; i<weights.size(); i++)
+            for(uint i=0; i<weights.size(); i++)
                 cWeight.at(i) = weights[i];
             Info<<"Generated weights"<<Foam::endl;
             gsMatrix<scalar> cCoeff(coefficients.size(),1);
-            for(label i=0; i<coefficients.size(); i++)
+            for(uint i=0; i<coefficients.size(); i++)
                 cCoeff.at(i) = coefficients[i];
             Info<<"Generated coefficients"<<Foam::endl;
             return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
@@ -98,10 +98,10 @@ class Structure
         {
             gsKnotVector<scalar> cKnots(knots,degree);
             gsMatrix<scalar> cWeight(weights.size(),1);
-            for(label i=0; i<weights.size(); i++)
+            for(uint i=0; i<weights.size(); i++)
                 cWeight.at(i) = weights[i];
             gsMatrix<scalar> cCoeff(coefficients.size(),3);
-            for(int i=0; i<coefficients.size(); i++)
+            for(uint i=0; i<coefficients.size(); i++)
             {
                 for(label d=0;d<3;d++)
                 {

@@ -34,8 +34,9 @@ crossSecArea(crossSecArea)
     
     const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
     
-    haloCellsRodMarkersList.resize(selfHaloCellList.size());
+    //haloCellsRodMarkersList.resize(selfHaloCellList.size());
     
+    /*
     globalHaloCellsMarkerPos.resize(Pstream::nProcs());
     globalHaloCellsMarkerPos[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerVolume.resize(Pstream::nProcs());
@@ -46,6 +47,7 @@ crossSecArea(crossSecArea)
     globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].resize(selfHaloCellList.size());
     globalHaloCellsMarkerSupportCellVolume.resize(Pstream::nProcs());
     globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].resize(selfHaloCellList.size());
+    */
     
     createMarkersFromSpacedPoints();
     refineMarkers();
@@ -82,11 +84,11 @@ void Foam::LineStructure::check()
 {
     if(!myMesh)
         FatalErrorInFunction<<"Rod Mesh not set!"<<exit(FatalError);
-    if(myMesh->m_nR!=rodMarkersList.size())
+    if(myMesh->m_nR!=static_cast<int>(rodMarkersList.size()))
         FatalErrorInFunction<<"Mismatch in size of m_Rods and rodMarkersList"<<exit(FatalError);
-    if(crossSecArea.size()!=rodMarkersList.size())
+    if(crossSecArea.size()!=static_cast<int>(rodMarkersList.size()))
         FatalErrorInFunction<<"Mismatch in size of crossSecArea and rodMarkersList"<<exit(FatalError);
-    if(myMesh->m_Rods.size()!=myMesh->m_nR)
+    if(static_cast<int>(myMesh->m_Rods.size())!=myMesh->m_nR)
         FatalErrorInFunction<<"Mismatch in size of m_Rods and m_nR"<<exit(FatalError);
 }
 
@@ -159,7 +161,7 @@ void Foam::LineStructure::createSpacedPointsOnRod
     while(refined)
     {
         refined = false;
-        bool cond = true;
+        //bool cond = true;
         scalar summedDist = 0;
         auto pntsIter0 = points.begin();
         auto pntsIter1 = ++(points.begin());
@@ -170,7 +172,7 @@ void Foam::LineStructure::createSpacedPointsOnRod
             if(dist>spacing)
             {
                 scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
-                auto inserted = points.insert(pntsIter1,middlePar);
+                points.insert(pntsIter1,middlePar);
                 refined=true;
             }
             pntsIter0 = pntsIter1;
@@ -231,7 +233,7 @@ void Foam::LineStructure::refineMarkersOnRod
     while(refined)
     {
         refined = false;
-        bool cond = true;
+        //bool cond = true;
         auto markersIter0 = markers.begin();
         auto markersIter1 = ++(markers.begin());
         for( ; markersIter1!=markers.end() ; )
@@ -263,7 +265,7 @@ void Foam::LineStructure::refineMarkersOnRod
             {
                 scalar middlePar = 0.5*(markers0Para+markers1Para);
                 LagrangianMarker middleMarker(*this,mesh,rodNumber,oneRod,middlePar);
-                auto inserted = markers.insert(markersIter1,middleMarker);
+                markers.insert(markersIter1,middleMarker);
                 refined=true;
             }
             markersIter0 = markersIter1;
@@ -377,8 +379,9 @@ void Foam::LineStructure::collectMarkers()
 void Foam::LineStructure::collectHaloMarkers()
 {
     haloCellsRodMarkersList.clear();
-    haloCellsRodMarkersList.resize(selfHaloCellList.size());
-    for(label localMarkerInd=0; localMarkerInd<collectedMarkers.size(); localMarkerInd++)
+    haloCellsRodMarkersList.resize(getHaloCellList(Pstream::myProcNo()).size());
+    const std::unordered_map<label,label>& selfHaloCellToIndex = getHaloCellToIndexMap(Pstream::myProcNo());
+    for(uint localMarkerInd=0; localMarkerInd<collectedMarkers.size(); localMarkerInd++)
     {
         LagrangianMarker* marker = collectedMarkers[localMarkerInd];
         label cellOfMarker = marker->getMarkerCell();
@@ -386,7 +389,8 @@ void Foam::LineStructure::collectHaloMarkers()
         if(iter!=selfHaloCellToIndex.end())
         {
             label index = iter->second;
-            haloCellsRodMarkersList[index].push_back({&marker,localMarkerInd});
+            std::pair<LagrangianMarker*,label> markerData(marker,localMarkerInd);
+            haloCellsRodMarkersList[index].push_back(markerData);
         }
     }
 }
@@ -394,14 +398,14 @@ void Foam::LineStructure::collectHaloMarkers()
 void Foam::LineStructure::exchangeHaloMarkersData()
 {
     globHaloMarkers = GlobalHaloMarkers(haloCellsRodMarkersList);
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
+    //const cellList& cells = mesh.cells();
+    //const faceList& faces = mesh.faces();
+    //const pointField& points = mesh.points();
         
-    for(label haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
+    for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
         std::vector<std::pair<LagrangianMarker*,label>>& localHaloCellRodMarkers = haloCellsRodMarkersList[haloCellInd];
-        for(label haloMarkerInd=0; haloMarkerInd<haloCellsRodMarkersList[haloCellInd].size(); haloMarkerInd++)
+        for(uint haloMarkerInd=0; haloMarkerInd<haloCellsRodMarkersList[haloCellInd].size(); haloMarkerInd++)
         {
             std::pair<LagrangianMarker*,label> markerData = localHaloCellRodMarkers[haloMarkerInd];
             LagrangianMarker* marker = markerData.first;
@@ -423,14 +427,17 @@ void Foam::LineStructure::exchangeHaloMarkersData()
                 supportCellsCentre.append(oneSuppCellCentre);
                 supportCellsVolume.append(oneSuppCellVolume);
             }
+            List<scalar> b(10);
+            for(label i=0; i<10; i++)
+                b[i] = marker->getCorrParaB()[i];
             globHaloMarkers.appendMarkerData
             (
                 haloCellInd,
-                {position,volume,index,vector,supportCellsCentre,supportCellsVolume}
+                {position,volume,index,dilation,supportCellsCentre,supportCellsVolume,b}
             );
         }
     }
-    GlobalHaloMarkers.communicate();
+    globHaloMarkers.communicate();
 }
 
 std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeMarkerEpsilonMatrix()
@@ -451,7 +458,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     List<label> processGlobalMarkerOffset(Pstream::nProcs());
     processGlobalMarkerOffset[0] = 0;
     for(label proc=1; proc<processGlobalMarkerOffset.size(); proc++)
-        processGlobalMarkerOffset[proc] = processGlobalMarkerOffset[proc-1]+globNumOfMarkers[proc-1];
+        processGlobalMarkerOffset[proc] = processGlobalMarkerOffset[proc-1]+globalMarkerNumber[proc-1];
     
     auto result = std::unique_ptr<LinearSystem>(new LinearSystem());
     std::get<0>(*result) = CSR_Matrix_par(locProcMarkerNbr,smProcsNumOfMarkers,globNumOfMarkers,globNumOfMarkers);
@@ -459,66 +466,71 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     std::get<1>(*result) = Vector_par(locProcMarkerNbr,smProcsNumOfMarkers,globNumOfMarkers);
     Vector_par& b = std::get<1>(*result);
     
-    for(label I=0; I<markers.size(); I++)
+    struct VectorHash
     {
-        const LagrangianMarker& markerI = *(markers[I]);
+        std::size_t operator()(const vector& vec) const noexcept
+        {
+            std::size_t vec0 = std::hash<scalar>{}(vec[0]);
+            std::size_t vec1 = std::hash<scalar>{}(vec[1]);
+            std::size_t vec2 = std::hash<scalar>{}(vec[2]);
+            return vec0 ^ vec1 ^ vec2;
+        }
+    };
+    using CellSet = std::unordered_map<vector,scalar,VectorHash>;
+    
+    for(uint I=0; I<collectedMarkers.size(); I++)
+    {
+        const LagrangianMarker& markerI = *(collectedMarkers[I]);
         vector XI = markerI.getMarkerPosition();
         vector dilationI = markerI.getDilation();
         scalar dilationIMax = std::max<scalar>(dilationI[0],dilationI[1]);
         dilationIMax = std::max<scalar>(dilationIMax,dilationI[2]);
-        scalar markerIVol = markerI.getMarkerVolume();
+        //scalar markerIVol = markerI.getMarkerVolume();
         const DynamicList<std::tuple<bool,label,label>>& supportI = markerI.getSupportCells();
-        DynamicList<vector> markerISuppCellCentres;
-        DynamicList<scalar> markerISuppCellVol;
-        for(std::tuple<bool,label,label>& suppCell : supportI)
+        CellSet markerISupportMap;
+        for(const std::tuple<bool,label,label>& suppCell : supportI)
         {
             vector centre;
             scalar vol;
             markerI.getCellData(suppCell,centre,vol);
-            markerISuppCellCentres.append(centre);
-            markerISuppCellVol.append(vol);
+            markerISupportMap[centre] = vol;
         }
         
         std::map<label,scalar> rowEntries;
         
-        // Compute in matrix entries
-        for(label K=0; K<markers.size(); K++)
+        // Compute local matrix entries
+        for(uint K=0; K<collectedMarkers.size(); K++)
         {
-            const LagrangianMarker& markerK = *(markers[K]);
+            const LagrangianMarker& markerK = *(collectedMarkers[K]);
             vector XK = markerK.getMarkerPosition();
             vector dilationK = markerK.getDilation();
             scalar dilationKMax = std::max<scalar>(dilationK[0],dilationK[1]);
             dilationKMax = std::max<scalar>(dilationKMax,dilationK[2]);
             scalar markerKVol = markerK.getMarkerVolume();
             const DynamicList<std::tuple<bool,label,label>>& supportK = markerK.getSupportCells();
-            DynamicList<vector> markerKSuppCellCentres;
-            DynamicList<scalar> markerKSuppCellVol;
-            for(std::tuple<bool,label,label>& suppCell : supportK)
-            {
-                vector centre;
-                scalar vol;
-                markerK.getCellData(suppCell,centre,vol);
-                markerKSuppCellCentres.append(centre);
-                markerKSuppCellVol.append(vol);
-            }
-
+            
             vector distVec = XI-XK;
             scalar distMag = std::sqrt(distVec&distVec);
             
             scalar matrixEntry = 0;
             if(distMag < 10*dilationIMax || distMag < 10*dilationKMax)
             {
-                for(label suppIInd=0; suppIInd<supportI.size(); suppIInd++)
+                DynamicList<std::pair<vector,scalar>> combinedIKSupport;
+                for(const std::tuple<bool,label,label>& suppCell : supportK)
                 {
-                    scalar weightI = markerI.correctedDeltaDirac(XI,markerISuppCellCentres[suppIInd));
-                    scalar weightK = markerK.correctedDeltaDirac(XK,markerISuppCellCentres[suppIInd));                       
-                    matrixEntry += weightK*weightI*markerISuppCellVol[suppIInd];
+                    vector centre;
+                    scalar vol;
+                    markerK.getCellData(suppCell,centre,vol);
+                    if(markerISupportMap.find(centre)!=markerISupportMap.end())
+                    {
+                        combinedIKSupport.append({centre,vol});
+                    }
                 }
-                for(label suppKInd=0; suppKInd<supportK.size(); suppKInd++)
+                for(std::pair<vector,scalar> suppCell : combinedIKSupport)
                 {
-                    scalar weightI = markerI.correctedDeltaDirac(XI,markerKSuppCellCentres[suppKInd));
-                    scalar weightK = markerK.correctedDeltaDirac(XK,markerKSuppCellCentres[suppKInd));                       
-                    matrixEntry += weightK*weightI*markerKSuppCellVol[suppKInd];
+                    scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
+                    scalar weightK = markerK.correctedDeltaDirac(XK,suppCell.first);                       
+                    matrixEntry += weightK*weightI*suppCell.second;
                 }
                 matrixEntry *= markerKVol;
             }
@@ -529,9 +541,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             rowEntries[smProcsNumOfMarkers+K] = matrixEntry;            
         }
         
-        GlobalHaloMarkers& globHaloMarkers = globHaloMarkers;
-        
-        //Compute additional right hand side entries
+        // Compute foreign local matrix entries
         std::unordered_set<label> neighborProcesses;
         for(const std::tuple<bool,label,label>& tupl : supportI)
         {
@@ -550,8 +560,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 if(oneCell.index!=cellInd)
                     FatalErrorInFunction<<"Cell index data mismatch"<<exit(FatalError);
             }
-        }
-                
+        }                
         using LM=LagrangianMarker;
         for(auto iter=neighborProcesses.begin(); iter!=neighborProcesses.end(); iter++)
         {
@@ -564,54 +573,55 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 label haloCellMarkerNum = globHaloMarkers.size_cellMarkers(process,haloCellInd);               
                 for(label haloCellMarkerInd=0; haloCellMarkerInd<haloCellMarkerNum; haloCellMarkerInd++)
                 {
-                    std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>> markerData;
+                    std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> markerData;
                     markerData = globHaloMarkers.getMarkerData(process,haloCellInd,haloCellMarkerInd);
                     
                     vector markerKposition = std::get<0>(markerData);
                     scalar markerKvolume = std::get<1>(markerData);
                     label markerKindex = std::get<2>(markerData);
                     vector markerKdilation = std::get<3>(markerData);
-                    DynamicList<vector>& markerKSuppCellCentres = std::get<4>(markerData);
-                    DynamicList<scalar>& markerKSuppCellVol = std::get<5>(markerData);
-                    List<scalar>& markerKb = std::get<6>(markerData);
-                    std::array<scalar,10> b;
-                    for(label i=0; i<markerKb.size(); i++)
-                        b[i] = markerKb[i];
+                    scalar dilationKMax = std::max<scalar>(markerKdilation[0],markerKdilation[1]);
+                    dilationKMax = std::max<scalar>(dilationKMax,markerKdilation[2]);
                     
                     vector XK = markerKposition;
-                    scalar markerKVol = markerKvolume;
-                    
                     vector distVec = XI-XK;
                     scalar distMag = std::sqrt(distVec&distVec);
-                    
                     scalar matrixEntry = 0;
                     if(distMag < 10*dilationIMax || distMag < 10*dilationKMax)
-                    {        
-                        for(label suppIInd=0; suppIInd<supportI.size(); suppIInd++)
+                    {
+                        DynamicList<vector>& markerKSuppCellCentres = std::get<4>(markerData);
+                        DynamicList<scalar>& markerKSuppCellVol = std::get<5>(markerData);
+                        List<scalar>& markerKb = std::get<6>(markerData);
+                        std::array<scalar,10> b;
+                        for(label i=0; i<markerKb.size(); i++)
+                            b[i] = markerKb[i];
+                        
+                        DynamicList<std::pair<vector,scalar>> combinedIKSupport;
+                        for(label suppKInd=0; suppKInd<markerKSuppCellCentres.size(); suppKInd++)
                         {
-                            scalar weightI = markerI.correctedDeltaDirac(XI,markerISuppCellCentres[suppIInd));
+                            vector centre = markerKSuppCellCentres[suppKInd];
+                            scalar vol = markerKSuppCellVol[suppKInd];
+                            if(markerISupportMap.find(centre)!=markerISupportMap.end())
+                            {
+                                combinedIKSupport.append({centre,vol});
+                            }
+                        }
+                        for(std::pair<vector,scalar> suppCell : combinedIKSupport)
+                        {
+                            scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
                             scalar weightK = LM::correctedDeltaDirac
                             (
-                                XK,markerISuppCellCentres[suppIInd),markerKdilation,b
-                            );                       
-                            matrixEntry += weightK*weightI*markerISuppCellVol[suppIInd];
+                                XK,suppCell.first,markerKdilation,b
+                            );
+                            matrixEntry += weightK*weightI*suppCell.second;
                         }
-                        for(label suppKInd=0; suppKInd<supportK.size(); suppKInd++)
-                        {
-                            scalar weightI = markerI.correctedDeltaDirac(XI,markerKSuppCellCentres[suppKInd));
-                            scalar weightK = LM::correctedDeltaDirac
-                            (
-                                XK,markerKSuppCellCentres[suppKInd),markerKdilation,b
-                            );     
-                            matrixEntry += weightK*weightI*markerKSuppCellVol[suppKInd];
-                        }
-                        matrixEntry *= markerKVol;
+                        matrixEntry *= markerKvolume;
                     }
                     
                     auto iter = rowEntries.find(offset+markerKindex);
                     if(iter!=rowEntries.end())
                         FatalErrorInFunction<<"Multiple writes in matrix"<<exit(FatalError);
-                    rowEntries[offset+markerKindex] = matrixEntry;   
+                    rowEntries[offset+markerKindex] = matrixEntry;
                 }
             }
         }
@@ -630,174 +640,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
 }
 
 void Foam::LineStructure::computeMarkerWeights()
-{   
-    std::unique_ptr<LinearSystem> system = computeMarkerEpsilonMatrix();
-    
-    Pout<<"Computed system matrix"<<Foam::endl;
-    std::cout<<std::get<1>(*system)<<std::endl;
-    
-    std::vector<LagrangianMarker*>& markers = std::get<0>(*system);
-    const gismo::gsMatrix<scalar>& A = std::get<1>(*system);
-    // <markerI,DynList<tuple<procK,haloCellIndK,markerIndK,aIK>>>
-    const std::unordered_map<label,DynamicList<std::tuple<label,label,label,scalar>>>& bEntry = std::get<2>(*system);
-    Pout<<"Decomposed system matrix"<<Foam::endl;
-    
-    const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
-    List<List<DynamicList<scalar>>> globalHaloMarkerEpsValues(Pstream::nProcs());
-    globalHaloMarkerEpsValues[Pstream::myProcNo()].resize(selfHaloCellList.size());
-    
-    Pout<<"Created eps vector"<<Foam::endl;
-
-    // markerPtr -> {cellInd, list index}
-    std::unordered_map<const LagrangianMarker*,std::pair<label,label>> markerPtrHaloCellIndex;
-    List<List<DynamicList<scalar>>> globalHaloCellsMarkerEpsilon(Pstream::nProcs());
-    globalHaloCellsMarkerEpsilon[Pstream::myProcNo()].resize(haloCellsRodMarkersList.size());
-    List<DynamicList<scalar>>& localHaloCellsMarkerEpsilon = globalHaloCellsMarkerEpsilon[Pstream::myProcNo()];
-    
-    Pout<<"Loop"<<Foam::endl;
-    
-    Pout<<"globalHaloCellsMarkerEpsilon.size():"<<globalHaloCellsMarkerEpsilon.size()<<Foam::endl;
-    Pout<<"localHaloCellsMarkerEpsilon.size():"<<localHaloCellsMarkerEpsilon.size()<<Foam::endl;
-
-    Pout<<"haloCellsRodMarkersList.size():"<<haloCellsRodMarkersList.size()<<Foam::endl;
+{
         
-    for(label haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
-    {
-        Pout<<"haloCellInd:"<<haloCellInd<<Foam::endl;
-        DynamicList<scalar>& cellMarkersEpsilon = localHaloCellsMarkerEpsilon[haloCellInd];
-        std::vector<const LagrangianMarker*>& cellRodMarkerList = haloCellsRodMarkersList[haloCellInd];
-        
-        cellMarkersEpsilon.resize(cellRodMarkerList.size());
-        Pout<<"--haloCellInd:"<<haloCellInd<<Foam::endl;
-        
-        for(label haloCellMarkerInd=0; haloCellMarkerInd<cellMarkersEpsilon.size(); haloCellMarkerInd++)
-        {
-            cellMarkersEpsilon[haloCellMarkerInd] = 0;
-            const LagrangianMarker* oneMarker = cellRodMarkerList[haloCellMarkerInd];
-            markerPtrHaloCellIndex[oneMarker] = {haloCellInd,haloCellMarkerInd};
-        }
-    }
-    
-    Pout<<"Halo marker to map:"<<Pstream::myProcNo()<<"  "<<markerPtrHaloCellIndex.size()<<Foam::endl;
-        
-    // markerI -> pair<haloCellIndK,markerIndK>>
-    std::unordered_map<label,std::pair<label,label>> markerIIndHaloCellIndex;
-    for(label I=0; I<markers.size(); I++)
-    {
-        const LagrangianMarker* markerPtr = markers[I];
-        auto iter = markerPtrHaloCellIndex.find(markerPtr);
-        if(iter!=markerPtrHaloCellIndex.end())
-        {
-            markerIIndHaloCellIndex[I] = iter->second;
-        }
-    }
-    
-    Pout<<"Halo marker I to map:"<<Pstream::myProcNo()<<"  "<<markerIIndHaloCellIndex.size()<<Foam::endl;
-    
-    
-    //[i] -> {markerI,{haloCellIndK,markerIndK}}
-    List<std::pair<label,std::pair<label,label>>> I_haloMarkerCellIndex(markerIIndHaloCellIndex.size());
-    label i=0;
-    for(auto iter=markerIIndHaloCellIndex.begin(); iter!=markerIIndHaloCellIndex.end(); iter++,i++)
-    {
-        I_haloMarkerCellIndex[i] = {iter->first,iter->second};
-    }
-    
-    /*
-    Pout<<"I:"<<0<<" "<<I_haloMarkerCellIndex[0].first<<"|"<<I_haloMarkerCellIndex[0].second.first<<"|"<<I_haloMarkerCellIndex[0].second.second<<Foam::endl;
-    Pout<<"I:"<<1<<" "<<I_haloMarkerCellIndex[1].first<<"|"<<I_haloMarkerCellIndex[1].second.first<<"|"<<I_haloMarkerCellIndex[1].second.second<<Foam::endl;
-    Pout<<"I:"<<2<<" "<<I_haloMarkerCellIndex[2].first<<"|"<<I_haloMarkerCellIndex[2].second.first<<"|"<<I_haloMarkerCellIndex[2].second.second<<Foam::endl;
-    Pout<<"Halo marker I list:"<<Pstream::myProcNo()<<"  "<<I_haloMarkerCellIndex.size()<<Foam::endl;
-    */
-        
-    gismo::gsMatrix<scalar> ones(A.cols(),1),eps(A.cols(),1);
-    Info<<"Start solving equential out"<<Foam::endl;
-    if(Pstream::parRun())
-    {
-        for(label col=0; col<A.cols(); col++)
-            eps(col,0) = 0;
-        
-        for(scalar tolerance = 1e-1; tolerance>=1e-10; tolerance/=10)
-        {
-            Pout<<"tolerance:"<<tolerance<<Foam::endl;
-            bool shortSolution = false;
-            while(!shortSolution)
-            {
-                Pout<<"  Start subiteration"<<Foam::endl;
-                gismo::gsGMRes WM(A,tolerance);
-                
-                // gather and scatter eps marker values
-                for(const std::pair<label,std::pair<label,label>>& markerInd : I_haloMarkerCellIndex)
-                {
-                    label I = markerInd.first;
-                    label haloCellInd = markerInd.second.first;
-                    label haloCellMarkerInd = markerInd.second.second;
-                    scalar markerEps = eps(I,0);
-                    globalHaloCellsMarkerEpsilon[Pstream::myProcNo()][haloCellInd][haloCellMarkerInd] = markerEps;
-                }
-                Pstream::gatherList(globalHaloCellsMarkerEpsilon);
-                Pstream::scatterList(globalHaloCellsMarkerEpsilon);
-                Pout<<"\t Exchanged"<<Foam::endl;
-
-                for(label col=0; col<A.cols(); col++)
-                {
-                    ones(col,0) = 1;
-                    auto iter = bEntry.find(col);
-                    if(iter!=bEntry.end())
-                    {
-                        for(const std::tuple<label,label,label,scalar>& oneHaloMarkerK : iter->second)
-                        {
-                            label procK = std::get<0>(oneHaloMarkerK);
-                            label haloCellIndK = std::get<1>(oneHaloMarkerK);
-                            label markerIndK = std::get<2>(oneHaloMarkerK);
-                            if( procK>=globalHaloCellsMarkerEpsilon.size() ||
-                                haloCellIndK>=globalHaloCellsMarkerEpsilon[procK].size() ||
-                                markerIndK>=globalHaloCellsMarkerEpsilon[procK][haloCellIndK].size()
-                              )
-                            {
-                                Pout<<"procK:"<<procK<<"/"<<globalHaloCellsMarkerEpsilon.size()<<Foam::endl;
-                                Pout<<"haloCellIndK:"<<haloCellIndK<<"/"<<globalHaloCellsMarkerEpsilon[procK].size()<<Foam::endl;
-                                Pout<<"markerIndK:"<<markerIndK<<"/"<<globalHaloCellsMarkerEpsilon[procK][haloCellIndK].size()<<Foam::endl;
-                                FatalErrorInFunction<<"Invalid indices of foreign marker"<<exit(FatalError);
-                            }
-                            scalar aIK = std::get<3>(oneHaloMarkerK);
-                            scalar eps = globalHaloCellsMarkerEpsilon[procK][haloCellIndK][markerIndK];
-                            ones(col,0) -= aIK*eps;
-                        }
-                    }
-                }
-                Pout<<"\t Added right side"<<Foam::endl;
-                // Communicate and modify ones
-                std::cout<<"A:"<<A<<std::endl;
-                std::cout<<"ones:"<<ones<<std::endl;
-                std::cout<<"eps"<<eps<<std::endl;
-                WM.solve(ones,eps);
-                if(WM.iterations()<=2)
-                    shortSolution=true;
-                Pout<<"\t Solved"<<Foam::endl;
-            }
-        }
-    }
-    else
-    {
-        Info<<"Sequential out"<<Foam::endl;
-        for(label col=0; col<A.cols(); col++)
-        {
-            ones(col,0) = 1;
-        }
-        linearSolve(A,eps,ones,1e-60);        
-        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-    }
-    
-    for(const cell& oneCell : mesh.cells())
-        Info<<"oneCell:"<<oneCell.centre(mesh.points(),mesh.faces())<<" -> "<<oneCell.mag(mesh.points(),mesh.faces())<<Foam::endl;
-    Info<<Foam::endl;
-    Info<<"para / cell /   volume   /      position       /       dilation"<<Foam::endl;
-    for(auto markers : (*rodMarkersList[0]))
-        Info<<markers.getMarkerParameter()<<"  /  "<<markers.getMarkerCell()<<"  /  "<<markers.getMarkerVolume()<<"  /  "<<markers.getMarkerPosition()<<"  /  "<<markers.getDilation()<<Foam::endl;
-    
-    
-    for(label I=0; I<markers.size(); I++)
+    for(uint I=0; I<collectedMarkers.size(); I++)
     {
         
     }
@@ -1004,51 +849,51 @@ scalar Foam::LineStructure::distance
     return distance(A.getBaseRod(),A.getMarkerParameter(),B.getMarkerParameter());
 }
 
-Foam::GlobalHaloMarkers::GlobalHaloMarkers
+Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 (
     // [haloCells] -> [marker of cell] -> ptr,index
     std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList
 ):
-selfhaloCellsRodMarkersList(selfhaloCellsRodMarkersList),
+selfhaloCellsRodMarkersList(&selfhaloCellsRodMarkersList),
 broadcasted(false)
 {
     globalHaloCellsMarkerPos.clear();
     globalHaloCellsMarkerPos.setSize(Pstream::nProcs());
     globalHaloCellsMarkerPos[Pstream::myProcNo()].clear();
-    globalHaloCellsMarkerPos[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsMarkerPos[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
     globalHaloCellsMarkerVolume.clear();
     globalHaloCellsMarkerVolume.setSize(Pstream::nProcs());
     globalHaloCellsMarkerVolume[Pstream::myProcNo()].clear();
-    globalHaloCellsMarkerVolume[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsMarkerVolume[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
     globalHaloCellsLocalIndex.clear();
     globalHaloCellsLocalIndex.setSize(Pstream::nProcs());
     globalHaloCellsLocalIndex[Pstream::myProcNo()].clear();
-    globalHaloCellsLocalIndex[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsLocalIndex[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
     globalHaloCellsMarkerDilation.clear();
     globalHaloCellsMarkerDilation.setSize(Pstream::nProcs());
     globalHaloCellsMarkerDilation[Pstream::myProcNo()].clear();
-    globalHaloCellsMarkerDilation[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsMarkerDilation[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
     globalHaloCellsMarkerSupportCellCentres.clear();
     globalHaloCellsMarkerSupportCellCentres.setSize(Pstream::nProcs());
     globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].clear();
-    globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
     globalHaloCellsMarkerSupportCellVolume.clear();
     globalHaloCellsMarkerSupportCellVolume.setSize(Pstream::nProcs());
     globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].clear();
-    globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsMarkerSupportCellVolume[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
     globalHaloCellsMarkerb.clear();
     globalHaloCellsMarkerb.setSize(Pstream::nProcs());
     globalHaloCellsMarkerb[Pstream::myProcNo()].clear();
-    globalHaloCellsMarkerb[Pstream::myProcNo()].setSize(selfhaloCellsRodMarkersList);
+    globalHaloCellsMarkerb[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
 }
 
-void appendMarkerData
+void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
 (
     label haloCellInd,
     std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> data
@@ -1065,7 +910,7 @@ void appendMarkerData
     globalHaloCellsMarkerb[proc][hCI].append(std::get<6>(data));
 }
 
-std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>> getMarkerData
+std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
 (
     label process,
     label haloCellInd,
@@ -1085,22 +930,22 @@ std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>> g
     return {position,volume,index,dilation,suppCellsCentre,suppCellsVolume,b};
 }
 
-label size_processes()
+label Foam::LineStructure::GlobalHaloMarkers::size_processes()
 {
     return Pstream::nProcs();
 }
 
-label size_haloCells(label process)
+label Foam::LineStructure::GlobalHaloMarkers::size_haloCells(label process)
 {
     return globalHaloCellsMarkerPos[process].size();
 }
 
-label size_cellMarkers(label process, label haloCellInd)
+label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers(label process, label haloCellInd)
 {
     return globalHaloCellsMarkerPos[process][haloCellInd].size();
 }
 
-void Foam::GlobalHaloMarkers::communicate()
+void Foam::LineStructure::GlobalHaloMarkers::communicate()
 {
     broadcasted = true;
     

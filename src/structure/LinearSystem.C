@@ -147,35 +147,43 @@ Foam::CSR_Matrix_par::CSR_Matrix_par
     label globalCols,
     bool global
 ):
-localRows(localRows),
 localRowStart(localRowStart),
+localRows(localRows),
 globalRows(globalRows),
 globalCols(globalCols),
 global(global),
 writtenRow(0),
 lastWrittenRowIndex(0)
 {
-    //Info<<"Created CSR_Matrix_par: ["<<localRows<<","<<localRowStart<<","<<globalRows<<","<<globalCols<<"]"<<Foam::endl;
     globalCheck();
+    if(localRows<1)
+        setComplete();
 }
 
 Foam::CSR_Matrix_par::CSR_Matrix_par
 (
     bool global
 ):
-localRows(-1),
 localRowStart(-1),
+localRows(-1),
 globalRows(-1),
 globalCols(-1),
 global(global),
 writtenRow(0),
 lastWrittenRowIndex(0)
-{}
+{
+    complete = true;
+}
 
 void Foam::CSR_Matrix_par::addRow(List<scalar> row)
 {
     if(row.size()!=globalCols)
+    {
+        Pout<<"row.size():"<<row.size()<<Foam::endl;
+        Pout<<"globalCols:"<<globalCols<<Foam::endl;
+        Pout<<"row:"<<row<<Foam::endl;
         FatalErrorInFunction<<"Invalid row size"<<exit(FatalError);
+    }
     
     DynamicList<std::pair<scalar,label>> rowData;
     for(label col=0; col<row.size(); col++)
@@ -190,6 +198,9 @@ void Foam::CSR_Matrix_par::addRow(List<scalar> row)
 
 void Foam::CSR_Matrix_par::addRow(List<std::pair<scalar,label>> row)
 {
+    if(complete)
+        FatalErrorInFunction<<"Can not add to already complete matrix"<<exit(FatalError);
+
     if(writtenRow<localRows)
         writtenRow++;
     else
@@ -232,41 +243,10 @@ Vector_par Foam::CSR_Matrix_par::operator*
     
     if(global)
     {
-        List<List<scalar>> globalVecs(Pstream::nProcs());    
-        std::pair<label,label> vecInfo = vec.getLocalSize();
-        label localRowStart = vecInfo.first;
-        label localRows = vecInfo.second;
-        globalVecs[Pstream::myProcNo()] = List<scalar>(localRows);
-        for(label i=0; i<localRows; i++)
-        {
-            globalVecs[Pstream::myProcNo()][i] = vec[i];
-        }
-        Pstream::gatherList(globalVecs);
-        Pstream::scatterList(globalVecs);
+        List<scalar> globalVector;
+        vec.collectGlobal(globalVector);
         
-        DynamicList<scalar> globalVec;
-        for(label proc=0; proc<Pstream::myProcNo()-1; proc++)
-        {
-            const List<scalar>& procVec = globalVecs[proc];    
-            for(label ind=0; ind<procVec.size(); ind++)
-            {
-                globalVec.append(procVec[ind]);
-            }
-        }
-        if(globalVec.size()!=vec.getLocalSize().first)
-            FatalErrorInFunction<<"Global to local size mismatch"<<exit(FatalError);
-        for(label proc=Pstream::myProcNo(); proc<Pstream::nProcs(); proc++)
-        {
-            const List<scalar>& procVec = globalVecs[proc];    
-            for(label ind=0; ind<procVec.size(); ind++)
-            {
-                globalVec.append(procVec[ind]);
-            }
-        }
-        if(globalVec.size()!=vec.getGlobalSize())
-            FatalErrorInFunction<<"Global size mismatch"<<exit(FatalError);
-        
-        Vector_par result(this->localRows,this->localRowStart,this->globalRows);
+        Vector_par result(vec);
         for(label k=0; k<this->localRows; k++)
         {
             label rowStartInd = Row_Index[k];
@@ -280,7 +260,7 @@ Vector_par Foam::CSR_Matrix_par::operator*
             for(label ind=rowStartInd; ind<rowEndInd; ind++)
             {
                 label col = Col_Index[ind];
-                value += V[ind]*globalVec[col];
+                value += V[ind]*globalVector[col];
             }
             result[k] = value;
         }
@@ -316,6 +296,7 @@ CSR_Matrix_par Foam::CSR_Matrix_par::operator*
 ) const
 {
     FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+    return CSR_Matrix_par();
 }
 
 scalar Foam::CSR_Matrix_par::getDiagonal
@@ -363,13 +344,187 @@ bool Foam::CSR_Matrix_par::isSquare() const
     return (globalRows==globalCols) && globalRows>0;
 }
 
+CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
+{
+    CSR_Matrix_par result(localRows,localRowStart,globalRows,globalCols,global);
+    for(label localRow=0; localRow<localRows; localRow++)
+    {
+        label rowStartInd = Row_Index[localRow];
+        label rowEndInd;
+        if(localRow<localRows-1)
+            rowEndInd = Row_Index[localRow+1];
+        else
+            rowEndInd = V.size();
+        
+        DynamicList<std::pair<scalar,label>> oneRow;        
+        for(label Vind=rowStartInd; Vind<rowEndInd; Vind++)
+        {
+            label col = Col_Index[Vind];
+            if(col==localRow+localRowStart)
+                oneRow.append({V[Vind],col});
+        }
+        if(oneRow.size()>1)
+            FatalErrorInFunction<<"Diagonal can not be larger than one"<<exit(FatalError);
+        result.addRow(oneRow);
+    }
+    return result;
+}
+
+CSR_Matrix_par Foam::CSR_Matrix_par::offDiagonalMatrix() const
+{
+    CSR_Matrix_par result(localRows,localRowStart,globalRows,globalCols,global);
+    for(label localRow=0; localRow<localRows; localRow++)
+    {
+        label rowStartInd = Row_Index[localRow];
+        label rowEndInd;
+        if(localRow<localRows-1)
+            rowEndInd = Row_Index[localRow+1];
+        else
+            rowEndInd = V.size();
+        
+        DynamicList<std::pair<scalar,label>> oneRow;        
+        for(label Vind=rowStartInd; Vind<rowEndInd; Vind++)
+        {
+            label col = Col_Index[Vind];
+            if(col!=localRow+localRowStart)
+                oneRow.append({V[Vind],col});
+        }
+        result.addRow(oneRow);
+    }
+    return result;
+}
+
+std::string Foam::CSR_Matrix_par::to_string() const
+{
+    label processCount;
+    if(global)
+        processCount = Pstream::nProcs();
+    else
+        processCount = 1;
+    
+    List<DynamicList<scalar>> global_V(processCount);
+    List<DynamicList<label>> global_Col_Index(processCount);
+    List<DynamicList<label>> global_Row_Index(processCount);
+    
+    if(global)
+    {   
+        global_V[Pstream::myProcNo()] = V;
+        global_Col_Index[Pstream::myProcNo()] = Col_Index;
+        global_Row_Index[Pstream::myProcNo()] = Row_Index;
+    
+        Pstream::gatherList(global_V);
+        Pstream::gatherList(global_Col_Index);
+        Pstream::gatherList(global_Row_Index);
+
+        Pstream::scatterList(global_V);
+        Pstream::scatterList(global_Col_Index);
+        Pstream::scatterList(global_Row_Index);
+    }
+    else
+    {
+        global_V[0] = V;
+        global_Col_Index[0] = Col_Index;
+        global_Row_Index[0] = Row_Index;
+    }
+                
+    std::string matrix = " ("+std::to_string(globalRows)+","+std::to_string(globalCols)+")\n";
+    matrix.append("["+std::to_string(localRowStart)+"-"+std::to_string(localRows)+"]\n");    
+    std::string boolStr = global?"true":"false";
+    matrix.append("g:"+boolStr+"\n");
+
+    for(label proc=0; proc<processCount; proc++)
+    {
+        DynamicList<scalar>& procV = global_V[proc];
+        DynamicList<label>& procCol_Index = global_Col_Index[proc];
+        DynamicList<label>& procRow_Index = global_Row_Index[proc];
+        /*
+        if(Pstream::master())
+        {
+            Pout<<proc<<"  procV:"<<procV<<Foam::endl;
+            Pout<<proc<<"  procCol_Index:"<<procCol_Index<<Foam::endl;
+            Pout<<proc<<"  procRow_Index:"<<procRow_Index<<Foam::endl;
+        }
+        */
+        
+        for(label localRow=0; localRow<procRow_Index.size(); localRow++)
+        {
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    localRow:"<<localRow<<Foam::endl;
+                Pout<<proc<<"    localRows:"<<localRows<<Foam::endl;
+            }
+            */
+            
+            label rowStartInd = procRow_Index[localRow];
+            label rowEndInd;
+            if(localRow<procRow_Index.size()-1)
+                rowEndInd = procRow_Index[localRow+1];
+            else
+                rowEndInd = procV.size();
+            
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    rowStartInd:"<<rowStartInd<<Foam::endl;
+                Pout<<proc<<"    --rowEndInd:"<<rowEndInd<<Foam::endl;
+                Pout<<proc<<"    globalCols:"<<globalCols<<Foam::endl;
+            }
+            */
+            
+            List<scalar> fullRow(globalCols);
+            for(label c=0; c<globalCols; c++)
+                fullRow[c] = 0;
+            
+            for(label Vind=rowStartInd; Vind<rowEndInd; Vind++)
+            {
+                label col = procCol_Index[Vind];
+                fullRow[col] = procV[Vind];
+            }
+
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    fullRow:"<<fullRow<<Foam::endl;
+            }
+            */
+        
+            for(label c=0; c<globalCols; c++)
+            {
+                char numString[10];
+                std::sprintf(numString,"%3.2e",fullRow[c]);
+                matrix.append(" ");
+                matrix.append(numString);
+            }
+            matrix.append("\n");
+
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    matrix:"<<matrix<<Foam::endl;
+            }
+            */
+        }
+        /*
+        if(Pstream::master())
+            Pout<<"DONE ------------"<<proc<<Foam::endl;
+        */
+    }    
+    //Pout<<"------------ DONE ------------"<<Foam::endl;
+    return matrix;
+}
+
 void Foam::CSR_Matrix_par::checkCompatible
 (
     const Vector_par& vec
 ) const
 {
     if(globalCols!=vec.getGlobalSize())
+    {
+        Pout<<"globalCols:"<<globalCols<<Foam::endl;
+        Pout<<"vec.getGlobalSize():"<<vec.getGlobalSize()<<Foam::endl;
         FatalErrorInFunction<<"Matrix Vector mismatch"<<exit(FatalError);
+    }
 }
 
 void Foam::CSR_Matrix_par::checkCompatible
@@ -385,40 +540,47 @@ void Foam::CSR_Matrix_par::checkCompatible
 
 void Foam::CSR_Matrix_par::globalCheck() const
 {
-    List<label> globalLocalRowStart(Pstream::nProcs());
-    globalLocalRowStart[Pstream::myProcNo()] = localRowStart;
-    Pstream::gatherList(globalLocalRowStart);
-    
-    List<label> globalLocalRows(Pstream::nProcs());
-    globalLocalRows[Pstream::myProcNo()] = localRows;
-    Pstream::gatherList(globalLocalRows);
-    
-    List<label> globalGlobalRows(Pstream::nProcs());
-    globalGlobalRows[Pstream::myProcNo()] = globalRows;
-    Pstream::gatherList(globalGlobalRows);
-    
-    List<label> globalGlobalCols(Pstream::nProcs());
-    globalGlobalCols[Pstream::myProcNo()] = globalCols;
-    Pstream::gatherList(globalGlobalCols);
-    
-    if(Pstream::master())
+    if(global)
     {
-        for(label globalRows : globalGlobalRows)
-            if(globalRows!=this->globalRows)
-                FatalErrorInFunction<<"Global row size mismatch"<<exit(FatalError);
-        for(label globalCols : globalGlobalCols)
-            if(globalCols!=this->globalCols)
-                FatalErrorInFunction<<"Global col size mismatch"<<exit(FatalError);
-        for(label proc=0; proc<globalLocalRowStart.size()-1; proc++)
+        List<label> globalLocalRowStart(Pstream::nProcs());
+        globalLocalRowStart[Pstream::myProcNo()] = localRowStart;
+        Pstream::gatherList(globalLocalRowStart);
+        
+        List<label> globalLocalRows(Pstream::nProcs());
+        globalLocalRows[Pstream::myProcNo()] = localRows;
+        Pstream::gatherList(globalLocalRows);
+        
+        List<label> globalGlobalRows(Pstream::nProcs());
+        globalGlobalRows[Pstream::myProcNo()] = globalRows;
+        Pstream::gatherList(globalGlobalRows);
+        
+        List<label> globalGlobalCols(Pstream::nProcs());
+        globalGlobalCols[Pstream::myProcNo()] = globalCols;
+        Pstream::gatherList(globalGlobalCols);
+        
+        if(Pstream::master())
         {
-            if(globalLocalRowStart[proc]+globalLocalRows[proc]!=globalLocalRowStart[proc+1])
-                FatalErrorInFunction<<"Local row mismatch"<<exit(FatalError);
+            for(label globalRows : globalGlobalRows)
+                if(globalRows!=this->globalRows)
+                    FatalErrorInFunction<<"Global row size mismatch"<<exit(FatalError);
+            for(label globalCols : globalGlobalCols)
+                if(globalCols!=this->globalCols)
+                    FatalErrorInFunction<<"Global col size mismatch"<<exit(FatalError);
+            for(label proc=0; proc<globalLocalRowStart.size()-1; proc++)
+            {
+                if(globalLocalRowStart[proc]+globalLocalRows[proc]!=globalLocalRowStart[proc+1])
+                    FatalErrorInFunction<<"Local row mismatch"<<exit(FatalError);
+            }
+            if(globalLocalRowStart.last()+globalLocalRows.last()!=this->globalRows)
+            {
+                Pout<<"globalLocalRowStart.last():"<<globalLocalRowStart.last()<<Foam::endl;
+                Pout<<"globalLocalRows.last():"<<globalLocalRows.last()<<Foam::endl;
+                Pout<<"this->globalRows:"<<this->globalRows<<Foam::endl;
+                FatalErrorInFunction<<"Local rows to global rows mismatch"<<exit(FatalError);
+            }
         }
-        if(globalLocalRowStart.last()+globalLocalRows.last()!=this->globalRows)
-            FatalErrorInFunction<<"Local rows to global rows mismatch"<<exit(FatalError);
     }
-    
-    if(!global)
+    else
     {
         if(localRowStart!=0)
             FatalErrorInFunction<<"Local row start mismatch as local"<<exit(FatalError);
@@ -434,6 +596,7 @@ void Foam::CSR_Matrix_par::setComplete()
         FatalErrorInFunction<<"Local row to Row_Index mismatch:"<<localRows<<"!="<<Row_Index.size()<<exit(FatalError);
     if(V.size()!=Col_Index.size())
         FatalErrorInFunction<<"V and Col_Index mismatch"<<exit(FatalError);
+    globalCheck();
 }
 
 Foam::Vector_par::Vector_par
@@ -443,8 +606,8 @@ Foam::Vector_par::Vector_par
     label globalRows,
     bool global
 ):
-localRows(localRows),
 localRowStart(localRowStart),
+localRows(localRows),
 globalRows(globalRows),
 global(global)
 {
@@ -456,9 +619,10 @@ Foam::Vector_par::Vector_par
 (
     const Vector_par& vec
 ):
-localRows(vec.localRows),
 localRowStart(vec.localRowStart),
-globalRows(vec.globalRows)
+localRows(vec.localRows),
+globalRows(vec.globalRows),
+global(vec.global)
 {
     V = vec.V;
 }
@@ -467,8 +631,8 @@ Foam::Vector_par::Vector_par
 (
     bool global
 ):
-localRows(-1),
 localRowStart(-1),
+localRows(-1),
 globalRows(-1),
 global(global)
 {}
@@ -542,6 +706,19 @@ Vector_par Foam::Vector_par::operator-
     return result;
 }
 
+Vector_par& Foam::Vector_par::operator=
+(
+    const Vector_par& vec
+)
+{
+    this->V = vec.V;
+    this->localRowStart = vec.localRowStart;
+    this->localRows = vec.localRows;
+    this->globalRows = vec.globalRows;
+
+    return *this;
+}
+
 scalar Foam::Vector_par::norm2() const
 {
     return std::sqrt((*this)&(*this));
@@ -577,19 +754,68 @@ void Foam::Vector_par::fill
         (*this)[i] = values[i];
 }
 
-std::string Foam::Vector_par::to_string()
+void Foam::Vector_par::collectGlobal
+(
+    List<scalar>& globalVector
+) const
 {
+    if(!global)
+        FatalErrorInFunction<<"Can not collect in non global vector"<<exit(FatalError);
+
+    globalVector.setSize(globalRows);
     List<List<scalar>> globalData(Pstream::nProcs());
     globalData[Pstream::myProcNo()] = V;
     Pstream::gatherList(globalData);
     Pstream::scatterList(globalData);
-    std::string vector = "\n";
-    for(List<scalar>& oneProcVec : globalData)
+
+    // Total size check
+    label totalSize = 0;
+    for(label proc=0; proc<Pstream::nProcs(); proc++)
+        totalSize += globalData[proc].size();
+    if(totalSize!=globalRows)
     {
-        for(scalar vec : oneProcVec)
+        Pout<<"globalData:"<<globalData<<Foam::endl;
+        Pout<<"Collected Size:"<<totalSize<<Foam::endl;
+        Pout<<"Stored Size:"<<globalRows<<Foam::endl;
+        FatalErrorInFunction<<"Mismatch in total vector size"<<exit(FatalError);
+    }
+    
+    int i=0;
+    for(label proc=0; proc<Pstream::myProcNo(); proc++)
+    {
+        for(label localRow=0; localRow<globalData[proc].size(); localRow++)
         {
-            vector.append(" "+std::to_string(vec)+"\n");
+            globalVector[i] = globalData[proc][localRow];
+            i++;
         }
+    }
+    if(i!=localRowStart)
+        FatalErrorInFunction<<"Mismatch in local offset"<<exit(FatalError);
+    for(label proc=Pstream::myProcNo(); proc<Pstream::nProcs(); proc++)
+    {
+        for(label localRow=0; localRow<globalData[proc].size(); localRow++)
+        {
+            globalVector[i] = globalData[proc][localRow];
+            i++;
+        }
+    }
+}
+
+std::string Foam::Vector_par::to_string() const
+{
+    List<scalar> globalVector;
+    if(global)
+        collectGlobal(globalVector);
+    else
+        globalVector = V;
+    
+    std::string vector = " ("+std::to_string(globalRows)+")\n";
+    vector.append("["+std::to_string(localRowStart)+"-"+std::to_string(localRows)+"]\n");
+    std::string boolStr = global?"true":"false";
+    vector.append("g:"+boolStr+"\n");
+    for(scalar vec : globalVector)
+    {
+        vector.append(" "+std::to_string(vec)+"\n");
     }
     return vector;
 }
@@ -600,39 +826,49 @@ void Foam::Vector_par::checkCompatible(const Vector_par& vec) const
         FatalErrorInFunction<<"Vector local size mismatch"<<exit(FatalError);
     if(this->getGlobalSize()!=vec.getGlobalSize())
         FatalErrorInFunction<<"Vector global size mismatch"<<exit(FatalError);
-    if(this->global!=vec.global)
+    if(!(this->global==vec.global))
+    {
+        std::cout<<"this->global:"<<this->global<<std::endl;
+        std::cout<<"vec.global:"<<vec.global<<std::endl;
+
+        Info<<"this->global!=vec.global:"<<(this->global!=vec.global)<<Foam::endl;
+        Info<<"this:"<<this->to_string()<<Foam::endl;
+        Info<<"vec:"<<vec.to_string()<<Foam::endl;
         FatalErrorInFunction<<"Vector global local mismatch"<<exit(FatalError);
+    }
 }
 
 void Foam::Vector_par::globalCheck() const
 {
-    List<label> globalLocalRowStart(Pstream::nProcs());
-    globalLocalRowStart[Pstream::myProcNo()] = localRowStart;
-    Pstream::gatherList(globalLocalRowStart);
-    
-    List<label> globalLocalRows(Pstream::nProcs());
-    globalLocalRows[Pstream::myProcNo()] = localRows;
-    Pstream::gatherList(globalLocalRows);
-    
-    List<label> globalGlobalRows(Pstream::nProcs());
-    globalGlobalRows[Pstream::myProcNo()] = globalRows;
-    Pstream::gatherList(globalGlobalRows);
-    
-    if(Pstream::master())
+    if(global)
     {
-        for(label globalRows : globalGlobalRows)
-            if(globalRows!=this->globalRows)
-                FatalErrorInFunction<<"Global row size mismatch"<<exit(FatalError);
-        for(label proc=0; proc<globalLocalRowStart.size()-1; proc++)
+        List<label> globalLocalRowStart(Pstream::nProcs());
+        globalLocalRowStart[Pstream::myProcNo()] = localRowStart;
+        Pstream::gatherList(globalLocalRowStart);
+        
+        List<label> globalLocalRows(Pstream::nProcs());
+        globalLocalRows[Pstream::myProcNo()] = localRows;
+        Pstream::gatherList(globalLocalRows);
+        
+        List<label> globalGlobalRows(Pstream::nProcs());
+        globalGlobalRows[Pstream::myProcNo()] = globalRows;
+        Pstream::gatherList(globalGlobalRows);
+        
+        if(Pstream::master())
         {
-            if(globalLocalRowStart[proc]+globalLocalRows[proc]!=globalLocalRowStart[proc+1])
-                FatalErrorInFunction<<"Local row mismatch"<<exit(FatalError);
+            for(label globalRows : globalGlobalRows)
+                if(globalRows!=this->globalRows)
+                    FatalErrorInFunction<<"Global row size mismatch"<<exit(FatalError);
+            for(label proc=0; proc<globalLocalRowStart.size()-1; proc++)
+            {
+                if(globalLocalRowStart[proc]+globalLocalRows[proc]!=globalLocalRowStart[proc+1])
+                    FatalErrorInFunction<<"Local row mismatch"<<exit(FatalError);
+            }
+            if(globalLocalRowStart.last()+globalLocalRows.last()!=this->globalRows)
+                FatalErrorInFunction<<"Local rows to global rows mismatch"<<exit(FatalError);
         }
-        if(globalLocalRowStart.last()+globalLocalRows.last()!=this->globalRows)
-            FatalErrorInFunction<<"Local rows to global rows mismatch"<<exit(FatalError);
     }
-    
-    if(!global)
+    else
     {
         if(localRowStart!=0)
             FatalErrorInFunction<<"Local row start mismatch as local"<<exit(FatalError);
@@ -646,6 +882,8 @@ Foam::Vector_par Foam::LinearSolver_par::solve
     const Vector_par& b
 )
 {
+    A.checkCompatible(b);
+    
     Vector_par x(b);
     x.fill(0);
     return solve(b,x);
@@ -657,28 +895,34 @@ Foam::Vector_par Foam::LinearSolver_par::solve
     const Vector_par& x
 )
 {
+    A.checkCompatible(b);
+    A.checkCompatible(x);
+    b.checkCompatible(x);
+    
     this->b = b;
     this->x = x;
+
     initIteration();
     while(!step() || iteration<minIteration)
-    {}
+    {
+        if(iteration > 1e7)
+            Info<<"High iteration number in linear solver"<<Foam::endl;
+    }
     return this->x;
 }
 
-void Foam::GaussSeidel::initIteration()
-{}
+void Foam::Jacobi::initIteration()
+{
+    OffDiagonal = A.offDiagonalMatrix();
+}
 
-bool Foam::GaussSeidel::step()
+bool Foam::Jacobi::step()
 {   
     iteration++;
     
-    Vector_par sum_x = A*x;
-    for(label localRow=0; localRow<x.getLocalSize().second; localRow++)
-    {
-        scalar Akk_x = A.evalOnDiagonal(x,localRow);
-        sum_x[localRow] -= Akk_x;
-    }
+    Vector_par sum_x = OffDiagonal*x;    
     Vector_par AxGs = b-sum_x;
+    
     for(label localRow=0; localRow<x.getLocalSize().second; localRow++)
     {
         scalar Akk = A.getDiagonal(localRow);

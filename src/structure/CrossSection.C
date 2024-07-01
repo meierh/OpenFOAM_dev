@@ -170,14 +170,14 @@ std::function<scalar(scalar)> Foam::CrossSection::getEvalOnPoint(scalar paramete
     //Info<<"a0Coeff:"<<a0Coeff<<Foam::endl;
     
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
     {
         gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
         aCoeffs->push_back(aCoeffI.at(0));
     }
     
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
     {
         gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
         bCoeffs->push_back(bCoeffI.at(0));
@@ -191,7 +191,7 @@ std::function<scalar(scalar)> Foam::CrossSection::getEvalOnPoint(scalar paramete
     return [num_Coeff=numberCoeffs,a_0=a0Coeff,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar rad)
     {
         scalar value = a_0/2;
-        for(label coeffI=0; coeffI<num_Coeff; coeffI++)
+        for(uint coeffI=0; coeffI<num_Coeff; coeffI++)
         {
             label k=coeffI+1;
             value += (*a_k)[coeffI]*std::cos(k*rad+pS);
@@ -222,14 +222,14 @@ std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar pa
     //Info<<"a0Coeff:"<<a0Coeff<<Foam::endl;
     
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
     {
         gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
         aCoeffs->push_back(aCoeffI.at(0));
     }
     
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
     {
         gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
         bCoeffs->push_back(bCoeffI.at(0));
@@ -243,7 +243,7 @@ std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar pa
     return [num_Coeff=numberCoeffs,a_0=a0Coeff,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
     {
         scalar value = 0;
-        for(label coeffI=0; coeffI<num_Coeff; coeffI++)
+        for(uint coeffI=0; coeffI<num_Coeff; coeffI++)
         {
             label k=coeffI+1;
             value += (*a_k)[coeffI]*std::sin(k*angle+pS)*(-k);
@@ -263,14 +263,14 @@ scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const
     a0Coeff = a0CoeffI.at(0);
         
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
     {
         gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
         aCoeffs->push_back(aCoeffI.at(0));
     }
     
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
     {
         gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
         bCoeffs->push_back(bCoeffI.at(0));
@@ -294,14 +294,14 @@ scalar Foam::CrossSection::upperLimitRadius(scalar parameter) const
     a0Coeff = a0CoeffI.at(0);
         
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<a_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
     {
         gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
         aCoeffs->push_back(aCoeffI.at(0));
     }
     
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(label coeffI=0; coeffI<b_k.size(); coeffI++)
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
     {
         gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
         bCoeffs->push_back(bCoeffI.at(0));
