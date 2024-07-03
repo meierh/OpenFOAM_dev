@@ -370,24 +370,15 @@ void Foam::LagrangianMarker::minMaxSupportWidth()
     }
     h_plus = maxSpan;
     h_minus = minSpan;
-    //Info<<"maxSpan:"<<maxSpan<<Foam::endl;
-    //Info<<"minSpan:"<<minSpan<<Foam::endl;
 }
 
 void Foam::LagrangianMarker::dilationFactors()
 {
     vector minSpan = h_minus;
     vector maxSpan = h_plus;
-    //Info<<"     h_minus:"<<h_minus<<Foam::endl;
-    //Info<<"     h_plus:"<<h_plus<<Foam::endl;
-    
-    //const cellList& cells = mesh.cells();
-    //const faceList& faces = mesh.faces();
-    //const pointField& points = mesh.points();
     
     scalar eps = 0.1*std::sqrt(minSpan&minSpan);
     dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
-    //Info<<" dilation:"<<dilation<<Foam::endl;
 }
 
 void Foam::LagrangianMarker::getCellData
@@ -477,117 +468,6 @@ scalar Foam::LagrangianMarker::computeMoment
     };
     return computeMoment(indices,deltaFunction);
 }
-
-/*
-scalar Foam::LagrangianMarker::computeMoment
-(
-    vector indices,
-    std::function<scalar(vector,vector)> deltaFunction
-) const
-{
-    vector X = getMarkerPosition();
-    
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
-    const DynamicList<std::tuple<bool,label,label>>& supportCells = getSupportCells();
-    
-    scalar moment = 0;
-    for(label i=0; i<supportCells.size(); i++)
-    {
-        const std::tuple<bool,label,label>& suppCellData = supportCells[i];
-        vector cellCentre;
-        scalar cellVolume;
-        if(std::get<0>(suppCellData))
-        {
-            label cellInd = std::get<2>(suppCellData);
-            cellCentre = cells[cellInd].centre(points,faces);
-            cellVolume = cells[cellInd].mag(points,faces);
-        }
-        else
-        {
-            label neighProcess = std::get<1>(suppCellData);
-            const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
-            auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellData));
-            if(iter==neighborHaloCellToIndexMap.end())
-                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
-            label index = iter->second;
-            cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
-            cellVolume = structure.getHaloCellList(neighProcess)[index].volume;
-        }
-        
-        vector x = cellCentre;
-        vector conn = x-X;
-        vector coeff(1,1,1);
-        for(label dim=0; dim<3; dim++)
-        {
-            for(label index=0; index<indices[dim]; index++)
-            {
-                coeff[dim]*=conn[dim];
-            }
-        }
-        scalar dirac = deltaFunction(X,x);
-        //Info<<conn<<"|"<<dirac<<Foam::endl;
-        moment += coeff[0]*coeff[1]*coeff[2]*dirac*cellVolume;
-    }
-    return moment;
-};
-*/
-
-
-/*
-scalar Foam::LagrangianMarker::computeCorrectedMoment
-(
-    vector indices
-) const
-{
-    vector X = getMarkerPosition();
-    
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
-    const DynamicList<std::tuple<bool,label,label>>& supportCells = getSupportCells();
-    
-    scalar moment = 0;
-    for(label i=0; i<supportCells.size(); i++)
-    {
-        const std::tuple<bool,label,label>& suppCellData = supportCells[i];
-        vector cellCentre;
-        scalar cellVolume;
-        if(std::get<0>(suppCellData))
-        {
-            label cellInd = std::get<2>(suppCellData);
-            cellCentre = cells[cellInd].centre(points,faces);
-            cellVolume = cells[cellInd].mag(points,faces);
-        }
-        else
-        {
-            label neighProcess = std::get<1>(suppCellData);
-            const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
-            auto iter = neighborHaloCellToIndexMap.find(std::get<2>(suppCellData));
-            if(iter==neighborHaloCellToIndexMap.end())
-                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
-            label index = iter->second;
-            cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
-            cellVolume = structure.getHaloCellList(neighProcess)[index].volume;
-        }
-        
-        vector x = cellCentre;
-        vector conn = x-X;
-        vector coeff(1,1,1);
-        for(label dim=0; dim<3; dim++)
-        {
-            for(label index=0; index<indices[dim]; index++)
-            {
-                coeff[dim]*=coeff[dim];
-            }
-        }
-        scalar dirac = correctedDeltaDirac(X,x,getDilation(),b);
-        moment += coeff[0]*coeff[1]*coeff[2]*dirac*cellVolume;
-    }
-    return moment;
-};
-*/
 
 std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix3D() const
 {

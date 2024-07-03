@@ -487,7 +487,11 @@ class LineStructure : public Structure
             
             private:
                 // [haloCells] -> [marker of cell] -> ptr,index
-                std::vector<std::vector<std::pair<LagrangianMarker*,label>>>* selfhaloCellsRodMarkersList; 
+                std::vector<std::vector<std::pair<LagrangianMarker*,label>>>* selfhaloCellsRodMarkersList;
+                
+                label nProcs;
+                List<label> procHaloCellsSize;
+                List<List<label>> procHaloCellMarkerSize;
                 
                 // [nProc] -> [haloCells] -> [markers] -> position
                 List<List<DynamicList<vector>>> globalHaloCellsMarkerPos;
@@ -506,6 +510,7 @@ class LineStructure : public Structure
                 // [nProc] -> [haloCells] -> [markers] -> b[]
                 List<List<DynamicList<List<scalar>>>> globalHaloCellsMarkerb;
                 
+                void check();
                 bool broadcasted;
         };
         // [haloCells] -> [marker of cell] -> ptr        
@@ -525,6 +530,6 @@ class LineStructure : public Structure
         scalar initialSpacingFromMesh();
         void check();
 };
-
+#include "LineStructure.T.H"
 }
 #endif
