@@ -73,20 +73,7 @@ class Structure
             uint degree,
             std::vector<scalar> weights,
             std::vector<scalar> coefficients
-        )
-        {
-            gsKnotVector<scalar> cKnots(knots,degree);
-            Info<<"Generated gsKnotVector"<<Foam::endl;
-            gsMatrix<scalar> cWeight(weights.size(),1);
-            for(uint i=0; i<weights.size(); i++)
-                cWeight.at(i) = weights[i];
-            Info<<"Generated weights"<<Foam::endl;
-            gsMatrix<scalar> cCoeff(coefficients.size(),1);
-            for(uint i=0; i<coefficients.size(); i++)
-                cCoeff.at(i) = coefficients[i];
-            Info<<"Generated coefficients"<<Foam::endl;
-            return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
-        }
+        );
         
         static gsNurbs<scalar> createNurbs
         (
@@ -94,26 +81,14 @@ class Structure
             uint degree,
             std::vector<scalar> weights,
             std::vector<vector> coefficients
-        )
-        {
-            gsKnotVector<scalar> cKnots(knots,degree);
-            gsMatrix<scalar> cWeight(weights.size(),1);
-            for(uint i=0; i<weights.size(); i++)
-                cWeight.at(i) = weights[i];
-            gsMatrix<scalar> cCoeff(coefficients.size(),3);
-            for(uint i=0; i<coefficients.size(); i++)
-            {
-                for(label d=0;d<3;d++)
-                {
-                    cCoeff(i,d) = coefficients[i][d];
-                }
-            }            
-            return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
-        }
+        );
+
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         const scalar initialMeshSpacing;
+        
+        const std::unordered_set<label>& getNeighbourProcesses(){return neighbourhoodProcesses;}
         
     protected:
         const Time& runTime;
@@ -193,7 +168,7 @@ class Structure
         );
         
         scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
-        
+
     protected:
         /*****************************Getter: Collect halo cells*******************************/
         typedef struct
@@ -201,7 +176,7 @@ class Structure
             label index;
             vector centre;
             scalar volume;
-        } CellDescription;     
+        } CellDescription;
         
     public:
         const DynamicList<CellDescription>& getHaloCellList(label process) const
@@ -216,6 +191,12 @@ class Structure
         {
             return patchFaceToCellMap;
         }
+        
+        template<typename T>
+        std::unique_ptr<List<List<T>>> broadcastHaloFields
+        (
+            const GeometricField<T,fvPatchField,volMesh>& fieldData
+        );
         /*********************************Collect halo cells***********************************/
     private:
         /*********************************Collect halo cells***********************************/
@@ -224,31 +205,13 @@ class Structure
         // [proc] -> cell -> index
         List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
         //faceInd -> [{neighbor proc,cell}]
-        std::unordered_map<label,DynamicList<std::pair<label,label>>> patchFaceToCellMap;
-
-        
-        //std::unordered_map<label,label> selfHaloList_Sorted_IndexMap;
-        //std::unordered_map<label,DynamicList<label>> selfHaloCellToNeighboursMap;
-        
+        std::unordered_map<label,DynamicList<std::pair<label,label>>> patchFaceToCellMap;        
         /*********************************Collect halo cells***********************************/
         
-        /*
-        typedef struct
-        {
-            label neighbourProcess;
-            label neighbourProcessPatchIndex;
-            label neighbourProcessFaceLocalIndex;
-            DynamicList<DynamicList<label>> cells;
-            DynamicList<DynamicList<vector>> cellsCentre;
-            DynamicList<DynamicList<scalar>> cellsMag;
-        } singleFaceHalo;
+        std::unordered_set<label> neighbourhoodProcesses;
         
-        // faceInd -> halo
-        std::unordered_map<label,singleFaceHalo> haloData;
-        */
-
-        scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh);
         void collectMeshHaloData(label iterations=1);
+        scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh);
 };
 }
 #endif

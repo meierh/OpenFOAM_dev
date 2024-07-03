@@ -76,6 +76,7 @@ namespace Foam
             
             std::pair<label,label> getLocalSize() const {return {localRowStart,localRows};}
             label getGlobalSize() const {return globalRows;}
+            bool getGlobal() const {return global;}
             
             void fill(scalar value);
             void fill(List<scalar> values);
@@ -83,6 +84,7 @@ namespace Foam
             void collectGlobal(List<scalar>& globalVector) const;
             
             std::string to_string() const;
+            std::string to_metaDataString() const;
             
             void checkCompatible(const Vector_par& vec) const;
             void globalCheck() const;
@@ -99,7 +101,7 @@ namespace Foam
     {
         public:
             CSR_Matrix_par(label localRows, label localRowStart, label globalRows, label globalCols, bool global=true);
-            CSR_Matrix_par( bool global=true);
+            CSR_Matrix_par(bool global=true);
             
             void addRow(List<scalar> row);
             void addRow(List<std::pair<scalar,label>> row);
@@ -116,6 +118,7 @@ namespace Foam
             CSR_Matrix_par offDiagonalMatrix() const;
             
             std::string to_string() const;
+            std::string to_metaDataString() const;
             
             void checkCompatible(const Vector_par& vec) const;
             void checkCompatible(const CSR_Matrix_par& vec) const;
@@ -131,8 +134,8 @@ namespace Foam
             label localRows;
             label globalRows;
             label globalCols;
-            bool complete=false;
-            bool global = true;
+            bool complete;
+            bool global;
             
             label writtenRow;
             label lastWrittenRowIndex;
@@ -189,8 +192,8 @@ namespace Foam
             {}
                         
         protected:
-            virtual void initIteration();
-            virtual bool step();
+            void initIteration() override;
+            bool step() override;
             
             CSR_Matrix_par OffDiagonal;
     };
@@ -207,8 +210,8 @@ namespace Foam
             {}
                         
         protected:
-            virtual void initIteration();
-            virtual bool step();
+            void initIteration() override;
+            bool step() override;
             Vector_par r,d;
     };
     
@@ -224,7 +227,7 @@ namespace Foam
             {}
                         
         protected:
-            virtual bool step();
+            bool step() override;
             std::queue<scalar> rho,alpha,w;
             std::queue<Vector_par> v,p;
     };

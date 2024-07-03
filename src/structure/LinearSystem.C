@@ -155,9 +155,15 @@ global(global),
 writtenRow(0),
 lastWrittenRowIndex(0)
 {
+    V.setSize(0);
+    Col_Index.setSize(0);
+    Row_Index.setSize(0);
+    
     globalCheck();
     if(localRows<1)
         setComplete();
+    else
+        complete = false;
 }
 
 Foam::CSR_Matrix_par::CSR_Matrix_par
@@ -427,10 +433,7 @@ std::string Foam::CSR_Matrix_par::to_string() const
         global_Row_Index[0] = Row_Index;
     }
                 
-    std::string matrix = " ("+std::to_string(globalRows)+","+std::to_string(globalCols)+")\n";
-    matrix.append("["+std::to_string(localRowStart)+"-"+std::to_string(localRows)+"]\n");    
-    std::string boolStr = global?"true":"false";
-    matrix.append("g:"+boolStr+"\n");
+    std::string matrix = to_metaDataString();
 
     for(label proc=0; proc<processCount; proc++)
     {
@@ -514,6 +517,15 @@ std::string Foam::CSR_Matrix_par::to_string() const
     return matrix;
 }
 
+std::string Foam::CSR_Matrix_par::to_metaDataString() const
+{
+    std::string metaData = " ("+std::to_string(globalRows)+","+std::to_string(globalCols)+")\n";
+    metaData.append("["+std::to_string(localRowStart)+"-"+std::to_string(localRows)+"]\n");    
+    std::string boolStr = global?"true":"false";
+    metaData.append("g:"+boolStr+"\n");
+    return metaData;
+}
+
 void Foam::CSR_Matrix_par::checkCompatible
 (
     const Vector_par& vec
@@ -524,6 +536,16 @@ void Foam::CSR_Matrix_par::checkCompatible
         Pout<<"globalCols:"<<globalCols<<Foam::endl;
         Pout<<"vec.getGlobalSize():"<<vec.getGlobalSize()<<Foam::endl;
         FatalErrorInFunction<<"Matrix Vector mismatch"<<exit(FatalError);
+    }
+    if(global!=vec.getGlobal())
+    {
+        Pout<<"this->global:"<<this->global<<Foam::endl;
+        Pout<<"vec:"<<vec.getGlobal()<<Foam::endl;
+        /*
+        Pout<<"this:"<<this->to_string()<<Foam::endl;
+        Pout<<"vec:"<<vec.to_string()<<Foam::endl;
+        */
+        FatalErrorInFunction<<"Matrix Vector global local mismatch"<<exit(FatalError);
     }
 }
 
@@ -611,7 +633,7 @@ localRows(localRows),
 globalRows(globalRows),
 global(global)
 {
-    V = List<scalar>(localRows);
+    V.setSize(localRows);
     globalCheck();
 }
             
@@ -715,6 +737,7 @@ Vector_par& Foam::Vector_par::operator=
     this->localRowStart = vec.localRowStart;
     this->localRows = vec.localRows;
     this->globalRows = vec.globalRows;
+    this->global = vec.global;
 
     return *this;
 }
@@ -809,15 +832,21 @@ std::string Foam::Vector_par::to_string() const
     else
         globalVector = V;
     
-    std::string vector = " ("+std::to_string(globalRows)+")\n";
-    vector.append("["+std::to_string(localRowStart)+"-"+std::to_string(localRows)+"]\n");
-    std::string boolStr = global?"true":"false";
-    vector.append("g:"+boolStr+"\n");
+    std::string vector = to_metaDataString();
     for(scalar vec : globalVector)
     {
         vector.append(" "+std::to_string(vec)+"\n");
     }
     return vector;
+}
+
+std::string Foam::Vector_par::to_metaDataString() const
+{
+    std::string metaData = " ("+std::to_string(globalRows)+")\n";
+    metaData.append("["+std::to_string(localRowStart)+"-"+std::to_string(localRows)+"]\n");    
+    std::string boolStr = global?"true":"false";
+    metaData.append("g:"+boolStr+"\n");
+    return metaData;
 }
 
 void Foam::Vector_par::checkCompatible(const Vector_par& vec) const
@@ -901,7 +930,7 @@ Foam::Vector_par Foam::LinearSolver_par::solve
     
     this->b = b;
     this->x = x;
-
+    
     initIteration();
     while(!step() || iteration<minIteration)
     {
@@ -917,10 +946,10 @@ void Foam::Jacobi::initIteration()
 }
 
 bool Foam::Jacobi::step()
-{   
+{
     iteration++;
     
-    Vector_par sum_x = OffDiagonal*x;    
+    Vector_par sum_x = OffDiagonal*x;
     Vector_par AxGs = b-sum_x;
     
     for(label localRow=0; localRow<x.getLocalSize().second; localRow++)

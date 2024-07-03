@@ -463,6 +463,50 @@ label Foam::Structure::getMaxDegree
     return std::max<label>(baseDegreeX,defDegreeX);
 }
 
+gsNurbs<scalar> Foam::Structure::createNurbs
+(
+    std::vector<scalar> knots,
+    uint degree,
+    std::vector<scalar> weights,
+    std::vector<scalar> coefficients
+)
+{
+    gsKnotVector<scalar> cKnots(knots,degree);
+    Info<<"Generated gsKnotVector"<<Foam::endl;
+    gsMatrix<scalar> cWeight(weights.size(),1);
+    for(uint i=0; i<weights.size(); i++)
+        cWeight.at(i) = weights[i];
+    Info<<"Generated weights"<<Foam::endl;
+    gsMatrix<scalar> cCoeff(coefficients.size(),1);
+    for(uint i=0; i<coefficients.size(); i++)
+        cCoeff.at(i) = coefficients[i];
+    Info<<"Generated coefficients"<<Foam::endl;
+    return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+}
+
+gsNurbs<scalar> Foam::Structure::createNurbs
+(
+    std::vector<scalar> knots,
+    uint degree,
+    std::vector<scalar> weights,
+    std::vector<vector> coefficients
+)
+{
+    gsKnotVector<scalar> cKnots(knots,degree);
+    gsMatrix<scalar> cWeight(weights.size(),1);
+    for(uint i=0; i<weights.size(); i++)
+        cWeight.at(i) = weights[i];
+    gsMatrix<scalar> cCoeff(coefficients.size(),3);
+    for(uint i=0; i<coefficients.size(); i++)
+    {
+        for(label d=0;d<3;d++)
+        {
+            cCoeff(i,d) = coefficients[i][d];
+        }
+    }            
+    return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+}
+
 vector Foam::Structure::rodDerivEval
 (
     const ActiveRodMesh::rodCosserat* rod,
@@ -591,6 +635,27 @@ scalar Foam::Structure::supportDomainMinSize
     return minSuppSize;
 }
 
+template<typename T>
+std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
+(
+    const GeometricField<T,fvPatchField,volMesh>& fieldData
+)
+{
+    auto haloFieldPtr = std::make_unique<List<List<T>>>(Pstream::nProcs());
+    List<List<T>>& haloField = *haloFieldPtr;
+    List<T>& ownHaloField = haloField[Pstream::myProcNo()];
+    
+    const DynamicList<CellDescription>& ownHaloCells = getHaloCellList(Pstream::myProcNo());    
+    ownHaloField.setSize(ownHaloCells.size());
+    
+    for(label haloCellInd=0; haloCellInd<ownHaloCells.size(); haloCellInd++)
+    {
+        ownHaloField[haloCellInd] = fieldData[ownHaloCells[haloCellInd].index];
+    }
+    
+    return haloFieldPtr;
+}
+
 void Foam::Structure::collectMeshHaloData
 (
     label iterations
@@ -630,7 +695,8 @@ void Foam::Structure::collectMeshHaloData
             label patchSizeFaces = pPP->size();
 
             neighborProcesses.append({neighborProcess,patchStartFace,patchSizeFaces});
-
+            
+            
             for(label locFaceInd=0; locFaceInd<patchSizeFaces; locFaceInd++)
             {
                 label faceInd = locFaceInd+patchStartFace;
@@ -713,26 +779,12 @@ void Foam::Structure::collectMeshHaloData
     Pstream::scatterList(procCellInds);
     Pstream::scatterList(procCellCentres);
     Pstream::scatterList(procCellMags);
-    
-    /*
-    if(Pstream::myProcNo()==0)
-    {
-        Pout<<"procPatchOwner"<<Foam::endl;
-        Pout<<procPatchOwner.size()<<Foam::endl;
-        for(label proc=0; proc<procPatchOwner.size(); proc++)
-            for(label cellInd=0; cellInd<procPatchOwner[proc].size(); cellInd++)
-                Pout<<proc<<":"<<cellInd<<":"<<procPatchOwner[proc][cellInd]<<" | "<<procPatchNeighbour[proc][cellInd]<<" | "<<procPatchIndex[proc][cellInd]<<" | "<<procPatchFaceLocalIndex[proc][cellInd]<<" | "<<procCellInds[proc][cellInd]<<procCellCentres[proc][cellInd]<<Foam::endl;
-    }
-    */
-    
+        
     globalHaloCellList_Sorted.resize(Pstream::nProcs());
     globalHaloCellToIndexMap.resize(Pstream::nProcs());
     for(label process=0; process<Pstream::nProcs(); process++)
     {
         const DynamicList<label>& patchOwner = procPatchOwner[process];
-        //const DynamicList<label>& patchNeighbour = procPatchNeighbour[process];
-        //const DynamicList<label>& patchIndex = procPatchIndex[process];
-        //const DynamicList<label>& patchFaceLocalIndex = procPatchFaceLocalIndex[process];
         const DynamicList<List<DynamicList<label>>>& patchCellInds = procCellInds[process];
         const DynamicList<List<DynamicList<vector>>>& patchCellCentres = procCellCentres[process];
         const DynamicList<List<DynamicList<scalar>>>& patchCellMags = procCellMags[process];
@@ -741,22 +793,14 @@ void Foam::Structure::collectMeshHaloData
         for(label patchFaceInd=0; patchFaceInd<patchOwner.size(); patchFaceInd++)
         {
             label owner = patchOwner[patchFaceInd];
-            //label neighbour = patchNeighbour[patchFaceInd];
-            //label index = patchIndex[patchFaceInd];
-            //label faceLocalIndex = patchFaceLocalIndex[patchFaceInd];
             const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
-            //const List<DynamicList<vector>>& cellCentres = patchCellCentres[patchFaceInd];
-            //const List<DynamicList<scalar>>& cellMags = patchCellMags[patchFaceInd];
             
             if(owner!=process)
                 FatalErrorInFunction<<"Invalid data"<<exit(FatalError);
             
             for(label iteration=0; iteration<cellInds.size(); iteration++)
             {
-                const DynamicList<label>& iterCellInds = cellInds[iteration];
-                //const DynamicList<vector>& iterCellCentres = cellCentres[iteration];
-                //const DynamicList<scalar>& iterCellMags = cellMags[iteration];
-                
+                const DynamicList<label>& iterCellInds = cellInds[iteration];               
                 for(label i=0; i<iterCellInds.size(); i++)
                 {
                     label cellInd = iterCellInds[i];
@@ -879,32 +923,6 @@ void Foam::Structure::collectMeshHaloData
             }
         }
     }
-    
-    /*
-    if(Pstream::myProcNo()==0)
-    {
-        Pout<<"globalHaloCellToIndexMap"<<Foam::endl;
-        Pout<<globalHaloCellToIndexMap.size()<<Foam::endl;
-        for(label proc=0; proc<globalHaloCellToIndexMap.size(); proc++)
-            for(auto iter=globalHaloCellToIndexMap[proc].begin(); iter!=globalHaloCellToIndexMap[proc].end(); iter++)
-                Pout<<proc<<" : "<<iter->first<<"->"<<iter->second<<Foam::endl;
-            
-        Pout<<"globalHaloCellList_Sorted"<<Foam::endl;
-        Pout<<globalHaloCellList_Sorted.size()<<Foam::endl;
-        for(label proc=0; proc<globalHaloCellList_Sorted.size(); proc++)
-            for(label cellInd=0; cellInd<globalHaloCellList_Sorted[proc].size(); cellInd++)
-                Pout<<proc<<":"<<cellInd<<":"<<globalHaloCellList_Sorted[proc][cellInd].index<<Foam::endl;
-        
-        Pout<<"patchFaceToCellMap"<<Foam::endl;
-        Pout<<patchFaceToCellMap.size()<<Foam::endl;
-        for(auto iter=patchFaceToCellMap.begin(); iter!=patchFaceToCellMap.end(); iter++)
-        {
-            Pout<<"faceInd:"<<iter->first<<"->"<<Foam::endl;
-            for(auto pair : iter->second)
-                Pout<<"\t\t"<<"{"<<pair.first<<","<<pair.second<<"}"<<Foam::endl;
-        }
-    }
-    */
 }
 
 scalar Foam::Structure::initialSpacingFromMesh

@@ -59,11 +59,11 @@ crossSecArea(crossSecArea)
     Info<<"dist:0.375->0.40625:"<<LineStructure::distance(oneRod,0.375,0.40625)<<Foam::endl;
     evaluateMarkerMeshRelation();
     reduceMarkers();
+    collectMarkers();
     collectHaloMarkers();
     exchangeHaloMarkersData();
 
-    computeMarkerCellWeights();
-    
+    computeMarkerCellWeights();    
     for(LagrangianMarker& marker : *(rodMarkersList[0]))
         Info<<marker.to_string()<<Foam::endl;
     
@@ -364,6 +364,255 @@ void Foam::LineStructure::reduceMarkers()
     reduceMarkers(allMarkers);
 }
 
+template<class MARKER>
+void Foam::LineStructure::maxOneMarkerPerOctant
+(
+    std::vector<MarkerReference<MARKER>>& allMarkers,
+    std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker
+)
+{
+    using SingleMarker = MarkerReference<MARKER>;
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
+    {
+        label cellInd = iter->first;
+        if(cellInd>=0 && cellInd<mesh.cells().size())
+        {
+            const cell& oneCell = cells[cellInd];
+            vector cellCentre = oneCell.centre(points,faces);
+            std::pair<
+                std::pair<
+                    std::pair<
+                        DynamicList<SingleMarker*>,
+                        DynamicList<SingleMarker*>
+                    >,
+                    std::pair<
+                        DynamicList<SingleMarker*>,
+                        DynamicList<SingleMarker*>
+                    >
+                >,
+                std::pair<
+                    std::pair<
+                        DynamicList<SingleMarker*>,
+                        DynamicList<SingleMarker*>
+                    >,
+                    std::pair<
+                        DynamicList<SingleMarker*>,
+                        DynamicList<SingleMarker*>
+                    >
+                >
+            > xyz_split;
+            for(SingleMarker* markerPtr : iter->second)
+            {
+                vector markerPos = markerPtr->getMarker().getMarkerPosition();
+                std::pair<
+                    std::pair<
+                        DynamicList<SingleMarker*>,
+                        DynamicList<SingleMarker*>
+                    >,
+                    std::pair<
+                        DynamicList<SingleMarker*>,
+                        DynamicList<SingleMarker*>
+                    >
+                >* x_side;
+                if(markerPos[0]<cellCentre[0])
+                    x_side = &(xyz_split.first);
+                else
+                    x_side = &(xyz_split.second);
+                
+                std::pair<
+                    DynamicList<SingleMarker*>,
+                    DynamicList<SingleMarker*>
+                >* xy_side;
+                if(markerPos[1]<cellCentre[1])
+                    xy_side = &(x_side->first);
+                else
+                    xy_side = &(x_side->second);
+                
+                DynamicList<SingleMarker*>* xyz_side;
+                if(markerPos[2]<cellCentre[2])
+                    xyz_side = &(xy_side->first);
+                else
+                    xyz_side = &(xy_side->second);
+                
+                xyz_side->append(markerPtr);
+            }
+
+            std::vector<DynamicList<SingleMarker*>*> subCells = 
+            {
+                &(xyz_split.first.first.first),
+                &(xyz_split.first.first.second),
+                &(xyz_split.first.second.first),
+                &(xyz_split.first.second.second),
+                &(xyz_split.second.first.first),
+                &(xyz_split.second.first.second),
+                &(xyz_split.second.second.first),
+                &(xyz_split.second.second.first)
+            };
+            
+            for(DynamicList<SingleMarker*>* subCell : subCells)
+            {
+                if(subCell->size()>0)
+                {
+                    vector averagePosition = vector(0,0,0);
+                    for(SingleMarker* marker : *subCell)
+                        averagePosition += marker->getMarker().getMarkerPosition();
+                    averagePosition /= subCell->size();
+                    
+                    scalar summedVolume = 0;
+                    for(SingleMarker* marker : *subCell)
+                        summedVolume += marker.getMarkerVolume();
+                    
+                    SingleMarker* optMarker;
+                    scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
+                    for(SingleMarker* marker : *subCell)
+                    {
+                        vector distVec = marker->getMarker().getMarkerPosition() - averagePosition;
+                        scalar dist = std::sqrt(distVec&distVec);
+                        if(dist<optMarkerDistToAvgPos)
+                        {
+                            optMarker = marker;
+                            optMarkerDistToAvgPos = dist;
+                        }
+                    }
+                    optMarker->setMarkerVolume(summedVolume);
+                    for(SingleMarker* marker : *subCell)
+                        if(marker!=optMarker)
+                            marker->deleteMarker();
+                }
+            }
+        }
+        else
+        {
+            for(SingleMarker* markerPtr : iter->second)
+            {
+                markerPtr->deleteMarker();
+            }
+        }
+    }
+}
+
+template<class MARKER>
+void Foam::LineStructure::maxOneMarkerPerCell
+(
+    std::vector<MarkerReference<MARKER>>& allMarkers,
+    std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker
+)
+{
+    using SingleMarker = MarkerReference<MARKER>;
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
+    {
+        label cellInd = iter->first;
+        if(cellInd>=0 && cellInd<mesh.cells().size())
+        {
+            const cell& oneCell = cells[cellInd];
+            vector cellCentre = oneCell.centre(points,faces);
+            std::vector<SingleMarker*>& oneCellMarkers = iter->second;
+            
+            if(oneCellMarkers.size()>0)
+            {
+                vector averagePosition = vector(0,0,0);
+                for(SingleMarker* marker : oneCellMarkers)
+                    averagePosition += marker->getMarker().getMarkerPosition();
+                averagePosition /= oneCellMarkers.size();
+                
+                scalar summedVolume = 0;
+                for(SingleMarker* marker : oneCellMarkers)
+                    summedVolume += marker->getMarker().getMarkerVolume();
+                
+                SingleMarker* optMarker;
+                scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
+                for(SingleMarker* marker : oneCellMarkers)
+                {
+                    vector distVec = marker->getMarker().getMarkerPosition() - averagePosition;
+                    scalar dist = std::sqrt(distVec&distVec);
+                    if(dist<optMarkerDistToAvgPos)
+                    {
+                        optMarker = marker;
+                        optMarkerDistToAvgPos = dist;
+                    }
+                }
+                optMarker->getMarker().setMarkerVolume(summedVolume);
+                for(SingleMarker* marker : oneCellMarkers)
+                    if(marker!=optMarker)
+                        marker->deleteMarker();
+            }
+        }
+        else
+        {
+            for(SingleMarker* markerPtr : iter->second)
+            {
+                markerPtr->deleteMarker();
+            }
+        }
+    }
+}
+
+template<class MARKER>
+void Foam::LineStructure::oneCenteredMarker
+(
+    std::vector<MarkerReference<MARKER>>& allMarkers,
+    std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker
+)
+{
+    using SingleMarker = MarkerReference<MARKER>;
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    for(auto iter=cellToMarker.begin(); iter!=cellToMarker.end(); iter++)
+    {
+        label cellInd = iter->first;
+        if(cellInd>=0 && cellInd<mesh.cells().size())
+        {
+            const cell& oneCell = cells[cellInd];
+            vector cellCentre = oneCell.centre(points,faces);
+            std::vector<SingleMarker*>& oneCellMarkers = iter->second;
+            
+            scalar summedVolume = 0;
+            for(SingleMarker* marker : oneCellMarkers)
+                summedVolume += marker->getMarker().getMarkerVolume();
+            
+            if(oneCellMarkers.size()>0)
+            {                        
+                SingleMarker* optMarker = nullptr;
+                scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
+                for(SingleMarker* marker : oneCellMarkers)
+                {
+                    vector distVec = marker->getMarker().getMarkerPosition() - cellCentre;
+                    scalar dist = std::sqrt(distVec&distVec);
+                    if(dist<optMarkerDistToAvgPos)
+                    {
+                        optMarker = marker;
+                        optMarkerDistToAvgPos = dist;
+                    }
+                }
+                optMarker->getMarker().setMarkerVolume(summedVolume);
+                for(SingleMarker* marker : oneCellMarkers)
+                    if(marker!=optMarker)
+                        marker->deleteMarker();
+            }
+        }
+        else
+        {
+            for(SingleMarker* markerPtr : iter->second)
+            {
+                markerPtr->deleteMarker();
+            }
+        }
+    }
+}
+
 void Foam::LineStructure::collectMarkers()
 {
     collectedMarkers.resize(0);
@@ -415,6 +664,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             scalar volume = marker->getMarkerVolume();
             label index = markerInd;
             vector dilation = marker->getDilation();
+            DynamicList<Pair<label>> supportCellsIndices;
             DynamicList<vector> supportCellsCentre;
             DynamicList<scalar> supportCellsVolume;
             
@@ -424,6 +674,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
                 vector oneSuppCellCentre;
                 scalar oneSuppCellVolume;
                 marker->getCellData(oneSupport,oneSuppCellCentre,oneSuppCellVolume);
+                supportCellsIndices.append({std::get<1>(oneSupport),std::get<2>(oneSupport)});
                 supportCellsCentre.append(oneSuppCellCentre);
                 supportCellsVolume.append(oneSuppCellVolume);
             }
@@ -433,11 +684,17 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             globHaloMarkers.appendMarkerData
             (
                 haloCellInd,
-                {position,volume,index,dilation,supportCellsCentre,supportCellsVolume,b}
+                {position,volume,index,dilation,supportCellsIndices,supportCellsCentre,supportCellsVolume,b}
             );
         }
     }
     globHaloMarkers.communicate();
+}
+
+void Foam::LineStructure::computeMarkerCellWeights()
+{
+    for(LagrangianMarker* marker : collectedMarkers)
+        marker->compNonUniformCorrWeights();
 }
 
 std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeMarkerEpsilonMatrix()
@@ -573,7 +830,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 label haloCellMarkerNum = globHaloMarkers.size_cellMarkers(process,haloCellInd);               
                 for(label haloCellMarkerInd=0; haloCellMarkerInd<haloCellMarkerNum; haloCellMarkerInd++)
                 {
-                    std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> markerData;
+                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> markerData;
                     markerData = globHaloMarkers.getMarkerData(process,haloCellInd,haloCellMarkerInd);
                     
                     vector markerKposition = std::get<0>(markerData);
@@ -589,9 +846,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     scalar matrixEntry = 0;
                     if(distMag < 10*dilationIMax || distMag < 10*dilationKMax)
                     {
-                        DynamicList<vector>& markerKSuppCellCentres = std::get<4>(markerData);
-                        DynamicList<scalar>& markerKSuppCellVol = std::get<5>(markerData);
-                        List<scalar>& markerKb = std::get<6>(markerData);
+                        DynamicList<vector>& markerKSuppCellCentres = std::get<5>(markerData);
+                        DynamicList<scalar>& markerKSuppCellVol = std::get<6>(markerData);
+                        List<scalar>& markerKb = std::get<7>(markerData);
                         std::array<scalar,10> b;
                         for(label i=0; i<markerKb.size(); i++)
                             b[i] = markerKb[i];
@@ -641,35 +898,20 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
 
 void Foam::LineStructure::computeMarkerWeights()
 {
-        
+    std::unique_ptr<Foam::LineStructure::LinearSystem> system = computeMarkerEpsilonMatrix();
+    CSR_Matrix_par& A = std::get<0>(*system);
+    Vector_par& ones = std::get<1>(*system);
+    Info<<"A:"<<A.to_string()<<Foam::endl;
+    Info<<"ones:"<<ones.to_string()<<Foam::endl;
+    
+    BiCGSTAB solver(A);
+    Vector_par eps = solver.solve(ones);
+    Info<<"eps:"<<eps.to_string()<<Foam::endl;
+    
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
-        
-    }
-}
-
-void Foam::LineStructure::computeMarkerCellWeights()
-{
-    std::vector<LagrangianMarker*> allMarkers;
-    for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkersPtr : rodMarkersList)
-    {
-        for(LagrangianMarker& marker : *singleRodMarkersPtr)
-        {
-            allMarkers.push_back(&marker);
-        }
-    }
-    computeMarkerCellWeights(allMarkers);
-}
-
-void Foam::LineStructure::computeMarkerCellWeights
-(
-    const std::vector<LagrangianMarker*>& markers
-)
-{
-    Info<<"computeMarkerCellWeights"<<Foam::endl;
-    for(LagrangianMarker* markerPtr : markers)
-    {
-        markerPtr->compNonUniformCorrWeights();
+        collectedMarkers[I]->setMarkerWeight(eps[I]);
     }
 }
 
@@ -685,130 +927,6 @@ Foam::scalar Foam::LineStructure::evaluateRodArcLen
     vector connec = parAVec-parBVec;
     return Foam::mag(connec);
 }
-
-/*
-std::unique_ptr<std::vector<LagrangianMarker>> Foam::LineStructure::constructMarkerSet
-(
-    label rodNumber,
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar crossSecArea,
-    scalar initialSpacing,
-    std::pair<bool,scalar> refineSpacing,
-    bool reInitialize
-)
-{
-    //Create initial spacing
-    std::unique_ptr<std::vector<scalar>>& spacedPoints = initialRodPoints[rodNumber];
-    if(reInitialize || !spacedPoints)
-    {
-        spacedPoints = createSpacedPointsOnRod(oneRod,initialSpacing);
-        if(spacedPoints->size()<2)
-            FatalErrorInFunction<<"Initial spaced points must be at least two"<< exit(FatalError);
-    }
-
-    //Create initial markers
-    std::list<LagrangianMarker> markers;
-    for(scalar point : *spacedPoints)
-        markers.push_back(LagrangianMarker(mesh,rodNumber,oneRod,point));
-
-    //Marker refinement
-    bool refined=true;
-    while(refined)
-    {
-        refined = false;
-        bool cond = true;
-        auto markersIter0 = markers.begin();
-        auto markersIter1 = ++(markers.begin());
-        for( ; markersIter1!=markers.end() ; )
-        {
-            scalar markers0Para = markersIter0->getMarkerParameter();
-            scalar markers0CellSpacing = markersIter0->getMarkerCellMinSpacing();
-            bool markers0InCell = (markersIter0->getMarkerCell()!=-1);
-            
-            scalar markers1Para = markersIter0->getMarkerParameter();
-            scalar markers1CellSpacing = markersIter0->getMarkerCellMinSpacing();
-            bool markers1InCell = (markersIter1->getMarkerCell()!=-1);
-            
-            scalar dist = distance(oneRod,markers0Para,markers1Para);
-            
-            bool subdivide = false;
-            if(refineSpacing.first)
-            {
-                if(dist>refineSpacing.second)
-                    subdivide=true;
-            }
-            if(markers0InCell || markers1InCell)
-            {
-                scalar minSpacing = std::min(markers0CellSpacing,markers1CellSpacing);
-                if(dist>minSpacing)
-                    subdivide=true;
-            }
-        
-            if(subdivide)
-            {
-                scalar middlePar = 0.5*(markers0Para+markers1Para);
-                LagrangianMarker middleMarker(mesh,rodNumber,oneRod,middlePar);
-                auto inserted = markers.insert(markersIter1,middleMarker);
-                refined=true;
-            }
-            markersIter0 = markersIter1;
-            markersIter1++;
-        }
-    }
-
-    // Compute marker volume
-    std::list<LagrangianMarker>::iterator iterPrev = markers.end();
-    std::list<LagrangianMarker>::iterator iterNext;
-    for(auto iter=markers.begin(); iter!=markers.end(); iter++)
-    {
-        iterNext = iter;
-        iterNext++;
-        
-        scalar spanStart;
-        if(iterPrev!=markers.end())
-        {
-            spanStart = iterPrev->getMarkerParameter();
-            spanStart = spanStart + iter->getMarkerParameter();
-            spanStart /= 2;
-        }
-        else
-            spanStart = iter->getMarkerParameter();
-
-        scalar spanEnd;
-        if(iterNext!=markers.end())
-        {            
-            spanEnd = iterNext->getMarkerParameter();
-            spanEnd = spanEnd + iter->getMarkerParameter();
-            spanEnd /= 2;
-        }
-        else
-            spanEnd = iter->getMarkerParameter();
-        
-        if(iterPrev==markers.end() && iterNext==markers.end())
-            FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
-        
-        scalar span = spanEnd-spanStart;
-        if(modusMarkerToField==markerMeshType::NonUniform)
-            iter->setMarkerVolume(span);
-        else
-            iter->setMarkerVolume(span*crossSecArea);
-        
-        iterPrev = iter;
-    }
-
-    //Transfer to std::vector
-    std::unique_ptr<std::vector<LagrangianMarker>> markersPtr(new std::vector<LagrangianMarker>());
-    for(auto iter=markers.begin(); iter!=markers.end(); iter++)
-    {
-        Info<<iter->getMarkerParameter()<<" -- "<<iter->getMarkerPosition()<<" "<<iter->getMarkerCell()<<Foam::endl;
-        if(iter->getMarkerCell()!=-1)
-            markersPtr->push_back(*iter);
-    }
-    
-    Info<<"Created "<<markersPtr->size()<<" markers!"<<Foam::endl;
-    return markersPtr;
-}
-*/
 
 Foam::vector Foam::LineStructure::evaluateRodPos
 (
@@ -877,6 +995,11 @@ broadcasted(false)
     globalHaloCellsMarkerDilation[Pstream::myProcNo()].clear();
     globalHaloCellsMarkerDilation[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
     
+    globalHaloCellsMarkerSupportCellIndices.clear();
+    globalHaloCellsMarkerSupportCellIndices.setSize(Pstream::nProcs());
+    globalHaloCellsMarkerSupportCellIndices[Pstream::myProcNo()].clear();
+    globalHaloCellsMarkerSupportCellIndices[Pstream::myProcNo()].setSize(this->selfhaloCellsRodMarkersList->size());
+    
     globalHaloCellsMarkerSupportCellCentres.clear();
     globalHaloCellsMarkerSupportCellCentres.setSize(Pstream::nProcs());
     globalHaloCellsMarkerSupportCellCentres[Pstream::myProcNo()].clear();
@@ -896,27 +1019,34 @@ broadcasted(false)
 void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
 (
     label haloCellInd,
-    std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> data
+    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> data
 )
 {
+    if(broadcasted)
+        FatalErrorInFunction<<"Already broadcasted"<<Foam::endl;
+    
     label proc = Pstream::myProcNo();
     label hCI = haloCellInd;
     globalHaloCellsMarkerPos[proc][hCI].append(std::get<0>(data));
     globalHaloCellsMarkerVolume[proc][hCI].append(std::get<1>(data));
     globalHaloCellsLocalIndex[proc][hCI].append(std::get<2>(data));
     globalHaloCellsMarkerDilation[proc][hCI].append(std::get<3>(data));
-    globalHaloCellsMarkerSupportCellCentres[proc][hCI].append(std::get<4>(data));
-    globalHaloCellsMarkerSupportCellVolume[proc][hCI].append(std::get<5>(data));
-    globalHaloCellsMarkerb[proc][hCI].append(std::get<6>(data));
+    globalHaloCellsMarkerSupportCellIndices[proc][hCI].append(std::get<4>(data));
+    globalHaloCellsMarkerSupportCellCentres[proc][hCI].append(std::get<5>(data));
+    globalHaloCellsMarkerSupportCellVolume[proc][hCI].append(std::get<6>(data));
+    globalHaloCellsMarkerb[proc][hCI].append(std::get<7>(data));
 }
 
-std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,List<scalar>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
+std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
 (
     label process,
     label haloCellInd,
     label cellMarkerInd
-)
+) const
 {
+    if(!broadcasted)
+        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::endl;
+        
     label proc = process;
     label hCI = haloCellInd;
     label cMI = cellMarkerInd;
@@ -924,23 +1054,31 @@ std::tuple<vector,scalar,label,vector,DynamicList<vector>,DynamicList<scalar>,Li
     scalar volume = globalHaloCellsMarkerVolume[proc][hCI][cMI];
     label index = globalHaloCellsLocalIndex[proc][hCI][cMI];
     vector dilation = globalHaloCellsMarkerDilation[proc][hCI][cMI];
+    DynamicList<Pair<label>> suppCellsIndices = globalHaloCellsMarkerSupportCellIndices[proc][hCI][cMI];
     DynamicList<vector> suppCellsCentre = globalHaloCellsMarkerSupportCellCentres[proc][hCI][cMI];
     DynamicList<scalar> suppCellsVolume = globalHaloCellsMarkerSupportCellVolume[proc][hCI][cMI];
     List<scalar> b = globalHaloCellsMarkerb[proc][hCI][cMI];
-    return {position,volume,index,dilation,suppCellsCentre,suppCellsVolume,b};
+    return {position,volume,index,dilation,suppCellsIndices,suppCellsCentre,suppCellsVolume,b};
 }
 
-label Foam::LineStructure::GlobalHaloMarkers::size_processes()
+label Foam::LineStructure::GlobalHaloMarkers::size_processes() const
 {
     return Pstream::nProcs();
 }
 
-label Foam::LineStructure::GlobalHaloMarkers::size_haloCells(label process)
+label Foam::LineStructure::GlobalHaloMarkers::size_haloCells
+(
+    label process
+) const
 {
     return globalHaloCellsMarkerPos[process].size();
 }
 
-label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers(label process, label haloCellInd)
+label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
+(
+    label process,
+    label haloCellInd
+) const
 {
     return globalHaloCellsMarkerPos[process][haloCellInd].size();
 }
@@ -952,6 +1090,7 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     Pstream::gatherList(globalHaloCellsMarkerPos);
     Pstream::gatherList(globalHaloCellsMarkerVolume);
     Pstream::gatherList(globalHaloCellsMarkerDilation);
+    Pstream::gatherList(globalHaloCellsMarkerSupportCellIndices);
     Pstream::gatherList(globalHaloCellsMarkerSupportCellCentres);
     Pstream::gatherList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::gatherList(globalHaloCellsMarkerb);
@@ -959,9 +1098,48 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     Pstream::scatterList(globalHaloCellsMarkerPos);
     Pstream::scatterList(globalHaloCellsMarkerVolume);
     Pstream::scatterList(globalHaloCellsMarkerDilation);
+    Pstream::scatterList(globalHaloCellsMarkerSupportCellIndices);
     Pstream::scatterList(globalHaloCellsMarkerSupportCellCentres);
     Pstream::scatterList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::scatterList(globalHaloCellsMarkerb);
+}
+
+template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStructure::GlobalHaloMarkers::broadcasHaloMarkerField
+(
+    const List<T>& collectedMarkerField
+)
+{
+    if(selfhaloCellsRodMarkersList==nullptr)
+        FatalErrorInFunction<<"Invalid GlobalHaloMarkers object"<<Foam::endl;
+    
+    auto resultPtr = std::make_unique<List<List<DynamicList<T>>>>(Pstream::nProcs());
+    List<List<DynamicList<T>>>& result = *resultPtr;
+    List<DynamicList<T>>& myProcResult = result[Pstream::myProcNo()];
+    myProcResult.setSize(selfhaloCellsRodMarkersList->size());
+    for(uint haloCellInd=0; haloCellInd<selfhaloCellsRodMarkersList->size(); haloCellInd++)
+    {
+        std::vector<std::pair<LagrangianMarker*,label>>& oneHaloCellMarkerList = (*selfhaloCellsRodMarkersList)[haloCellInd];
+        DynamicList<T> oneHaloCellMarkerField = myProcResult[haloCellInd];
+        for(uint markerInd=0; markerInd<oneHaloCellMarkerList.size(); markerInd++)
+        {
+            std::pair<LagrangianMarker*,label>& oneMarker = oneHaloCellMarkerList[markerInd];
+            label index = oneMarker.second;
+            oneHaloCellMarkerField.append(collectedMarkerField[index]);
+        }
+    }
+    Pstream::gatherList(result);
+    Pstream::scatterList(result);
+    return resultPtr;
+}
+
+template<typename T> std::unique_ptr<List<List<DynamicList<scalar>>>> Foam::LineStructure::broadcastHaloMarkerFields
+(
+    const List<T>& collectedMarkerField
+)
+{
+    if(collectedMarkerField.size()!=collectedMarkers.size())
+        FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
+    return globHaloMarkers.broadcasHaloMarkerField<T>(collectedMarkerField);
 }
 
 /*
