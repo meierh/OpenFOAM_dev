@@ -511,6 +511,7 @@ class LineStructure : public Structure
                 List<List<DynamicList<List<scalar>>>> globalHaloCellsMarkerb;
                 
                 void check();
+                void check(label process, label haloCellInd, label cellMarkerInd) const;
                 bool broadcasted;
         };
         // [haloCells] -> [marker of cell] -> ptr        

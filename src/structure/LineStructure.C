@@ -765,6 +765,7 @@ std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vecto
     label cMI = cellMarkerInd;
 
     Pout<<"("<<proc<<","<<hCI<<","<<cMI<<")"<<Foam::endl;
+    check(proc,hCI,cMI);
     
     vector position = globalHaloCellsMarkerPos[proc][hCI][cMI];
     Pout<<"---"<<Foam::endl;
@@ -838,19 +839,19 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
 void Foam::LineStructure::GlobalHaloMarkers::check()
 {
     label numProcs = size_processes();
-    if(numProcs!=globalHaloCellsMarkerPos.size())
+    if(process>=globalHaloCellsMarkerPos.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<Foam::endl;
-    if(numProcs!=globalHaloCellsMarkerVolume.size())
+    if(process>=globalHaloCellsMarkerVolume.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerVolume size error"<<Foam::endl;
-    if(numProcs!=globalHaloCellsMarkerDilation.size())
+    if(process>=globalHaloCellsMarkerDilation.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerDilation size error"<<Foam::endl;
-    if(numProcs!=globalHaloCellsMarkerSupportCellIndices.size())
+    if(process>=globalHaloCellsMarkerSupportCellIndices.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices size error"<<Foam::endl;
-    if(numProcs!=globalHaloCellsMarkerSupportCellCentres.size())
+    if(process>=globalHaloCellsMarkerSupportCellCentres.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres size error"<<Foam::endl;
-    if(numProcs!=globalHaloCellsMarkerSupportCellVolume.size())
+    if(process>=globalHaloCellsMarkerSupportCellVolume.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<Foam::endl;
-    if(numProcs!=globalHaloCellsMarkerb.size())
+    if(process>=globalHaloCellsMarkerb.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<Foam::endl;
     
     for(label proc=0; proc<numProcs; proc++)
@@ -890,4 +891,63 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
                 FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
         }
     }
+}
+
+void Foam::LineStructure::check
+(
+    label process,
+    label haloCellInd,
+    label cellMarkerInd
+) const
+{
+    if(process<0)
+        FatalErrorInFunction<<"Invalid process index"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerPos.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerVolume.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume size error"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerDilation.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation size error"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerSupportCellIndices.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices size error"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerSupportCellCentres.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres size error"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerSupportCellVolume.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<Foam::endl;
+    if(process>=globalHaloCellsMarkerb.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<Foam::endl;
+    
+    if(haloCellInd<0)
+        FatalErrorInFunction<<"Invalid haloCell index"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerPos[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos[process] size error"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerVolume[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume[process] size error"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerDilation[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation[process] size error"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerSupportCellIndices[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices[process] size error"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerSupportCellCentres[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres[process] size error"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerSupportCellVolume[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process] size error"<<Foam::endl;
+    if(haloCellInd>=globalHaloCellsMarkerb[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerb[process] size error"<<Foam::endl;
+    
+    if(cellMarkerInd<0)
+        FatalErrorInFunction<<"Invalid cellMarker index"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerPos[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos[process][haloCellInd] size error"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerVolume[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume[process][haloCellInd] size error"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerDilation[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation[process][haloCellInd] size error"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerSupportCellIndices[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices[process][haloCellInd] size error"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerSupportCellCentres[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres[process][haloCellInd] size error"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerSupportCellVolume[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process][haloCellInd] size error"<<Foam::endl;
+    if(cellMarkerInd>=globalHaloCellsMarkerb[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerb[process][haloCellInd] size error"<<Foam::endl;
 }
