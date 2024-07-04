@@ -951,3 +951,17 @@ scalar Foam::Structure::initialSpacingFromMesh
     }
     return 2*minHalfDist;
 }
+
+void Foam::Barrier(bool stop)
+{
+    labelList test(Pstream::nProcs(),0);
+    test[Pstream::myProcNo()] = Pstream::myProcNo();
+    Pstream::gatherList(test);
+    Pstream::scatterList(test);
+    std::cout<<"XXXXXXXXXXXXX---------------Barrier:"<<Pstream::myProcNo()<<"----"<<test[0]<<","<<test[1]<<"---------------XXXXXXXXXXXX"<<std::endl;
+    fflush(stdout);
+    Pstream::gatherList(test);
+    if(stop)
+        FatalErrorInFunction<<Pstream::myProcNo()<<"Temp Stop!"<< exit(FatalError);
+
+}

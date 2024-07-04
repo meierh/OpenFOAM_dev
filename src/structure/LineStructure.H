@@ -47,12 +47,12 @@ class LagrangianMarker
         inline scalar getMarkerWeight() const {return markerWeight;}
         inline const DynamicList<std::tuple<bool,label,label>>& getSupportCells() const {return supportCells;}
         inline vector getDilation() const {return dilation;}
-        inline const std::array<scalar,10>& getCorrParaB() const {return b;}
+        inline const FixedList<scalar,10>& getCorrParaB() const {return b;}
         
         static scalar deltaDirac(vector X, vector x, scalar h);
         static scalar deltaDirac(vector X, vector x, vector h);
-        static scalar correctedDeltaDirac(vector X, vector x, scalar h, const std::array<scalar,10>& b);
-        static scalar correctedDeltaDirac(vector X, vector x, vector h, const std::array<scalar,10>& b);
+        static scalar correctedDeltaDirac(vector X, vector x, scalar h, const FixedList<scalar,10>& b);
+        static scalar correctedDeltaDirac(vector X, vector x, vector h, const FixedList<scalar,10>& b);
         static scalar phiFunction(scalar r);
         
         //h=getDilation() b=b;
@@ -112,7 +112,7 @@ class LagrangianMarker
         void minMaxSupportWidth();
         void dilationFactors();
         
-        std::array<scalar,10> b;
+        FixedList<scalar,10> b;
         
         scalar computeMoment(vector indices, std::function<scalar(vector,vector)> deltaFunction) const;
         scalar computeCorrectedMoment(vector indices) const;
@@ -463,10 +463,10 @@ class LineStructure : public Structure
                 void appendMarkerData
                 (
                     label haloCellInd,
-                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> data
+                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> data
                 );
                 
-                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> getMarkerData
+                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> getMarkerData
                 (
                     label process,
                     label haloCellInd,
@@ -508,7 +508,7 @@ class LineStructure : public Structure
                 // [nProc] -> [haloCells] -> [markers] -> supportCellsVolume[]
                 List<List<DynamicList<DynamicList<scalar>>>> globalHaloCellsMarkerSupportCellVolume;
                 // [nProc] -> [haloCells] -> [markers] -> b[]
-                List<List<DynamicList<List<scalar>>>> globalHaloCellsMarkerb;
+                List<List<DynamicList<FixedList<scalar,10>>>> globalHaloCellsMarkerb;
                 
                 void check();
                 void check(label process, label haloCellInd, label cellMarkerInd) const;

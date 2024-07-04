@@ -811,6 +811,8 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         for(label i=0; i<10; i++)
             b[i] = x(i,0);
     }
+    
+    Pout<<"b:"<<b[0]<<" "<<b[1]<<" "<<b[2]<<" "<<b[3]<<" "<<b[4]<<" "<<b[5]<<" "<<b[6]<<" "<<b[7]<<" "<<b[8]<<" "<<b[9]<<" "<<to_string()<<Foam::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac
@@ -866,7 +868,7 @@ scalar Foam::LagrangianMarker::correctedDeltaDirac
     vector X,
     vector x,
     scalar h,
-    const std::array<scalar,10>& b
+    const FixedList<scalar,10>& b
 )
 {
     return correctedDeltaDirac(X,x,vector(h,h,h),b);
@@ -877,7 +879,7 @@ scalar Foam::LagrangianMarker::correctedDeltaDirac
     vector X,
     vector x,
     vector h,
-    const std::array<scalar,10>& b
+    const FixedList<scalar,10>& b
 )
 {
     vector conn = x-X;

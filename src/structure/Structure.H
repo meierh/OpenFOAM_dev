@@ -213,5 +213,6 @@ class Structure
         void collectMeshHaloData(label iterations=1);
         scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh);
 };
+void Barrier(bool stop);
 }
 #endif

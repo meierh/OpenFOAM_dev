@@ -21,34 +21,42 @@ crossSecArea(crossSecArea)
     rodMarkersList.resize(nbrOfRods);
     check();
     initialRodPoints.resize(nbrOfRods);
+    Info<<"createSpacingPoints"<<Foam::endl;
     createSpacingPoints();
     
-    /*
+    
     for(const auto& oneRodPoints : initialRodPoints)
         for(scalar pnt : *oneRodPoints)
             Info<<pnt<<Foam::endl;
-    */
+    
     
     const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
-    
+    Info<<"createMarkersFromSpacedPoints"<<Foam::endl;
     createMarkersFromSpacedPoints();
+    Info<<"refineMarkers"<<Foam::endl;
     refineMarkers();
+    Info<<"setMarkerVolume"<<Foam::endl;
     setMarkerVolume();
     
-    /*
+    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[0];
     Info<<"dist:0.375->0.40625:"<<LineStructure::distance(oneRod,0.375,0.40625)<<Foam::endl;
-    */
+    
+    Info<<"evaluateMarkerMeshRelation"<<Foam::endl;
     evaluateMarkerMeshRelation();
+    Info<<"reduceMarkers"<<Foam::endl;
     reduceMarkers();
+    Info<<"collectMarkers"<<Foam::endl;
     collectMarkers();
+    Info<<"computeMarkerCellWeights"<<Foam::endl;
+    computeMarkerCellWeights();   
+    Info<<"collectHaloMarkers"<<Foam::endl;
     collectHaloMarkers();
+    Info<<"exchangeHaloMarkersData"<<Foam::endl;
     exchangeHaloMarkersData();
-
-    computeMarkerCellWeights();    
     for(LagrangianMarker& marker : *(rodMarkersList[0]))
         Pout<<marker.to_string()<<Foam::endl;
-    
+    Info<<"computeMarkerWeights"<<Foam::endl;
     computeMarkerWeights();
 }
 
@@ -332,9 +340,6 @@ void Foam::LineStructure::collectHaloMarkers()
 void Foam::LineStructure::exchangeHaloMarkersData()
 {
     globHaloMarkers = GlobalHaloMarkers(haloCellsRodMarkersList);
-    //const cellList& cells = mesh.cells();
-    //const faceList& faces = mesh.faces();
-    //const pointField& points = mesh.points();
         
     for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
@@ -343,6 +348,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
         {
             std::pair<LagrangianMarker*,label> markerData = localHaloCellRodMarkers[haloMarkerInd];
             LagrangianMarker* marker = markerData.first;
+            //Pout<<"Append:"<<marker->to_string()<<Foam::endl;
             label markerInd = markerData.second;
             
             vector position = marker->getMarkerPosition();
@@ -363,16 +369,14 @@ void Foam::LineStructure::exchangeHaloMarkersData()
                 supportCellsCentre.append(oneSuppCellCentre);
                 supportCellsVolume.append(oneSuppCellVolume);
             }
-            List<scalar> b(10);
-            for(label i=0; i<10; i++)
-                b[i] = marker->getCorrParaB()[i];
             globHaloMarkers.appendMarkerData
             (
                 haloCellInd,
-                {position,volume,index,dilation,supportCellsIndices,supportCellsCentre,supportCellsVolume,b}
+                {position,volume,index,dilation,supportCellsIndices,supportCellsCentre,supportCellsVolume,marker->getCorrParaB()}
             );
         }
     }
+    //Pout<<"Inserted"<<Foam::endl;
     globHaloMarkers.communicate();
 }
 
@@ -407,9 +411,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     CSR_Matrix_par& A = std::get<0>(*result);
     std::get<1>(*result) = Vector_par(locProcMarkerNbr,smProcsNumOfMarkers,globNumOfMarkers);
     Vector_par& b = std::get<1>(*result);
-    
-    Info<<"A:"<<A.to_string()<<Foam::endl;
-    
+        
     struct VectorHash
     {
         std::size_t operator()(const vector& vec) const noexcept
@@ -421,10 +423,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         }
     };
     using CellSet = std::unordered_map<vector,scalar,VectorHash>;
-    Pout<<"collectedMarkers.size():"<<collectedMarkers.size()<<Foam::endl;
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
-        Pout<<"I:"<<I<<Foam::endl;
+        //Pout<<"I:"<<I<<Foam::endl;
         const LagrangianMarker& markerI = *(collectedMarkers[I]);
         vector XI = markerI.getMarkerPosition();
         vector dilationI = markerI.getDilation();
@@ -446,7 +447,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         // Compute local matrix entries
         for(uint K=0; K<collectedMarkers.size(); K++)
         {
-            Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
+            //Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
 
             const LagrangianMarker& markerK = *(collectedMarkers[K]);
             vector XK = markerK.getMarkerPosition();
@@ -488,6 +489,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             rowEntries[smProcsNumOfMarkers+K] = matrixEntry;            
         }
         
+        
         // Compute foreign local matrix entries
         std::unordered_set<label> neighborProcesses;
         for(const std::tuple<bool,label,label>& tupl : supportI)
@@ -507,23 +509,23 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 if(oneCell.index!=cellInd)
                     FatalErrorInFunction<<"Cell index data mismatch"<<exit(FatalError);
             }
-        }                
+        }
         using LM=LagrangianMarker;
         for(auto iter=neighborProcesses.begin(); iter!=neighborProcesses.end(); iter++)
         {
             label process = *iter;
             label offset = processGlobalMarkerOffset[process];
-            Pout<<"neighbour:"<<process<<Foam::endl;
+            //Pout<<"neighbour:"<<process<<Foam::endl;
             label neighProcHaloCellNum = globHaloMarkers.size_haloCells(process);
             for(label haloCellInd=0; haloCellInd<neighProcHaloCellNum; haloCellInd++)
             {
-                Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"/"<<neighProcHaloCellNum<<Foam::endl;
-                label haloCellMarkerNum = globHaloMarkers.size_cellMarkers(process,haloCellInd);               
+                //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"/"<<neighProcHaloCellNum<<Foam::endl;
+                label haloCellMarkerNum = globHaloMarkers.size_cellMarkers(process,haloCellInd);
                 for(label haloCellMarkerInd=0; haloCellMarkerInd<haloCellMarkerNum; haloCellMarkerInd++)
                 {
-                    Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"  haloCellMarkerInd:"<<haloCellMarkerInd<<"/"<<haloCellMarkerNum<<Foam::endl;
+                    //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"  haloCellMarkerInd:"<<haloCellMarkerInd<<"/"<<haloCellMarkerNum<<Foam::endl;
                     
-                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> markerData;
+                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> markerData;
                     markerData = globHaloMarkers.getMarkerData(process,haloCellInd,haloCellMarkerInd);
                     
                     vector markerKposition = std::get<0>(markerData);
@@ -537,14 +539,13 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     vector distVec = XI-XK;
                     scalar distMag = std::sqrt(distVec&distVec);
                     scalar matrixEntry = 0;
+                    
+                    
                     if(distMag < 10*dilationIMax || distMag < 10*dilationKMax)
                     {
                         DynamicList<vector>& markerKSuppCellCentres = std::get<5>(markerData);
                         DynamicList<scalar>& markerKSuppCellVol = std::get<6>(markerData);
-                        List<scalar>& markerKb = std::get<7>(markerData);
-                        std::array<scalar,10> b;
-                        for(label i=0; i<markerKb.size(); i++)
-                            b[i] = markerKb[i];
+                        FixedList<scalar,10>& markerKb = std::get<7>(markerData);
                         
                         DynamicList<std::pair<vector,scalar>> combinedIKSupport;
                         for(label suppKInd=0; suppKInd<markerKSuppCellCentres.size(); suppKInd++)
@@ -556,12 +557,14 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                                 combinedIKSupport.append({centre,vol});
                             }
                         }
+                        
                         for(std::pair<vector,scalar> suppCell : combinedIKSupport)
                         {
+                            //Pout<<"suppCell:"<<suppCell.first<<"/"<<suppCell.second<<Foam::endl;
                             scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
                             scalar weightK = LM::correctedDeltaDirac
                             (
-                                XK,suppCell.first,markerKdilation,b
+                                XK,suppCell.first,markerKdilation,markerKb
                             );
                             matrixEntry += weightK*weightI*suppCell.second;
                         }
@@ -585,9 +588,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         }
         A.addRow(matrixRow);
         b[I] = 1;
-    }
-    Pout<<"A:"<<A.to_string()<<Foam::endl;
-    
+    }    
     return result;
 }
 
@@ -605,7 +606,7 @@ void Foam::LineStructure::computeMarkerWeights()
     Vector_par eps = solver.solve(ones);
     Info<<"eps:"<<eps.to_string()<<Foam::endl;
     
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    Barrier(true);
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
         collectedMarkers[I]->setMarkerWeight(eps[I]);
@@ -716,27 +717,30 @@ broadcasted(false)
     
     nProcs = Pstream::nProcs();
     
+    procHaloCellsSize.setSize(nProcs);
     procHaloCellsSize[Pstream::myProcNo()] = selfHaloCellSize;
     Pstream::gatherList(procHaloCellsSize);
     Pstream::scatterList(procHaloCellsSize);
     
     procHaloCellMarkerSize.setSize(nProcs);
-    for(label proc=0; proc<nProcs; procs++)
-        procHaloCellMarkerSize[procs].setSize(procHaloCellsSize[proc]);
+    for(label proc=0; proc<nProcs; proc++)
+        procHaloCellMarkerSize[proc].setSize(procHaloCellsSize[proc],0);
+    
+    //Pout<<"procHaloCellMarkerSize:"<<procHaloCellMarkerSize<<Foam::endl;
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
 (
     label haloCellInd,
-    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> data
+    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> data
 )
 {
     if(broadcasted)
-        FatalErrorInFunction<<"Already broadcasted"<<Foam::endl;
+        FatalErrorInFunction<<"Already broadcasted"<<exit(FatalError);
     
     label proc = Pstream::myProcNo();
-    if(procHaloCellsSize[proc]>=haloCellInd)
-        FatalErrorInFunction<<"Out of range value for halocCellInd"<<Foam::endl;
+    if(haloCellInd>=procHaloCellsSize[proc])
+        FatalErrorInFunction<<"Out of range value for halocCellInd"<<exit(FatalError);
     label hCI = haloCellInd;
     
     globalHaloCellsMarkerPos[proc][hCI].append(std::get<0>(data));
@@ -747,16 +751,17 @@ void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
     globalHaloCellsMarkerSupportCellCentres[proc][hCI].append(std::get<5>(data));
     globalHaloCellsMarkerSupportCellVolume[proc][hCI].append(std::get<6>(data));
     globalHaloCellsMarkerb[proc][hCI].append(std::get<7>(data));
+    
+    procHaloCellMarkerSize[proc][hCI]++;
 }
 
-std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
+std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
 (
     label process,
     label haloCellInd,
     label cellMarkerInd
 ) const
 {
-    Pout<<"-----------------------getMarkerData--------------------------"<<Foam::endl;
     if(!broadcasted)
         FatalErrorInFunction<<"Not broadcasted yet"<<Foam::endl;
 
@@ -764,30 +769,17 @@ std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vecto
     label hCI = haloCellInd;
     label cMI = cellMarkerInd;
 
-    Pout<<"("<<proc<<","<<hCI<<","<<cMI<<")"<<Foam::endl;
     check(proc,hCI,cMI);
     
     vector position = globalHaloCellsMarkerPos[proc][hCI][cMI];
-    Pout<<"---"<<Foam::endl;
     scalar volume = globalHaloCellsMarkerVolume[proc][hCI][cMI];
-    Pout<<"---|---"<<Foam::endl;
-    Pout<<"globalHaloCellsLocalIndex.size():"<<globalHaloCellsLocalIndex.size()<<Foam::endl;
-    Pout<<"globalHaloCellsLocalIndex["<<proc<<"].size():"<<globalHaloCellsLocalIndex[proc].size()<<Foam::endl;
-    Pout<<"globalHaloCellsLocalIndex["<<proc<<"]["<<hCI<<"].size():"<<globalHaloCellsLocalIndex[proc][hCI].size()<<Foam::endl;
     label index = globalHaloCellsLocalIndex[proc][hCI][cMI];
-    Pout<<"---|---|---"<<Foam::endl;
     vector dilation = globalHaloCellsMarkerDilation[proc][hCI][cMI];
-    Pout<<"---|---|---|---"<<Foam::endl;
     DynamicList<Pair<label>> suppCellsIndices = globalHaloCellsMarkerSupportCellIndices[proc][hCI][cMI];
-    Pout<<"---|---|---|---|---"<<Foam::endl;
     DynamicList<vector> suppCellsCentre = globalHaloCellsMarkerSupportCellCentres[proc][hCI][cMI];
-    Pout<<"---|---|---|---|---|---"<<Foam::endl;
     DynamicList<scalar> suppCellsVolume = globalHaloCellsMarkerSupportCellVolume[proc][hCI][cMI];
-    Pout<<"---|---|---|---|---|---|---"<<Foam::endl;
-    List<scalar> b = globalHaloCellsMarkerb[proc][hCI][cMI];
-    Pout<<"---|---|---|---|---|---|---|---"<<Foam::endl;
+    FixedList<scalar,10> b = globalHaloCellsMarkerb[proc][hCI][cMI];
     
-    Pout<<"||||||||||||||||||getMarkerData|||||||||||||||||||||"<<Foam::endl;
     return {position,volume,index,dilation,suppCellsIndices,suppCellsCentre,suppCellsVolume,b};
 }
 
@@ -815,11 +807,13 @@ label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
 
 void Foam::LineStructure::GlobalHaloMarkers::communicate()
 {
-    check();
+    //check();
     broadcasted = true;
+    //Pout<<"pre:"<<globalHaloCellsMarkerb<<Foam::endl;
     
     Pstream::gatherList(globalHaloCellsMarkerPos);
     Pstream::gatherList(globalHaloCellsMarkerVolume);
+    Pstream::gatherList(globalHaloCellsLocalIndex);
     Pstream::gatherList(globalHaloCellsMarkerDilation);
     Pstream::gatherList(globalHaloCellsMarkerSupportCellIndices);
     Pstream::gatherList(globalHaloCellsMarkerSupportCellCentres);
@@ -828,72 +822,96 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     
     Pstream::scatterList(globalHaloCellsMarkerPos);
     Pstream::scatterList(globalHaloCellsMarkerVolume);
+    Pstream::scatterList(globalHaloCellsLocalIndex);
     Pstream::scatterList(globalHaloCellsMarkerDilation);
     Pstream::scatterList(globalHaloCellsMarkerSupportCellIndices);
     Pstream::scatterList(globalHaloCellsMarkerSupportCellCentres);
     Pstream::scatterList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::scatterList(globalHaloCellsMarkerb);
+    
+    Pstream::gatherList(procHaloCellMarkerSize);
+    Pstream::scatterList(procHaloCellMarkerSize);
+    
+    //Barrier(false);
+    //Pout<<"Post:"<<globalHaloCellsMarkerb<<Foam::endl;
+    //Barrier(true);
+    //Pout<<"Post check"<<Foam::endl;
     check();
+    
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::check()
 {
+    Pout<<"Check"<<Foam::endl;
+
     label numProcs = size_processes();
-    if(process>=globalHaloCellsMarkerPos.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<Foam::endl;
-    if(process>=globalHaloCellsMarkerVolume.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerVolume size error"<<Foam::endl;
-    if(process>=globalHaloCellsMarkerDilation.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerDilation size error"<<Foam::endl;
-    if(process>=globalHaloCellsMarkerSupportCellIndices.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices size error"<<Foam::endl;
-    if(process>=globalHaloCellsMarkerSupportCellCentres.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres size error"<<Foam::endl;
-    if(process>=globalHaloCellsMarkerSupportCellVolume.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<Foam::endl;
-    if(process>=globalHaloCellsMarkerb.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<Foam::endl;
+    if(numProcs!=globalHaloCellsMarkerPos.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerVolume.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsLocalIndex.size())
+        FatalErrorInFunction<<"globalHaloCellsLocalIndex size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerDilation.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerSupportCellIndices.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerSupportCellCentres.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerSupportCellVolume.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerb.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
+    
+    Pout<<"Checked numProcs:"<<numProcs<<Foam::endl;
     
     for(label proc=0; proc<numProcs; proc++)
     {
         label numHaloCells = size_haloCells(proc);
         if(numHaloCells!=globalHaloCellsMarkerPos[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerPos["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerPos["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerVolume[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerVolume["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerVolume["<<proc<<"] size error"<<exit(FatalError);
+        if(numHaloCells!=globalHaloCellsLocalIndex[proc].size())
+            FatalErrorInFunction<<"globalHaloCellsLocalIndex["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerDilation[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerDilation["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerDilation["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerSupportCellIndices[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerSupportCellCentres[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerSupportCellVolume[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerb[proc].size())
-            FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"] size error"<<Foam::endl;
+            FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"] size error"<<exit(FatalError);
+        
+        Pout<<"Checked proc:("<<proc<<","<<numProcs<<") numHaloCells:"<<numHaloCells<<Foam::endl;
 
         for(label haloCellInd=0; haloCellInd<numHaloCells; haloCellInd++)
         {
             label numHaloCellMarkers = size_cellMarkers(proc,haloCellInd);
             if(numHaloCellMarkers!=globalHaloCellsMarkerPos[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerPos["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerPos["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerPos[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerVolume[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerVolume["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerVolume["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerVolume[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            if(numHaloCellMarkers!=globalHaloCellsLocalIndex[proc][haloCellInd].size())
+                FatalErrorInFunction<<"globalHaloCellsLocalIndex["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsLocalIndex[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerDilation[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerDilation["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerDilation["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerDilation[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerSupportCellIndices[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices["<<proc<<" size "<<globalHaloCellsMarkerSupportCellIndices[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerSupportCellCentres[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerSupportCellCentres[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerSupportCellVolume[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerSupportCellVolume[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerb[proc][haloCellInd].size())
-                FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"]["<<haloCellInd<<"] size error"<<Foam::endl;
+                FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerb[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            
+            Pout<<"Checked numProcs::("<<proc<<","<<numProcs<<") numHaloCells:("<<haloCellInd<<","<<numHaloCells<<") numHaloCellMarkers:"<<numHaloCellMarkers<<Foam::endl;
         }
-    }
+    }    
 }
 
-void Foam::LineStructure::check
+void Foam::LineStructure::GlobalHaloMarkers::check
 (
     label process,
     label haloCellInd,
@@ -903,51 +921,51 @@ void Foam::LineStructure::check
     if(process<0)
         FatalErrorInFunction<<"Invalid process index"<<Foam::endl;
     if(process>=globalHaloCellsMarkerPos.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerVolume.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerVolume size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerDilation.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerDilation size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerSupportCellIndices.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerSupportCellCentres.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerSupportCellVolume.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerb.size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
     
     if(haloCellInd<0)
         FatalErrorInFunction<<"Invalid haloCell index"<<Foam::endl;
     if(haloCellInd>=globalHaloCellsMarkerPos[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerPos[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerVolume[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerVolume[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerDilation[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerDilation[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerSupportCellIndices[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerSupportCellCentres[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerSupportCellVolume[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerb[process].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerb[process] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerb[process] size error"<<exit(FatalError);
     
     if(cellMarkerInd<0)
         FatalErrorInFunction<<"Invalid cellMarker index"<<Foam::endl;
     if(cellMarkerInd>=globalHaloCellsMarkerPos[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerPos[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerPos[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerVolume[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerVolume[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerVolume[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerDilation[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerDilation[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerDilation[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerSupportCellIndices[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellIndices[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerSupportCellCentres[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellCentres[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerSupportCellVolume[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerb[process][haloCellInd].size())
-        FatalErrorInFunction<<"globalHaloCellsMarkerb[process][haloCellInd] size error"<<Foam::endl;
+        FatalErrorInFunction<<"globalHaloCellsMarkerb[process][haloCellInd] size error"<<exit(FatalError);
 }

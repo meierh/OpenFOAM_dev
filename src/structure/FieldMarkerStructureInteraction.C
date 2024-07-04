@@ -154,10 +154,7 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 scalar volume = std::get<1>(haloMarkerData);
                 label index = std::get<2>(haloMarkerData);
                 vector dilation = std::get<3>(haloMarkerData);
-                List<scalar>& markerKb = std::get<7>(haloMarkerData);
-                std::array<scalar,10> b;
-                for(label i=0; i<markerKb.size(); i++)
-                    b[i] = markerKb[i];
+                FixedList<scalar,10>& markerKb = std::get<7>(haloMarkerData);
                 scalar weight = thisHaloCellMarkerWeights[markerInd];
                 T fieldValue = thisHaloCellMarkeField[markerInd];
 
@@ -179,7 +176,7 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                         else
                             factor = LM::correctedDeltaDirac
                             (
-                                position,cellCentre,dilation,b
+                                position,cellCentre,dilation,markerKb
                             );
                         
                         factor *= volume;
