@@ -676,10 +676,12 @@ void Foam::Structure::collectMeshHaloData
     
     // Collect halo data for own process along the processor boundary patches
     label nbrPatchFaces = 0;
+    //[procs]->[patch]
     List<DynamicList<label>> procPatchOwner(Pstream::nProcs());
     List<DynamicList<label>> procPatchNeighbour(Pstream::nProcs());
     List<DynamicList<label>> procPatchIndex(Pstream::nProcs());
     List<DynamicList<label>> procPatchFaceLocalIndex(Pstream::nProcs());
+    //[procs]->[patch]->[iteration]->[cell]
     List<DynamicList<List<DynamicList<label>>>> procCellInds(Pstream::nProcs());
     List<DynamicList<List<DynamicList<vector>>>> procCellCentres(Pstream::nProcs());
     List<DynamicList<List<DynamicList<scalar>>>> procCellMags(Pstream::nProcs());
@@ -695,7 +697,6 @@ void Foam::Structure::collectMeshHaloData
             label patchSizeFaces = pPP->size();
 
             neighborProcesses.append({neighborProcess,patchStartFace,patchSizeFaces});
-            
             
             for(label locFaceInd=0; locFaceInd<patchSizeFaces; locFaceInd++)
             {
@@ -780,6 +781,7 @@ void Foam::Structure::collectMeshHaloData
     Pstream::scatterList(procCellCentres);
     Pstream::scatterList(procCellMags);
         
+    //Compute halo cell list
     globalHaloCellList_Sorted.resize(Pstream::nProcs());
     globalHaloCellToIndexMap.resize(Pstream::nProcs());
     for(label process=0; process<Pstream::nProcs(); process++)
@@ -913,12 +915,19 @@ void Foam::Structure::collectMeshHaloData
                     FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
 
                 label faceInd = patchStartFace+locFacePatchInd;
-                for(const DynamicList<label>& iterCell : cellInds)
+                if(cellInds.size()!=iterations)
+                    FatalErrorInFunction<<"Size mismatch of iterations and cell inds size"<<exit(FatalError);
+                if(patchFaceToCellMap.find(faceInd)!=patchFaceToCellMap.end())
+                    FatalErrorInFunction<<"Duplicate halo face to cells"<<exit(FatalError);
+
+                patchFaceToCellMap[faceInd].setSize(cellInds.size());
+                for(label iteration=0; iteration<cellInds.size(); iteration++)
                 {
+                    const DynamicList<label>& iterCell = cellInds[iteration];
                     for(label cellInd : iterCell)
                     {
-                        patchFaceToCellMap[faceInd].append({neighborProcess,cellInd});
-                    }
+                        patchFaceToCellMap[faceInd][iteration].append({neighborProcess,cellInd});
+                    }                    
                 }
             }
         }
@@ -927,13 +936,13 @@ void Foam::Structure::collectMeshHaloData
 
 scalar Foam::Structure::initialSpacingFromMesh
 (
-    const dynamicRefineFvMesh& mesh
+    const dynamicRefineFvMesh& mesh,
+    label cellInd
 )
 {
-    Info<<"initialSpacingFromMesh cellNbr:"<<mesh.cells().size()<<Foam::endl;
     if(mesh.cells().size()<1)
         FatalErrorInFunction<<"Mesh not valid"<<exit(FatalError);
-    const cell& oneCell = mesh.cells()[0];
+    const cell& oneCell = mesh.cells()[cellInd];
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
     const pointField& oneCellPoints = oneCell.points(faces,points);

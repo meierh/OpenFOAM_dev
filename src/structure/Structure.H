@@ -187,7 +187,7 @@ class Structure
         {
             return globalHaloCellToIndexMap[process];
         }
-        const std::unordered_map<label,DynamicList<std::pair<label,label>>>& getPatchFaceToCellMap() const
+        const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& getPatchFaceToCellMap() const
         {
             return patchFaceToCellMap;
         }
@@ -205,13 +205,14 @@ class Structure
         // [proc] -> cell -> index
         List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
         //faceInd -> [{neighbor proc,cell}]
-        std::unordered_map<label,DynamicList<std::pair<label,label>>> patchFaceToCellMap;        
+        std::unordered_map<label,List<DynamicList<std::pair<label,label>>>> patchFaceToCellMap;        
         /*********************************Collect halo cells***********************************/
         
         std::unordered_set<label> neighbourhoodProcesses;
         
         void collectMeshHaloData(label iterations=1);
-        scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh);
+    public:
+        scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh, label cellInd=0);
 };
 void Barrier(bool stop);
 }

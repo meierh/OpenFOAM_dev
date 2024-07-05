@@ -12,36 +12,18 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField),
 crossSecArea(crossSecArea)
 {
-    /*
-    Info<<"modusFieldToMarker:"<<modusFieldToMarker<<Foam::endl;
-    Info<<"modusMarkerToField:"<<modusMarkerToField<<Foam::endl;
-    */
-    
     label nbrOfRods = myMesh->m_nR;
     rodMarkersList.resize(nbrOfRods);
     check();
     initialRodPoints.resize(nbrOfRods);
     Info<<"createSpacingPoints"<<Foam::endl;
-    createSpacingPoints();
-    
-    
-    for(const auto& oneRodPoints : initialRodPoints)
-        for(scalar pnt : *oneRodPoints)
-            Info<<pnt<<Foam::endl;
-    
-    
-    const DynamicList<CellDescription>& selfHaloCellList = getHaloCellList(Pstream::myProcNo());
+    createSpacingPoints();       
     Info<<"createMarkersFromSpacedPoints"<<Foam::endl;
     createMarkersFromSpacedPoints();
     Info<<"refineMarkers"<<Foam::endl;
     refineMarkers();
     Info<<"setMarkerVolume"<<Foam::endl;
-    setMarkerVolume();
-    
-    
-    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[0];
-    Info<<"dist:0.375->0.40625:"<<LineStructure::distance(oneRod,0.375,0.40625)<<Foam::endl;
-    
+    setMarkerVolume();    
     Info<<"evaluateMarkerMeshRelation"<<Foam::endl;
     evaluateMarkerMeshRelation();
     Info<<"reduceMarkers"<<Foam::endl;
@@ -235,40 +217,80 @@ void Foam::LineStructure::setMarkerVolumeOnRod
 {
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
+    
+    std::function<bool(scalar)> InMesh = 
+    [&,rod=oneRod](scalar parameter)
+    {
+        vector position = evaluateRodPos(rod,parameter);
+        label posCell = mesh.findCell(position);
+        if(posCell==-1)
+            return false;
+        else
+            return true;
+    };
 
     std::list<LagrangianMarker>::iterator iterPrev = markers.end();
     std::list<LagrangianMarker>::iterator iterNext;
     for(auto iter=markers.begin(); iter!=markers.end(); iter++)
     {
-        iterNext = iter;
-        iterNext++;
-        
-        scalar spanStart;
-        if(iterPrev!=markers.end())
+        scalar span = 0;
+        if(iter->getMarkerCell()!=-1)
         {
-            spanStart = iterPrev->getMarkerParameter();
-            spanStart = spanStart + iter->getMarkerParameter();
-            spanStart /= 2;
-        }
-        else
-            spanStart = iter->getMarkerParameter();
+            iterNext = iter;
+            iterNext++;
+            scalar spanStart;
+            if(iterPrev!=markers.end())
+            {
+                if(iterPrev->getMarkerCell()==-1)
+                {
+                    scalar prevPara = iterPrev->getMarkerParameter();
+                    scalar thisPara = iter->getMarkerParameter();
+                    if(!InMesh(thisPara))
+                        FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
+                    scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
+                    spanStart = bisectionBinary(prevPara,thisPara,InMesh,threshold);
+                }
+                else
+                {
+                    spanStart = iterPrev->getMarkerParameter();
+                    spanStart = spanStart + iter->getMarkerParameter();
+                    spanStart /= 2;
+                }
+            }
+            else
+                spanStart = iter->getMarkerParameter();
 
-        scalar spanEnd;
-        if(iterNext!=markers.end())
-        {            
-            spanEnd = iterNext->getMarkerParameter();
-            spanEnd = spanEnd + iter->getMarkerParameter();
-            spanEnd /= 2;
+            scalar spanEnd;
+            if(iterNext!=markers.end())
+            {
+                if(iterNext->getMarkerCell()==-1)
+                {
+                    scalar nextPara = iterNext->getMarkerParameter();
+                    scalar thisPara = iter->getMarkerParameter();
+                    if(!InMesh(thisPara))
+                        FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
+                    scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
+                    spanEnd = bisectionBinary(thisPara,nextPara,InMesh,threshold);
+                }
+                else
+                {
+                    spanEnd = iterNext->getMarkerParameter();
+                    spanEnd = spanEnd + iter->getMarkerParameter();
+                    spanEnd /= 2;
+                }
+            }
+            else
+                spanEnd = iter->getMarkerParameter();
+            
+            if(iterPrev==markers.end() && iterNext==markers.end())
+                FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
+            
+            span = LineStructure::distance(oneRod,spanStart,spanEnd);
+            //Pout<<"Cell:"<<iter->getMarkerCell()<<":"<<iter->getMarkerParameter()<<"  start:"<<spanStart<<"  end:"<<spanEnd<<"  span:"<<span<<Foam::endl;
         }
-        else
-            spanEnd = iter->getMarkerParameter();
-        
-        if(iterPrev==markers.end() && iterNext==markers.end())
-            FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
-        
-        scalar span = LineStructure::distance(oneRod,spanStart,spanEnd);
         if(modusMarkerToField==markerMeshType::NonUniform)
         {
+
             iter->setMarkerVolume(span);
         }
         else
@@ -388,6 +410,23 @@ void Foam::LineStructure::computeMarkerCellWeights()
 
 std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeMarkerEpsilonMatrix()
 {
+    /*
+    for(uint I=0; I<collectedMarkers.size(); I++)
+    {
+        LagrangianMarker* marker = collectedMarkers[I];
+        Pout<<"I:"<<marker->getMarkerPosition()[0]<<"||"<<marker->getDilation()<<Foam::endl;
+        Pout<<"     "<<marker->getCorrParaB()<<Foam::endl;
+        const DynamicList<std::tuple<bool,label,label>>& supp = marker->getSupportCells();
+        for(auto tupl : supp)
+        {
+            vector centre; scalar volume;
+            marker->getCellData(tupl,centre,volume);
+            Pout<<"     centre:"<<centre<<"  vol:"<<volume<<Foam::endl;
+        }
+    }
+    Barrier(true);
+    */
+    
     label locProcMarkerNbr = collectedMarkers.size();
 
     List<label> globalMarkerNumber(Pstream::nProcs());
@@ -425,7 +464,6 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     using CellSet = std::unordered_map<vector,scalar,VectorHash>;
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
-        //Pout<<"I:"<<I<<Foam::endl;
         const LagrangianMarker& markerI = *(collectedMarkers[I]);
         vector XI = markerI.getMarkerPosition();
         vector dilationI = markerI.getDilation();
@@ -442,12 +480,21 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             markerISupportMap[centre] = vol;
         }
         
+        if(Pstream::myProcNo()==0)
+        {
+            Pout<<Foam::endl<<"I:"<<I;
+            for(const std::tuple<bool,label,label>& suppCell : supportI)
+                Pout<<"("<<std::get<0>(suppCell)<<","<<std::get<1>(suppCell)<<","<<std::get<2>(suppCell)<<") ";
+            Pout<<Foam::endl;
+        }
+        
         std::map<label,scalar> rowEntries;
         
         // Compute local matrix entries
         for(uint K=0; K<collectedMarkers.size(); K++)
         {
-            //Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
+            if(Pstream::myProcNo()==0)
+                Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
 
             const LagrangianMarker& markerK = *(collectedMarkers[K]);
             vector XK = markerK.getMarkerPosition();
@@ -479,6 +526,9 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
                     scalar weightK = markerK.correctedDeltaDirac(XK,suppCell.first);                       
                     matrixEntry += weightK*weightI*suppCell.second;
+                    if(Pstream::myProcNo()==0)
+                        Pout<<"    ("<<weightI<<","<<weightK<<") "<<"XI:"<<XI<<" XK:"<<XK<<" suppC:"<<suppCell.first<<" suppV:"<<suppCell.second<<Foam::endl;
+
                 }
                 matrixEntry *= markerKVol;
             }
@@ -486,10 +536,11 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             auto iter = rowEntries.find(smProcsNumOfMarkers+K);
             if(iter!=rowEntries.end())
                 FatalErrorInFunction<<"Multiple writes in matrix"<<exit(FatalError);
-            rowEntries[smProcsNumOfMarkers+K] = matrixEntry;            
+            rowEntries[smProcsNumOfMarkers+K] = matrixEntry;
+            if(Pstream::myProcNo()==0)
+                Pout<<"Inner ("<<matrixEntry<<","<<(smProcsNumOfMarkers+K)<<")   markerKVol:"<<markerKVol<<Foam::endl;
         }
-        
-        
+                
         // Compute foreign local matrix entries
         std::unordered_set<label> neighborProcesses;
         for(const std::tuple<bool,label,label>& tupl : supportI)
@@ -515,7 +566,8 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         {
             label process = *iter;
             label offset = processGlobalMarkerOffset[process];
-            //Pout<<"neighbour:"<<process<<Foam::endl;
+            if(Pstream::myProcNo()==0)
+                Pout<<"neighbour:"<<process<<Foam::endl;
             label neighProcHaloCellNum = globHaloMarkers.size_haloCells(process);
             for(label haloCellInd=0; haloCellInd<neighProcHaloCellNum; haloCellInd++)
             {
@@ -575,6 +627,8 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     if(iter!=rowEntries.end())
                         FatalErrorInFunction<<"Multiple writes in matrix"<<exit(FatalError);
                     rowEntries[offset+markerKindex] = matrixEntry;
+                    if(Pstream::myProcNo()==0)
+                        Pout<<"Outer ("<<matrixEntry<<","<<(offset+markerKindex)<<") "<<Foam::endl;
                 }
             }
         }
@@ -588,6 +642,16 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         }
         A.addRow(matrixRow);
         b[I] = 1;
+        
+        if(Pstream::myProcNo()==0)
+        {
+            for(auto pair : matrixRow)
+                Pout<<"("<<pair.first<<","<<pair.second<<") ";
+            Pout<<Foam::endl;
+        }
+        
+        if(I==1)
+            Barrier(true);
     }    
     return result;
 }
@@ -663,6 +727,39 @@ scalar Foam::LineStructure::distance
         FatalErrorInFunction<<"Distance can not be computed between points on different rods"<<exit(FatalError);
     
     return distance(A.getBaseRod(),A.getMarkerParameter(),B.getMarkerParameter());
+}
+
+scalar Foam::LineStructure::bisectionBinary
+(
+    scalar startValue,
+    scalar endValue,
+    std::function<bool(scalar)> criterion,
+    scalar threshold
+)
+{
+    bool startCriterion = criterion(startValue);
+    bool endCriterion = criterion(endValue);
+    if(startCriterion==endCriterion)
+        FatalErrorInFunction<<"Invalid bisection start values"<<exit(FatalError);
+    
+    scalar dist;
+    do
+    {
+        scalar center = 0.5*(startValue+endValue);
+        bool centerCriterion = criterion(center);
+        if(centerCriterion==startCriterion)
+        {
+            startValue = center;
+        }
+        else if(centerCriterion==endCriterion)
+        {
+            endValue = center;
+        }
+        dist = std::abs(endValue-startValue);
+    }
+    while(dist>=threshold);
+    
+    return 0.5*(startValue+endValue);
 }
 
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
@@ -842,8 +939,6 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
 
 void Foam::LineStructure::GlobalHaloMarkers::check()
 {
-    Pout<<"Check"<<Foam::endl;
-
     label numProcs = size_processes();
     if(numProcs!=globalHaloCellsMarkerPos.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<exit(FatalError);
@@ -861,9 +956,7 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<exit(FatalError);
     if(numProcs!=globalHaloCellsMarkerb.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
-    
-    Pout<<"Checked numProcs:"<<numProcs<<Foam::endl;
-    
+        
     for(label proc=0; proc<numProcs; proc++)
     {
         label numHaloCells = size_haloCells(proc);
@@ -884,8 +977,6 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
         if(numHaloCells!=globalHaloCellsMarkerb[proc].size())
             FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"] size error"<<exit(FatalError);
         
-        Pout<<"Checked proc:("<<proc<<","<<numProcs<<") numHaloCells:"<<numHaloCells<<Foam::endl;
-
         for(label haloCellInd=0; haloCellInd<numHaloCells; haloCellInd++)
         {
             label numHaloCellMarkers = size_cellMarkers(proc,haloCellInd);
@@ -905,8 +996,6 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
                 FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerSupportCellVolume[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerb[proc][haloCellInd].size())
                 FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerb[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
-            
-            Pout<<"Checked numProcs::("<<proc<<","<<numProcs<<") numHaloCells:("<<haloCellInd<<","<<numHaloCells<<") numHaloCellMarkers:"<<numHaloCellMarkers<<Foam::endl;
         }
     }    
 }

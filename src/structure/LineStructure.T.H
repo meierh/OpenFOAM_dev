@@ -1,4 +1,22 @@
 template<class MARKER>
+void Foam::LineStructure::reduceMarkers
+(
+    std::vector<MarkerReference<MARKER>>& allMarkers
+)
+{
+    using SingleMarker = MarkerReference<MARKER>;
+    
+    std::unordered_map<label,std::vector<SingleMarker*>> cellToMarker;
+    for(SingleMarker& markerData : allMarkers)
+    {
+        const MARKER& marker = markerData.getMarker();
+        label cellInd = marker.getMarkerCell();
+        cellToMarker[cellInd].push_back(&markerData);
+    }
+    oneCenteredMarker(allMarkers,cellToMarker);
+}
+
+template<class MARKER>
 void Foam::LineStructure::maxOneMarkerPerOctant
 (
     std::vector<MarkerReference<MARKER>>& allMarkers,
@@ -283,4 +301,61 @@ template<typename T> std::unique_ptr<List<List<DynamicList<scalar>>>> Foam::Line
     if(collectedMarkerField.size()!=collectedMarkers.size())
         FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
     return globHaloMarkers.broadcasHaloMarkerField<T>(collectedMarkerField);
+}
+
+template<typename T>
+T Foam::LineStructure::integrateRodwise
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    std::function<T(scalar)> function
+)
+{
+    return integrateRodwise<T>(oneRod,oneRod->m_Curve.knots().first(),oneRod->m_Curve.knots().last(),function);
+}
+
+template<typename T>
+T Foam::LineStructure::integrateRodwise
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parA,
+    scalar parB,
+    std::function<T(scalar)> function
+)
+{
+    if(parA>parB)
+        FatalErrorInFunction<<"Integration from higher to lower value"<<exit(FatalError);
+    
+    std::set<scalar> knotSet;
+    for(scalar knot : oneRod->m_Curve.knots())
+        knotSet.insert(knot);
+    
+    label degree = oneRod->m_Curve.knots().degree();
+    auto start = knotSet.insert(parA);
+    auto end = knotSet.insert(parB);
+    
+    label numberOfAbcissa = (degree+1)*(degree+1);
+    
+    T totalValue = Foam::zero();
+    
+    std::set<scalar>::iterator currNode = start.first;
+    std::set<scalar>::iterator nextNode = ++(start.first);
+    for(; currNode!=knotSet.end() && nextNode!=knotSet.end() && currNode!=end.first ; )
+    {
+        scalar startPar = *currNode;
+        scalar endPar = *nextNode;
+        scalar dist = endPar-startPar;
+        scalar step = dist/numberOfAbcissa;
+        scalar initialStep = startPar+step/2;
+        T summedValue = Foam::zero();
+        for(label i=0;i<numberOfAbcissa;i++)
+        {
+            summedValue += function(initialStep)*step;
+            initialStep+=step;
+        }
+        totalValue+=summedValue;
+        
+        currNode=nextNode;
+        nextNode++;
+    }
+    return totalValue;
 }

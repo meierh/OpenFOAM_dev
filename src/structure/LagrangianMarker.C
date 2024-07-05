@@ -103,7 +103,7 @@ void Foam::LagrangianMarker::computeSupport
     const labelList& neighbours = mesh.neighbour();
     const pointField& points = mesh.points();
     //faceInd -> [{proc,cell}]
-    const std::unordered_map<label,DynamicList<std::pair<label,label>>>& patchFaceToCell = structure.getPatchFaceToCellMap();
+    const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& patchFaceToCell = structure.getPatchFaceToCellMap();
 
     struct FirstHash
     {
@@ -157,14 +157,15 @@ void Foam::LagrangianMarker::computeSupport
                         else
                             neighborCell = owners[faceInd];
                         
-                        //Info<<" faceInd:"<<faceInd<<"  |"<<neighborCell<<"/"<<interProcessBound<<Foam::endl;
-                        
                         if(interProcessBound)
                         {
-                            auto iter = patchFaceToCell.find(faceInd);
-                            if(iter!=patchFaceToCell.end())
+                            auto iterpFTC = patchFaceToCell.find(faceInd);
+                            if(iterpFTC!=patchFaceToCell.end())
                             {
-                                const DynamicList<std::pair<label,label>>& haloCells = iter->second;
+                                const List<DynamicList<std::pair<label,label>>>& iterHaloCells = iterpFTC->second;
+                                if(iter>=iterHaloCells.size())
+                                    FatalErrorInFunction<<"Mismatch in iteration depth of support"<<Foam::endl;
+                                const DynamicList<std::pair<label,label>>& haloCells = iterHaloCells[iter];
                                 for(const std::pair<label,label>& haloCell : haloCells)
                                 {
                                     label process = haloCell.first;
@@ -811,8 +812,6 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         for(label i=0; i<10; i++)
             b[i] = x(i,0);
     }
-    
-    Pout<<"b:"<<b[0]<<" "<<b[1]<<" "<<b[2]<<" "<<b[3]<<" "<<b[4]<<" "<<b[5]<<" "<<b[6]<<" "<<b[7]<<" "<<b[8]<<" "<<b[9]<<" "<<to_string()<<Foam::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac

@@ -66,27 +66,8 @@ class LagrangianMarker
         (
             std::function<scalar(vector,vector)> weightFunction,
             std::function<VALTYPE(std::tuple<bool,label,label>)> valueFunction
-        ) const
-        {
-            vector X = getMarkerPosition();
-            const DynamicList<std::tuple<bool,label,label>>& supportCells = getSupportCells();
-            
-            VALTYPE convValue = Foam::zero();
-            for(label i=0; i<supportCells.size(); i++)
-            {
-                const std::tuple<bool,label,label>& suppCellData = supportCells[i];
-                vector cellCentre;
-                scalar cellVolume;
-                getCellData(suppCellData,cellCentre,cellVolume);
-                vector x = cellCentre;
-
-                scalar w = weightFunction(X,x);
-                VALTYPE f = valueFunction(suppCellData);
-                
-                convValue += w*f*cellVolume;
-            }
-            return convValue;
-        }
+        ) const;
+        
         void getCellData(const std::tuple<bool,label,label>& cell, vector& cellCentre, scalar& volume) const;
         
     protected:        
@@ -133,45 +114,11 @@ class LagrangianMarker
             std::unique_ptr<gismo::gsMatrix<scalar>> Mptr,
             gismo::gsMatrix<scalar>& x,
             WeightSystemSolve solutionStrategy = WeightSystemSolve::GeoRescaled
-        )
-        {
-            std::array<scalar,dim>& H = *Hptr;
-            gismo::gsMatrix<scalar>& M = *Mptr;
-            x = gismo::gsMatrix<scalar>(dim,1);
-            gismo::gsMatrix<scalar> e(dim,1);
-            for(uint i=0; i<dim; i++)
-            {
-                e(i,0) = 0;
-                x(i,0) = 0;
-            }
-            e(0,0) = 1;
-            
-            gismo::gsMatrix<scalar> P(dim,dim);
-            for(uint r=0;r<dim;r++)
-                for(uint c=0;c<dim;c++)
-                    P(r,c)=0;
-            if(solutionStrategy==WeightSystemSolve::Raw)
-            {
-                for(uint d=0; d<dim; d++)
-                    P(d,d) = 1;
-            }
-            else if(solutionStrategy==WeightSystemSolve::GeoRescaled)
-            {
-                for(uint d=0; d<dim; d++)
-                    P(d,d) = H[d];
-            }
-            else
-            {
-                for(uint d=0; d<dim; d++)
-                    P(d,d) = 1.0/M(d,d);
-            }
-            gismo::gsMatrix<scalar> A = P*M;
-
-            linearSolve(A,x,e);
-        }
+        );
 
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
+#include "LagrangianMarker.T.H"
 
 class LineStructure;
 
@@ -316,19 +263,7 @@ class LineStructure : public Structure
         void reduceMarkers
         (
             std::vector<MarkerReference<MARKER>>& allMarkers
-        )
-        {
-            using SingleMarker = MarkerReference<MARKER>;
-            
-            std::unordered_map<label,std::vector<SingleMarker*>> cellToMarker;
-            for(SingleMarker& markerData : allMarkers)
-            {
-                const MARKER& marker = markerData.getMarker();
-                label cellInd = marker.getMarkerCell();
-                cellToMarker[cellInd].push_back(&markerData);
-            }
-            oneCenteredMarker(allMarkers,cellToMarker);
-        }
+        );
 
         template<class MARKER>
         void maxOneMarkerPerOctant
@@ -375,10 +310,7 @@ class LineStructure : public Structure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             std::function<T(scalar)> function
-        )
-        {
-            return integrateRodwise<T>(oneRod,oneRod->m_Curve.knots().first(),oneRod->m_Curve.knots().last(),function);
-        }
+        );
 
         template<typename T>
         static T integrateRodwise
@@ -387,45 +319,7 @@ class LineStructure : public Structure
             scalar parA,
             scalar parB,
             std::function<T(scalar)> function
-        )
-        {
-            if(parA>parB)
-                FatalErrorInFunction<<"Integration from higher to lower value"<<exit(FatalError);
-            
-            std::set<scalar> knotSet;
-            for(scalar knot : oneRod->m_Curve.knots())
-                knotSet.insert(knot);
-            
-            label degree = oneRod->m_Curve.knots().degree();
-            auto start = knotSet.insert(parA);
-            auto end = knotSet.insert(parB);
-            
-            label numberOfAbcissa = (degree+1)*(degree+1);
-            
-            T totalValue = Foam::zero();
-            
-            std::set<scalar>::iterator currNode = start.first;
-            std::set<scalar>::iterator nextNode = ++(start.first);
-            for(; currNode!=knotSet.end() && nextNode!=knotSet.end() && currNode!=end.first ; )
-            {
-                scalar startPar = *currNode;
-                scalar endPar = *nextNode;
-                scalar dist = endPar-startPar;
-                scalar step = dist/numberOfAbcissa;
-                scalar initialStep = startPar+step/2;
-                T summedValue = Foam::zero();
-                for(label i=0;i<numberOfAbcissa;i++)
-                {
-                    summedValue += function(initialStep)*step;
-                    initialStep+=step;
-                }
-                totalValue+=summedValue;
-                
-                currNode=nextNode;
-                nextNode++;
-            }
-            return totalValue;
-        }
+        );
         
         static scalar distance
         (
@@ -435,6 +329,14 @@ class LineStructure : public Structure
         );
         
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
+        
+        scalar bisectionBinary
+        (
+            scalar startValue,
+            scalar endValue,
+            std::function<bool(scalar)> criterion,
+            scalar threshold
+        );
         
         std::vector<FieldMarkerStructureInteraction*> connectedInteractions;
         //const label minRefinement = 1;
@@ -528,7 +430,7 @@ class LineStructure : public Structure
             const List<T>& collectedMarkerField
         );
         
-        scalar initialSpacingFromMesh();
+        //scalar initialSpacingFromMesh();
         void check();
 };
 #include "LineStructure.T.H"
