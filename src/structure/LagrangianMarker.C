@@ -102,119 +102,86 @@ void Foam::LagrangianMarker::computeSupport
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
     const pointField& points = mesh.points();
-    //faceInd -> [{proc,cell}]
-    const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& patchFaceToCell = structure.getPatchFaceToCellMap();
-
-    struct FirstHash
-    {
-        label operator()(const std::pair<label, label> &p) const
-        {
-            return std::hash<label>{}(p.first);
-        }
-    };
-    std::unordered_set<label> treatedCell;
-    //pair{iteration,cellInd}
-    std::unordered_set<std::pair<label,label>,FirstHash> ownSupportCells;
-    //process -> {cellInd}
-    std::unordered_map<label,std::unordered_set<label>> foreignHaloCells;
-    std::unordered_set<label> directNeighborFaces;
-    std::unordered_set<label> directNonNeighborFaces;
-    //Info<<"-----------------------markerCell----------------:"<<markerCell<<Foam::endl;
+    
+    const List<List<Pair<label>>>& localMeshGraph = structure.getMeshGraph();
+    std::unordered_set<std::pair<label,label>,stdPairHash> directSupport;
+    std::unordered_set<std::pair<label,label>,stdPairHash> totalSupport;
     if(markerCell!=-1)
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
-        ownSupportCells.insert({-1,markerCell});
-        treatedCell.insert(markerCell);
         
-        for(label iter=0; iter<iterations; iter++)
+        directSupport.insert({Pstream::myProcNo(),markerCell});
+        totalSupport.insert({Pstream::myProcNo(),markerCell});
+        DynamicList<std::pair<label,label>> frontNodes;
+        for(const Pair<label>& edge : localMeshGraph[markerCell])
         {
-            std::vector<std::pair<label,label>> addedOwnSupport;
-            for(auto cellIter=ownSupportCells.begin(); cellIter!=ownSupportCells.end(); cellIter++)
+            if(edge.first!=-1 && edge.second!=-1)
             {
-                if(cellIter->first==iter-1)
+                directSupport.insert({edge.first,edge.second});
+                totalSupport.insert({edge.first,edge.second});
+                frontNodes.append({edge.first,edge.second});
+            }
+        }
+        
+        for(label iter=1; iter<iterations; iter++)
+        {
+            DynamicList<std::pair<label,label>> newFront;
+            for(std::pair<label,label> node : frontNodes)
+            {
+                label proc = node.first;
+                label cellInd = node.second;
+                
+                if(proc!=-1 && cellInd!=-1)
                 {
-                    label cellInd = cellIter->second;
-                    //Info<<"iteration:"<<iter<<"  base:"<<cellInd<<Foam::endl;
-                    const cell& thisCell = cellList[cellInd];
-                    for(label faceInd : thisCell)
+                    const List<Pair<label>>* nodeNeighbours;
+                    if(proc==Pstream::myProcNo())
                     {
-                        bool interProcessBound = false;
-                        label neighborCell=-1;
-                        if(owners[faceInd]==cellInd)
+                        nodeNeighbours = &(localMeshGraph[cellInd]);
+                    }
+                    else
+                    {
+                        const List<List<Pair<label>>>& procHaloMeshGraph = getHaloMeshGraph(proc);
+                        const std::unordered_map<label,label>& procHaloCellToIndex = getHaloCellToIndexMap(proc);
+                        auto iter = procHaloCellToIndex.find(cellInd);
+                        if(iter==procHaloCellToIndex.end())
+                            FatalErrorInFunction<<"Support iteration depth mismatch!"<<exit(FatalError);
+                        label procHaloIndex = iter->second;
+                        const List<Pair<label>>& procHaloCellGraph = procHaloMeshGraph[procHaloIndex];
+                        nodeNeighbours = &procHaloCellGraph;
+                    }
+                    
+                    for(const Pair<label>& node : nodeNeighbours)
+                    {
+                        if(totalSupport.find(node)!=totalSupport.end())
                         {
-                            if(faceInd<neighbours.size())
-                            {
-                                neighborCell = neighbours[faceInd];
-                            }
-                            else
-                            {
-                                auto iter = patchFaceToCell.find(faceInd);
-                                if(iter!=patchFaceToCell.end())
-                                    interProcessBound = true;
-                            }
-                        }
-                        else
-                            neighborCell = owners[faceInd];
-                        
-                        if(interProcessBound)
-                        {
-                            auto iterpFTC = patchFaceToCell.find(faceInd);
-                            if(iterpFTC!=patchFaceToCell.end())
-                            {
-                                const List<DynamicList<std::pair<label,label>>>& iterHaloCells = iterpFTC->second;
-                                if(iter>=iterHaloCells.size())
-                                    FatalErrorInFunction<<"Mismatch in iteration depth of support"<<Foam::endl;
-                                const DynamicList<std::pair<label,label>>& haloCells = iterHaloCells[iter];
-                                for(const std::pair<label,label>& haloCell : haloCells)
-                                {
-                                    label process = haloCell.first;
-                                    label cellInd = haloCell.second;
-                                    foreignHaloCells[process].insert(cellInd);
-                                }
-                            }
-                            directNeighborFaces.insert(faceInd);
-                        }
-                        else
-                        {
-                            if(neighborCell!=-1)
-                            {
-                                if(treatedCell.find(neighborCell)==treatedCell.end())
-                                {
-                                    addedOwnSupport.push_back({iter,neighborCell});
-                                    treatedCell.insert(neighborCell);
-                                }
-                                directNeighborFaces.insert(faceInd);
-                            }
-                            else
-                                directNonNeighborFaces.insert(faceInd);
+                            newFront.append(node);
+                            totalSupport.insert(node);
                         }
                     }
                 }
             }
-            ownSupportCells.insert(addedOwnSupport.begin(),addedOwnSupport.end());
+            frontNodes = newFront;
+            newFront.clear();
         }
     }
-    //Info<<"ownSupportCells.size():"<<ownSupportCells.size()<<"  iterations:"<<iterations<<Foam::endl;
-    this->supportCells.resize(0);
-    for(auto iterCells=ownSupportCells.begin(); iterCells!=ownSupportCells.end(); iterCells++)
+    
+    this->directNeighbours.resize(0);
+    for(auto iterCells=directSupport.begin(); iterCells!=directSupport.end(); iterCells++)
     {
-        std::tuple<bool,label,label> cellData = {true,Pstream::myProcNo(),iterCells->second};
+        bool ownProc = iterCells->first==Pstream::myProcNo();
+        std::tuple<bool,label,label> cellData= {ownProc,iterCells->first,iterCells->second};
+        this->directNeighbours.append(cellData);
+    }
+    
+    this->supportCells.resize(0);
+    for(auto iterCells=totalSupport.begin(); iterCells!=totalSupport.end(); iterCells++)
+    {
+        bool ownProc = iterCells->first==Pstream::myProcNo();
+        std::tuple<bool,label,label> cellData= {ownProc,iterCells->first,iterCells->second};
         this->supportCells.append(cellData);
     }
-    for(auto iterProc=foreignHaloCells.begin(); iterProc!=foreignHaloCells.end(); iterProc++)
-    {
-        label processNo = iterProc->first;
-        for(auto iterCell=iterProc->second.begin(); iterCell!=iterProc->second.end(); iterCell++)
-        {
-            label cellInd = *iterCell;
-            std::tuple<bool,label,label> cellData = {false,processNo,cellInd};
-            this->supportCells.append(cellData);
-        }
-    }
-    
-    //Info<<"markerParameter:"<<markerParameter<<"  markerPosition:"<<markerPosition<<"  "<<Foam::endl;
-    
+
     List<List<bool>> directionsExist(3,List<bool>(2,false));
     for(label faceInd : directNeighborFaces)
     {
@@ -260,12 +227,6 @@ void Foam::LagrangianMarker::computeSupport
     {
         existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
     }
-    
-    /*
-    for(auto neighTupl : supportCells)
-        Info<<"     "<<std::get<2>(neighTupl)<<Foam::endl;
-    */
-    
 }
 
 void Foam::LagrangianMarker::computeSupportDimensions()

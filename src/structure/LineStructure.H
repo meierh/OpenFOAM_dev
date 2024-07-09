@@ -82,6 +82,7 @@ class LagrangianMarker
         scalar markerWeight = 1;
         
         // std::tuple<own processor,processor ID,cell ID>
+        DynamicList<std::tuple<bool,label,label>> directNeighbours;
         DynamicList<std::tuple<bool,label,label>> supportCells;
         Vector<bool> existingDims;
         vector h_plus;

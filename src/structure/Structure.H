@@ -51,6 +51,14 @@
 
 namespace Foam
 {
+struct stdPairHash
+{
+    label operator()(const std::pair<label, label> &p) const
+    {
+        return std::hash<label>{}(p.first)^std::hash<label>{}(p.second);
+    }
+};
+    
 class Structure
 {
     public:
@@ -89,6 +97,8 @@ class Structure
         const scalar initialMeshSpacing;
         
         const std::unordered_set<label>& getNeighbourProcesses(){return neighbourhoodProcesses;}
+        
+        const List<List<Pair<label>>>& getMeshGraph(){return meshGraph;}
         
     protected:
         const Time& runTime;
@@ -191,6 +201,10 @@ class Structure
         {
             return patchFaceToCellMap;
         }
+        const List<List<Pair<label>>>& getHaloMeshGraph(label process) const
+        {
+            return globalHaloMeshGraph[process];
+        }
         
         template<typename T>
         std::unique_ptr<List<List<T>>> broadcastHaloFields
@@ -200,15 +214,21 @@ class Structure
         /*********************************Collect halo cells***********************************/
     private:
         /*********************************Collect halo cells***********************************/
-        // [proc] -> processes' halo cells >
+        // [proc] -> processes' halo cells 
         List<DynamicList<CellDescription>> globalHaloCellList_Sorted;
         // [proc] -> cell -> index
         List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
         //faceInd -> [{neighbor proc,cell}]
-        std::unordered_map<label,List<DynamicList<std::pair<label,label>>>> patchFaceToCellMap;        
+        std::unordered_map<label,List<DynamicList<std::pair<label,label>>>> patchFaceToCellMap;
+        // [proc] -> processes' halo cells -> edges -> {proc,cell}
+        List<List<List<Pair<label>>>> globalHaloMeshGraph;
         /*********************************Collect halo cells***********************************/
         
         std::unordered_set<label> neighbourhoodProcesses;
+        
+        List<List<Pair<label>>> meshGraph;
+        
+        void generateMeshGraph();
         
         void collectMeshHaloData(label iterations=1);
     public:

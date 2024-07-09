@@ -656,6 +656,59 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
     return haloFieldPtr;
 }
 
+void Foam::Structure::generateMeshGraph()
+{
+    const cellList& cellList = mesh.cells();
+    const faceList& facesList = mesh.faces();
+    const labelList& owners = mesh.owner();
+    const labelList& neighbours = mesh.neighbour();
+    const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& patchFaceToCell = getPatchFaceToCellMap();
+    
+    meshGraph.setSize(cellList.size());
+    for(label cellInd=0; cellInd<cellList.size(); cellInd++)
+    {
+        const cell& oneCell = cellList[cellInd];
+        meshGraph[cellInd].setSize(oneCell.size());
+        for(label cellFaceInd=0; cellFaceInd<oneCell.size(); cellFaceInd++)
+        {
+            label faceInd = oneCell[cellFaceInd];
+            
+            Pair<label> neighData;
+            if(owners[faceInd]!=cellInd)
+            {
+                neighData = {Pstream::myProcNo(),owners[faceInd]};
+            }
+            else if(faceInd<neighbours.size())
+            {
+                neighData = {Pstream::myProcNo(),neighbours[faceInd]};
+            }
+            else if(patchFaceToCell.find(faceInd)!=patchFaceToCell.end())
+            {
+                auto iter = patchFaceToCell.find(faceInd);
+                const List<DynamicList<std::pair<label,label>>>& thisPatchFaceNeighbour = iter->second;
+                if(thisPatchFaceNeighbour.size()<1)
+                    FatalErrorInFunction<<"Neighbourhood must be larger than one iteration"<<exit(FatalError);
+                const DynamicList<std::pair<label,label>>& firstIterNeighbourhood = thisPatchFaceNeighbour[0];
+                if(firstIterNeighbourhood.size()!=1)
+                    FatalErrorInFunction<<"First iteration neighbourhood must be sized 1"<<exit(FatalError);
+                std::pair<label,label> neighbourCell = firstIterNeighbourhood[0];
+                neighData = {neighbourCell.first,neighbourCell.second};
+            }
+            else
+            {
+                neighData = {-1,-1};
+            }
+            meshGraph[cellInd][faceInd] = neighData;
+        }
+    }
+    
+    globalHaloMeshGraph.setSize(Pstream::nProcs());
+    globalHaloMeshGraph[Pstream::myProcNo()] = meshGraph;
+    
+    Pstream::gatherList(globalHaloMeshGraph);
+    Pstream::scatterList(globalHaloMeshGraph);
+}
+
 void Foam::Structure::collectMeshHaloData
 (
     label iterations
