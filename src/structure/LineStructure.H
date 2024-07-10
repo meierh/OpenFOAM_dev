@@ -45,7 +45,7 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
-        inline const DynamicList<std::tuple<bool,label,label>>& getSupportCells() const {return supportCells;}
+        inline const DynamicList<Pair<label>>& getSupportCells() const {return supportCells;}
         inline vector getDilation() const {return dilation;}
         inline const FixedList<scalar,10>& getCorrParaB() const {return b;}
         
@@ -65,10 +65,10 @@ class LagrangianMarker
         VALTYPE convolute
         (
             std::function<scalar(vector,vector)> weightFunction,
-            std::function<VALTYPE(std::tuple<bool,label,label>)> valueFunction
+            std::function<VALTYPE(Pair<label>)> valueFunction
         ) const;
         
-        void getCellData(const std::tuple<bool,label,label>& cell, vector& cellCentre, scalar& volume) const;
+        void getCellData(const Pair<label>& cell, vector& cellCentre, scalar& volume) const;
         
     protected:        
         const Structure& structure;
@@ -82,16 +82,15 @@ class LagrangianMarker
         scalar markerWeight = 1;
         
         // std::tuple<own processor,processor ID,cell ID>
-        DynamicList<std::tuple<bool,label,label>> directNeighbours;
-        DynamicList<std::tuple<bool,label,label>> supportCells;
+        DynamicList<Pair<label>> directNeighbours;
+        DynamicList<Pair<label>> supportCells;
         Vector<bool> existingDims;
         vector h_plus;
         vector h_minus;
         vector dilation;
         
-        void computeSupport(label iterations=1);
-        void computeSupportDimensions();
-        void minMaxSupportWidth();
+        void computeSupport(label iterations=3);
+        void minMaxNeighbourWidth();
         void dilationFactors();
         
         FixedList<scalar,10> b;

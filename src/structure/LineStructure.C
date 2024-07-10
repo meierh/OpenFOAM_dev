@@ -381,13 +381,13 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             DynamicList<vector> supportCellsCentre;
             DynamicList<scalar> supportCellsVolume;
             
-            const DynamicList<std::tuple<bool,label,label>>& supportCells = marker->getSupportCells();
-            for(std::tuple<bool,label,label> oneSupport : supportCells)
+            const DynamicList<Pair<label>>& supportCells = marker->getSupportCells();
+            for(Pair<label> oneSupport : supportCells)
             {
                 vector oneSuppCellCentre;
                 scalar oneSuppCellVolume;
                 marker->getCellData(oneSupport,oneSuppCellCentre,oneSuppCellVolume);
-                supportCellsIndices.append({std::get<1>(oneSupport),std::get<2>(oneSupport)});
+                supportCellsIndices.append({oneSupport.first(),oneSupport.second()});
                 supportCellsCentre.append(oneSuppCellCentre);
                 supportCellsVolume.append(oneSuppCellVolume);
             }
@@ -470,24 +470,16 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         scalar dilationIMax = std::max<scalar>(dilationI[0],dilationI[1]);
         dilationIMax = std::max<scalar>(dilationIMax,dilationI[2]);
         //scalar markerIVol = markerI.getMarkerVolume();
-        const DynamicList<std::tuple<bool,label,label>>& supportI = markerI.getSupportCells();
+        const DynamicList<Pair<label>>& supportI = markerI.getSupportCells();
         CellSet markerISupportMap;
-        for(const std::tuple<bool,label,label>& suppCell : supportI)
+        for(const Pair<label>& suppCell : supportI)
         {
             vector centre;
             scalar vol;
             markerI.getCellData(suppCell,centre,vol);
             markerISupportMap[centre] = vol;
         }
-        
-        if(Pstream::myProcNo()==0)
-        {
-            Pout<<Foam::endl<<"I:"<<I;
-            for(const std::tuple<bool,label,label>& suppCell : supportI)
-                Pout<<"("<<std::get<0>(suppCell)<<","<<std::get<1>(suppCell)<<","<<std::get<2>(suppCell)<<") ";
-            Pout<<Foam::endl;
-        }
-        
+                
         std::map<label,scalar> rowEntries;
         
         // Compute local matrix entries
@@ -502,7 +494,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             scalar dilationKMax = std::max<scalar>(dilationK[0],dilationK[1]);
             dilationKMax = std::max<scalar>(dilationKMax,dilationK[2]);
             scalar markerKVol = markerK.getMarkerVolume();
-            const DynamicList<std::tuple<bool,label,label>>& supportK = markerK.getSupportCells();
+            const DynamicList<Pair<label>>& supportK = markerK.getSupportCells();
             
             vector distVec = XI-XK;
             scalar distMag = std::sqrt(distVec&distVec);
@@ -511,7 +503,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             if(distMag < 10*dilationIMax || distMag < 10*dilationKMax)
             {
                 DynamicList<std::pair<vector,scalar>> combinedIKSupport;
-                for(const std::tuple<bool,label,label>& suppCell : supportK)
+                for(const Pair<label>& suppCell : supportK)
                 {
                     vector centre;
                     scalar vol;
@@ -543,12 +535,12 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 
         // Compute foreign local matrix entries
         std::unordered_set<label> neighborProcesses;
-        for(const std::tuple<bool,label,label>& tupl : supportI)
+        for(const Pair<label>& tupl : supportI)
         {
-            if(!std::get<0>(tupl))
+            if(!(tupl.first()==Pstream::myProcNo()))
             {
-                label process = std::get<1>(tupl);
-                label cellInd = std::get<2>(tupl);
+                label process = tupl.first();
+                label cellInd = tupl.second();
                 neighborProcesses.insert(process);
                 const std::unordered_map<label,label>& processHaloCellToIndexMap = getHaloCellToIndexMap(process);
                 auto cellIndexIter = processHaloCellToIndexMap.find(cellInd);

@@ -27,7 +27,7 @@ mesh(mesh)
     createNurbsBoundary();
     setSolverOptions();
        
-    collectMeshHaloData(2);
+    collectMeshHaloData(4);
 }
 
 Foam::Structure::~Structure()
@@ -658,22 +658,20 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
 
 void Foam::Structure::generateMeshGraph()
 {
-    const cellList& cellList = mesh.cells();
-    const faceList& facesList = mesh.faces();
+    const cellList& cells = mesh.cells();
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
     const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& patchFaceToCell = getPatchFaceToCellMap();
     
-    meshGraph.setSize(cellList.size());
-    for(label cellInd=0; cellInd<cellList.size(); cellInd++)
+    meshGraph.setSize(cells.size());
+    for(label cellInd=0; cellInd<cells.size(); cellInd++)
     {
-        const cell& oneCell = cellList[cellInd];
+        const cell& oneCell = cells[cellInd];
         meshGraph[cellInd].setSize(oneCell.size());
         for(label cellFaceInd=0; cellFaceInd<oneCell.size(); cellFaceInd++)
         {
-            label faceInd = oneCell[cellFaceInd];
-            
-            Pair<label> neighData;
+            label faceInd = oneCell[cellFaceInd];            
+            Pair<label> neighData = {-1,-1};
             if(owners[faceInd]!=cellInd)
             {
                 neighData = {Pstream::myProcNo(),owners[faceInd]};
@@ -694,11 +692,8 @@ void Foam::Structure::generateMeshGraph()
                 std::pair<label,label> neighbourCell = firstIterNeighbourhood[0];
                 neighData = {neighbourCell.first,neighbourCell.second};
             }
-            else
-            {
-                neighData = {-1,-1};
-            }
-            meshGraph[cellInd][faceInd] = neighData;
+
+            meshGraph[cellInd][cellFaceInd] = neighData;
         }
     }
     
@@ -706,7 +701,7 @@ void Foam::Structure::generateMeshGraph()
     globalHaloMeshGraph[Pstream::myProcNo()] = meshGraph;
     
     Pstream::gatherList(globalHaloMeshGraph);
-    Pstream::scatterList(globalHaloMeshGraph);
+    Pstream::scatterList(globalHaloMeshGraph);    
 }
 
 void Foam::Structure::collectMeshHaloData
@@ -985,6 +980,8 @@ void Foam::Structure::collectMeshHaloData
             }
         }
     }
+    
+    generateMeshGraph();
 }
 
 scalar Foam::Structure::initialSpacingFromMesh

@@ -51,11 +51,22 @@
 
 namespace Foam
 {
+
+template<typename A,typename B>
 struct stdPairHash
 {
-    label operator()(const std::pair<label, label> &p) const
+    label operator()(const std::pair<A, B> &p) const
     {
-        return std::hash<label>{}(p.first)^std::hash<label>{}(p.second);
+        return std::hash<A>{}(p.first)^std::hash<B>{}(p.second);
+    }
+};
+
+template<typename A>
+struct foamPairHash
+{
+    label operator()(const Pair<A> &p) const
+    {
+        return std::hash<A>{}(p.first())^std::hash<A>{}(p.second());
     }
 };
     
@@ -96,9 +107,9 @@ class Structure
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         const scalar initialMeshSpacing;
         
-        const std::unordered_set<label>& getNeighbourProcesses(){return neighbourhoodProcesses;}
+        const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourhoodProcesses;}
         
-        const List<List<Pair<label>>>& getMeshGraph(){return meshGraph;}
+        const List<List<Pair<label>>>& getMeshGraph() const {return meshGraph;}
         
     protected:
         const Time& runTime;
