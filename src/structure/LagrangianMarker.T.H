@@ -65,6 +65,16 @@ void Foam::LagrangianMarker::solveWeights
             P(d,d) = 1.0/M(d,d);
     }
     gismo::gsMatrix<scalar> A = P*M;
+    
+    Pout<<"marker:"<<to_string()<<Foam::endl;
+    Pout<<"existingDims:"<<existingDims<<Foam::endl;
+    Pout<<"dilation:"<<dilation<<Foam::endl;
+    Pout<<"directNeighbours:"<<directNeighbours<<Foam::endl;
+    Pout<<"supportCells:"<<supportCells<<Foam::endl;
+
+    std::cout<<"A:"<<A<<std::endl;
 
     linearSolve(A,x,e);
+    
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }

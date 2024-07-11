@@ -7,7 +7,7 @@ void Foam::linearSolve
     const gismo::gsMatrix<scalar>& b,
     scalar tol
 )
-{    
+{ 
     gismo::gsMatrix<scalar> x_initial(b.rows(),1);
     for(label i=0; i<b.rows(); i++)
         x_initial(i,0) = 0;
@@ -31,49 +31,34 @@ void Foam::linearSolve
         FatalErrorInFunction<<"rhs must be a vector"<<exit(FatalError);
     
     x = x_initial;
-        
-    gismo::gsConjugateGradient Solver(A);
-    Solver.setTolerance(tol);
-    Solver.solve(b,x);
     
-    gismo::gsMatrix<scalar> resid = A*x-b;
-    scalar residNormL2=0;
-    for(label i=0;i<resid.rows();i++)
-        residNormL2+=(resid(i,0)*resid(i,0));
-    residNormL2 = std::sqrt(residNormL2);
-    
-    scalar xNormL2=0;
-    for(label i=0;i<x.rows();i++)
-        xNormL2+=(x(i,0)*x(i,0));
-    xNormL2 = std::sqrt(xNormL2);
-    
-    /*
-    std::cout<<std::endl;
-    std::cout<<"residNormL2:"<<residNormL2<<std::endl;
-    std::cout<<"xNormL2:"<<xNormL2<<std::endl;
-    std::cout<<"residNormL2/xNormL2:"<<residNormL2/xNormL2<<std::endl;
-    std::cout<<"Solver.error():"<<Solver.error()<<std::endl;
-    std::cout<<std::endl;
-    */
-
-    if(Solver.error()>1e-8 || residNormL2>1e-8)
+    CSR_Matrix_par A_csr(A.rows(),0,A.rows(),A.cols(),false);
+    Vector_par x_csr(A.rows(),0,A.rows(),false);
+    Vector_par b_csr(A.rows(),0,A.rows(),false);
+    for(label row=0; row<A.rows(); row++)
     {
-        std::cout<<"A:"<<std::endl<<A<<std::endl;
-        std::cout<<"x:"<<std::endl<<x<<std::endl;
-        std::cout<<"b:"<<std::endl<<b<<std::endl;
-        std::cout<<"A*x:"<<std::endl<<A*x<<std::endl;
-        std::cout<<"residNormL2:"<<residNormL2<<std::endl;
-        std::cout<<"Solver.iterations():"<<Solver.iterations()<<std::endl;
-        std::cout<<"Solver.error():"<<Solver.error()<<std::endl;
-        
-        linearSolve_GaussSeidel(A,x,b,x);
-        
-        std::cout<<"A:"<<std::endl<<A<<std::endl;
-        std::cout<<"x:"<<std::endl<<x<<std::endl;
-        std::cout<<"b:"<<std::endl<<b<<std::endl;
-        std::cout<<"A*x:"<<std::endl<<A*x<<std::endl;
-        
-        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+        List<scalar> oneRow(A.cols());
+        for(label col=0; col<A.cols(); col++)
+            oneRow[col] = A(row,col);
+        A_csr.addRow(oneRow);
+        x_csr[row] = x(row,0);
+        b_csr[row] = b(row,0);
+    }
+
+    Pout<<"A_csr:"<<A_csr.to_string()<<Foam::endl;
+    
+    Jacobi solver(A_csr);
+    x_csr = solver.solve(b_csr,x_csr);
+    Vector_par resid = A_csr*x_csr-b_csr;
+    scalar norm2_resid = resid.norm2();
+
+    if(norm2_resid>1e-8)
+    {
+        Pout<<"A:"<<A_csr.to_string()<<Foam::endl;
+        Pout<<"x:"<<x_csr.to_string()<<Foam::endl;
+        Pout<<"b:"<<b_csr.to_string()<<Foam::endl;
+        Pout<<"A:"<<(A_csr*x_csr).to_string()<<Foam::endl;
+        Pout<<"norm2_resid:"<<norm2_resid<<Foam::endl;
 
         FatalErrorInFunction<<"Failed computing weights"<<exit(FatalError);
     }

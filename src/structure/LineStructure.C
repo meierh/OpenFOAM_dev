@@ -30,14 +30,14 @@ crossSecArea(crossSecArea)
     reduceMarkers();
     Info<<"collectMarkers"<<Foam::endl;
     collectMarkers();
+    for(LagrangianMarker& marker : *(rodMarkersList[0]))
+        Pout<<marker.to_string()<<Foam::endl;
     Info<<"computeMarkerCellWeights"<<Foam::endl;
     computeMarkerCellWeights();   
     Info<<"collectHaloMarkers"<<Foam::endl;
     collectHaloMarkers();
     Info<<"exchangeHaloMarkersData"<<Foam::endl;
     exchangeHaloMarkersData();
-    for(LagrangianMarker& marker : *(rodMarkersList[0]))
-        Pout<<marker.to_string()<<Foam::endl;
     Info<<"computeMarkerWeights"<<Foam::endl;
     computeMarkerWeights();
 }
@@ -485,8 +485,10 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         // Compute local matrix entries
         for(uint K=0; K<collectedMarkers.size(); K++)
         {
+            /*
             if(Pstream::myProcNo()==0)
                 Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
+            */
 
             const LagrangianMarker& markerK = *(collectedMarkers[K]);
             vector XK = markerK.getMarkerPosition();
@@ -518,8 +520,10 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
                     scalar weightK = markerK.correctedDeltaDirac(XK,suppCell.first);                       
                     matrixEntry += weightK*weightI*suppCell.second;
+                    /*
                     if(Pstream::myProcNo()==0)
                         Pout<<"    ("<<weightI<<","<<weightK<<") "<<"XI:"<<XI<<" XK:"<<XK<<" suppC:"<<suppCell.first<<" suppV:"<<suppCell.second<<Foam::endl;
+                    */
 
                 }
                 matrixEntry *= markerKVol;
@@ -529,8 +533,10 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             if(iter!=rowEntries.end())
                 FatalErrorInFunction<<"Multiple writes in matrix"<<exit(FatalError);
             rowEntries[smProcsNumOfMarkers+K] = matrixEntry;
+            /*
             if(Pstream::myProcNo()==0)
                 Pout<<"Inner ("<<matrixEntry<<","<<(smProcsNumOfMarkers+K)<<")   markerKVol:"<<markerKVol<<Foam::endl;
+            */
         }
                 
         // Compute foreign local matrix entries
@@ -558,8 +564,10 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         {
             label process = *iter;
             label offset = processGlobalMarkerOffset[process];
+            /*
             if(Pstream::myProcNo()==0)
                 Pout<<"neighbour:"<<process<<Foam::endl;
+            */
             label neighProcHaloCellNum = globHaloMarkers.size_haloCells(process);
             for(label haloCellInd=0; haloCellInd<neighProcHaloCellNum; haloCellInd++)
             {
@@ -619,8 +627,10 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     if(iter!=rowEntries.end())
                         FatalErrorInFunction<<"Multiple writes in matrix"<<exit(FatalError);
                     rowEntries[offset+markerKindex] = matrixEntry;
+                    /*
                     if(Pstream::myProcNo()==0)
                         Pout<<"Outer ("<<matrixEntry<<","<<(offset+markerKindex)<<") "<<Foam::endl;
+                    */
                 }
             }
         }
@@ -634,17 +644,15 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         }
         A.addRow(matrixRow);
         b[I] = 1;
-        
-        if(Pstream::myProcNo()==0)
+        /*
+        if(true)
         {
             for(auto pair : matrixRow)
                 Pout<<"("<<pair.first<<","<<pair.second<<") ";
             Pout<<Foam::endl;
         }
-        
-        if(I==1)
-            Barrier(true);
-    }    
+        */
+    }
     return result;
 }
 
