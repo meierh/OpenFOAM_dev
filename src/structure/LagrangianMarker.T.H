@@ -1,24 +1,32 @@
 template<typename VALTYPE>
-VALTYPE Foam::LagrangianMarker::convolute
+VALTYPE Foam::LagrangianMarker::convolute__
 (
     std::function<scalar(vector,vector)> weightFunction,
     std::function<VALTYPE(Pair<label>)> valueFunction
 ) const
 {
+    return convolute_<VALTYPE>(weightFunction,valueFunction,supportCells);
+}
+
+template<typename VALTYPE>
+VALTYPE Foam::LagrangianMarker::convolute_
+(
+    std::function<scalar(vector,vector)> weightFunction,
+    std::function<VALTYPE(Pair<label>)> valueFunction,
+    const List<Pair<label>>& support
+) const
+{
     vector X = getMarkerPosition();
-    const DynamicList<Pair<label>>& supportCells = getSupportCells();
-    
     VALTYPE convValue = Foam::zero();
-    for(label i=0; i<supportCells.size(); i++)
+    for(const Pair<label>& suppCell : support)
     {
-        const Pair<label>& suppCellData = supportCells[i];
         vector cellCentre;
         scalar cellVolume;
-        getCellData(suppCellData,cellCentre,cellVolume);
+        getCellData(suppCell,cellCentre,cellVolume);
         vector x = cellCentre;
 
         scalar w = weightFunction(X,x);
-        VALTYPE f = valueFunction(suppCellData);
+        VALTYPE f = valueFunction(suppCell);
         
         convValue += w*f*cellVolume;
     }

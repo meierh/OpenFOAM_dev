@@ -62,10 +62,18 @@ class LagrangianMarker
         void compNonUniformCorrWeights() {computeCorrectionWeights();}
         
         template<typename VALTYPE>
-        VALTYPE convolute
+        VALTYPE convolute__
         (
             std::function<scalar(vector,vector)> weightFunction,
             std::function<VALTYPE(Pair<label>)> valueFunction
+        ) const;
+        
+        template<typename VALTYPE>
+        VALTYPE convolute_
+        (
+            std::function<scalar(vector,vector)> weightFunction,
+            std::function<VALTYPE(Pair<label>)> valueFunction,
+            const List<Pair<label>>& support
         ) const;
         
         void getCellData(const Pair<label>& cell, vector& cellCentre, scalar& volume) const;
@@ -84,12 +92,13 @@ class LagrangianMarker
         // std::tuple<own processor,processor ID,cell ID>
         DynamicList<Pair<label>> directNeighbours;
         DynamicList<Pair<label>> supportCells;
+        DynamicList<Pair<label>>& momentsCells = directNeighbours;
         Vector<bool> existingDims;
         vector h_plus;
         vector h_minus;
         vector dilation;
         
-        void computeSupport(label iterations=3);
+        void computeSupport(label iterations=2);
         void minMaxNeighbourWidth();
         void dilationFactors();
         

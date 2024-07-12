@@ -71,7 +71,7 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
                 return oneMarker.correctedDeltaDirac(X,x);
             };
         }
-        markerData[index] = oneMarker.convolute<T>(weightFunction,valueFunction);
+        markerData[index] = oneMarker.convolute_<T>(weightFunction,valueFunction);
     }
 }
 

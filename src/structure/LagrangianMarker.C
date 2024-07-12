@@ -348,7 +348,7 @@ scalar Foam::LagrangianMarker::computeMoment
         }
         return coeff[0]*coeff[1]*coeff[2];
     };
-    return convolute<scalar>(deltaFunction,valueFunction);
+    return convolute_<scalar>(deltaFunction,valueFunction,momentsCells);
 }
 
 scalar Foam::LagrangianMarker::computeCorrectedMoment
