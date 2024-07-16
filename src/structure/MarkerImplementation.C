@@ -1,18 +1,20 @@
 #include "MarkerImplementation.H"
 
-/*
+
 Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
 (
     dynamicRefineFvMesh& mesh,
+    LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf
 ):
-FieldMarkerStructureInteraction(mesh),
+FieldMarkerStructureInteraction(mesh,structure),
 input_U(input_U),
 output_Uf(output_Uf)
 {
 }
 
+/*
 void Foam::VelocityPressureForceInteraction::interpolateFluidVelocityToMarkers()
 {
     fieldToMarker<vector>(input_U,markerFluidVelocity);

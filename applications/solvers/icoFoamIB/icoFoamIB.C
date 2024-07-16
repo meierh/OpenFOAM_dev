@@ -52,6 +52,9 @@ int main(int argc, char *argv[])
 
     LineStructure structure(mesh,{0.1});
     
+    VelocityPressureForceInteraction Uf_Interaction(mesh,structure,U,Uf);
+    //structure.transferMarkers(Uf_Interaction);
+    
     FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);    
     
     /*

@@ -45,7 +45,7 @@ void Foam::linearSolve
         b_csr[row] = b(row,0);
     }
 
-    Pout<<"A_csr:"<<A_csr.to_string()<<Foam::endl;
+    //Pout<<"A_csr:"<<A_csr.to_string()<<Foam::endl;
     
     Jacobi solver(A_csr);
     x_csr = solver.solve(b_csr,x_csr);
@@ -61,6 +61,11 @@ void Foam::linearSolve
         Pout<<"norm2_resid:"<<norm2_resid<<Foam::endl;
 
         FatalErrorInFunction<<"Failed computing weights"<<exit(FatalError);
+    }
+    
+    for(label row=0; row<A.rows(); row++)
+    {
+        x_csr[row] = x(row,0) = x_csr[row];
     }
 }
     

@@ -2,6 +2,7 @@ Structure.C
 LineStructure.C
 LagrangianMarker.C
 FieldMarkerStructureInteraction.C
+LineStructureStatus.C
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C

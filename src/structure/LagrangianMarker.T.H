@@ -1,21 +1,22 @@
 template<typename VALTYPE>
-VALTYPE Foam::LagrangianMarker::convolute__
+VALTYPE Foam::LagrangianMarker::convolute
 (
     std::function<scalar(vector,vector)> weightFunction,
     std::function<VALTYPE(Pair<label>)> valueFunction
 ) const
 {
-    return convolute_<VALTYPE>(weightFunction,valueFunction,supportCells);
+    return convolute<VALTYPE>(weightFunction,valueFunction,supportCells);
 }
 
 template<typename VALTYPE>
-VALTYPE Foam::LagrangianMarker::convolute_
+VALTYPE Foam::LagrangianMarker::convolute
 (
     std::function<scalar(vector,vector)> weightFunction,
     std::function<VALTYPE(Pair<label>)> valueFunction,
     const List<Pair<label>>& support
 ) const
 {
+    //Pout<<"convolute:"<<support<<Foam::endl;
     vector X = getMarkerPosition();
     VALTYPE convValue = Foam::zero();
     for(const Pair<label>& suppCell : support)
@@ -30,6 +31,7 @@ VALTYPE Foam::LagrangianMarker::convolute_
         
         convValue += w*f*cellVolume;
     }
+    //Pout<<"convolute val:"<<convValue<<Foam::endl;
     return convValue;
 }
 
@@ -74,15 +76,18 @@ void Foam::LagrangianMarker::solveWeights
     }
     gismo::gsMatrix<scalar> A = P*M;
     
+    /*
     Pout<<"marker:"<<to_string()<<Foam::endl;
     Pout<<"existingDims:"<<existingDims<<Foam::endl;
     Pout<<"dilation:"<<dilation<<Foam::endl;
     Pout<<"directNeighbours:"<<directNeighbours<<Foam::endl;
     Pout<<"supportCells:"<<supportCells<<Foam::endl;
+    */
 
     std::cout<<"A:"<<A<<std::endl;
-
+    std::cout<<"e:"<<e<<std::endl;
     linearSolve(A,x,e);
+    std::cout<<"x:"<<x<<std::endl;
     
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }

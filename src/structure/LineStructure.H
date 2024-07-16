@@ -34,6 +34,7 @@ class LagrangianMarker
         std::pair<scalar,scalar> getMarkerCellSpacing();
         scalar getMarkerCellMinSpacing();
         std::string to_string() const;
+        void total_print() const;
         void evaluateMarker();
         
         inline label getRodNumber() const {return rodNumber;}
@@ -62,14 +63,14 @@ class LagrangianMarker
         void compNonUniformCorrWeights() {computeCorrectionWeights();}
         
         template<typename VALTYPE>
-        VALTYPE convolute__
+        VALTYPE convolute
         (
             std::function<scalar(vector,vector)> weightFunction,
             std::function<VALTYPE(Pair<label>)> valueFunction
         ) const;
         
         template<typename VALTYPE>
-        VALTYPE convolute_
+        VALTYPE convolute
         (
             std::function<scalar(vector,vector)> weightFunction,
             std::function<VALTYPE(Pair<label>)> valueFunction,
@@ -92,7 +93,9 @@ class LagrangianMarker
         // std::tuple<own processor,processor ID,cell ID>
         DynamicList<Pair<label>> directNeighbours;
         DynamicList<Pair<label>> supportCells;
-        DynamicList<Pair<label>>& momentsCells = directNeighbours;
+        enum momentsSupport {Direct,Support};
+        momentsSupport momentsSettings = momentsSupport::Direct;
+
         Vector<bool> existingDims;
         vector h_plus;
         vector h_minus;
@@ -128,6 +131,36 @@ class LagrangianMarker
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
 #include "LagrangianMarker.T.H"
+
+class LineStructureStatus
+{
+    public:
+        class Node
+        {
+            public:
+                Node(bool value, std::string name):value(value),name(name){}
+                Node(std::vector<Node*> dependencies, bool value, std::string name):dependencies(dependencies),value(value),name(name){}
+                std::vector<Node*> dependencies;
+                bool value;
+                std::vector<Node*> following;
+                std::string name;
+        };
+        LineStructureStatus();
+        void execValid(const Node& method);
+        void executed(Node& method);
+
+        Node initialPoints =        Node(false,"initialPoints");
+        Node markers =              Node({&initialPoints},false,"markers");
+        Node markersRefined =       Node({&markers},false,"markersRefined");
+        Node markersVolume =        Node({&markers,&markersRefined},false,"markersVolume");
+        Node markersReduction =     Node({&markers,&markersVolume},false,"markersReduction");
+        Node markerMesh =           Node({&markers},false,"markerMesh");
+        Node markersCollected =     Node({&markers},false,"markersCollected");
+        Node markersCellWeight =    Node({&markersCollected,&markerMesh},false,"markersCellWeight");
+        Node markersHaloCollect =   Node({&markersCollected},false,"markersHaloCollect");
+        Node markersHaloExchange = Node({&markersHaloCollect},false,"markersHaloExchange");
+        Node markersWeight =        Node({&markersCellWeight,&markersHaloExchange},false,"markersWeight");
+};
 
 class LineStructure;
 
@@ -203,6 +236,7 @@ class LineStructure : public Structure
         void test();
 
     protected:
+        LineStructureStatus status;
         
         void createSpacingPoints();
         void createSpacedPointsOnRod
@@ -442,6 +476,7 @@ class LineStructure : public Structure
         //scalar initialSpacingFromMesh();
         void check();
 };
+#include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"
 }
 #endif

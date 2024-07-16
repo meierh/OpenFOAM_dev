@@ -190,7 +190,7 @@ class Structure
         
         scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
 
-    protected:
+    public:
         /*****************************Getter: Collect halo cells*******************************/
         typedef struct
         {
@@ -202,10 +202,14 @@ class Structure
     public:
         const DynamicList<CellDescription>& getHaloCellList(label process) const
         {
+            if(process<0 || process>=globalHaloCellList_Sorted.size())
+                FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
             return globalHaloCellList_Sorted[process];
         }
         const std::unordered_map<label,label>& getHaloCellToIndexMap(label process) const
         {
+            if(process<0 || process>=globalHaloCellToIndexMap.size())
+                FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
             return globalHaloCellToIndexMap[process];
         }
         const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& getPatchFaceToCellMap() const
@@ -214,6 +218,8 @@ class Structure
         }
         const List<List<Pair<label>>>& getHaloMeshGraph(label process) const
         {
+            if(process<0 || process>=globalHaloMeshGraph.size())
+                FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
             return globalHaloMeshGraph[process];
         }
         

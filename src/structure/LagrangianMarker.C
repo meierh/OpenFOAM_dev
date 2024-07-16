@@ -82,6 +82,13 @@ std::string Foam::LagrangianMarker::to_string() const
            std::to_string(markerPosition[2])+")"+" vol:"+std::to_string(markerVolume);
 }
 
+void Foam::LagrangianMarker::total_print() const
+{
+    Pout<<to_string()<<Foam::endl;
+    Pout<<"\t directNeighbours:"<<directNeighbours<<Foam::endl;
+    Pout<<"\t supportCells:"<<supportCells<<Foam::endl;
+}
+
 void Foam::LagrangianMarker::evaluateMarker()
 {
     markerPosition = LineStructure::evaluateRodPos(baseRod,markerParameter);
@@ -306,19 +313,24 @@ void Foam::LagrangianMarker::getCellData
     if(suppCellData.first()==Pstream::myProcNo())
     {
         label cellInd = suppCellData.second();
+        if(cellInd<0 || cellInd>=cells.size())
+            FatalErrorInFunction<<"Out of range cell ind"<<exit(FatalError);
         cellCentre = cells[cellInd].centre(points,faces);
         cellVolume = cells[cellInd].mag(points,faces);
     }
     else
     {
         label neighProcess = suppCellData.first();
+        const DynamicList<Structure::CellDescription>& neighHaloCells = structure.getHaloCellList(neighProcess);
         const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
         auto iter = neighborHaloCellToIndexMap.find(suppCellData.second());
         if(iter==neighborHaloCellToIndexMap.end())
             FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
         label index = iter->second;
-        cellCentre = structure.getHaloCellList(neighProcess)[index].centre;
-        cellVolume = structure.getHaloCellList(neighProcess)[index].volume;
+        if(index<0 || index>=neighHaloCells.size())
+            FatalErrorInFunction<<"Out of bounds cell number!"<<exit(FatalError);
+        cellCentre = neighHaloCells[index].centre;
+        cellVolume = neighHaloCells[index].volume;
     }
 }
 
@@ -348,7 +360,14 @@ scalar Foam::LagrangianMarker::computeMoment
         }
         return coeff[0]*coeff[1]*coeff[2];
     };
-    return convolute_<scalar>(deltaFunction,valueFunction,momentsCells);
+    
+    const List<Pair<label>>* momentsCells;
+    if(momentsSettings==momentsSupport::Support)
+        momentsCells = &supportCells;
+    else
+        momentsCells = &directNeighbours;
+    
+    return convolute<scalar>(deltaFunction,valueFunction,*momentsCells);
 }
 
 scalar Foam::LagrangianMarker::computeCorrectedMoment
@@ -578,7 +597,7 @@ std::unique_ptr<std::array<scalar,3>> Foam::LagrangianMarker::rescalingDiagonal1
 }
 
 void Foam::LagrangianMarker::computeCorrectionWeights()
-{
+{    
     label numberDims = 0;
     DynamicList<label> listDims;
     for(label dim=0; dim<existingDims.size(); dim++)
@@ -590,6 +609,9 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         }
     }
     WeightSystemSolve solStrategy = WeightSystemSolve::Raw;
+
+    Pout<<"numberDims:"<<numberDims<<"  listDims:"<<listDims<<Foam::endl;
+    total_print();
     
     for(label i=0; i<10; i++)
         b[i] = 0;
@@ -603,6 +625,8 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     */
     {
         scalar m000 = computeMoment(vector(0,0,0));
+        if(m000==0)
+            FatalErrorInFunction<<"Moment can not be zero!"<<exit(FatalError);
         b[0] = 1.0/m000;
     }
     else if(numberDims==1)
@@ -721,6 +745,8 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         for(label i=0; i<10; i++)
             b[i] = x(i,0);
     }
+    
+    Pout<<"b:"<<b<<Foam::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac

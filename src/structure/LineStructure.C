@@ -65,10 +65,12 @@ void Foam::LineStructure::connect
 
 void Foam::LineStructure::createSpacingPoints()
 {
+    status.execValid(status.initialPoints);
     for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
     {
         createSpacedPointsOnRod(rodIndex,initialMeshSpacing);
     }
+    status.executed(status.initialPoints);
 }
 
 void Foam::LineStructure::createSpacedPointsOnRod
@@ -118,10 +120,12 @@ void Foam::LineStructure::createSpacedPointsOnRod
 
 void Foam::LineStructure::createMarkersFromSpacedPoints()
 {
+    status.execValid(status.markers);
     for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
     {
         createMarkersFromSpacedPointsOnRod(rodIndex);
     }
+    status.executed(status.markers);
 }
 
 void Foam::LineStructure::createMarkersFromSpacedPointsOnRod
@@ -143,10 +147,12 @@ void Foam::LineStructure::refineMarkers
     std::pair<bool,scalar> forcedSpacing
 )
 {
+    status.execValid(status.markersRefined);
     for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
     {
         refineMarkersOnRod(rodIndex,forcedSpacing);
     }
+    status.executed(status.markersRefined);
 }
 
 void Foam::LineStructure::refineMarkersOnRod
@@ -204,10 +210,12 @@ void Foam::LineStructure::refineMarkersOnRod
 
 void Foam::LineStructure::setMarkerVolume()
 {
-   for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
-   {
-       setMarkerVolumeOnRod(rodIndex);
-   }
+    status.execValid(status.markersVolume);
+    for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
+    {
+        setMarkerVolumeOnRod(rodIndex);
+    }
+    status.executed(status.markersVolume);
 }
 
 void Foam::LineStructure::setMarkerVolumeOnRod
@@ -302,8 +310,10 @@ void Foam::LineStructure::setMarkerVolumeOnRod
 
 void Foam::LineStructure::evaluateMarkerMeshRelation()
 {
+    status.execValid(status.markerMesh);
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkers : rodMarkersList)
         evaluateMarkerMeshRelation(*singleRodMarkers);
+    status.executed(status.markerMesh);
 }
 void Foam::LineStructure::evaluateMarkerMeshRelation
 (
@@ -316,6 +326,7 @@ void Foam::LineStructure::evaluateMarkerMeshRelation
 
 void Foam::LineStructure::reduceMarkers()
 {
+    status.execValid(status.markersReduction);
     std::vector<MarkerReference<LagrangianMarker>> allMarkers;
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkersPtr : rodMarkersList)
     {
@@ -326,10 +337,12 @@ void Foam::LineStructure::reduceMarkers()
         }
     }
     reduceMarkers(allMarkers);
+    status.executed(status.markersReduction);
 }
 
 void Foam::LineStructure::collectMarkers()
 {
+    status.execValid(status.markersCollected);    
     collectedMarkers.resize(0);
     for(std::unique_ptr<std::list<LagrangianMarker>>& oneRodMarkers : rodMarkersList)
     {
@@ -338,10 +351,12 @@ void Foam::LineStructure::collectMarkers()
             collectedMarkers.push_back(&oneMarker);
         }
     }
+    status.executed(status.markersCollected);
 }
 
 void Foam::LineStructure::collectHaloMarkers()
 {
+    status.execValid(status.markersHaloCollect);
     haloCellsRodMarkersList.clear();
     haloCellsRodMarkersList.resize(getHaloCellList(Pstream::myProcNo()).size());
     const std::unordered_map<label,label>& selfHaloCellToIndex = getHaloCellToIndexMap(Pstream::myProcNo());
@@ -357,12 +372,14 @@ void Foam::LineStructure::collectHaloMarkers()
             haloCellsRodMarkersList[index].push_back(markerData);
         }
     }
+    status.executed(status.markersHaloCollect);
 }
 
 void Foam::LineStructure::exchangeHaloMarkersData()
 {
+    status.execValid(status.markersHaloExchange);
+    
     globHaloMarkers = GlobalHaloMarkers(haloCellsRodMarkersList);
-        
     for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
         std::vector<std::pair<LagrangianMarker*,label>>& localHaloCellRodMarkers = haloCellsRodMarkersList[haloCellInd];
@@ -398,14 +415,17 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             );
         }
     }
-    //Pout<<"Inserted"<<Foam::endl;
     globHaloMarkers.communicate();
+    
+    status.executed(status.markersHaloExchange);
 }
 
 void Foam::LineStructure::computeMarkerCellWeights()
 {
+    status.execValid(status.markersCellWeight);
     for(LagrangianMarker* marker : collectedMarkers)
         marker->compNonUniformCorrWeights();
+    status.executed(status.markersCellWeight);
 }
 
 std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeMarkerEpsilonMatrix()
@@ -658,6 +678,8 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
 
 void Foam::LineStructure::computeMarkerWeights()
 {
+    status.execValid(status.markersWeight);
+    
     Info<<"Compute marker weights"<<Foam::endl;
     std::unique_ptr<Foam::LineStructure::LinearSystem> system = computeMarkerEpsilonMatrix();
     Info<<"Computed marker weights"<<Foam::endl;
@@ -675,6 +697,8 @@ void Foam::LineStructure::computeMarkerWeights()
     {
         collectedMarkers[I]->setMarkerWeight(eps[I]);
     }
+    
+    status.executed(status.markersWeight);
 }
 
 Foam::scalar Foam::LineStructure::evaluateRodArcLen

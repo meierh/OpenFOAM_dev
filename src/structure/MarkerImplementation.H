@@ -10,6 +10,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         explicit VelocityPressureForceInteraction
         (
             dynamicRefineFvMesh& mesh,
+            LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf
         );
