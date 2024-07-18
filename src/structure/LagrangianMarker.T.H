@@ -5,7 +5,7 @@ VALTYPE Foam::LagrangianMarker::convolute
     std::function<VALTYPE(Pair<label>)> valueFunction
 ) const
 {
-    return convolute<VALTYPE>(weightFunction,valueFunction,supportCells);
+    return convolute<VALTYPE>(weightFunction,valueFunction,fullSupport);
 }
 
 template<typename VALTYPE>

@@ -10,6 +10,8 @@ namespace Foam
 class LagrangianMarker
 {
     public:
+        enum SupportType {Direct,Full};
+        
         explicit LagrangianMarker
         (
             const Structure& structure,
@@ -46,7 +48,13 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
-        inline const DynamicList<Pair<label>>& getSupportCells() const {return supportCells;}
+        inline const DynamicList<Pair<label>>& getSupportCells(SupportType type=SupportType::Direct) const
+        {
+            if(type==SupportType::Direct)
+                return directSupport;
+            else
+                return fullSupport;
+        }
         inline vector getDilation() const {return dilation;}
         inline const FixedList<scalar,10>& getCorrParaB() const {return b;}
         
@@ -90,20 +98,20 @@ class LagrangianMarker
         scalar markerVolume;
         scalar markerWeight = 1;
         
-        // std::tuple<own processor,processor ID,cell ID>
-        DynamicList<Pair<label>> directNeighbours;
-        DynamicList<Pair<label>> supportCells;
-        enum momentsSupport {Direct,Support};
-        momentsSupport momentsSettings = momentsSupport::Direct;
-
+        // Pair<processor,cell ID>
+        const label supportWidth = 2;
+        DynamicList<Pair<label>> directSupport;
+        DynamicList<Pair<label>> fullSupport;
+        SupportType momentsSupportType = SupportType::Full;
         Vector<bool> existingDims;
+        void computeSupport(label iterations=2);
+        
         vector h_plus;
         vector h_minus;
-        vector dilation;
+        Pair<vector> minMaxNeighbourWidth(const List<Pair<label>>& support);
         
-        void computeSupport(label iterations=2);
-        void minMaxNeighbourWidth();
-        void dilationFactors();
+        vector dilation;
+        vector dilationFactors(Pair<vector> h);
         
         FixedList<scalar,10> b;
         
@@ -116,6 +124,7 @@ class LagrangianMarker
         std::unique_ptr<std::array<scalar,10>> rescalingDiagonal3D() const;
         std::unique_ptr<std::array<scalar,6>> rescalingDiagonal2D(label normalDim) const;
         std::unique_ptr<std::array<scalar,3>> rescalingDiagonal1D(label dim) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentsMatrix(Vector<bool> dims) const;
         void computeCorrectionWeights();
         
         enum WeightSystemSolve {Raw,GeoRescaled,DiagRescaled};

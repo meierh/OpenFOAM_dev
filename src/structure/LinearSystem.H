@@ -29,6 +29,18 @@ namespace Foam
         scalar tol=1e-10
     );
     
+    void luDecomposition
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& L,
+        gismo::gsMatrix<scalar>& U
+    );
+
+    scalar determinant
+    (
+        const gismo::gsMatrix<scalar>& A
+    );
+    
     void linearSolve_ConjugateGradient
     (
         const gismo::gsMatrix<scalar>& A,

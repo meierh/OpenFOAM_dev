@@ -68,7 +68,82 @@ void Foam::linearSolve
         x_csr[row] = x(row,0) = x_csr[row];
     }
 }
+
+void Foam::luDecomposition
+(
+    const gismo::gsMatrix<scalar>& A,
+    gismo::gsMatrix<scalar>& L,
+    gismo::gsMatrix<scalar>& U
+)
+{
+    if(A.cols()!=A.rows())
+        FatalErrorInFunction<<"Matrix must be square"<<exit(FatalError);
+    const label n = A.cols();
     
+    L = gismo::gsMatrix<scalar>(n,n);
+    U = gismo::gsMatrix<scalar>(n,n);
+    for(label c=0; c<n; c++)
+    {
+        for(label r=0; r<n; r++)
+        {
+            L(r,c) = 0;
+            U(r,c) = 0;
+        }
+    }
+    
+    for (label i=0; i<n; i++) 
+    {
+        // Upper Triangular
+        for (label k=i; k<n; k++)
+        {
+            // Summation of L(i, j) * U(j, k)
+            scalar sum = 0;
+            for (label j=0; j<i; j++)
+                sum += (L(i,j) * U(j,k));
+
+            // Evaluating U(i, k)
+            U(i,k) = A(i,k) - sum;
+        }
+
+        // Lower Triangular
+        for (label k=i; k<n; k++) 
+        {
+            if (i == k)
+                L(i,i) = 1; // Diagonal as 1
+            else 
+            {
+                // Summation of L(k, j) * U(j, i)
+                scalar sum = 0;
+                for (label j=0; j<i; j++)
+                    sum += (L(k,j) * U(j,i));
+
+                // Evaluating L(k, i)
+                if(U(i,i)==0)
+                    FatalErrorInFunction<<"Divide by zero error incoming!"<<exit(FatalError);
+                L(k,i) = (A(k,i) - sum) / U(i,i);
+            }
+        }
+    }
+}
+
+scalar Foam::determinant
+(
+    const gismo::gsMatrix<scalar>& A
+)
+{
+    gismo::gsMatrix<scalar> L;
+    gismo::gsMatrix<scalar> U;
+    luDecomposition(A,L,U);
+    
+    const label n = A.cols();
+    scalar det = 1;
+    for(label c=0; c<n; c++)
+    {
+        det *= L(c,c)*U(c,c);
+    }
+    return det;    
+}
+
 void Foam::linearSolve_ConjugateGradient
 (
     const gismo::gsMatrix<scalar>& A,

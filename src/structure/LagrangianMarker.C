@@ -85,8 +85,8 @@ std::string Foam::LagrangianMarker::to_string() const
 void Foam::LagrangianMarker::total_print() const
 {
     Pout<<to_string()<<Foam::endl;
-    Pout<<"\t directNeighbours:"<<directNeighbours<<Foam::endl;
-    Pout<<"\t supportCells:"<<supportCells<<Foam::endl;
+    Pout<<"\t directSupport:"<<directSupport<<Foam::endl;
+    Pout<<"\t fullSupport:"<<fullSupport<<Foam::endl;
 }
 
 void Foam::LagrangianMarker::evaluateMarker()
@@ -94,8 +94,10 @@ void Foam::LagrangianMarker::evaluateMarker()
     markerPosition = LineStructure::evaluateRodPos(baseRod,markerParameter);
     markerCell = mesh.findCell(markerPosition);
     computeSupport();
-    minMaxNeighbourWidth();
-    dilationFactors();
+    Pair<vector> h = minMaxNeighbourWidth(directSupport);
+    h_plus = h.first();
+    h_minus = h.second();
+    dilation = dilationFactors(h);
 }
 
 void Foam::LagrangianMarker::computeSupport
@@ -109,21 +111,22 @@ void Foam::LagrangianMarker::computeSupport
     const pointField& points = mesh.points();
     
     const List<List<Pair<label>>>& localMeshGraph = structure.getMeshGraph();
-    std::unordered_set<Pair<label>,foamPairHash<label>> directNeighbours;
-    std::unordered_set<Pair<label>,foamPairHash<label>> totalSupport;
+    std::unordered_set<Pair<label>,foamPairHash<label>> direct;
+    std::unordered_set<Pair<label>,foamPairHash<label>> full;
     if(markerCell!=-1)
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
         
-        totalSupport.insert({Pstream::myProcNo(),markerCell});
+        direct.insert({Pstream::myProcNo(),markerCell});
+        full.insert({Pstream::myProcNo(),markerCell});
         DynamicList<Pair<label>> frontNodes;
         for(const Pair<label>& edge : localMeshGraph[markerCell])
         {
             if(edge.first()!=-1 && edge.second()!=-1)
             {
-                directNeighbours.insert({edge.first(),edge.second()});
-                totalSupport.insert({edge.first(),edge.second()});
+                direct.insert({edge.first(),edge.second()});
+                full.insert({edge.first(),edge.second()});
                 frontNodes.append({edge.first(),edge.second()});
             }
         }
@@ -159,10 +162,10 @@ void Foam::LagrangianMarker::computeSupport
                     {
                         if(node.first()!=-1 && node.second()!=-1)
                         {
-                            if(totalSupport.find(node)==totalSupport.end())
+                            if(full.find(node)==full.end())
                             {
                                 newFront.append(node);
-                                totalSupport.insert(node);
+                                full.insert(node);
                             }
                         }
                     }
@@ -173,16 +176,16 @@ void Foam::LagrangianMarker::computeSupport
         }
     }
     
-    this->directNeighbours.resize(0);
-    for(auto iterCells=directNeighbours.begin(); iterCells!=directNeighbours.end(); iterCells++)
+    directSupport.resize(0);
+    for(auto iterCells=direct.begin(); iterCells!=direct.end(); iterCells++)
     {
-        this->directNeighbours.append(*iterCells);
+        directSupport.append(*iterCells);
     }
     
-    this->supportCells.resize(0);
-    for(auto iterCells=totalSupport.begin(); iterCells!=totalSupport.end(); iterCells++)
+    fullSupport.resize(0);
+    for(auto iterCells=full.begin(); iterCells!=full.end(); iterCells++)
     {
-        this->supportCells.append(*iterCells);
+        fullSupport.append(*iterCells);
     }
 
     List<List<bool>> directionsExist(3,List<bool>(2,false));
@@ -243,7 +246,10 @@ void Foam::LagrangianMarker::computeSupport
     }
 }
 
-void Foam::LagrangianMarker::minMaxNeighbourWidth()
+Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
+(
+    const List<Pair<label>>& support
+)
 {
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
@@ -251,8 +257,8 @@ void Foam::LagrangianMarker::minMaxNeighbourWidth()
     
     vector minSpan;
     vector maxSpan;
-    
-    if(directNeighbours.size()>0 && markerCell!=-1)
+        
+    if(support.size()>0 && markerCell!=-1)
     {
         scalar min = std::numeric_limits<scalar>::min();
         scalar max = std::numeric_limits<scalar>::max();
@@ -261,9 +267,9 @@ void Foam::LagrangianMarker::minMaxNeighbourWidth()
         
         vector cellCentreC = cells[markerCell].centre(points,faces);
         
-        for(label i=0; i<directNeighbours.size(); i++)
+        for(label i=0; i<support.size(); i++)
         {
-            const Pair<label>& neiCellDataA = directNeighbours[i];
+            const Pair<label>& neiCellDataA = support[i];
             vector cellCentreN;
             scalar cellVolN;
             getCellData(neiCellDataA,cellCentreN,cellVolN);
@@ -285,17 +291,21 @@ void Foam::LagrangianMarker::minMaxNeighbourWidth()
         minSpan = vector(max,max,max);
         maxSpan = vector(min,min,min);
     }
-    h_plus = maxSpan;
-    h_minus = minSpan;
+    
+    return Pair<vector>(maxSpan,minSpan);
 }
 
-void Foam::LagrangianMarker::dilationFactors()
+vector Foam::LagrangianMarker::dilationFactors
+(
+    Pair<vector> h
+)
 {
-    vector minSpan = h_minus;
-    vector maxSpan = h_plus;
+    vector maxSpan = h.first();
+    vector minSpan = h.second();
     
     scalar eps = 0.1*std::sqrt(minSpan&minSpan);
-    dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
+    vector dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
+    return dilation;
 }
 
 void Foam::LagrangianMarker::getCellData
@@ -362,10 +372,10 @@ scalar Foam::LagrangianMarker::computeMoment
     };
     
     const List<Pair<label>>* momentsCells;
-    if(momentsSettings==momentsSupport::Support)
-        momentsCells = &supportCells;
+    if(momentsSupportType==SupportType::Direct)
+        momentsCells = &directSupport;
     else
-        momentsCells = &directNeighbours;
+        momentsCells = &fullSupport;
     
     return convolute<scalar>(deltaFunction,valueFunction,*momentsCells);
 }
@@ -469,6 +479,8 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
             indices[i][j] = index;
         }
     }
+    
+    Pout<<indices<<Foam::endl;
     
     auto moments2DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(6,6));
     gismo::gsMatrix<scalar>& moments2D = *moments2DPtr;
@@ -596,8 +608,180 @@ std::unique_ptr<std::array<scalar,3>> Foam::LagrangianMarker::rescalingDiagonal1
     return diagPtr;
 }
 
+std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentsMatrix
+(
+    Vector<bool> dims
+) const
+{
+    label numberDims = 0;
+    DynamicList<label> listDims;
+    for(label dim=0; dim<dims.size(); dim++)
+    {
+        if(dims[dim])
+        {
+            numberDims++;
+            listDims.append(dim);
+        }
+    }
+
+    std::unique_ptr<gismo::gsMatrix<scalar>> matrixPtr;
+    if(numberDims==0)
+    {
+        matrixPtr = std::make_unique<gismo::gsMatrix<scalar>>(1,1);
+        gismo::gsMatrix<scalar>& matrix = *matrixPtr;
+        matrix(0,0) = computeMoment(vector(0,0,0));
+    }
+    else if(numberDims==1)
+    {        
+        if(listDims[0]==0)
+        {
+            matrixPtr = computeMomentMatrix1D(0);          
+        }
+        else if(listDims[0]==1)
+        {
+            matrixPtr = computeMomentMatrix1D(1);
+        }
+        else if(listDims[0]==2)
+        {
+            matrixPtr = computeMomentMatrix1D(2);
+        }
+        else
+            FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    }
+    else if(numberDims==2)
+    {        
+        if(listDims[0]==0 && listDims[1]==1)
+        {
+            matrixPtr = computeMomentMatrix2D({0,1});
+        }
+        else if(listDims[0]==1 && listDims[1]==2)
+        {
+            matrixPtr = computeMomentMatrix2D({1,2});
+        }
+        else if(listDims[0]==0 && listDims[1]==2)
+        {
+            matrixPtr = computeMomentMatrix2D({0,2});
+        }
+        else
+            FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    }
+    else if(numberDims==3)
+    {
+        matrixPtr = computeMomentMatrix3D();
+    }
+    
+    return matrixPtr;
+}
+
 void Foam::LagrangianMarker::computeCorrectionWeights()
-{    
+{
+    std::unique_ptr<gismo::gsMatrix<scalar>> baseMatrix = computeMomentsMatrix(existingDims);
+    scalar detBaseMatrix = determinant(*baseMatrix);
+    scalar detThreshold = 1e-6;
+    
+    if(detBaseMatrix<detThreshold)
+    {
+        auto bitAnd = [](Vector<bool> pattern, Vector<bool> directions)
+        {
+            for(label dim=0; dim<directions.size(); dim++)
+            {
+                directions[dim] = pattern[dim] && directions[dim];
+            }
+            return directions;
+        };
+        Vector<bool> newExistingDims;
+        
+        // Hide single dimension
+        DynamicList<label> dimToHide;
+        for(label dim=0; dim<3; dim++)
+        {
+            Vector<bool> hidePattern(1,1,1);
+            hidePattern[dim] = false;
+            Vector<bool> reducedDims = bitAnd(hidePattern,existingDims);
+            
+            std::unique_ptr<gismo::gsMatrix<scalar>> redDimMatrix = computeMomentsMatrix(reducedDims);
+            scalar detRedDimMatrix = determinant(*redDimMatrix);
+            if(detRedDimMatrix<detThreshold)
+            {
+                dimToHide.append(dim);
+                baseMatrix = std::move(redDimMatrix);
+                existingDims = reducedDims;
+            }
+        }
+        if(dimToHide.size()>1)
+            FatalErrorInFunction<<"More than two options to hide not possible"<<exit(FatalError);
+        
+        if(dimToHide.size()==0)
+        {
+            // Hide two dimension
+            DynamicList<label> dimToKeep;
+            for(label dim=0; dim<3; dim++)
+            {
+                Vector<bool> hidePattern(0,0,0);
+                hidePattern[dim] = true;
+                Vector<bool> reducedDims = bitAnd(hidePattern,existingDims);
+                
+                std::unique_ptr<gismo::gsMatrix<scalar>> redDimMatrix = computeMomentsMatrix(reducedDims);
+                scalar detRedDimMatrix = determinant(*redDimMatrix);
+                if(detRedDimMatrix<detThreshold)
+                {
+                    dimToHide.append(dim);
+                    baseMatrix = std::move(redDimMatrix);
+                    newExistingDims = reducedDims;
+                }
+            }
+            if(dimToKeep.size()>1)
+                FatalErrorInFunction<<"More than two options to keep not possible"<<exit(FatalError);
+            
+            if(dimToKeep.size()==0)
+            {
+                Vector<bool> hidePattern(0,0,0);
+                std::unique_ptr<gismo::gsMatrix<scalar>> redDimMatrix = computeMomentsMatrix(hidePattern);
+                scalar detRedDimMatrix = determinant(*redDimMatrix);
+                if(detRedDimMatrix<detThreshold)
+                {
+                    baseMatrix = std::move(redDimMatrix);
+                    newExistingDims = hidePattern;
+                }
+            }
+        }
+        
+        Vector<bool> removedDims(false,false,false);
+        for(label dim=0; dim<removedDims.size(); dim++)
+            if(newExistingDims[dim]!=existingDims[dim])
+                removedDims[dim]=true;
+        
+        Pair<vector> newh = minMaxNeighbourWidth(fullSupport);
+        vector new_Dilation = dilationFactors(newh);
+        computeSupport(supportWidth+2);
+        
+        vector new_h_plus = newh.first();
+        vector new_h_minus = newh.second();
+        
+        for(label dim=0; dim<removedDims.size(); dim++)
+        {
+            if(removedDims[dim])
+            {
+                h_plus[dim] = new_h_plus[dim];
+                h_minus[dim] = new_h_minus[dim];
+                dilation[dim] = new_Dilation[dim];
+            }
+        }
+        
+        std::unique_ptr<gismo::gsMatrix<scalar>> new_baseMatrix = computeMomentsMatrix(existingDims);
+        scalar new_detBaseMatrix = determinant(*new_baseMatrix);
+        
+        if(new_detBaseMatrix>=detThreshold)
+        {
+            baseMatrix = std::move(new_baseMatrix);
+        }
+        else
+        {
+            evaluateMarker();
+            existingDims = newExistingDims;
+        }
+    }
+    
     label numberDims = 0;
     DynamicList<label> listDims;
     for(label dim=0; dim<existingDims.size(); dim++)
@@ -615,8 +799,10 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     
     for(label i=0; i<10; i++)
         b[i] = 0;
-        
-    if(numberDims==0)
+    
+    gismo::gsMatrix<scalar>& matrix = *baseMatrix;
+    
+    if(existingDims == Vector<bool>(false,false,false))
     /*
         b0 +
         0    + 0      + 0 +
@@ -624,13 +810,15 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         0    + 0      + 0
     */
     {
-        scalar m000 = computeMoment(vector(0,0,0));
-        if(m000==0)
-            FatalErrorInFunction<<"Moment can not be zero!"<<exit(FatalError);
-        b[0] = 1.0/m000;
+        if(matrix.cols()!=1)
+            FatalErrorInFunction<<"Invalid matrix size"<<exit(FatalError);
+        b[0] = 1.0/matrix(0,0);
     }
     else if(numberDims==1)
-    {        
+    {
+        if(matrix.cols()!=3)
+            FatalErrorInFunction<<"Invalid matrix size"<<exit(FatalError);
+        
         if(listDims[0]==0)
         /*
             b0 +
@@ -640,7 +828,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         */
         {
             gismo::gsMatrix<scalar> x;
-            solveWeights<3>(rescalingDiagonal1D(0),computeMomentMatrix1D(0),x,solStrategy);
+            solveWeights<3>(rescalingDiagonal1D(0),std::move(baseMatrix),x,solStrategy);
             b[0] = x(0,0);
             b[1] = x(1,0);
             b[7] = x(2,0);            
@@ -654,7 +842,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         */
         {
             gismo::gsMatrix<scalar> x;
-            solveWeights<3>(rescalingDiagonal1D(1),computeMomentMatrix1D(1),x,solStrategy);
+            solveWeights<3>(rescalingDiagonal1D(1),std::move(baseMatrix),x,solStrategy);
             b[0] = x(0,0);
             b[2] = x(1,0);
             b[8] = x(2,0);
@@ -668,7 +856,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         */
         {
             gismo::gsMatrix<scalar> x;
-            solveWeights<3>(rescalingDiagonal1D(2),computeMomentMatrix1D(2),x,solStrategy);
+            solveWeights<3>(rescalingDiagonal1D(2),std::move(baseMatrix),x,solStrategy);
             b[0] = x(0,0);
             b[3] = x(1,0);
             b[9] = x(2,0);
@@ -677,7 +865,10 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
     }
     else if(numberDims==2)
-    {        
+    {
+        if(matrix.cols()!=6)
+            FatalErrorInFunction<<"Invalid matrix size"<<exit(FatalError);
+        
         if(listDims[0]==0 && listDims[1]==1)
         /*
             b0 +
@@ -687,7 +878,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         */
         {
             gismo::gsMatrix<scalar> x;
-            solveWeights<6>(rescalingDiagonal2D(2),computeMomentMatrix2D({0,1}),x,solStrategy);
+            solveWeights<6>(rescalingDiagonal2D(2),std::move(baseMatrix),x,solStrategy);
             b[0] = x(0,0);
             b[1] = x(1,0);
             b[2] = x(2,0);
@@ -704,7 +895,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         */
         {
             gismo::gsMatrix<scalar> x;
-            solveWeights<6>(rescalingDiagonal2D(0),computeMomentMatrix2D({1,2}),x,solStrategy);           
+            solveWeights<6>(rescalingDiagonal2D(0),std::move(baseMatrix),x,solStrategy);           
             b[0] = x(0,0);
             b[2] = x(1,0);
             b[3] = x(2,0);
@@ -721,7 +912,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         */
         {
             gismo::gsMatrix<scalar> x;
-            solveWeights<6>(rescalingDiagonal2D(1),computeMomentMatrix2D({0,2}),x,solStrategy);
+            solveWeights<6>(rescalingDiagonal2D(1),std::move(baseMatrix),x,solStrategy);
             b[0] = x(0,0);
             b[1] = x(1,0);
             b[3] = x(2,0);
@@ -740,8 +931,11 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         (x-s)²b7     + (y-t)²b8     + (z-v)²b9
     */
     {
+        if(matrix.cols()!=10)
+            FatalErrorInFunction<<"Invalid matrix size"<<exit(FatalError);
+        
         gismo::gsMatrix<scalar> x;
-        solveWeights<10>(rescalingDiagonal3D(),computeMomentMatrix3D(),x,solStrategy);
+        solveWeights<10>(rescalingDiagonal3D(),std::move(baseMatrix),x,solStrategy);
         for(label i=0; i<10; i++)
             b[i] = x(i,0);
     }
