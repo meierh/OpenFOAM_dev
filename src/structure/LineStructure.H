@@ -108,10 +108,10 @@ class LagrangianMarker
         
         vector h_plus;
         vector h_minus;
-        Pair<vector> minMaxNeighbourWidth(const List<Pair<label>>& support);
+        Pair<vector> minMaxNeighbourWidth(const List<Pair<label>>& support) const;
         
         vector dilation;
-        vector dilationFactors(Pair<vector> h);
+        vector dilationFactors(Pair<vector> h) const;
         
         FixedList<scalar,10> b;
         
@@ -125,6 +125,7 @@ class LagrangianMarker
         std::unique_ptr<std::array<scalar,6>> rescalingDiagonal2D(label normalDim) const;
         std::unique_ptr<std::array<scalar,3>> rescalingDiagonal1D(label dim) const;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentsMatrix(Vector<bool> dims) const;
+        Vector<bool> analyseMomentsMatrix(Vector<bool> dimensions, const gismo::gsMatrix<scalar>& momentsMatrix) const;
         void computeCorrectionWeights();
         
         enum WeightSystemSolve {Raw,GeoRescaled,DiagRescaled};

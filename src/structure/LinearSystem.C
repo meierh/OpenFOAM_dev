@@ -69,6 +69,63 @@ void Foam::linearSolve
     }
 }
 
+void Foam::luDecomposition
+(
+    const gismo::gsMatrix<scalar>& A,
+    gismo::gsMatrix<scalar>& L,
+    gismo::gsMatrix<scalar>& U
+)
+{
+    if(A.cols()!=A.rows())
+        FatalErrorInFunction<<"Matrix must be square"<<exit(FatalError);
+    const label n = A.cols();
+    
+    L = gismo::gsMatrix<scalar>(n,n);
+    U = gismo::gsMatrix<scalar>(n,n);
+    for(label c=0; c<n; c++)
+    {
+        for(label r=0; r<n; r++)
+        {
+            L(r,c) = 0;
+            U(r,c) = 0;
+        }
+    }
+    
+    for (label i=0; i<n; i++) 
+    {
+        // Upper Triangular
+        for (label k=i; k<n; k++)
+        {
+            // Summation of L(i, j) * U(j, k)
+            scalar sum = 0;
+            for (label j=0; j<i; j++)
+                sum += (L(i,j) * U(j,k));
+
+            // Evaluating U(i, k)
+            U(i,k) = A(i,k) - sum;
+        }
+
+        // Lower Triangular
+        for (label k=i; k<n; k++) 
+        {
+            if (i == k)
+                L(i,i) = 1; // Diagonal as 1
+            else 
+            {
+                // Summation of L(k, j) * U(j, i)
+                scalar sum = 0;
+                for (label j=0; j<i; j++)
+                    sum += (L(k,j) * U(j,i));
+
+                // Evaluating L(k, i)
+                if(U(i,i)==0)
+                    FatalErrorInFunction<<"Divide by zero error incoming!"<<exit(FatalError);
+                L(k,i) = (A(k,i) - sum) / U(i,i);
+            }
+        }
+    }
+}
+
 void Foam::svd
 (
     const gismo::gsMatrix<scalar>& A,
@@ -133,7 +190,8 @@ void Foam::svd
 void Foam::eig
 (
     const gismo::gsMatrix<scalar>& A,
-    gismo::gsMatrix<scalar>& eigenvalues
+    gismo::gsMatrix<scalar>& eigenvalues,
+    gismo::gsMatrix<scalar>& eigenvectors
 )
 {
     if(A.rows()!=A.cols())
@@ -150,10 +208,23 @@ void Foam::eig
         }
     }
     gsl_vector* eval = gsl_vector_alloc(N);
-    gsl_eigen_symm_workspace* w = gsl_eigen_symm_alloc(N);
+    gsl_matrix* evec = gsl_matrix_alloc(N,N);
+    gsl_eigen_symmv_workspace* w = gsl_eigen_symmv_alloc(N);
     
-    gsl_eigen_symm(A_gsl,eval,w);
-        
+    gsl_eigen_symmv(A_gsl,eval,evec,w);
+
+    auto gsl_to_gismo_matrix = [](gsl_matrix* gsl_mat, gismo::gsMatrix<scalar>& gismo_mat)
+    {
+        gismo_mat = gismo::gsMatrix<scalar>(gsl_mat->size1,gsl_mat->size2);
+        for(std::size_t row=0; row<gsl_mat->size1; row++)
+        {
+            for(std::size_t col=0; col<gsl_mat->size2; col++)
+            {
+                gismo_mat(row,col) = gsl_matrix_get(gsl_mat,row,col);
+            }
+        }
+    };
+    
     auto gsl_to_gismo_vector = [](gsl_vector* gsl_vec, gismo::gsMatrix<scalar>& gismo_vec)
     {
         gismo_vec = gismo::gsMatrix<scalar>(gsl_vec->size,1);
@@ -162,68 +233,15 @@ void Foam::eig
             gismo_vec(row,0) = gsl_vector_get(gsl_vec,row);
         }
     };
+    
+    gsl_to_gismo_matrix(evec,eigenvectors);
     gsl_to_gismo_vector(eval,eigenvalues);
+    
     
     gsl_matrix_free(A_gsl);
     gsl_vector_free(eval);
-    gsl_eigen_symm_free(w);
-}
-
-void Foam::luDecomposition
-(
-    const gismo::gsMatrix<scalar>& A,
-    gismo::gsMatrix<scalar>& L,
-    gismo::gsMatrix<scalar>& U
-)
-{
-    if(A.cols()!=A.rows())
-        FatalErrorInFunction<<"Matrix must be square"<<exit(FatalError);
-    const label n = A.cols();
-    
-    L = gismo::gsMatrix<scalar>(n,n);
-    U = gismo::gsMatrix<scalar>(n,n);
-    for(label c=0; c<n; c++)
-    {
-        for(label r=0; r<n; r++)
-        {
-            L(r,c) = 0;
-            U(r,c) = 0;
-        }
-    }
-    
-    for (label i=0; i<n; i++) 
-    {
-        // Upper Triangular
-        for (label k=i; k<n; k++)
-        {
-            // Summation of L(i, j) * U(j, k)
-            scalar sum = 0;
-            for (label j=0; j<i; j++)
-                sum += (L(i,j) * U(j,k));
-
-            // Evaluating U(i, k)
-            U(i,k) = A(i,k) - sum;
-        }
-
-        // Lower Triangular
-        for (label k=i; k<n; k++) 
-        {
-            if (i == k)
-                L(i,i) = 1; // Diagonal as 1
-            else 
-            {
-                // Summation of L(k, j) * U(j, i)
-                scalar sum = 0;
-                for (label j=0; j<i; j++)
-                    sum += (L(k,j) * U(j,i));
-
-                // Evaluating L(k, i)
-                if(U(i,i)==0)
-                    FatalErrorInFunction<<"Divide by zero error incoming!"<<exit(FatalError);
-                L(k,i) = (A(k,i) - sum) / U(i,i);
-            }
-        }
-    }
+    gsl_matrix_free(evec);
+    gsl_eigen_symmv_free(w);
 }
 
 scalar Foam::determinant
@@ -231,8 +249,8 @@ scalar Foam::determinant
     const gismo::gsMatrix<scalar>& A
 )
 {
-    gismo::gsMatrix<scalar> eval;
-    eig(A,eval);
+    gismo::gsMatrix<scalar> eval,evec;
+    eig(A,eval,evec);
     
     scalar det=1;
     for(label row=0; row<eval.rows(); row++)
@@ -245,8 +263,8 @@ scalar Foam::condition
     const gismo::gsMatrix<scalar>& A
 )
 {
-    gismo::gsMatrix<scalar> eval;
-    eig(A,eval);
+    gismo::gsMatrix<scalar> eval,evec;
+    eig(A,eval,evec);
     
     std::vector<scalar> evalList;
     for(label row=0; row<eval.rows(); row++)
@@ -255,6 +273,29 @@ scalar Foam::condition
     scalar minEval = *std::min_element(evalList.begin(),evalList.end());
     
     return maxEval/minEval;    
+}
+
+void Foam::invertableInfo
+(
+    const gismo::gsMatrix<scalar>& A,
+    gismo::gsMatrix<scalar>& eigenvalues,
+    gismo::gsMatrix<scalar>& eigenvectors,
+    scalar& determinant,
+    scalar& condition
+)
+{
+    eig(A,eigenvalues,eigenvectors);
+    
+    determinant = 1;
+    for(label row=0; row<eigenvalues.rows(); row++)
+        determinant *= eigenvalues(row,0);
+    
+    std::vector<scalar> evalList;
+    for(label row=0; row<eigenvalues.rows(); row++)
+        evalList.push_back(std::abs(eigenvalues(row,0)));
+    scalar maxEval = *std::max_element(evalList.begin(),evalList.end());
+    scalar minEval = *std::min_element(evalList.begin(),evalList.end());
+    condition = maxEval/minEval;    
 }
 
 void Foam::linearSolve_ConjugateGradient

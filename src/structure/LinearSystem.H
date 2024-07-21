@@ -50,7 +50,8 @@ namespace Foam
     void eig
     (
         const gismo::gsMatrix<scalar>& A,
-        gismo::gsMatrix<scalar>& eigenvalues
+        gismo::gsMatrix<scalar>& eigenvalues,
+        gismo::gsMatrix<scalar>& eigenvectors
     );
 
     scalar determinant
@@ -61,6 +62,15 @@ namespace Foam
     scalar condition 
     (
         const gismo::gsMatrix<scalar>& A
+    );
+    
+    void invertableInfo
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& eigenvalues,
+        gismo::gsMatrix<scalar>& eigenvectors,
+        scalar& determinant,
+        scalar& condition
     );
     
     void linearSolve_ConjugateGradient

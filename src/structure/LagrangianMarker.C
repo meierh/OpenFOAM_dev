@@ -79,14 +79,47 @@ std::string Foam::LagrangianMarker::to_string() const
 {
     return std::to_string(markerParameter)+" cell:"+std::to_string(markerCell)+" pos:("+
            std::to_string(markerPosition[0])+","+std::to_string(markerPosition[1])+","+
-           std::to_string(markerPosition[2])+")"+" vol:"+std::to_string(markerVolume);
+           std::to_string(markerPosition[2])+")"+" vol:"+std::to_string(markerVolume)+" dilation:("+
+           std::to_string(dilation[0])+","+std::to_string(dilation[1])+","+
+           std::to_string(dilation[2])+")";
 }
 
 void Foam::LagrangianMarker::total_print() const
 {
-    Pout<<to_string()<<Foam::endl;
-    Pout<<"\t directSupport:"<<directSupport<<Foam::endl;
-    Pout<<"\t fullSupport:"<<fullSupport<<Foam::endl;
+    const cellList& cellList = mesh.cells();
+    const faceList& facesList = mesh.faces();
+    const pointField& points = mesh.points();
+    
+    Info<<"h_plus:"<<h_plus<<Foam::endl;
+    Info<<"h_minus:"<<h_minus<<Foam::endl;
+    Info<<"dilation:"<<dilation<<Foam::endl;
+    
+    Pair<vector> h = minMaxNeighbourWidth(directSupport);
+    Info<<"h:"<<h<<Foam::endl;
+    
+    auto printCell = [&](Pair<label> cell)
+    {
+        Info<<"cell:"<<cell.second();
+        if(cell.first()!=Pstream::myProcNo())
+            Info<<Foam::endl;
+        else
+        {
+            vector centre = cellList[cell.second()].centre(points,facesList);
+            vector dist = centre - markerPosition;
+            Info<<" : "<<"dist:"<<dist<<" -- "<<deltaDirac(markerPosition,centre)<<Foam::endl;
+        }
+    };
+    
+    Pout<<"\t directSupport:"<<Foam::endl;
+    for(auto cell : directSupport)
+    {
+        printCell(cell);
+    }
+    Pout<<"\t fullSupport:"<<Foam::endl;
+    for(auto cell : fullSupport)
+    {
+        printCell(cell);
+    }
 }
 
 void Foam::LagrangianMarker::evaluateMarker()
@@ -249,7 +282,7 @@ void Foam::LagrangianMarker::computeSupport
 Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
 (
     const List<Pair<label>>& support
-)
+) const
 {
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
@@ -258,7 +291,7 @@ Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
     vector minSpan;
     vector maxSpan;
         
-    if(support.size()>0 && markerCell!=-1)
+    if(support.size()>1 && markerCell!=-1)
     {
         scalar min = std::numeric_limits<scalar>::min();
         scalar max = std::numeric_limits<scalar>::max();
@@ -267,22 +300,33 @@ Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
         
         vector cellCentreC = cells[markerCell].centre(points,faces);
         
+        //Info<<"Pstream::myProcNo():"<<Pstream::myProcNo()<<" markerCell:"<<markerCell<<Foam::endl;
+        
+        
         for(label i=0; i<support.size(); i++)
         {
             const Pair<label>& neiCellDataA = support[i];
-            vector cellCentreN;
-            scalar cellVolN;
-            getCellData(neiCellDataA,cellCentreN,cellVolN);
+            //Info<<"ProcNo:"<<neiCellDataA.first()<<" markerCell:"<<neiCellDataA.second()<<Foam::endl;
             
-            vector centreToNeighbour = cellCentreN-cellCentreC; 
-                     
-            for(label d=0; d<3; d++)
+            if(neiCellDataA.first()!=Pstream::myProcNo() || neiCellDataA.second()!=markerCell)
             {
-                centreToNeighbour[d] = std::abs(centreToNeighbour[d]);
-                minSpan[d] = std::min(minSpan[d],centreToNeighbour[d]);
-                maxSpan[d] = std::max(maxSpan[d],centreToNeighbour[d]);
+                vector cellCentreN;
+                scalar cellVolN;
+                getCellData(neiCellDataA,cellCentreN,cellVolN);
+                
+                vector centreToNeighbour = cellCentreN-cellCentreC;
+                //Info<<"centreToNeighbour:"<<centreToNeighbour<<Foam::endl;
+                        
+                for(label d=0; d<3; d++)
+                {
+                    centreToNeighbour[d] = std::abs(centreToNeighbour[d]);
+                    minSpan[d] = std::min(minSpan[d],centreToNeighbour[d]);
+                    maxSpan[d] = std::max(maxSpan[d],centreToNeighbour[d]);
+                }
             }
         }
+        //Info<<"maxSpan:"<<maxSpan<<Foam::endl;
+        //Info<<"minSpan:"<<minSpan<<Foam::endl;
     }
     else
     {
@@ -291,21 +335,30 @@ Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
         minSpan = vector(max,max,max);
         maxSpan = vector(min,min,min);
     }
-    
     return Pair<vector>(maxSpan,minSpan);
 }
 
 vector Foam::LagrangianMarker::dilationFactors
 (
     Pair<vector> h
-)
+) const
 {
     vector maxSpan = h.first();
     vector minSpan = h.second();
-    
-    scalar eps = 0.1*std::sqrt(minSpan&minSpan);
-    vector dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
-    return dilation;
+    if(markerCell!=-1)
+    {
+        //Info<<"cell:"<<markerCell<<"  spans:"<<maxSpan<<"/"<<minSpan<<Foam::endl;
+        scalar eps = 0.1*std::sqrt(minSpan&minSpan);
+        vector dilation = 5.0/6.0 * maxSpan + 1.0/6.0 * minSpan + vector(eps,eps,eps);
+        if(dilation[0]==0 || dilation[1]==0 || dilation[2]==0)
+            FatalErrorInFunction<<"Invalid dilation"<<exit(FatalError);
+        return dilation;
+    }
+    else
+    {
+        scalar max = std::numeric_limits<scalar>::max()/1e100;
+        return vector(max,max,max);
+    }
 }
 
 void Foam::LagrangianMarker::getCellData
@@ -671,32 +724,39 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentsM
     return matrixPtr;
 }
 
+Vector<bool> Foam::LagrangianMarker::analyseMomentsMatrix
+(
+    Vector<bool> dimensions,
+    const gismo::gsMatrix<scalar>& momentsMatrix
+) const
+{
+    gismo::gsMatrix<scalar> evals,evecs;
+    scalar determinant,condition;
+    invertableInfo(momentsMatrix,evals,evecs,determinant,condition);
+    
+    std::cout<<"eval:"<<evals<<std::endl;
+    std::cout<<"evecs:"<<std::endl<<evecs<<std::endl;
+    std::cout<<"det:"<<determinant<<std::endl;
+    std::cout<<"cond:"<<condition<<std::endl;
+    
+    return {false,false,false};
+}
+
 void Foam::LagrangianMarker::computeCorrectionWeights()
 {
-    std::cout<<std::endl;
-    Pout<<"----------- computeCorrectionWeights ---------------"<<Foam::endl;
+    Pout<<Foam::endl<<"----------- computeCorrectionWeights ---------------"<<Foam::endl;
     Info<<"existingDims:"<<existingDims<<Foam::endl;
-    
-    std::unique_ptr<gismo::gsMatrix<scalar>> baseMatrix = computeMomentsMatrix(existingDims);
-    std::cout<<*baseMatrix<<std::endl;
-    gismo::gsMatrix<scalar> eval;
-    eig(*baseMatrix,eval);
-    std::cout<<"eval:"<<eval<<std::endl;
-    std::cout<<"det:"<<determinant(*baseMatrix)<<std::endl;
-    std::cout<<"cond:"<<condition(*baseMatrix)<<std::endl;
-    
+
+    std::unique_ptr<gismo::gsMatrix<scalar>> baseMatrix = computeMomentsMatrix(existingDims);    
     scalar detBaseMatrix = determinant(*baseMatrix);
-    scalar detThreshold = 1e-6;
-    
-    Pout<<"Marker computeCorrectionWeights"<<Foam::endl;
+    scalar condBaseMatrix = condition(*baseMatrix);
+    scalar detThreshold = 1e-10;
+    scalar condThreshold = 1e4;
     Pout<<to_string()<<Foam::endl;
-    //total_print();
+    total_print();
     
-    std::cout<<"detBaseMatrix:"<<detBaseMatrix<<std::endl<<std::endl;
-    
-    return;
-    
-    Barrier(true);
+    std::cout<<"detBaseMatrix:"<<detBaseMatrix<<std::endl;
+    std::cout<<"condBaseMatrix:"<<condBaseMatrix<<std::endl;
     
     if(detBaseMatrix<detThreshold)
     {
@@ -720,15 +780,20 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             
             std::unique_ptr<gismo::gsMatrix<scalar>> redDimMatrix = computeMomentsMatrix(reducedDims);
             scalar detRedDimMatrix = determinant(*redDimMatrix);
-            if(detRedDimMatrix<detThreshold)
+            
+            Info<<"Hide 1: Exist:"<<existingDims<<" hide:"<<hidePattern<<" try:"<<reducedDims<<" -> "<<detRedDimMatrix<<" < "<<detThreshold<<Foam::endl;
+            if(detRedDimMatrix>=detThreshold)
             {
                 dimToHide.append(dim);
                 baseMatrix = std::move(redDimMatrix);
-                existingDims = reducedDims;
+                newExistingDims = reducedDims;
             }
         }
         if(dimToHide.size()>1)
+        {
+            Info<<"dimToHide:"<<dimToHide<<Foam::endl;
             FatalErrorInFunction<<"More than two options to hide not possible"<<exit(FatalError);
+        }
         
         if(dimToHide.size()==0)
         {
@@ -742,6 +807,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
                 
                 std::unique_ptr<gismo::gsMatrix<scalar>> redDimMatrix = computeMomentsMatrix(reducedDims);
                 scalar detRedDimMatrix = determinant(*redDimMatrix);
+                Info<<"Hide 2: Exist:"<<existingDims<<" hide:"<<hidePattern<<" try:"<<reducedDims<<" -> "<<detRedDimMatrix<<" < "<<detThreshold<<Foam::endl;
                 if(detRedDimMatrix<detThreshold)
                 {
                     dimToHide.append(dim);
@@ -789,7 +855,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         
         std::unique_ptr<gismo::gsMatrix<scalar>> new_baseMatrix = computeMomentsMatrix(existingDims);
         scalar new_detBaseMatrix = determinant(*new_baseMatrix);
-        
+        Info<<"Gen new Exist:"<<existingDims<<" new_detBaseMatrix:"<<new_detBaseMatrix<<" < "<<detThreshold<<Foam::endl;
         if(new_detBaseMatrix>=detThreshold)
         {
             baseMatrix = std::move(new_baseMatrix);
@@ -800,6 +866,11 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
             existingDims = newExistingDims;
         }
     }
+    
+    Barrier(true);
+    return;
+    
+    Barrier(true);
     
     label numberDims = 0;
     DynamicList<label> listDims;
