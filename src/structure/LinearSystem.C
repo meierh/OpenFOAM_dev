@@ -69,6 +69,106 @@ void Foam::linearSolve
     }
 }
 
+void Foam::svd
+(
+    const gismo::gsMatrix<scalar>& A,
+    gismo::gsMatrix<scalar>& U,
+    gismo::gsMatrix<scalar>& S,
+    gismo::gsMatrix<scalar>& V
+)
+{
+    const std::size_t M = A.rows();
+    const std::size_t N = A.cols();
+    
+    gsl_matrix* A_gsl = gsl_matrix_alloc(M,N);
+    for(std::size_t row=0; row<M; row++)
+    {
+        for(std::size_t col=0; col<N; col++)
+        {
+            gsl_matrix_set(A_gsl,row,col,A(row,col));
+        }
+    }
+
+    gsl_matrix* U_gsl = nullptr;
+    gsl_matrix* V_gsl = gsl_matrix_alloc(N,N);
+    gsl_vector* S_gsl = gsl_vector_alloc(N);
+    gsl_vector* work = gsl_vector_alloc(N);
+
+    int errCode = gsl_linalg_SV_decomp(A_gsl,V_gsl,S_gsl,work);
+    if(errCode)
+        FatalErrorInFunction<<"Error in SVD"<<exit(FatalError);
+    U_gsl = A_gsl;
+
+    auto gsl_to_gismo_matrix = [](gsl_matrix* gsl_mat, gismo::gsMatrix<scalar>& gismo_mat)
+    {
+        gismo_mat = gismo::gsMatrix<scalar>(gsl_mat->size1,gsl_mat->size2);
+        for(std::size_t row=0; row<gsl_mat->size1; row++)
+        {
+            for(std::size_t col=0; col<gsl_mat->size2; col++)
+            {
+                gismo_mat(row,col) = gsl_matrix_get(gsl_mat,row,col);
+            }
+        }
+    };
+    
+    auto gsl_to_gismo_vector = [](gsl_vector* gsl_vec, gismo::gsMatrix<scalar>& gismo_vec)
+    {
+        gismo_vec = gismo::gsMatrix<scalar>(gsl_vec->size,0);
+        for(std::size_t row=0; row<gsl_vec->size; row++)
+        {
+            gismo_vec(row,1) = gsl_vector_get(gsl_vec,row);
+        }
+    };
+    
+    gsl_to_gismo_matrix(U_gsl,U);
+    gsl_to_gismo_matrix(V_gsl,V);
+    gsl_to_gismo_vector(S_gsl,S);
+
+    gsl_matrix_free(U_gsl);
+    gsl_matrix_free(V_gsl);
+    gsl_vector_free(S_gsl);
+    gsl_vector_free(work);
+}
+
+void Foam::eig
+(
+    const gismo::gsMatrix<scalar>& A,
+    gismo::gsMatrix<scalar>& eigenvalues
+)
+{
+    if(A.rows()!=A.cols())
+        FatalErrorInFunction<<"Eigenvalues only for square matrix"<<exit(FatalError);
+    
+    std::size_t N = A.rows();
+    
+    gsl_matrix* A_gsl = gsl_matrix_alloc(N,N);
+    for(std::size_t row=0; row<N; row++)
+    {
+        for(std::size_t col=0; col<N; col++)
+        {
+            gsl_matrix_set(A_gsl,row,col,A(row,col));
+        }
+    }
+    gsl_vector* eval = gsl_vector_alloc(N);
+    gsl_eigen_symm_workspace* w = gsl_eigen_symm_alloc(N);
+    
+    gsl_eigen_symm(A_gsl,eval,w);
+        
+    auto gsl_to_gismo_vector = [](gsl_vector* gsl_vec, gismo::gsMatrix<scalar>& gismo_vec)
+    {
+        gismo_vec = gismo::gsMatrix<scalar>(gsl_vec->size,1);
+        for(std::size_t row=0; row<gsl_vec->size; row++)
+        {
+            gismo_vec(row,0) = gsl_vector_get(gsl_vec,row);
+        }
+    };
+    gsl_to_gismo_vector(eval,eigenvalues);
+    
+    gsl_matrix_free(A_gsl);
+    gsl_vector_free(eval);
+    gsl_eigen_symm_free(w);
+}
+
 void Foam::luDecomposition
 (
     const gismo::gsMatrix<scalar>& A,
@@ -131,17 +231,30 @@ scalar Foam::determinant
     const gismo::gsMatrix<scalar>& A
 )
 {
-    gismo::gsMatrix<scalar> L;
-    gismo::gsMatrix<scalar> U;
-    luDecomposition(A,L,U);
+    gismo::gsMatrix<scalar> eval;
+    eig(A,eval);
     
-    const label n = A.cols();
-    scalar det = 1;
-    for(label c=0; c<n; c++)
-    {
-        det *= L(c,c)*U(c,c);
-    }
+    scalar det=1;
+    for(label row=0; row<eval.rows(); row++)
+        det *= eval(row,0);
     return det;    
+}
+
+scalar Foam::condition
+(
+    const gismo::gsMatrix<scalar>& A
+)
+{
+    gismo::gsMatrix<scalar> eval;
+    eig(A,eval);
+    
+    std::vector<scalar> evalList;
+    for(label row=0; row<eval.rows(); row++)
+        evalList.push_back(std::abs(eval(row,0)));
+    scalar maxEval = *std::max_element(evalList.begin(),evalList.end());
+    scalar minEval = *std::min_element(evalList.begin(),evalList.end());
+    
+    return maxEval/minEval;    
 }
 
 void Foam::linearSolve_ConjugateGradient

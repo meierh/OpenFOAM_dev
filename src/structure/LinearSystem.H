@@ -6,6 +6,9 @@
 #include "activeRodMesh.h"
 #pragma GCC diagnostic pop 
 
+#include "gsl/gsl_linalg.h"
+#include "gsl/gsl_eigen.h"
+
 #include "fvCFD.H"
 #include <limits>
 #include <queue>
@@ -35,8 +38,27 @@ namespace Foam
         gismo::gsMatrix<scalar>& L,
         gismo::gsMatrix<scalar>& U
     );
+    
+    void svd
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& U,
+        gismo::gsMatrix<scalar>& S,
+        gismo::gsMatrix<scalar>& V
+    );
+    
+    void eig
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& eigenvalues
+    );
 
     scalar determinant
+    (
+        const gismo::gsMatrix<scalar>& A
+    );
+    
+    scalar condition 
     (
         const gismo::gsMatrix<scalar>& A
     );

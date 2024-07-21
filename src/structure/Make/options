@@ -21,6 +21,7 @@ EXE_INC = \
     -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/external \
     -isystem${WM_THIRD_PARTY_DIR}/gismo-stable_20160712/build \
     -isystem${WM_THIRD_PARTY_DIR}/SuiteSparse/include \
+    -isystem$(WM_THIRD_PARTY_DIR)/gsl-2.8/build/include \
     -std=c++14
 
 LIB_LIBS = \
@@ -30,6 +31,7 @@ LIB_LIBS = \
     -ldynamicMesh \
     -lfvMotionSolvers \
     $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
+    $(WM_THIRD_PARTY_DIR)/gsl-2.8/build/lib/libgsl.a \
     -L$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/build/cmake_build \
     -lActiveRodMesh \
     -L$(WM_THIRD_PARTY_DIR)/nlopt/build \

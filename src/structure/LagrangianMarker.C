@@ -479,9 +479,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
             indices[i][j] = index;
         }
     }
-    
-    Pout<<indices<<Foam::endl;
-    
+        
     auto moments2DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(6,6));
     gismo::gsMatrix<scalar>& moments2D = *moments2DPtr;
     for(uint i=0; i<gen3DIndices.size(); i++)
@@ -675,9 +673,30 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentsM
 
 void Foam::LagrangianMarker::computeCorrectionWeights()
 {
+    std::cout<<std::endl;
+    Pout<<"----------- computeCorrectionWeights ---------------"<<Foam::endl;
+    Info<<"existingDims:"<<existingDims<<Foam::endl;
+    
     std::unique_ptr<gismo::gsMatrix<scalar>> baseMatrix = computeMomentsMatrix(existingDims);
+    std::cout<<*baseMatrix<<std::endl;
+    gismo::gsMatrix<scalar> eval;
+    eig(*baseMatrix,eval);
+    std::cout<<"eval:"<<eval<<std::endl;
+    std::cout<<"det:"<<determinant(*baseMatrix)<<std::endl;
+    std::cout<<"cond:"<<condition(*baseMatrix)<<std::endl;
+    
     scalar detBaseMatrix = determinant(*baseMatrix);
     scalar detThreshold = 1e-6;
+    
+    Pout<<"Marker computeCorrectionWeights"<<Foam::endl;
+    Pout<<to_string()<<Foam::endl;
+    //total_print();
+    
+    std::cout<<"detBaseMatrix:"<<detBaseMatrix<<std::endl<<std::endl;
+    
+    return;
+    
+    Barrier(true);
     
     if(detBaseMatrix<detThreshold)
     {

@@ -33,7 +33,10 @@ crossSecArea(crossSecArea)
     for(LagrangianMarker& marker : *(rodMarkersList[0]))
         Pout<<marker.to_string()<<Foam::endl;
     Info<<"computeMarkerCellWeights"<<Foam::endl;
-    computeMarkerCellWeights();   
+    computeMarkerCellWeights();
+    
+    Barrier(true);
+    
     Info<<"collectHaloMarkers"<<Foam::endl;
     collectHaloMarkers();
     Info<<"exchangeHaloMarkersData"<<Foam::endl;
