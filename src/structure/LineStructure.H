@@ -113,31 +113,31 @@ class LagrangianMarker
         vector dilation;
         vector dilationFactors(Pair<vector> h) const;
         
+        void checkDirectSupport() const;
+        void reduceSupport();
+        
         FixedList<scalar,10> b;
         
+        enum WeightSystemSolve {Raw,RowAequilibration,ColAequilibration,GeoRescaled,DiagRescaled};
         scalar computeMoment(vector indices, std::function<scalar(vector,vector)> deltaFunction) const;
         scalar computeCorrectedMoment(vector indices) const;
         scalar computeMoment(vector indices) const;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix3D() const ;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix2D(std::array<label,2> dim) const;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentMatrix1D(label dim) const;
-        std::unique_ptr<std::array<scalar,10>> rescalingDiagonal3D() const;
-        std::unique_ptr<std::array<scalar,6>> rescalingDiagonal2D(label normalDim) const;
-        std::unique_ptr<std::array<scalar,3>> rescalingDiagonal1D(label dim) const;
-        std::unique_ptr<gismo::gsMatrix<scalar>> computeMomentsMatrix(Vector<bool> dims) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> rescalingDiagonal3D() const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> rescalingDiagonal2D(label normalDim) const;
+        std::unique_ptr<gismo::gsMatrix<scalar>> rescalingDiagonal1D(label dim) const;
+        std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> computeMomentsMatrix(Vector<bool> dims) const;
+        std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> computeMomentsMatrix
+        (
+            Vector<bool> dims,
+            WeightSystemSolve solutionStrategy
+        ) const;
         Vector<bool> analyseMomentsMatrix(Vector<bool> dimensions, const gismo::gsMatrix<scalar>& momentsMatrix) const;
         void computeCorrectionWeights();
         
-        enum WeightSystemSolve {Raw,GeoRescaled,DiagRescaled};
-        template<uint dim>
-        void solveWeights
-        (
-            std::unique_ptr<std::array<scalar,dim>> Hptr,
-            std::unique_ptr<gismo::gsMatrix<scalar>> Mptr,
-            gismo::gsMatrix<scalar>& x,
-            WeightSystemSolve solutionStrategy = WeightSystemSolve::GeoRescaled
-        );
-
+        WeightSystemSolve solutionStrategy = WeightSystemSolve::Raw;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
 #include "LagrangianMarker.T.H"
