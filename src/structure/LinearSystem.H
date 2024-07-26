@@ -12,9 +12,73 @@
 #include "fvCFD.H"
 #include <limits>
 #include <queue>
+#include <unordered_set>
 
 namespace Foam
 {
+    void compute_Ay
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& Ay,
+        double y
+    );
+    
+    void compute_ATy
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& ATy,
+        double y
+    );
+    
+    void compute_c
+    (
+        const gismo::gsMatrix<scalar>& A,
+        scalar alpha,
+        std::unordered_set<label>& c
+    );
+
+    void compute_fa
+    (
+        const gismo::gsMatrix<scalar>& A,
+        const std::unordered_set<label>& c,
+        scalar alpha,
+        scalar tau,
+        std::unordered_set<label>& fa
+    );
+
+    void compute_fb
+    (
+        const gismo::gsMatrix<scalar>& A,
+        std::unordered_set<label>& c,
+        const std::unordered_set<label>& fa,
+        scalar alpha,
+        scalar delta,
+        std::unordered_set<label>& fb
+    );
+
+    void compute_f
+    (
+        const std::unordered_set<label>& fa,
+        const std::unordered_set<label>& fb,
+        std::unordered_set<label>& f
+    );
+
+    void coarsening
+    (
+        const gismo::gsMatrix<scalar>& A,
+        scalar alpha,
+        scalar tau,
+        scalar delta
+    );
+    
+    void algebraicMultigrid
+    (
+        const gismo::gsMatrix<scalar>& A,
+        gismo::gsMatrix<scalar>& x,
+        const gismo::gsMatrix<scalar>& b,
+        scalar tol
+    );
+    
     void linearSolve
     (
         const gismo::gsMatrix<scalar>& A,
@@ -141,34 +205,39 @@ namespace Foam
             bool global;
     };
     
+    class CSR_DiagMatrix_par;
+    
     class CSR_Matrix_par
     {
         public:
             CSR_Matrix_par(label localRows, label localRowStart, label globalRows, label globalCols, bool global=true);
+            CSR_Matrix_par(const CSR_Matrix_par& vec);
             CSR_Matrix_par(bool global=true);
             
-            void addRow(List<scalar> row);
-            void addRow(List<std::pair<scalar,label>> row);
-            
-            void addRows(List<List<scalar>> rows);
+            virtual void addRow(List<scalar> row);
+            virtual void addRow(List<std::pair<scalar,label>> row);
+            virtual void addRows(List<List<scalar>> rows);
             
             Vector_par operator* (const Vector_par& vec) const;
             CSR_Matrix_par operator* (const CSR_Matrix_par& mat) const;
+            CSR_Matrix_par& operator= (const CSR_Matrix_par& mat) = default;
             scalar getDiagonal(label localRow) const;
-            scalar evalOnDiagonal(const Vector_par& vec, label localRow) const;
+            virtual scalar evalOnDiagonal(const Vector_par& vec, label localRow) const;
             bool isSquare() const;
             
-            CSR_Matrix_par diagonalMatrix() const;
-            CSR_Matrix_par offDiagonalMatrix() const;
+            virtual CSR_Matrix_par diagonalMatrix() const;
+            virtual CSR_Matrix_par offDiagonalMatrix() const;
             
             std::string to_string() const;
             std::string to_metaDataString() const;
             
             void checkCompatible(const Vector_par& vec) const;
-            void checkCompatible(const CSR_Matrix_par& vec) const;
+            void checkCompatible(const CSR_Matrix_par& mat) const;
             void globalCheck() const;
             
-        private:
+            virtual ~CSR_Matrix_par() = default;
+            
+        protected:
             void setComplete();
             
             DynamicList<scalar> V;
@@ -183,6 +252,34 @@ namespace Foam
             
             label writtenRow;
             label lastWrittenRowIndex;
+            
+            friend class CSR_DiagMatrix_par;
+    };
+    
+    class CSR_DiagMatrix_par : public CSR_Matrix_par
+    {
+        public:
+            CSR_DiagMatrix_par(label localSize, label localStart, label globalSize, bool global=true);
+            CSR_DiagMatrix_par(bool global=true);
+            CSR_DiagMatrix_par(const Vector_par& vec);
+            
+            void addRow(List<scalar> row){deleted();};
+            void addRow(List<std::pair<scalar,label>> row){deleted();};
+            void addRows(List<List<scalar>> rows){deleted();};
+            void addRow(scalar element);
+            void addRows(List<scalar> diagonal);
+            
+            CSR_Matrix_par operator* (const CSR_Matrix_par& mat) const;
+            Vector_par operator* (const Vector_par& vec) const;
+            scalar getDiagonal(label localRow) const;
+            scalar evalOnDiagonal(const Vector_par& vec, label localRow) const {deleted(); return 0;};
+            bool isSquare() const {return true;};
+            
+            CSR_Matrix_par diagonalMatrix() const {deleted(); return CSR_Matrix_par();};
+            CSR_Matrix_par offDiagonalMatrix() const {deleted(); return CSR_Matrix_par();};
+            
+        private:
+            void deleted() const {FatalErrorInFunction<<"Deleted!"<<exit(FatalError);}
     };
     
     class LinearSolver_par
@@ -221,7 +318,8 @@ namespace Foam
             label minIteration;
             label iteration=0;
             
-            Vector_par x,b;
+            Vector_par x,b,r;
+            scalar norm2_r=0;
     };
 
     class Jacobi : public LinearSolver_par
@@ -256,7 +354,7 @@ namespace Foam
         protected:
             void initIteration() override;
             bool step() override;
-            Vector_par r,d;
+            Vector_par d;
     };
     
     class BiCGSTAB : public ConjugateGradient

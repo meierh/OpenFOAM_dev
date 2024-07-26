@@ -7,6 +7,8 @@
 namespace Foam
 {
 
+enum SystemSolve {Raw,RowAequilibration,ColAequilibration,GeoRescaled,Jacobi};   
+    
 class LagrangianMarker
 {
     public:
@@ -118,7 +120,6 @@ class LagrangianMarker
         
         FixedList<scalar,10> b;
         
-        enum WeightSystemSolve {Raw,RowAequilibration,ColAequilibration,GeoRescaled,DiagRescaled};
         scalar computeMoment(vector indices, std::function<scalar(vector,vector)> deltaFunction) const;
         scalar computeCorrectedMoment(vector indices) const;
         scalar computeMoment(vector indices) const;
@@ -132,12 +133,20 @@ class LagrangianMarker
         std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> computeMomentsMatrix
         (
             Vector<bool> dims,
-            WeightSystemSolve solutionStrategy
+            SystemSolve solutionStrategy
         ) const;
         Vector<bool> analyseMomentsMatrix(Vector<bool> dimensions, const gismo::gsMatrix<scalar>& momentsMatrix) const;
+        bool checkSolvability
+        (
+            std::unique_ptr<Pair<gismo::gsMatrix<scalar>>>& system,
+            Vector<bool> dimensions
+        );
+        void searchValidConvolutionSetup(std::unique_ptr<Pair<gismo::gsMatrix<scalar>>>& system);
+        
         void computeCorrectionWeights();
         
-        WeightSystemSolve solutionStrategy = WeightSystemSolve::Raw;
+        SystemSolve solutionStrategy = SystemSolve::Raw;
+        scalar conditionThreshold = 1e5;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
 #include "LagrangianMarker.T.H"
@@ -347,6 +356,7 @@ class LineStructure : public Structure
                 
         void computeMarkerCellWeights();
 
+        SystemSolve solutionStrategy = SystemSolve::Raw;
         using LinearSystem = std::tuple<CSR_Matrix_par,Vector_par>;
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
         void computeMarkerWeights();

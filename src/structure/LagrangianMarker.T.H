@@ -16,7 +16,6 @@ VALTYPE Foam::LagrangianMarker::convolute
     const List<Pair<label>>& support
 ) const
 {
-    //Pout<<"convolute:"<<support<<Foam::endl;
     vector X = getMarkerPosition();
     VALTYPE convValue = Foam::zero();
     for(const Pair<label>& suppCell : support)
@@ -31,17 +30,5 @@ VALTYPE Foam::LagrangianMarker::convolute
         
         convValue += w*f*cellVolume;
     }
-    //Pout<<"convolute val:"<<convValue<<Foam::endl;
     return convValue;
 }
-
-/*
-void Foam::solveWeights
-(
-    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> system,
-    gismo::gsMatrix<scalar>& x
-)
-{
-    linearSolve(system->first(),x,system->second());
-}
-*/

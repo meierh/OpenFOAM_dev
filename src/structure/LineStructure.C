@@ -691,6 +691,47 @@ void Foam::LineStructure::computeMarkerWeights()
     Info<<"A:"<<A.to_string()<<Foam::endl;
     Info<<"ones:"<<ones.to_string()<<Foam::endl;
     
+    switch (solutionStrategy)
+    {
+        case SystemSolve::Raw:
+        {
+            break;
+        }
+        case SystemSolve::RowAequilibration:
+        {
+            Vector_par rowSum = A*ones;
+            for(label localRow=0; localRow<rowSum.getLocalSize().second; localRow++)
+                rowSum[localRow] = 1.0/rowSum[localRow];
+            CSR_DiagMatrix_par P(rowSum);
+            A = P*A;
+            ones = P*ones;
+            break;
+        }
+        case SystemSolve::ColAequilibration:
+        {
+            FatalErrorInFunction<<"Not implemented!"<<exit(FatalError);
+            break;
+        }
+        case SystemSolve::GeoRescaled:
+        {
+            FatalErrorInFunction<<"Not matching!"<<exit(FatalError);
+            break;
+        }
+        case SystemSolve::Jacobi:
+        {
+            CSR_Matrix_par diagA = A.diagonalMatrix();
+            Vector_par diagAVec = diagA*ones;
+            for(label localRow=0; localRow<diagAVec.getLocalSize().second; localRow++)
+                diagAVec[localRow] = 1.0/diagAVec[localRow];
+            CSR_DiagMatrix_par P(diagAVec);
+            A = P*A;
+            ones = P*ones;        
+            break;
+        }
+        default:
+            FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
+    } 
+    
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
     Info<<"eps:"<<eps.to_string()<<Foam::endl;

@@ -629,6 +629,10 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagon
 {
     auto diagPtr = std::make_unique<gismo::gsMatrix<scalar>>(10,10);
     gismo::gsMatrix<scalar>& diag = *diagPtr;
+    for(label row=0; row<diag.rows(); row++)
+        for(label col=0; col<diag.cols(); col++)
+            diag(row,col) = 0;
+    
     vector dilation = getDilation();
     
     diag(0,0) = 1;
@@ -654,6 +658,10 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagon
     
     auto diagPtr = std::make_unique<gismo::gsMatrix<scalar>>(6,6);
     gismo::gsMatrix<scalar>& diag = *diagPtr;
+    for(label row=0; row<diag.rows(); row++)
+        for(label col=0; col<diag.cols(); col++)
+            diag(row,col) = 0;
+    
     vector dilation = getDilation();
     
     diag(0,0) = 1;
@@ -695,6 +703,10 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagon
     
     auto diagPtr = std::make_unique<gismo::gsMatrix<scalar>>(3,3);
     gismo::gsMatrix<scalar>& diag = *diagPtr;
+    for(label row=0; row<diag.rows(); row++)
+        for(label col=0; col<diag.cols(); col++)
+            diag(row,col) = 0;
+    
     vector dilation = getDilation();
     
     diag(0,0) = 1;
@@ -714,7 +726,7 @@ std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMo
 std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMomentsMatrix
 (
     Vector<bool> dims,
-    WeightSystemSolve solutionStrategy
+    SystemSolve solutionStrategy
 ) const
 {
     label numberDims = 0;
@@ -781,15 +793,22 @@ std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMo
         matrixPtr = computeMomentMatrix3D();
     }
     system->first() = *matrixPtr;
+    for(label row=0; row<rhs.rows(); row++)
+        rhs(row,0) = 0;
+    rhs(0,0) = 1;
     
     gismo::gsMatrix<scalar> P(matrixPtr->rows(),matrixPtr->cols());
+    for(label row=0; row<P.rows(); row++)
+        for(label col=0; col<P.cols(); col++)
+            P(row,col) = 0;
+    
     switch (solutionStrategy)
     {
-        case WeightSystemSolve::Raw:
+        case SystemSolve::Raw:
             for(label row=0; row<system->first().rows(); row++)
                 P(row,row) = 1;
             break;
-        case WeightSystemSolve::RowAequilibration:
+        case SystemSolve::RowAequilibration:
             for(label row=0; row<matrixPtr->rows(); row++)
             {
                 scalar rowSum = 0;
@@ -800,7 +819,7 @@ std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMo
                 P(row,row) = 1/rowSum;
             }
             break;
-        case WeightSystemSolve::ColAequilibration:
+        case SystemSolve::ColAequilibration:
             for(label col=0; col<matrixPtr->cols(); col++)
             {
                 scalar colSum = 0;
@@ -811,7 +830,7 @@ std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMo
                 P(col,col) = 1/colSum;
             }
             break;
-        case WeightSystemSolve::GeoRescaled:
+        case SystemSolve::GeoRescaled:
             if(numberDims==0)
                 P(0,0) = 1;
             else if(numberDims==1)
@@ -839,14 +858,118 @@ std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMo
             else if(numberDims==3)
                 P = *rescalingDiagonal3D();
             break;
+        case SystemSolve::Jacobi:
+            for(label col=0; col<matrixPtr->cols(); col++)
+                P(col,col) = 1.0/system->first()(col,col);
+            break;
         default:
             FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
     }
 
+    //std::cout<<"P:"<<std::endl<<P<<std::endl;
+    
     system->first() = P*system->first();
     system->second() = P*system->second();
 
     return system;
+}
+
+bool Foam::LagrangianMarker::checkSolvability
+(
+    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>>& system,
+    Vector<bool> dimensions
+)
+{
+    system = computeMomentsMatrix(dimensions);
+    scalar condBaseMatrix = condition(system->first());
+    if(condBaseMatrix<conditionThreshold)
+    {
+        Info<<dimensions<<" :"<<condBaseMatrix<<" < "<<conditionThreshold<<Foam::endl;
+        return true;
+    }
+    else
+    {
+        Info<<dimensions<<" :"<<condBaseMatrix<<" >= "<<conditionThreshold<<Foam::endl;
+        return false;
+    }
+}
+
+void Foam::LagrangianMarker::searchValidConvolutionSetup
+(
+    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>>& system
+)
+{   
+    // Try to expand the support
+    Pair<vector> newh = minMaxNeighbourWidth(fullSupport);
+    h_plus = newh.first();
+    h_minus = newh.second();
+    dilation = dilationFactors(newh);
+    computeSupport(supportWidth+2);
+    if(checkSolvability(system,existingDims))
+        return;
+    else
+        evaluateMarker();
+    
+    // Remove dimensions
+    Vector<bool> dimensions;
+    auto bitAnd = [](Vector<bool> pattern, Vector<bool> directions)
+    {
+        for(label dim=0; dim<directions.size(); dim++)
+        {
+            directions[dim] = pattern[dim] && directions[dim];
+        }
+        return directions;
+    };
+    
+    // Remove a single dimension
+    dimensions = bitAnd(existingDims,Vector<bool>(0,1,1));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = dimensions;
+        return;
+    }
+    dimensions = bitAnd(existingDims,Vector<bool>(1,0,1));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = dimensions;
+        return;
+    }
+    dimensions = bitAnd(existingDims,Vector<bool>(1,1,0));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = dimensions;
+        return;
+    }
+    
+    // Remove two dimensions
+    dimensions = bitAnd(existingDims,Vector<bool>(1,0,0));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = bitAnd(existingDims,dimensions);
+        return;
+    }
+    dimensions = bitAnd(existingDims,Vector<bool>(0,1,0));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = bitAnd(existingDims,dimensions);
+        return;
+    }
+    dimensions = bitAnd(existingDims,Vector<bool>(0,0,1));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = bitAnd(existingDims,dimensions);
+        return;
+    }
+    
+    // Remove three dimensions
+    dimensions = bitAnd(existingDims,Vector<bool>(0,0,0));
+    if(checkSolvability(system,dimensions))
+    {
+        existingDims = bitAnd(existingDims,dimensions);
+        return;
+    }
+    
+    FatalErrorInFunction<<"Can not happen"<<exit(FatalError);
 }
 
 Vector<bool> Foam::LagrangianMarker::analyseMomentsMatrix
@@ -871,153 +994,16 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
 {
     Pout<<Foam::endl<<"----------- computeCorrectionWeights ---------------"<<Foam::endl;
     Info<<"existingDims:"<<existingDims<<Foam::endl;
-
-    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> baseMatrix = computeMomentsMatrix(existingDims);    
-    scalar detBaseMatrix = determinant(baseMatrix->first());
-    scalar condBaseMatrix = condition(baseMatrix->first());
-    scalar detThreshold = 1e-10;
-    scalar condThreshold = 1e4;
-    Pout<<to_string()<<Foam::endl;
-    //total_print();
     
-    std::cout<<"detBaseMatrix:"<<detBaseMatrix<<std::endl;
-    std::cout<<"condBaseMatrix:"<<condBaseMatrix<<std::endl;
-    
-    if(detBaseMatrix<detThreshold)
+    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> system;
+    if(checkSolvability(system,existingDims))
     {
-        std::list<std::tuple<Vector<bool>,gismo::gsMatrix<scalar>,scalar>> possibleMatrices;
-        
-        auto bitAnd = [](Vector<bool> pattern, Vector<bool> directions)
-        {
-            for(label dim=0; dim<directions.size(); dim++)
-            {
-                directions[dim] = pattern[dim] && directions[dim];
-            }
-            return directions;
-        };
-        Vector<bool> newExistingDims;
-        
-        // Hide single dimension
-        DynamicList<label> dimToHide;
-        for(label dim=0; dim<3; dim++)
-        {
-            Vector<bool> hidePattern(1,1,1);
-            hidePattern[dim] = false;
-            Vector<bool> reducedDims = bitAnd(hidePattern,existingDims);
-            
-            std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> redDimMatrix = computeMomentsMatrix(reducedDims);
-            scalar detRedDimMatrix = determinant(redDimMatrix->first());
-            scalar condRedDimMatrix = condition(baseMatrix->first());
-            
-            possibleMatrices.push_back(std::make_tuple(reducedDims,redDimMatrix->first(),condRedDimMatrix));
-            
-            Info<<"Hide 1: Exist:"<<existingDims<<" hide:"<<hidePattern<<" try:"<<reducedDims<<" -> "<<detRedDimMatrix<<" < "<<detThreshold<<"  cond:"<<condRedDimMatrix<<Foam::endl;
-            if(detRedDimMatrix>=detThreshold)
-            {
-                dimToHide.append(dim);
-                baseMatrix = std::move(redDimMatrix);
-                newExistingDims = reducedDims;
-            }
-        }
-        if(false && dimToHide.size()>1)
-        {
-            Info<<"dimToHide:"<<dimToHide<<Foam::endl;
-            FatalErrorInFunction<<"More than two options to hide not possible"<<exit(FatalError);
-        }
-        
-        if(true || dimToHide.size()==0)
-        {
-            // Hide two dimension
-            DynamicList<label> dimToKeep;
-            for(label dim=0; dim<3; dim++)
-            {
-                Vector<bool> hidePattern(0,0,0);
-                hidePattern[dim] = true;
-                Vector<bool> reducedDims = bitAnd(hidePattern,existingDims);
-                
-                std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> redDimMatrix = computeMomentsMatrix(reducedDims);
-                scalar detRedDimMatrix = determinant(redDimMatrix->first());
-                scalar condRedDimMatrix = condition(redDimMatrix->first());
-                
-                possibleMatrices.push_back(std::make_tuple(reducedDims,redDimMatrix->first(),condRedDimMatrix));
-                
-                Info<<"Hide 2: Exist:"<<existingDims<<" hide:"<<hidePattern<<" try:"<<reducedDims<<" -> "<<detRedDimMatrix<<" < "<<detThreshold<<Foam::endl;
-                if(detRedDimMatrix<detThreshold)
-                {
-                    dimToHide.append(dim);
-                    baseMatrix = std::move(redDimMatrix);
-                    newExistingDims = reducedDims;
-                }
-            }
-            if(false && dimToKeep.size()>1)
-                FatalErrorInFunction<<"More than two options to keep not possible"<<exit(FatalError);
-            
-            if(true || dimToKeep.size()==0)
-            {
-                Vector<bool> hidePattern(0,0,0);
-                std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> redDimMatrix = computeMomentsMatrix(hidePattern);
-                scalar detRedDimMatrix = determinant(redDimMatrix->first());
-                scalar condRedDimMatrix = condition(redDimMatrix->first());
-                
-                possibleMatrices.push_back(std::make_tuple(hidePattern,redDimMatrix->first(),condRedDimMatrix));
-                
-                if(detRedDimMatrix<detThreshold)
-                {
-                    baseMatrix = std::move(redDimMatrix);
-                    newExistingDims = hidePattern;
-                }
-            }
-        }
-        
-        Vector<bool> removedDims(false,false,false);
-        for(label dim=0; dim<removedDims.size(); dim++)
-            if(newExistingDims[dim]!=existingDims[dim])
-                removedDims[dim]=true;
-        
-        Pair<vector> newh = minMaxNeighbourWidth(fullSupport);
-        vector new_Dilation = dilationFactors(newh);
-        computeSupport(supportWidth+2);
-        
-        vector new_h_plus = newh.first();
-        vector new_h_minus = newh.second();
-        
-        for(label dim=0; dim<removedDims.size(); dim++)
-        {
-            if(removedDims[dim])
-            {
-                h_plus[dim] = new_h_plus[dim];
-                h_minus[dim] = new_h_minus[dim];
-                dilation[dim] = new_Dilation[dim];
-            }
-        }
-        
-        std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> new_baseMatrix = computeMomentsMatrix(existingDims);
-        scalar new_detBaseMatrix = determinant(new_baseMatrix->first());
-        scalar new_condBaseMatrix = condition(new_baseMatrix->first());
-        
-        possibleMatrices.push_back(std::make_tuple(existingDims,new_baseMatrix->first(),new_condBaseMatrix));
-        
-        Info<<"Gen new Exist:"<<existingDims<<" new_detBaseMatrix:"<<new_detBaseMatrix<<" < "<<detThreshold<<Foam::endl;
-        if(new_detBaseMatrix>=detThreshold)
-        {
-            baseMatrix = std::move(new_baseMatrix);
-        }
-        else
-        {
-            evaluateMarker();
-            existingDims = newExistingDims;
-        }
-        
-        Info<<"possibleMatrices"<<Foam::endl;
-        for(auto tpl: possibleMatrices)
-        {
-            Info<<std::get<0>(tpl)<<" -> "<<std::get<2>(tpl)<<Foam::endl;
-        }
     }
-    
-    return;
-    
-    Barrier(true);
+    else
+    {
+        Info<<"searchValidConvolutionSetup"<<Foam::endl;
+        searchValidConvolutionSetup(system);
+    }
     
     label numberDims = 0;
     DynamicList<label> listDims;
@@ -1040,19 +1026,55 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     else if(numberDims==3)
         expectedMatrixDim = 10;
 
-    if(baseMatrix->first().cols()!=expectedMatrixDim || baseMatrix->first().rows()!=expectedMatrixDim)
+    if(system->first().cols()!=expectedMatrixDim || system->first().rows()!=expectedMatrixDim)
+    {
+        Info<<"exp: "<<expectedMatrixDim<<Foam::endl;
+        Info<<"shape: "<<system->first().cols()<<"/"<<system->first().rows()<<Foam::endl;
         FatalErrorInFunction<<"Matrix dimension wrong!"<<exit(FatalError);
-    if(baseMatrix->second().cols()!=1 || baseMatrix->second().rows()!=expectedMatrixDim)
+    }
+    if(system->second().cols()!=1 || system->second().rows()!=expectedMatrixDim)
         FatalErrorInFunction<<"RHS dimension wrong!"<<exit(FatalError);
     
+    std::cout<<"---------------------------------------"<<std::endl;
+    std::cout<<"A:"<<std::endl<<system->first()<<std::endl;
     gismo::gsMatrix<scalar> x;
-    linearSolve(baseMatrix->first(),x,baseMatrix->second());
+    try
+    {
+        linearSolve(system->first(),x,system->second());
+    }
+    catch(...)
+    {
+        FatalErrorInFunction<<"Linear solver failed"<<exit(FatalError);
+    }
+    std::cout<<"x:"<<std::endl<<x<<std::endl;
+    std::cout<<"b:"<<std::endl<<system->second()<<std::endl;
+    std::cout<<"-------------------"<<std::endl;
     
     if(x.cols()!=1 || x.rows()!=expectedMatrixDim)
         FatalErrorInFunction<<"RHS dimension wrong!"<<exit(FatalError);
     
     for(label i=0; i<10; i++)
         b[i] = 0;
+    
+
+    std::cout<<"-------------------"<<std::endl;
+    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> checkSystem = computeMomentsMatrix(existingDims,SystemSolve::Raw);
+    std::cout<<"A:"<<std::endl<<checkSystem->first()<<std::endl;
+    gismo::gsMatrix<scalar> x2;
+    linearSolve(checkSystem->first(),x2,checkSystem->second());
+    std::cout<<"x:"<<std::endl<<x2<<std::endl;
+    std::cout<<"b:"<<std::endl<<checkSystem->second()<<std::endl;
+    std::cout<<"---------------------------------------"<<std::endl;
+    
+    /*
+    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> checkSystem = computeMomentsMatrix(existingDims,WeightSystemSolve::Raw);
+    gismo::gsMatrix<scalar> rhs_sol = checkSystem->first()*x;
+    std::cout<<rhs_sol<<std::endl;
+    */
+    
+    return;
+    
+    Barrier(true);
     
     if(existingDims == Vector<bool>(0,0,0))
     /*
@@ -1156,11 +1178,6 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         for(label i=0; i<10; i++)
             b[i] = x(i,0);
     }
-    
-    std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> checkSystem = computeMomentsMatrix(existingDims,WeightSystemSolve::Raw);
-    gismo::gsMatrix<scalar> rhs_sol = checkSystem->first()*x;
-    std::cout<<rhs_sol<<std::endl;
-
     
     Pout<<"b:"<<b<<Foam::endl;
 }
