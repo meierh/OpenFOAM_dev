@@ -8,7 +8,8 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
-    Structure& structure = this->structure;
+    LineStructure& structure = this->structure;
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
     std::unique_ptr<List<List<T>>> haloFieldsPtr = structure.broadcastHaloFields(fieldData);
     const List<List<T>>& haloFields = *haloFieldsPtr;
@@ -69,6 +70,8 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
+    
+    const std::vector<LagrangianMarker*>& markers = this->structure.getCollectedMarkers();
     
     // Spread marker field of own markers 
     for(label index=0; index<markerData.size(); index++)

@@ -117,15 +117,40 @@ namespace Foam
         gismo::gsMatrix<scalar>& eigenvalues,
         gismo::gsMatrix<scalar>& eigenvectors
     );
-
+    
+    class CSR_Matrix_par;
+    
+    void eig
+    (
+        const CSR_Matrix_par& mat,
+        gismo::gsMatrix<scalar>& eigenvalues,
+        gismo::gsMatrix<scalar>& eigenvectors
+    );
+    
     scalar determinant
     (
         const gismo::gsMatrix<scalar>& A
     );
     
+    scalar determinant
+    (
+        const CSR_Matrix_par& mat
+    );
+    
     scalar condition 
     (
         const gismo::gsMatrix<scalar>& A
+    );
+    
+    scalar condition
+    (
+        const CSR_Matrix_par& mat
+    );
+    
+    void CSR_Matrix_par_To_gismo_Local
+    (
+        const CSR_Matrix_par& mat,
+        gismo::gsMatrix<scalar>& gsMat
     );
     
     void invertableInfo
@@ -224,6 +249,13 @@ namespace Foam
             scalar getDiagonal(label localRow) const;
             virtual scalar evalOnDiagonal(const Vector_par& vec, label localRow) const;
             bool isSquare() const;
+            
+            label getLocalRowStart() const {return localRowStart;}
+            label getLocalRows() const {return localRows;}
+            label getGlobalRows() const {return globalRows;}
+            label getGlobalCols() const {return globalCols;}
+            bool getComplete() const {return complete;}
+            bool getGlobal() const {return global;}
             
             virtual CSR_Matrix_par diagonalMatrix() const;
             virtual CSR_Matrix_par offDiagonalMatrix() const;

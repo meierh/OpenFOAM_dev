@@ -145,7 +145,7 @@ class LagrangianMarker
         
         void computeCorrectionWeights();
         
-        SystemSolve solutionStrategy = SystemSolve::Raw;
+        SystemSolve solutionStrategy = SystemSolve::GeoRescaled;
         scalar conditionThreshold = 1e5;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
 };
@@ -191,11 +191,11 @@ class FieldMarkerStructureInteraction
         (
             dynamicRefineFvMesh& mesh,
             LineStructure& structure,
-            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
-            markerMeshType modusMarkerToField = markerMeshType::Uniform
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         ActiveRodMesh::rodMesh* rodMesh;
-        std::vector<LagrangianMarker*> markers;
+        //std::vector<LagrangianMarker*> markers;
         
         dynamicRefineFvMesh& mesh;
         LineStructure& structure;
@@ -356,7 +356,7 @@ class LineStructure : public Structure
                 
         void computeMarkerCellWeights();
 
-        SystemSolve solutionStrategy = SystemSolve::Raw;
+        SystemSolve solutionStrategy = SystemSolve::Jacobi;
         using LinearSystem = std::tuple<CSR_Matrix_par,Vector_par>;
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
         void computeMarkerWeights();
@@ -405,6 +405,8 @@ class LineStructure : public Structure
         //const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
+        
+        const std::vector<LagrangianMarker*>& getCollectedMarkers(){return collectedMarkers;}
         
     private:
         const List<scalar> crossSecArea;

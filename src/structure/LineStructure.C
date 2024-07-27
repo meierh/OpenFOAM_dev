@@ -34,9 +34,6 @@ crossSecArea(crossSecArea)
         Pout<<marker.to_string()<<Foam::endl;
     Info<<"computeMarkerCellWeights"<<Foam::endl;
     computeMarkerCellWeights();
-    
-    Barrier(true);
-    
     Info<<"collectHaloMarkers"<<Foam::endl;
     collectHaloMarkers();
     Info<<"exchangeHaloMarkersData"<<Foam::endl;
@@ -62,7 +59,7 @@ void Foam::LineStructure::connect
     FieldMarkerStructureInteraction& connector
 )
 {
-    connector.markers.resize(rodMarkersList.size());
+    //connector.markers.resize(rodMarkersList.size());
     connectedInteractions.push_back(&connector);
 }
 
@@ -688,8 +685,6 @@ void Foam::LineStructure::computeMarkerWeights()
     Info<<"Computed marker weights"<<Foam::endl;
     CSR_Matrix_par& A = std::get<0>(*system);
     Vector_par& ones = std::get<1>(*system);
-    Info<<"A:"<<A.to_string()<<Foam::endl;
-    Info<<"ones:"<<ones.to_string()<<Foam::endl;
     
     switch (solutionStrategy)
     {
@@ -730,13 +725,16 @@ void Foam::LineStructure::computeMarkerWeights()
         }
         default:
             FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
-    } 
-    
+    }
+
+    //Info<<"A:"<<A.to_string()<<Foam::endl;
+    //Info<<"ones:"<<ones.to_string()<<Foam::endl;
+    //Info<<"cond:"<<condition(A)<<Foam::endl;
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
-    Info<<"eps:"<<eps.to_string()<<Foam::endl;
+    //Info<<"eps:"<<eps.to_string()<<Foam::endl;
     
-    Barrier(true);
+    //Barrier(true);
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
         collectedMarkers[I]->setMarkerWeight(eps[I]);

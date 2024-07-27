@@ -884,12 +884,12 @@ bool Foam::LagrangianMarker::checkSolvability
     scalar condBaseMatrix = condition(system->first());
     if(condBaseMatrix<conditionThreshold)
     {
-        Info<<dimensions<<" :"<<condBaseMatrix<<" < "<<conditionThreshold<<Foam::endl;
+        //Info<<dimensions<<" :"<<condBaseMatrix<<" < "<<conditionThreshold<<Foam::endl;
         return true;
     }
     else
     {
-        Info<<dimensions<<" :"<<condBaseMatrix<<" >= "<<conditionThreshold<<Foam::endl;
+        //Info<<dimensions<<" :"<<condBaseMatrix<<" >= "<<conditionThreshold<<Foam::endl;
         return false;
     }
 }
@@ -992,8 +992,8 @@ Vector<bool> Foam::LagrangianMarker::analyseMomentsMatrix
 
 void Foam::LagrangianMarker::computeCorrectionWeights()
 {
-    Pout<<Foam::endl<<"----------- computeCorrectionWeights ---------------"<<Foam::endl;
-    Info<<"existingDims:"<<existingDims<<Foam::endl;
+    //Pout<<Foam::endl<<"----------- computeCorrectionWeights ---------------"<<Foam::endl;
+    //Info<<"existingDims:"<<existingDims<<Foam::endl;
     
     std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> system;
     if(checkSolvability(system,existingDims))
@@ -1035,8 +1035,10 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     if(system->second().cols()!=1 || system->second().rows()!=expectedMatrixDim)
         FatalErrorInFunction<<"RHS dimension wrong!"<<exit(FatalError);
     
+    /*
     std::cout<<"---------------------------------------"<<std::endl;
     std::cout<<"A:"<<std::endl<<system->first()<<std::endl;
+    */
     gismo::gsMatrix<scalar> x;
     try
     {
@@ -1044,19 +1046,27 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     }
     catch(...)
     {
+        Info<<"condition:"<<condition(system->first())<<Foam::endl;
+        Info<<"determinant:"<<determinant(system->first())<<Foam::endl;
+        gismo::gsMatrix<scalar> eval,evec;
+        eig(system->first(),eval,evec);
+        std::cout<<eval<<std::endl;
         FatalErrorInFunction<<"Linear solver failed"<<exit(FatalError);
     }
+    
+    /*
     std::cout<<"x:"<<std::endl<<x<<std::endl;
     std::cout<<"b:"<<std::endl<<system->second()<<std::endl;
     std::cout<<"-------------------"<<std::endl;
+    */
     
     if(x.cols()!=1 || x.rows()!=expectedMatrixDim)
         FatalErrorInFunction<<"RHS dimension wrong!"<<exit(FatalError);
     
     for(label i=0; i<10; i++)
         b[i] = 0;
-    
 
+    /*
     std::cout<<"-------------------"<<std::endl;
     std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> checkSystem = computeMomentsMatrix(existingDims,SystemSolve::Raw);
     std::cout<<"A:"<<std::endl<<checkSystem->first()<<std::endl;
@@ -1065,16 +1075,13 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     std::cout<<"x:"<<std::endl<<x2<<std::endl;
     std::cout<<"b:"<<std::endl<<checkSystem->second()<<std::endl;
     std::cout<<"---------------------------------------"<<std::endl;
+    */
     
     /*
     std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> checkSystem = computeMomentsMatrix(existingDims,WeightSystemSolve::Raw);
     gismo::gsMatrix<scalar> rhs_sol = checkSystem->first()*x;
     std::cout<<rhs_sol<<std::endl;
     */
-    
-    return;
-    
-    Barrier(true);
     
     if(existingDims == Vector<bool>(0,0,0))
     /*
@@ -1178,8 +1185,6 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
         for(label i=0; i<10; i++)
             b[i] = x(i,0);
     }
-    
-    Pout<<"b:"<<b<<Foam::endl;
 }
 
 scalar Foam::LagrangianMarker::deltaDirac

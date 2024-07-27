@@ -48,12 +48,10 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
     
-    Info<<"cellNbr:"<<mesh.cells().size()<<Foam::endl;
-
     LineStructure structure(mesh,{0.1});
     
     VelocityPressureForceInteraction Uf_Interaction(mesh,structure,U,Uf);
-    //structure.transferMarkers(Uf_Interaction);
+    structure.connect(Uf_Interaction);
     
     FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);    
     

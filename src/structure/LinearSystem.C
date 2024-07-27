@@ -246,10 +246,8 @@ void Foam::linearSolve
         x_csr[row] = x(row,0);
         b_csr[row] = b(row,0);
     }
-
-    //Pout<<"A_csr:"<<A_csr.to_string()<<Foam::endl;
     
-    Jacobi solver(A_csr);
+    BiCGSTAB solver(A_csr);
     x_csr = solver.solve(b_csr,x_csr);
     Vector_par resid = A_csr*x_csr-b_csr;
     scalar norm2_resid = resid.norm2();
@@ -446,6 +444,18 @@ void Foam::eig
     gsl_eigen_symmv_free(w);
 }
 
+void eig
+(
+    const CSR_Matrix_par& mat,
+    gismo::gsMatrix<scalar>& eigenvalues,
+    gismo::gsMatrix<scalar>& eigenvectors
+)
+{
+    gismo::gsMatrix<scalar> gsMat;
+    CSR_Matrix_par_To_gismo_Local(mat,gsMat);
+    eig(gsMat,eigenvalues,eigenvectors);
+}
+
 scalar Foam::determinant
 (
     const gismo::gsMatrix<scalar>& A
@@ -463,6 +473,16 @@ scalar Foam::determinant
     return det;    
 }
 
+scalar Foam::determinant
+(
+    const CSR_Matrix_par& mat
+)
+{
+    gismo::gsMatrix<scalar> gsMat;
+    CSR_Matrix_par_To_gismo_Local(mat,gsMat);
+    return determinant(gsMat);
+}
+
 scalar Foam::condition
 (
     const gismo::gsMatrix<scalar>& A
@@ -478,6 +498,54 @@ scalar Foam::condition
     scalar minEval = *std::min_element(evalList.begin(),evalList.end());
     
     return maxEval/minEval;    
+}
+
+scalar Foam::condition
+(
+    const CSR_Matrix_par& mat
+)
+{
+    gismo::gsMatrix<scalar> gsMat;
+    CSR_Matrix_par_To_gismo_Local(mat,gsMat);
+    return condition(gsMat);
+}
+
+void Foam::CSR_Matrix_par_To_gismo_Local
+(
+    const CSR_Matrix_par& mat,
+    gismo::gsMatrix<scalar>& gsMat
+)
+{
+    label globalRows = mat.getGlobalRows();
+    label globalCols = mat.getGlobalCols();
+    gsMat = gismo::gsMatrix<scalar>(globalRows,globalCols);
+    
+    for(label col=0; col<mat.getGlobalCols(); col++)
+    {
+        Vector_par colExtract(mat.getLocalRows(),mat.getLocalRowStart(),mat.getGlobalRows(),mat.getGlobal());
+        colExtract.fill(0);
+        std::pair<label,label> localRowInfo = colExtract.getLocalSize();
+        label localRowStart = localRowInfo.first;
+        label localRows = localRowInfo.second;
+        if(col >= localRowStart)
+        {
+            label idx = col-localRowStart;
+            if(idx < localRows)
+            {
+                colExtract[idx] = 1;
+            }
+        }
+        
+        const Vector_par columnVec = mat*colExtract;
+        List<scalar> globalColumn;
+        columnVec.collectGlobal(globalColumn);
+        
+        if(globalColumn.size()!=gsMat.rows())
+            FatalErrorInFunction<<"Size mismatch"<<Foam::endl;
+        
+        for(label row=0; row<gsMat.rows(); row++)
+            gsMat(row,col) = globalColumn[row];
+    }
 }
 
 void Foam::invertableInfo
@@ -1382,7 +1450,7 @@ CSR_Matrix_par(vec.getLocalSize().second,vec.getLocalSize().first,vec.getGlobalS
 
 void Foam::CSR_DiagMatrix_par::addRow(scalar element)
 {
-    addRow(List<std::pair<scalar,label>>(1,{element,writtenRow}));
+    CSR_Matrix_par::addRow(List<std::pair<scalar,label>>(1,{element,writtenRow}));
 }
 
 void Foam::CSR_DiagMatrix_par::addRows(List<scalar> diagonal)
@@ -1428,7 +1496,7 @@ Vector_par Foam::CSR_DiagMatrix_par::operator*
     if(!complete || globalCols==-1)
         FatalErrorInFunction<<"Incomplete matrix"<<exit(FatalError);
     checkCompatible(vec);
-        
+            
     Vector_par result(vec);
     for(label k=0; k<this->localRows; k++)
         result[k] *= V[k];
