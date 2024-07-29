@@ -15,19 +15,18 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
     const List<List<T>>& haloFields = *haloFieldsPtr;
 
     markerData.resize(markers.size());
-    std::function<T(std::tuple<bool,label,label>)> valueFunction = 
-    [&fieldData,&haloFields,&structure](std::tuple<bool,label,label> cell)
+    std::function<T(Pair<label>)> valueFunction = 
+    [&fieldData,&haloFields,&structure](Pair<label> cell)
     {
-        const std::tuple<bool,label,label>& suppCellData = cell;
-        if(std::get<0>(suppCellData))
+        const Pair<label>& suppCellData = cell;
+        label proc = suppCellData.first();
+        label cellInd = suppCellData.second();
+        if(proc==Pstream::myProcNo())
         {
-            label cellInd = std::get<2>(suppCellData);
             return fieldData[cellInd];
         }
         else
         {
-            label proc = std::get<1>(suppCellData);
-            label cellInd = std::get<2>(suppCellData);
             const std::unordered_map<label,label>& procCellToInd = structure.getHaloCellToIndexMap(proc);
             auto iterIndex = procCellToInd.find(cellInd);
             if(iterIndex!=procCellToInd.end())
@@ -79,13 +78,14 @@ void Foam::FieldMarkerStructureInteraction::markerToField
         T value = Foam::zero();
         const LagrangianMarker& oneMarker = *(markers[index]);
         const vector& oneMarkerPos = oneMarker.getMarkerPosition();
-        const DynamicList<std::tuple<bool,label,label>>& supportCells = oneMarker.getSupportCells();
+        const DynamicList<Pair<label>>& supportCells = oneMarker.getSupportCells();
 
         for(label suppInd=0; suppInd<supportCells.size(); suppInd++)
         {
-            const std::tuple<bool,label,label>& oneSuppCell = supportCells[suppInd];
-            label cellInd = std::get<2>(oneSuppCell);
-            if(std::get<0>(oneSuppCell))
+            const Pair<label>& oneSuppCell = supportCells[suppInd];
+            label proc = oneSuppCell.first();
+            label cellInd = oneSuppCell.second();
+            if(proc==Pstream::myProcNo())
             {
                 vector cellCentre = cells[cellInd].centre(points,faces);
                 scalar factor;
@@ -96,6 +96,10 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 factor *= oneMarker.getMarkerVolume();
                 factor *= oneMarker.getMarkerWeight();
                 fieldData[cellInd] += markerData[index]*factor;
+            }
+            else
+            {
+                FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
             }
         }
     }

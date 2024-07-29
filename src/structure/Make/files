@@ -6,7 +6,8 @@ LineStructureStatus.C
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
-MarkerImplementation.C
+TemperatureInteraction.C
+FixedTemperatureAction.C
 LinearSystem.C
 
 LIB = $(FOAM_USER_LIBBIN)/libStructure

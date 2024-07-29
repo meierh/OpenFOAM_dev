@@ -405,9 +405,7 @@ class LineStructure : public Structure
         //const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
-        
-        const std::vector<LagrangianMarker*>& getCollectedMarkers(){return collectedMarkers;}
-        
+                
     private:
         const List<scalar> crossSecArea;
         // [rodNumber] -> ...
@@ -418,6 +416,7 @@ class LineStructure : public Structure
         std::vector<LagrangianMarker*> collectedMarkers;
         
         /******************Halo markers data************************/
+    public:
         class GlobalHaloMarkers
         {
             public:
@@ -481,6 +480,7 @@ class LineStructure : public Structure
                 void check(label process, label haloCellInd, label cellMarkerInd) const;
                 bool broadcasted;
         };
+    protected:
         // [haloCells] -> [marker of cell] -> ptr        
         std::vector<std::vector<std::pair<LagrangianMarker*,label>>> haloCellsRodMarkersList;
         std::unique_ptr<List<List<DynamicList<scalar>>>> haloMarkerWeights;
@@ -494,6 +494,8 @@ class LineStructure : public Structure
         (
             const List<T>& collectedMarkerField
         );
+
+        const std::vector<LagrangianMarker*>& getCollectedMarkers(){return collectedMarkers;}
         
         //scalar initialSpacingFromMesh();
         void check();
