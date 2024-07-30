@@ -439,9 +439,9 @@ class LineStructure : public Structure
                     label cellMarkerInd
                 ) const;
                 
-                inline label size_processes() const;
-                inline label size_haloCells(label process) const;
-                inline label size_cellMarkers(label process, label haloCellInd) const;
+                label size_processes() const;
+                label size_haloCells(label process) const;
+                label size_cellMarkers(label process, label haloCellInd) const;
                 
                 void communicate();
                 
@@ -490,7 +490,7 @@ class LineStructure : public Structure
         inline const GlobalHaloMarkers& get_globalHaloMarkers(){return globHaloMarkers;}
         
         template<typename T>
-        std::unique_ptr<List<List<DynamicList<scalar>>>> broadcastHaloMarkerFields
+        std::unique_ptr<List<List<DynamicList<T>>>> broadcastHaloMarkerField
         (
             const List<T>& collectedMarkerField
         );

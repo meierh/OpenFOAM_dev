@@ -293,12 +293,12 @@ template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStruc
     return resultPtr;
 }
 
-template<typename T> std::unique_ptr<List<List<DynamicList<scalar>>>> Foam::LineStructure::broadcastHaloMarkerFields
+template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStructure::broadcastHaloMarkerField
 (
     const List<T>& collectedMarkerField
 )
 {
-    if(collectedMarkerField.size()!=collectedMarkers.size())
+    if(collectedMarkerField.size()!=static_cast<label>(collectedMarkers.size()))
         FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
     return globHaloMarkers.broadcasHaloMarkerField<T>(collectedMarkerField);
 }

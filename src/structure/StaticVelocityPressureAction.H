@@ -8,13 +8,18 @@ namespace Foam
 class StaticVelocityPressureAction : public VelocityPressureForceInteraction
 {
     public:
-        explicit MovedVelocityPressureAction
+        explicit StaticVelocityPressureAction
         (
             dynamicRefineFvMesh& mesh,
             LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf
         );
+        
+    private:
+        vector getVelocity(const LagrangianMarker* marker);
+
 };
 
+}
 #endif

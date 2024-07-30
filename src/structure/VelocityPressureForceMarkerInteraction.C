@@ -21,27 +21,25 @@ void Foam::VelocityPressureForceInteraction::interpolateFluidVelocityToMarkers()
 
 void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
 {
-    if(markerFluidVelocity.size()!=markers.size())
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    
+    if(markerFluidVelocity.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Mismatch in size of markerFluidVelocity and markers"<<exit(FatalError);
     
     scalar deltaT = mesh.time().deltaTValue();
     
     makerCouplingForce.resize(markers.size());
-    for(label rodInd=0; rodInd<markers.size(); rodInd++)
+    for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
     {
-        for(label markerInd=0; markerInd<markers.size(); markerInd++)
-        {
-            LagrangianMarker* oneMarkerPtr = markers[rodInd][markerInd];
-            vector markerVelocity = oneMarkerPtr->getMarkerVelocity();
-            vector fluidVelocity = markerFluidVelocity[rodInd][markerInd];
-            makerCouplingForce[markerInd] = (markerVelocity-fluidVelocity)/deltaT;
-        }
+        LagrangianMarker* oneMarkerPtr = markers[markerInd];
+        vector markerVelocity = getVelocity(oneMarkerPtr);
+        vector velocity = markerFluidVelocity[markerInd];
+        makerCouplingForce[markerInd] = (markerVelocity-velocity)/deltaT;
     }
 }
 
 void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
-    scalar deltaT = mesh.time().deltaTValue();
     markerToField<vector>(makerCouplingForce,output_Uf);
 }
 
@@ -50,7 +48,9 @@ vector Foam::VelocityPressureForceInteraction::sumForces
     std::function<bool(LagrangianMarker)> condition
 )
 {
-    if(rodForce.size()!=markers.size())
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    
+    if(rodForce.size()!=static_cast<label>(markers.size()))
     {
         Info<<"rodForce.size():"<<rodForce.size()<<Foam::endl;
         Info<<"markers.size():"<<markers.size()<<Foam::endl;
@@ -58,7 +58,7 @@ vector Foam::VelocityPressureForceInteraction::sumForces
     }
     
     vector result = Foam::zero();
-    for(label i=0; i<markers.size(); i++)
+    for(std::size_t i=0; i<markers.size(); i++)
     {
         LagrangianMarker* oneMarker = markers[i];
         if(condition(*oneMarker))
@@ -69,12 +69,14 @@ vector Foam::VelocityPressureForceInteraction::sumForces
 
 void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
 {
-    if(makerCouplingForce.size()!=markers.size())
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+
+    if(makerCouplingForce.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Mismatch in size of makerCouplingForce and markers"<<exit(FatalError);
     
     rodForce.resize(markers.size());
     rodMoment.resize(markers.size());
-    for(label markerInd=0; markerInd<markers.size(); markerInd++)
+    for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarker = markers[markerInd];
         scalar volume = oneMarker->getMarkerVolume();
@@ -92,10 +94,12 @@ void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
 
 void Foam::VelocityPressureForceInteraction::assignForceOnRod()
 {
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    
     computeRodForceMoment();
     List<std::multimap<scalar,vector>> forces(rodMesh->m_Rods.size());
     List<std::multimap<scalar,vector>> moments(rodMesh->m_Rods.size());
-    for(label markerInd=0; markerInd<markers.size(); markerInd++)
+    for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarker = markers[markerInd];
         label rodNumber = oneMarker->getRodNumber();

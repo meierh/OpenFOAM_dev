@@ -6,6 +6,8 @@ LineStructureStatus.C
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
+VelocityPressureForceMarkerInteraction.C
+StaticVelocityPressureAction.C
 TemperatureInteraction.C
 FixedTemperatureAction.C
 LinearSystem.C

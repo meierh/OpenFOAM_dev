@@ -5,9 +5,6 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
     DynamicList<T>& markerData
 )
 {
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
     LineStructure& structure = this->structure;
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
@@ -75,7 +72,6 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     // Spread marker field of own markers 
     for(label index=0; index<markerData.size(); index++)
     {
-        T value = Foam::zero();
         const LagrangianMarker& oneMarker = *(markers[index]);
         const vector& oneMarkerPos = oneMarker.getMarkerPosition();
         const DynamicList<Pair<label>>& supportCells = oneMarker.getSupportCells();
@@ -97,10 +93,6 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 factor *= oneMarker.getMarkerWeight();
                 fieldData[cellInd] += markerData[index]*factor;
             }
-            else
-            {
-                FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
-            }
         }
     }
         
@@ -111,9 +103,10 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     const List<List<DynamicList<scalar>>>& haloMarkerWeights = *haloMarkerWeightsPtr;
     
     // Broadcast marker field
-    if(markerData.size()!=markers.size())
+    if(markerData.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
-    std::unique_ptr<List<List<DynamicList<T>>>> broadcastedHaloMarkerFieldPtr = structure.broadcastHaloMarkerFields(markerData);
+    std::unique_ptr<List<List<DynamicList<T>>>> broadcastedHaloMarkerFieldPtr; 
+    broadcastedHaloMarkerFieldPtr = structure.broadcastHaloMarkerField<T>(markerData);
     List<List<DynamicList<T>>> broadcastedHaloMarkerField = *broadcastedHaloMarkerFieldPtr;
     
     const LineStructure::GlobalHaloMarkers& gHM = structure.get_globalHaloMarkers();
@@ -136,12 +129,12 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 FatalErrorInFunction<<"Marker number mismatch"<<exit(FatalError);
             for(label markerInd=0; markerInd<numHaloCellMarkers; markerInd++)
             {
-                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,List<scalar>> haloMarkerData;
+                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> haloMarkerData;
                 haloMarkerData = gHM.getMarkerData(proc,haloCellInd,markerInd);
 
                 vector position = std::get<0>(haloMarkerData);
                 scalar volume = std::get<1>(haloMarkerData);
-                label index = std::get<2>(haloMarkerData);
+                //label index = std::get<2>(haloMarkerData);
                 vector dilation = std::get<3>(haloMarkerData);
                 FixedList<scalar,10>& markerKb = std::get<7>(haloMarkerData);
                 scalar weight = thisHaloCellMarkerWeights[markerInd];
@@ -150,10 +143,10 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 DynamicList<Pair<label>>& suppCellIndices =  std::get<4>(haloMarkerData);
                 for(label suppInd=0; suppInd<suppCellIndices.size(); suppInd++)
                 {
-                    label proc = suppCellIndices[suppInd].first;
+                    label proc = suppCellIndices[suppInd].first();
                     if(proc==Pstream::myProcNo())
                     {
-                        label cellInd = suppCellIndices[suppInd].second;
+                        label cellInd = suppCellIndices[suppInd].second();
                         vector cellCentre = cells[cellInd].centre(points,faces);
                      
                         scalar factor;

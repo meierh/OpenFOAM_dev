@@ -1,3 +1,5 @@
+#include "FixedTemperatureAction.H"
+
 Foam::FixedTemperatureAction::FixedTemperatureAction
 (
     dynamicRefineFvMesh& mesh,

@@ -31,6 +31,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         volVectorField& input_U;
         volVectorField& output_Uf;
         
+        vector getVelocity(const LagrangianMarker* marker);
+        
     private:
         DynamicList<vector> markerFluidVelocity;
         DynamicList<vector> makerCouplingForce;
@@ -39,5 +41,5 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         
         void assignForceOnRod();
 };
-
+}
 #endif
