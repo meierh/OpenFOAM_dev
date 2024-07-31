@@ -26,6 +26,39 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {}
 
+Foam::LineStructure::LineStructure
+(
+    dynamicRefineFvMesh& mesh,
+    const scalar crossSecArea,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
+):
+Structure(mesh,mesh.time()),
+modusFieldToMarker(modusFieldToMarker),
+modusMarkerToField(modusMarkerToField),
+crossSecArea(List<scalar>(myMesh->m_nR,crossSecArea))
+{
+    initialize();
+}
+
+void Foam::LineStructure::to_string()
+{
+    Info<<"-------LineStructure::Markers-------"<<Foam::endl;
+    int count=0;
+    for(std::unique_ptr<std::list<LagrangianMarker>>& oneRodMarkers : rodMarkersList)
+    {
+        Info<<"Rod "<<count<<Foam::endl;
+        if(oneRodMarkers)
+        {
+            for(const LagrangianMarker& marker : *oneRodMarkers)
+            {
+                Info<<"\t"<<marker.to_string()<<Foam::endl;
+            }
+        }
+    }
+    Info<<"------------------------------------"<<Foam::endl;
+}
+
 void Foam::LineStructure::initialize()
 {
     check();
@@ -57,9 +90,7 @@ void Foam::LineStructure::check()
 {
     if(!myMesh)
         FatalErrorInFunction<<"Rod Mesh not set!"<<exit(FatalError);
-    if(myMesh->m_nR!=static_cast<int>(rodMarkersList.size()))
-        FatalErrorInFunction<<"Mismatch in size of m_Rods and rodMarkersList"<<exit(FatalError);
-    if(crossSecArea.size()!=static_cast<int>(rodMarkersList.size()))
+    if(crossSecArea.size()!=myMesh->m_nR)
         FatalErrorInFunction<<"Mismatch in size of crossSecArea and rodMarkersList"<<exit(FatalError);
     if(static_cast<int>(myMesh->m_Rods.size())!=myMesh->m_nR)
         FatalErrorInFunction<<"Mismatch in size of m_Rods and m_nR"<<exit(FatalError);
@@ -754,6 +785,27 @@ void Foam::LineStructure::computeMarkerWeights()
     status.executed(status.markersWeight);
 }
 
+void Foam::LineStructure::exchangeHaloMarkersWeight()
+{    
+    status.execValid(status.markersWeightExchange);
+    
+    for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
+    {
+        std::vector<std::pair<LagrangianMarker*,label>>& localHaloCellRodMarkers = haloCellsRodMarkersList[haloCellInd];
+        for(uint haloMarkerInd=0; haloMarkerInd<haloCellsRodMarkersList[haloCellInd].size(); haloMarkerInd++)
+        {
+            std::pair<LagrangianMarker*,label> markerData = localHaloCellRodMarkers[haloMarkerInd];
+            LagrangianMarker* marker = markerData.first;
+            
+            scalar weight = marker->getMarkerWeight();
+            globHaloMarkers.insertMarkerWeight(haloCellInd,haloMarkerInd,weight);
+        }
+    }
+    globHaloMarkers.communicateWeight();
+    
+    status.executed(status.markersWeightExchange);
+}
+
 Foam::scalar Foam::LineStructure::evaluateRodArcLen
 (
     const ActiveRodMesh::rodCosserat* oneRod,
@@ -845,7 +897,8 @@ Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
     std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList
 ):
 selfhaloCellsRodMarkersList(&selfhaloCellsRodMarkersList),
-broadcasted(false)
+broadcasted(false),
+broadcastedWeights(false)
 {
     label selfHaloCellSize = this->selfhaloCellsRodMarkersList->size();
     
@@ -889,6 +942,11 @@ broadcasted(false)
     globalHaloCellsMarkerb[Pstream::myProcNo()].clear();
     globalHaloCellsMarkerb[Pstream::myProcNo()].setSize(selfHaloCellSize);
     
+    globalHaloCellsMarkerWeight.clear();
+    globalHaloCellsMarkerWeight.setSize(Pstream::nProcs());
+    globalHaloCellsMarkerWeight[Pstream::myProcNo()].clear();
+    globalHaloCellsMarkerWeight[Pstream::myProcNo()].setSize(selfHaloCellSize);
+    
     nProcs = Pstream::nProcs();
     
     procHaloCellsSize.setSize(nProcs);
@@ -898,9 +956,7 @@ broadcasted(false)
     
     procHaloCellMarkerSize.setSize(nProcs);
     for(label proc=0; proc<nProcs; proc++)
-        procHaloCellMarkerSize[proc].setSize(procHaloCellsSize[proc],0);
-    
-    //Pout<<"procHaloCellMarkerSize:"<<procHaloCellMarkerSize<<Foam::endl;
+        procHaloCellMarkerSize[proc].setSize(procHaloCellsSize[proc],0);    
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
@@ -925,8 +981,30 @@ void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
     globalHaloCellsMarkerSupportCellCentres[proc][hCI].append(std::get<5>(data));
     globalHaloCellsMarkerSupportCellVolume[proc][hCI].append(std::get<6>(data));
     globalHaloCellsMarkerb[proc][hCI].append(std::get<7>(data));
+    globalHaloCellsMarkerWeight[proc][hCI].append(-1);
     
     procHaloCellMarkerSize[proc][hCI]++;
+}
+
+void Foam::LineStructure::GlobalHaloMarkers::insertMarkerWeight
+(
+    label haloCellInd,
+    label cellMarkerInd,
+    scalar weight
+)
+{
+    if(broadcastedWeights)
+        FatalErrorInFunction<<"Already broadcasted weights"<<exit(FatalError);
+    
+    label proc = Pstream::myProcNo();
+    if(haloCellInd>=procHaloCellsSize[proc])
+        FatalErrorInFunction<<"Out of range value for halocCellInd"<<exit(FatalError);
+    label hCI = haloCellInd;
+    if(cellMarkerInd>=procHaloCellMarkerSize[proc][hCI])
+        FatalErrorInFunction<<"Out of range value for marker ind"<<exit(FatalError);
+    label cMI = cellMarkerInd;
+
+    globalHaloCellsMarkerWeight[proc][hCI][cMI] = weight;
 }
 
 std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
@@ -957,6 +1035,27 @@ std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vecto
     return {position,volume,index,dilation,suppCellsIndices,suppCellsCentre,suppCellsVolume,b};
 }
 
+scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
+(
+    label process,
+    label haloCellInd,
+    label cellMarkerInd
+) const
+{
+    if(!broadcastedWeights)
+        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::endl;
+    
+    label proc = Pstream::myProcNo();
+    if(haloCellInd>=procHaloCellsSize[proc])
+        FatalErrorInFunction<<"Out of range value for halocCellInd"<<exit(FatalError);
+    label hCI = haloCellInd;
+    if(cellMarkerInd>=procHaloCellMarkerSize[proc][hCI])
+        FatalErrorInFunction<<"Out of range value for marker ind"<<exit(FatalError);
+    label cMI = cellMarkerInd;
+    
+    return globalHaloCellsMarkerWeight[proc][hCI][cMI];
+}
+
 label Foam::LineStructure::GlobalHaloMarkers::size_processes() const
 {
     return Pstream::nProcs();
@@ -981,9 +1080,7 @@ label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
 
 void Foam::LineStructure::GlobalHaloMarkers::communicate()
 {
-    //check();
     broadcasted = true;
-    //Pout<<"pre:"<<globalHaloCellsMarkerb<<Foam::endl;
     
     Pstream::gatherList(globalHaloCellsMarkerPos);
     Pstream::gatherList(globalHaloCellsMarkerVolume);
@@ -993,6 +1090,7 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     Pstream::gatherList(globalHaloCellsMarkerSupportCellCentres);
     Pstream::gatherList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::gatherList(globalHaloCellsMarkerb);
+    Pstream::gatherList(globalHaloCellsMarkerWeight);
     
     Pstream::scatterList(globalHaloCellsMarkerPos);
     Pstream::scatterList(globalHaloCellsMarkerVolume);
@@ -1002,16 +1100,21 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     Pstream::scatterList(globalHaloCellsMarkerSupportCellCentres);
     Pstream::scatterList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::scatterList(globalHaloCellsMarkerb);
+    Pstream::scatterList(globalHaloCellsMarkerWeight);
     
     Pstream::gatherList(procHaloCellMarkerSize);
     Pstream::scatterList(procHaloCellMarkerSize);
-    
-    //Barrier(false);
-    //Pout<<"Post:"<<globalHaloCellsMarkerb<<Foam::endl;
-    //Barrier(true);
-    //Pout<<"Post check"<<Foam::endl;
+
     check();
     
+}
+
+void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()
+{
+    broadcastedWeights = true;
+
+    Pstream::gatherList(globalHaloCellsMarkerWeight);
+    Pstream::scatterList(globalHaloCellsMarkerWeight);
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::check()
@@ -1033,6 +1136,8 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<exit(FatalError);
     if(numProcs!=globalHaloCellsMarkerb.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerWeight.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerWeight size error"<<exit(FatalError);
         
     for(label proc=0; proc<numProcs; proc++)
     {
@@ -1053,6 +1158,8 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
             FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerb[proc].size())
             FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"] size error"<<exit(FatalError);
+        if(numHaloCells!=globalHaloCellsMarkerWeight[proc].size())
+            FatalErrorInFunction<<"globalHaloCellsMarkerWeight["<<proc<<"] size error"<<exit(FatalError);
         
         for(label haloCellInd=0; haloCellInd<numHaloCells; haloCellInd++)
         {
@@ -1073,6 +1180,8 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
                 FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerSupportCellVolume[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerb[proc][haloCellInd].size())
                 FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerb[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            if(numHaloCellMarkers!=globalHaloCellsMarkerWeight[proc][haloCellInd].size())
+                FatalErrorInFunction<<"globalHaloCellsMarkerWeight["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerWeight[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
         }
     }    
 }
@@ -1100,6 +1209,8 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerb.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
+    if(process>=globalHaloCellsMarkerWeight.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerWeight size error"<<exit(FatalError);
     
     if(haloCellInd<0)
         FatalErrorInFunction<<"Invalid haloCell index"<<Foam::endl;
@@ -1117,6 +1228,8 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerb[process].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerb[process] size error"<<exit(FatalError);
+    if(haloCellInd>=globalHaloCellsMarkerWeight[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerWeight[process] size error"<<exit(FatalError);
     
     if(cellMarkerInd<0)
         FatalErrorInFunction<<"Invalid cellMarker index"<<Foam::endl;
@@ -1134,4 +1247,6 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerSupportCellVolume[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerb[process][haloCellInd].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerb[process][haloCellInd] size error"<<exit(FatalError);
+    if(cellMarkerInd>=globalHaloCellsMarkerWeight[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerWeight[process][haloCellInd] size error"<<exit(FatalError);
 }

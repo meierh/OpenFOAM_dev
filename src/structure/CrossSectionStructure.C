@@ -13,6 +13,31 @@ rodCrossSection(rodCrossSection)
     initialize();
 }
 
+void Foam::CrossSectionStructure::to_string()
+{
+    Info<<"---CrossSectionStructure::Markers---"<<Foam::endl;
+    int count=0;
+    for(std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>& oneRodMarkers : rodMarkersList)
+    {
+        Info<<"Rod "<<count<<Foam::endl;
+        if(oneRodMarkers)
+        {
+            for(std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers : *oneRodMarkers)
+            {
+                Info<<"\t-"<<Foam::endl;
+                for(std::list<LagrangianMarkerOnCrossSec>& angleMarkers : radialMarkers)
+                {
+                    for(const LagrangianMarkerOnCrossSec& marker : angleMarkers)
+                    {
+                        Info<<"\t"<<marker.to_string()<<Foam::endl;
+                    }
+                }
+            }
+        }
+    }
+    Info<<"------------------------------------"<<Foam::endl;
+}
+
 void Foam::CrossSectionStructure::check()
 {
     if(!myMesh)
@@ -37,7 +62,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
     scalar spacing
 )
 {
-    Info<<"CrossSectionStructure::createSpacedPointsOnRod"<<Foam::endl;
+    Info<<"CrossSectionStructure::createSpacedPointsOnRod "<<spacing<<Foam::endl;
     
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
@@ -118,6 +143,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             {
                 radialData[r].first = radFrac;
                 createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,radFrac,spacing,radialData[r].second);
+                Info<<radFrac<<"  radialData["<<r<<"].second.size():"<<radialData[r].second.size()<<Foam::endl;
                 radFrac-=radFracPart;
             }
                         
@@ -130,6 +156,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             radialData.resize(1);
             radialData[0].first = 1.0;
             createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,1.0,spacing,radialData[0].second);
+            Info<<"radialData[0].second.size():"<<radialData[0].second.size()<<Foam::endl;
         }
     }
     std::cout<<"Done"<<std::endl;
@@ -148,7 +175,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
     std::vector<scalar>& angleData
 )
 {
-    Info<<"CrossSectionStructure::createSpacedPointsOnCrossSec:"<<Foam::endl;
+    Info<<"CrossSectionStructure::createSpacedPointsOnCrossSec:" <<spacing<<Foam::endl;
     
     std::list<scalar> points;
     points.push_back(0);

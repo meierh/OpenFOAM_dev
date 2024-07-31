@@ -177,8 +177,9 @@ class LineStructureStatus
         Node markersCollected =     Node({&markers},false,"markersCollected");
         Node markersCellWeight =    Node({&markersCollected,&markerMesh},false,"markersCellWeight");
         Node markersHaloCollect =   Node({&markersCollected},false,"markersHaloCollect");
-        Node markersHaloExchange = Node({&markersHaloCollect},false,"markersHaloExchange");
+        Node markersHaloExchange =  Node({&markersHaloCollect},false,"markersHaloExchange");
         Node markersWeight =        Node({&markersCellWeight,&markersHaloExchange},false,"markersWeight");
+        Node markersWeightExchange= Node({&markersWeight},false,"markersWeightExchange");
 };
 
 class LineStructure;
@@ -245,6 +246,13 @@ class LineStructure : public Structure
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
+        explicit LineStructure
+        (
+            dynamicRefineFvMesh& mesh,
+            const scalar crossSecArea,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
+        );
         LineStructure(const LineStructure&) = delete;
         virtual ~LineStructure() = default;
         
@@ -261,6 +269,8 @@ class LineStructure : public Structure
         );
 
         void test();
+        
+        virtual void to_string();
 
     protected:
         LineStructureStatus status;
@@ -372,6 +382,9 @@ class LineStructure : public Structure
         using LinearSystem = std::tuple<CSR_Matrix_par,Vector_par>;
         std::unique_ptr<LinearSystem> computeMarkerEpsilonMatrix();
         void computeMarkerWeights();
+        
+        void exchangeHaloMarkersWeight();
+        
                 
         static scalar evaluateRodArcLen
         (
@@ -444,7 +457,21 @@ class LineStructure : public Structure
                     std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> data
                 );
                 
+                void insertMarkerWeight
+                (
+                    label haloCellInd,
+                    label cellMarkerInd,
+                    scalar weight
+                );
+                
                 std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> getMarkerData
+                (
+                    label process,
+                    label haloCellInd,
+                    label cellMarkerInd
+                ) const;
+                
+                scalar getMarkerWeight
                 (
                     label process,
                     label haloCellInd,
@@ -456,6 +483,8 @@ class LineStructure : public Structure
                 label size_cellMarkers(label process, label haloCellInd) const;
                 
                 void communicate();
+                
+                void communicateWeight();
                 
                 template<typename T>
                 std::unique_ptr<List<List<DynamicList<T>>>> broadcasHaloMarkerField
@@ -487,18 +516,21 @@ class LineStructure : public Structure
                 List<List<DynamicList<DynamicList<scalar>>>> globalHaloCellsMarkerSupportCellVolume;
                 // [nProc] -> [haloCells] -> [markers] -> b[]
                 List<List<DynamicList<FixedList<scalar,10>>>> globalHaloCellsMarkerb;
+                // [nProc] -> [haloCells] -> [markers] -> weight
+                List<List<DynamicList<scalar>>> globalHaloCellsMarkerWeight;
                 
                 void check();
                 void check(label process, label haloCellInd, label cellMarkerInd) const;
                 bool broadcasted;
+                bool broadcastedWeights;
         };
     protected:
         // [haloCells] -> [marker of cell] -> ptr        
         std::vector<std::vector<std::pair<LagrangianMarker*,label>>> haloCellsRodMarkersList;
-        std::unique_ptr<List<List<DynamicList<scalar>>>> haloMarkerWeights;
+        //std::unique_ptr<List<List<DynamicList<scalar>>>> haloMarkerWeights;
         GlobalHaloMarkers globHaloMarkers;
     public:
-        inline std::unique_ptr<List<List<DynamicList<scalar>>>>& get_haloMarkerWeights(){return haloMarkerWeights;}
+        //inline std::unique_ptr<List<List<DynamicList<scalar>>>>& get_haloMarkerWeights(){return haloMarkerWeights;}
         inline const GlobalHaloMarkers& get_globalHaloMarkers(){return globHaloMarkers;}
         
         template<typename T>
@@ -507,6 +539,7 @@ class LineStructure : public Structure
             const List<T>& collectedMarkerField
         );
 
+        
         const std::vector<LagrangianMarker*>& getCollectedMarkers(){return collectedMarkers;}
         
         //scalar initialSpacingFromMesh();

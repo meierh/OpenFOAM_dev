@@ -994,7 +994,7 @@ scalar Foam::Structure::initialSpacingFromMesh
 (
     const dynamicRefineFvMesh& mesh,
     label cellInd
-) const
+)
 {
     if(mesh.cells().size()<1)
         FatalErrorInFunction<<"Mesh not valid"<<exit(FatalError);

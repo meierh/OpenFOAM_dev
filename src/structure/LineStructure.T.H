@@ -293,16 +293,6 @@ template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStruc
     return resultPtr;
 }
 
-template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStructure::broadcastHaloMarkerField
-(
-    const List<T>& collectedMarkerField
-)
-{
-    if(collectedMarkerField.size()!=static_cast<label>(collectedMarkers.size()))
-        FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
-    return globHaloMarkers.broadcasHaloMarkerField<T>(collectedMarkerField);
-}
-
 template<typename T>
 T Foam::LineStructure::integrateRodwise
 (
@@ -358,4 +348,14 @@ T Foam::LineStructure::integrateRodwise
         nextNode++;
     }
     return totalValue;
+}
+
+template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStructure::broadcastHaloMarkerField
+(
+    const List<T>& collectedMarkerField
+)
+{
+    if(collectedMarkerField.size()!=static_cast<label>(collectedMarkers.size()))
+        FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
+    return globHaloMarkers.broadcasHaloMarkerField<T>(collectedMarkerField);
 }

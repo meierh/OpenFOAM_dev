@@ -124,7 +124,9 @@ class CrossSectionStructure : public LineStructure
         );
 
         CrossSectionStructure(const CrossSectionStructure&) = delete;
-        void transferMarkers(FieldMarkerStructureInteraction& connector);
+        //void transferMarkers(FieldMarkerStructureInteraction& connector);
+        
+        void to_string() override;
         
     private:
         void check() override;

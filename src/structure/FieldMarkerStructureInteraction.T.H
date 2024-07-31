@@ -97,10 +97,12 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     }
         
     // Read broadcasted marker weights
+    /*
     std::unique_ptr<List<List<DynamicList<scalar>>>>& haloMarkerWeightsPtr = structure.get_haloMarkerWeights();
     if(!haloMarkerWeightsPtr)
         FatalErrorInFunction<<"Halo Marker Values not broadcasted before markerToField"<<exit(FatalError);
     const List<List<DynamicList<scalar>>>& haloMarkerWeights = *haloMarkerWeightsPtr;
+    */
     
     // Broadcast marker field
     if(markerData.size()!=static_cast<label>(markers.size()))
@@ -115,17 +117,17 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     const std::unordered_set<label>& neighbourProcs = structure.getNeighbourProcesses();
     for(label proc : neighbourProcs)
     {
-        const List<DynamicList<scalar>>& thisProcHaloMarkerWeights = haloMarkerWeights[proc];
+        //const List<DynamicList<scalar>>& thisProcHaloMarkerWeights = haloMarkerWeights[proc];
         const List<DynamicList<T>>& thisProcHaloMarkeField = broadcastedHaloMarkerField[proc];
         label numHaloCells = gHM.size_haloCells(proc);
-        if(numHaloCells!=thisProcHaloMarkerWeights.size() || numHaloCells!=thisProcHaloMarkeField.size())
+        if(/*numHaloCells!=thisProcHaloMarkerWeights.size() ||*/ numHaloCells!=thisProcHaloMarkeField.size())
             FatalErrorInFunction<<"Halo cell number mismatch"<<exit(FatalError);        
         for(label haloCellInd=0; haloCellInd<numHaloCells; haloCellInd++)
         {
             label numHaloCellMarkers = gHM.size_cellMarkers(proc,haloCellInd);
-            const DynamicList<scalar>& thisHaloCellMarkerWeights = thisProcHaloMarkerWeights[haloCellInd];
+            //const DynamicList<scalar>& thisHaloCellMarkerWeights = thisProcHaloMarkerWeights[haloCellInd];
             const DynamicList<T>& thisHaloCellMarkeField = thisProcHaloMarkeField[haloCellInd];
-            if(numHaloCellMarkers!=thisHaloCellMarkerWeights.size() || numHaloCellMarkers!=thisHaloCellMarkeField.size())
+            if(/*numHaloCellMarkers!=thisHaloCellMarkerWeights.size() ||*/ numHaloCellMarkers!=thisHaloCellMarkeField.size())
                 FatalErrorInFunction<<"Marker number mismatch"<<exit(FatalError);
             for(label markerInd=0; markerInd<numHaloCellMarkers; markerInd++)
             {
@@ -137,7 +139,7 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 //label index = std::get<2>(haloMarkerData);
                 vector dilation = std::get<3>(haloMarkerData);
                 FixedList<scalar,10>& markerKb = std::get<7>(haloMarkerData);
-                scalar weight = thisHaloCellMarkerWeights[markerInd];
+                scalar weight = gHM.getMarkerWeight(proc,haloCellInd,markerInd);
                 T fieldValue = thisHaloCellMarkeField[markerInd];
 
                 DynamicList<Pair<label>>& suppCellIndices =  std::get<4>(haloMarkerData);
