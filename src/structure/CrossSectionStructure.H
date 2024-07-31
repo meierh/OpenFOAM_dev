@@ -122,22 +122,23 @@ class CrossSectionStructure : public LineStructure
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
-        void check();
 
         CrossSectionStructure(const CrossSectionStructure&) = delete;
         void transferMarkers(FieldMarkerStructureInteraction& connector);
         
     private:
+        void check() override;
+        
+        void createSpacingPoints() override;
         void createSpacedPointsOnRod
         (
             label rodNumber,
             scalar spacing
-        );
-        
+        ) override;
         void createMarkersFromSpacedPointsOnRod
         (
             label rodNumber
-        );
+        ) override;
         void createSpacedPointsOnCrossSec
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -146,12 +147,13 @@ class CrossSectionStructure : public LineStructure
             scalar radFrac,
             scalar spacing,
             std::vector<scalar>& angleData
-        );        
+        );
+        
         void refineMarkersOnRod
         (
             label rodNumber,
             std::pair<bool,scalar> forcedSpacing = {false,-1}
-        );
+        ) override;
         void refineCircumferential
         (
             std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
@@ -173,14 +175,16 @@ class CrossSectionStructure : public LineStructure
         void setMarkerVolumeOnRod
         (
             label rodNumber
-        );
+        ) override;
         
-        void evaluateMarkerMeshRelation();
+        void evaluateMarkerMeshRelation() override;
         void evaluateMarkerMeshRelation(std::list<LagrangianMarkerOnCrossSec>& markerList);
         
-        void reduceMarkers();
+        void reduceMarkers() override;
         
-        void collectMarkers();
+        //void transferMarkers();
+        
+        void collectMarkers() override;
         
         /*
         std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
@@ -204,12 +208,14 @@ class CrossSectionStructure : public LineStructure
         );
         */
         
+        /*
         void computeMarkerVolume
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             const CrossSection* oneCrossSec,
             std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
         );
+        */
         
         std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reduceSurplusMarkers
         (

@@ -7,10 +7,10 @@ Foam::CrossSectionStructure::CrossSectionStructure
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-LineStructure(mesh,{},modusFieldToMarker,modusMarkerToField),
+LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
-    check();
+    initialize();
 }
 
 void Foam::CrossSectionStructure::check()
@@ -25,38 +25,10 @@ void Foam::CrossSectionStructure::check()
         FatalErrorInFunction<<"Mismatch in size of rodCrossSection and rodMarkersList"<<exit(FatalError);
 }
 
-void Foam::CrossSectionStructure::transferMarkers(FieldMarkerStructureInteraction& connector)
-{
-    /*
-    scalar initialSpacing = 0.01;
-    
-    for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
-    {
-        Info<<"  Transfer markers from "<<rodIndex<<Foam::endl;
-        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>>& oneRodMarkers = rodMarkersList[rodIndex];
-        if(!oneRodMarkers)
-        {
-            myMesh->m_Rods[rodIndex]->m_Rot.setCoefs(myMesh->m_Rods[rodIndex]->m_Rot_coefs.transpose());
-            oneRodMarkers = constructMarkerSet(rodIndex,myMesh->m_Rods[rodIndex],&(rodCrossSection[rodIndex]),initialSpacing);
-        }
-        */
-        /*
-        for(LagrangianMarker& marker : *oneRodMarkers)
-        {
-            connector.markers.push_back(&marker);
-        }
-        */
-        
-        /*
-        for(LagrangianMarkerOnCrossSec& marker : *oneRodMarkers)
-        {
-            connector.markers.push_back(&marker);
-        }
-        */
-        /*
-    }
-    Info<<"Transfer markers done"<<Foam::endl;
-    */
+void Foam::CrossSectionStructure::createSpacingPoints()
+{    
+    CrossSectionStructure::initialRodPoints.resize(myMesh->m_nR);
+    LineStructure::createSpacingPoints();
 }
 
 void Foam::CrossSectionStructure::createSpacedPointsOnRod
@@ -65,9 +37,10 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
     scalar spacing
 )
 {
+    Info<<"CrossSectionStructure::createSpacedPointsOnRod"<<Foam::endl;
+    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
-    
     
     auto pointsPtr = std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>
     (
@@ -80,6 +53,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
     std::list<scalar> onRodPoints;
     onRodPoints.insert(onRodPoints.end(),spacedPointsOnRod.begin(),spacedPointsOnRod.end());
     
+    //Compute points along the rod
     auto pntIter0 = onRodPoints.begin();
     auto pntIter1 = ++onRodPoints.begin();
     for( ; pntIter1!=onRodPoints.end() ; )
@@ -118,7 +92,10 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         pntIter0 = pntIter1;
         pntIter1++;
     }
+    
+    std::cout<<onRodPoints.size()<<std::endl;
 
+    //Compute points along the rod end
     pointsVec.resize(onRodPoints.size());
     uint index=0;
     for(auto iter=onRodPoints.begin(); iter!=onRodPoints.end(); iter++,index++)
@@ -133,17 +110,17 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             scalar upperLimitRadius = crossSec.upperLimitRadius(parameter);
             scalar radiusSpacing = upperLimitRadius/spacing;
             label numberOfFracs = std::ceil(radiusSpacing);
-            Info<<"End case:"<<numberOfFracs<<Foam::endl;
             scalar radFracPart = 1.0/numberOfFracs;
             scalar radFrac = 1.0;
             radialData.resize(numberOfFracs+1);
-            
+                        
             for(label r=0; r<numberOfFracs; r++)
             {
                 radialData[r].first = radFrac;
                 createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,radFrac,spacing,radialData[r].second);
                 radFrac-=radFracPart;
             }
+                        
             radialData[numberOfFracs].first = 0;
             radialData[numberOfFracs].second.resize(1);
             radialData[numberOfFracs].second[0] = 0;
@@ -155,8 +132,53 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,1.0,spacing,radialData[0].second);
         }
     }
-    
+    std::cout<<"Done"<<std::endl;
+    std::cout<<initialRodPoints.size()<<std::endl;
     initialRodPoints[rodNumber] = std::move(pointsPtr);
+    std::cout<<"Done 2"<<std::endl;
+}
+
+void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* oneCrossSec,
+    scalar radFrac,
+    scalar spacing,
+    std::vector<scalar>& angleData
+)
+{
+    Info<<"CrossSectionStructure::createSpacedPointsOnCrossSec:"<<Foam::endl;
+    
+    std::list<scalar> points;
+    points.push_back(0);
+    points.push_back(2*Foam::constant::mathematical::pi);
+    bool refined=true;
+    while(refined)
+    {
+        //Info<<"Refine"<<Foam::endl;
+        refined = false;
+        //bool cond = true;
+        auto pntsIter0 = points.begin();
+        auto pntsIter1 = ++(points.begin());
+        for( ; pntsIter1!=points.end() ; )
+        {
+            scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
+            //Info<<"   "<<(*pntsIter0)<<"->"<<(*pntsIter1)<<":"<<dist<<Foam::endl;
+            if(dist>spacing)
+            {
+                scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
+                points.insert(pntsIter1,middlePar);
+                refined=true;
+            }
+            pntsIter0 = pntsIter1;
+            pntsIter1++;
+        }
+    }
+    for(auto iter=points.begin(); iter!=points.end(); iter++)
+    {
+        angleData.push_back(*iter);
+    }
 }
 
 void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
@@ -164,6 +186,8 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
     label rodNumber
 )
 {
+    Info<<"CrossSectionStructure::createMarkersFromSpacedPointsOnRod:"<<Foam::endl;
+    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
     
@@ -206,47 +230,6 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
         }
     }
     rodMarkersList[rodNumber] = std::move(markersPtr);
-}
-
-void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
-(
-    const ActiveRodMesh::rodCosserat* oneRod,
-    scalar parameter,
-    const CrossSection* oneCrossSec,
-    scalar radFrac,
-    scalar spacing,
-    std::vector<scalar>& angleData
-)
-{
-    std::list<scalar> points;
-    points.push_back(0);
-    points.push_back(2*Foam::constant::mathematical::pi);
-    bool refined=true;
-    while(refined)
-    {
-        //Info<<"Refine"<<Foam::endl;
-        refined = false;
-        //bool cond = true;
-        auto pntsIter0 = points.begin();
-        auto pntsIter1 = ++(points.begin());
-        for( ; pntsIter1!=points.end() ; )
-        {
-            scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
-            //Info<<"   "<<(*pntsIter0)<<"->"<<(*pntsIter1)<<":"<<dist<<Foam::endl;
-            if(dist>spacing)
-            {
-                scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
-                points.insert(pntsIter1,middlePar);
-                refined=true;
-            }
-            pntsIter0 = pntsIter1;
-            pntsIter1++;
-        }
-    }
-    for(auto iter=points.begin(); iter!=points.end(); iter++)
-    {
-        angleData.push_back(*iter);
-    }
 }
 
 void Foam::CrossSectionStructure::refineMarkersOnRod
@@ -862,6 +845,7 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
 
 void Foam::CrossSectionStructure::evaluateMarkerMeshRelation()
 {
+    status.execValid(status.markerMesh);
     for(std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>& singleRodMarkers :  rodMarkersList)
     {
         for(std::list<std::list<LagrangianMarkerOnCrossSec>>& oneParaRodMarkers : *singleRodMarkers)
@@ -872,6 +856,7 @@ void Foam::CrossSectionStructure::evaluateMarkerMeshRelation()
             }
         }
     }
+    status.executed(status.markerMesh);
 }
 void Foam::CrossSectionStructure::evaluateMarkerMeshRelation
 (
@@ -884,6 +869,8 @@ void Foam::CrossSectionStructure::evaluateMarkerMeshRelation
 
 void Foam::CrossSectionStructure::reduceMarkers()
 {
+    std::cout<<"CrossSectionStructure::reduceMarkers()"<<std::endl;
+    
     std::vector<MarkerReference<LagrangianMarkerOnCrossSec>> allMarkers;
     for(std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>& singleRodMarkers :  rodMarkersList)
     {
@@ -907,20 +894,32 @@ void Foam::CrossSectionStructure::reduceMarkers()
 
 void Foam::CrossSectionStructure::collectMarkers()
 {
+    std::cout<<"CrossSectionStructure::collectMarkers"<<std::endl;
+
+    status.execValid(status.markersCollected);
     collectedMarkers.resize(0);    
     for(std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>& singleRodMarkers :  rodMarkersList)
     {
-        for(std::list<std::list<LagrangianMarkerOnCrossSec>>& oneParaRodMarkers : *singleRodMarkers)
+        if(singleRodMarkers)
         {
-            for(std::list<LagrangianMarkerOnCrossSec>& radialFracRodMarkers : oneParaRodMarkers)
+            for(std::list<std::list<LagrangianMarkerOnCrossSec>>& oneParaRodMarkers : *singleRodMarkers)
             {
-                for(LagrangianMarkerOnCrossSec& marker : radialFracRodMarkers)
+                for(std::list<LagrangianMarkerOnCrossSec>& radialFracRodMarkers : oneParaRodMarkers)
                 {
-                    collectedMarkers.push_back(&marker);
+                    for(LagrangianMarkerOnCrossSec& marker : radialFracRodMarkers)
+                    {
+                        collectedMarkers.push_back(&marker);
+                    }
                 }
             }
         }
+        else
+            FatalErrorInFunction<<"Rod with no markers given"<<exit(FatalError);
     }
+    status.executed(status.markersCollected);
+    
+    std::cout<<"collectedMarkers.size():"<<collectedMarkers.size()<<std::endl;
+    std::cout<<"CrossSectionStructure::collectMarkers done"<<std::endl;
 }
 
 /*

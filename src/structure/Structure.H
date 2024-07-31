@@ -251,6 +251,7 @@ class Structure
     public:
         scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh, label cellInd=0) const;
 };
+#include "Structure.T.H"
 void Barrier(bool stop);
 }
 #endif

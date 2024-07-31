@@ -3,7 +3,7 @@ void Foam::LineStructure::reduceMarkers
 (
     std::vector<MarkerReference<MARKER>>& allMarkers
 )
-{
+{   
     using SingleMarker = MarkerReference<MARKER>;
     
     std::unordered_map<label,std::vector<SingleMarker*>> cellToMarker;

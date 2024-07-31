@@ -1142,7 +1142,7 @@ scalar Foam::CSR_Matrix_par::evalOnDiagonal
 
 bool Foam::CSR_Matrix_par::isSquare() const
 {
-    return (globalRows==globalCols) && globalRows>0;
+    return (globalRows==globalCols);// && globalRows>0;
 }
 
 CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
@@ -1538,6 +1538,9 @@ Foam::Vector_par Foam::LinearSolver_par::solve
     
     this->b = b;
     this->x = x;
+    
+    if(x.getGlobalSize()==0)
+        return this->x;
     
     initIteration();
     while(!step() || iteration<minIteration)

@@ -144,3 +144,11 @@ void Foam::VelocityPressureForceInteraction::assignForceOnRod()
         }
     }
 }
+
+vector Foam::VelocityPressureForceInteraction::getVelocity
+(
+    const LagrangianMarker* marker
+)
+{
+    return vector(0,0,0);
+}

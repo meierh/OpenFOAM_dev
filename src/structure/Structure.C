@@ -87,7 +87,7 @@ Foam::word Foam::Structure::getName()
 
 int Foam::Structure::loadRodsFromXML()
 {
-    Info<<"loadRodsFromXML"<<Foam::endl;
+    //Info<<"loadRodsFromXML"<<Foam::endl;
     //printf("loadRodsFromXML\n");
     std::string rodsXMLFilePath = xmlPath;
     bool importSuccess = ActiveRodMesh::import_xmlCrv(rodsList, rodsXMLFilePath, 3, 1, 0);
@@ -96,9 +96,10 @@ int Foam::Structure::loadRodsFromXML()
         FatalIOError<<"Importing of Nurbs into rodMesh failed"<<exit(FatalIOError);
     }
 	const int  nR = rodsList.size();
-    Info<<"rodsList.size():"<<rodsList.size()<<endl;
+    //Info<<"rodsList.size():"<<rodsList.size()<<endl;
 
     //Info<<"nR:"<<nR<<endl;
+    /*
     for(int i=0;i<nR;i++)
     {
         Info<<"---Curve:"<<i;
@@ -117,6 +118,7 @@ int Foam::Structure::loadRodsFromXML()
 
     }
     Info<<endl;
+    */
 
     double	x0 = 1e6, x1 = -1e6, y0 = 1e6, y1 = -1e6, z0 = 1e6, z1 = -1e6;
     for(int i=0; i<nR; i++)
@@ -141,7 +143,7 @@ int Foam::Structure::loadRodsFromXML()
         z1 = std::fmax(z1, rodsList[i].coefs().topRows(0).coeff(0, 2));
         z1 = std::fmax(z1, rodsList[i].coefs().bottomRows(1).coeff(0, 2));
     }
-    Info<<"Bounding Box (x:["<<x0<<"-"<<x1<<"], y:["<<y0<<"-"<<y1<<"], z:["<<z0<<"-"<<z1<<"])"<<endl;
+    //Info<<"Bounding Box (x:["<<x0<<"-"<<x1<<"], y:["<<y0<<"-"<<y1<<"], z:["<<z0<<"-"<<z1<<"])"<<endl;
     //Info<<"lateScale:"<<latScale<<endl;
     //Info<<"latDir:"<<latDir<<endl;
     latSize << x1 - x0, y1 - y0, z1 - z0;
@@ -149,7 +151,7 @@ int Foam::Structure::loadRodsFromXML()
     latScale=1;
     gsVector<double,3> dX;
     dX << -x0, -y0, -z0;
-    std::cout<<"dX:"<<dX<<std::endl;
+    //std::cout<<"dX:"<<dX<<std::endl;
     for (int i = 0; i < nR; i++)
     {
         rodsList[i].knots().transform(0., 1.);	// re-scale knot vector
@@ -230,11 +232,11 @@ void Foam::Structure::createNurbsStructure()
         else
             Rods[i] = new ActiveRodMesh::rodCosserat(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
         
-        std::cout<<"rodsList[i].coeffs:"<<rodsList[i].coefs()<<std::endl;
-        std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
+        //std::cout<<"rodsList[i].coeffs:"<<rodsList[i].coefs()<<std::endl;
+        //std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
         
         Rods[i]->m_Rot.setCoefs(Rods[i]->m_init_Rot.transpose());
-        std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
+        //std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
 
         // Cross-section basis for optimization
         Rods[i]->resetEbasis(ekn, ewts);
@@ -244,8 +246,10 @@ void Foam::Structure::createNurbsStructure()
             Rods[i]->set_force_lG(loadG);
     }
     
+    /*
     for(ActiveRodMesh::rodCosserat* rodPtr : Rods)
         std::cout<<rodPtr->m_Curve.coefs()<<std::endl;
+    */
     
     printf("Rod mesh ... \n");
 
@@ -635,6 +639,7 @@ scalar Foam::Structure::supportDomainMinSize
     return minSuppSize;
 }
 
+/*
 template<typename T>
 std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
 (
@@ -655,6 +660,7 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
     
     return haloFieldPtr;
 }
+*/
 
 void Foam::Structure::generateMeshGraph()
 {

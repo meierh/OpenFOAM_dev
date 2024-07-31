@@ -12,10 +12,23 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField),
 crossSecArea(crossSecArea)
 {
-    label nbrOfRods = myMesh->m_nR;
-    rodMarkersList.resize(nbrOfRods);
+    initialize();
+}
+
+Foam::LineStructure::LineStructure
+(
+    dynamicRefineFvMesh& mesh,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
+):
+Structure(mesh,mesh.time()),
+modusFieldToMarker(modusFieldToMarker),
+modusMarkerToField(modusMarkerToField)
+{}
+
+void Foam::LineStructure::initialize()
+{
     check();
-    initialRodPoints.resize(nbrOfRods);
     Info<<"createSpacingPoints"<<Foam::endl;
     createSpacingPoints();       
     Info<<"createMarkersFromSpacedPoints"<<Foam::endl;
@@ -30,8 +43,6 @@ crossSecArea(crossSecArea)
     reduceMarkers();
     Info<<"collectMarkers"<<Foam::endl;
     collectMarkers();
-    for(LagrangianMarker& marker : *(rodMarkersList[0]))
-        Pout<<marker.to_string()<<Foam::endl;
     Info<<"computeMarkerCellWeights"<<Foam::endl;
     computeMarkerCellWeights();
     Info<<"collectHaloMarkers"<<Foam::endl;
@@ -66,7 +77,8 @@ void Foam::LineStructure::connect
 void Foam::LineStructure::createSpacingPoints()
 {
     status.execValid(status.initialPoints);
-    for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
+    LineStructure::initialRodPoints.resize(myMesh->m_nR);
+    for(int rodIndex=0; rodIndex<myMesh->m_nR; rodIndex++)
     {
         createSpacedPointsOnRod(rodIndex,initialMeshSpacing);
     }
@@ -79,6 +91,8 @@ void Foam::LineStructure::createSpacedPointsOnRod
     scalar spacing
 )
 {
+    Info<<"LineStructure::createSpacedPointsOnRod"<<Foam::endl;
+    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     auto pointsPtr = std::unique_ptr<std::vector<scalar>>(new std::vector<scalar>());
     std::vector<scalar>& pointsVec = *pointsPtr;
@@ -121,6 +135,7 @@ void Foam::LineStructure::createSpacedPointsOnRod
 void Foam::LineStructure::createMarkersFromSpacedPoints()
 {
     status.execValid(status.markers);
+    rodMarkersList.resize(myMesh->m_nR);
     for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
     {
         createMarkersFromSpacedPointsOnRod(rodIndex);
@@ -326,6 +341,8 @@ void Foam::LineStructure::evaluateMarkerMeshRelation
 
 void Foam::LineStructure::reduceMarkers()
 {
+    std::cout<<"LineStructure::reduceMarkers()"<<std::endl;
+
     status.execValid(status.markersReduction);
     std::vector<MarkerReference<LagrangianMarker>> allMarkers;
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkersPtr : rodMarkersList)
@@ -727,19 +744,13 @@ void Foam::LineStructure::computeMarkerWeights()
             FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
     }
 
-    //Info<<"A:"<<A.to_string()<<Foam::endl;
-    //Info<<"ones:"<<ones.to_string()<<Foam::endl;
-    //Info<<"cond:"<<condition(A)<<Foam::endl;
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
-    //Info<<"eps:"<<eps.to_string()<<Foam::endl;
-    
-    //Barrier(true);
+
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
         collectedMarkers[I]->setMarkerWeight(eps[I]);
     }
-    
     status.executed(status.markersWeight);
 }
 

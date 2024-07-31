@@ -239,7 +239,15 @@ class LineStructure : public Structure
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
+        explicit LineStructure
+        (
+            dynamicRefineFvMesh& mesh,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
+        );
         LineStructure(const LineStructure&) = delete;
+        virtual ~LineStructure() = default;
+        
         void connect(FieldMarkerStructureInteraction& connector);
 
         void createMarkers();
@@ -257,15 +265,19 @@ class LineStructure : public Structure
     protected:
         LineStructureStatus status;
         
-        void createSpacingPoints();
-        void createSpacedPointsOnRod
+        void initialize();
+        
+        virtual void check();
+        
+        virtual void createSpacingPoints();
+        virtual void createSpacedPointsOnRod
         (
             label rodNumber,
             scalar spacing
         );
 
         void createMarkersFromSpacedPoints();
-        void createMarkersFromSpacedPointsOnRod
+        virtual void createMarkersFromSpacedPointsOnRod
         (
             label rodNumber
         );
@@ -274,22 +286,22 @@ class LineStructure : public Structure
         (
             std::pair<bool,scalar> forcedSpacing = {false,-1}
         );
-        void refineMarkersOnRod
+        virtual void refineMarkersOnRod
         (
             label rodNumber,
             std::pair<bool,scalar> forcedSpacing = {false,-1}
         );
 
         void setMarkerVolume();
-        void setMarkerVolumeOnRod
+        virtual void setMarkerVolumeOnRod
         (
             label rodNumber
         );
 
-        void evaluateMarkerMeshRelation();
+        virtual void evaluateMarkerMeshRelation();
         void evaluateMarkerMeshRelation(std::list<LagrangianMarker>& markerList);
 
-        void reduceMarkers();
+        virtual void reduceMarkers();
 
         template<typename MARKER>
         class MarkerReference
@@ -348,7 +360,7 @@ class LineStructure : public Structure
             std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker
         );
 
-        void collectMarkers();
+        virtual void collectMarkers();
         
         void collectHaloMarkers();
         
@@ -498,7 +510,6 @@ class LineStructure : public Structure
         const std::vector<LagrangianMarker*>& getCollectedMarkers(){return collectedMarkers;}
         
         //scalar initialSpacingFromMesh();
-        void check();
 };
 #include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"
