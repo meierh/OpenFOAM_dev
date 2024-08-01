@@ -1,0 +1,3 @@
+Optimizer.C
+
+LIB = $(FOAM_USER_LIBBIN)/libOptimizer
