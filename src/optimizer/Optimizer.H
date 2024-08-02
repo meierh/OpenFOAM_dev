@@ -1,41 +1,46 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 #include <nlopt.hpp>
+#include "fvCFD.H"
+#include <stdexcept>
 
 namespace Foam
 {
     
+class OptimizerStop : public std::runtime_error
+{
+    public:
+        explicit OptimizerStop();
+        static bool active();
+        static void reset();
+        
+    private:
+        static bool activated;        
+        static bool singleton;
+};
+    
 class Optimizer
 {
     public:
-        explicit Optimizer
-        (
-            std::function<void(void)> 
-        );
-        ~Optimizer();
+        explicit Optimizer(nlopt::vfunc obj,label n);
+        virtual ~Optimizer()=default;
         Optimizer(const Optimizer&) = delete;
         
         scalar run();
+        
+        void setBounds(const std::vector<scalar>& lower, const std::vector<scalar>& upper);
+        void setInitial(const std::vector<scalar>& initial);
 
     protected:
         label n;
-        std::vector<scalar> x_initial;
         nlopt::opt opt;
+        std::vector<scalar> x_initial;
+        static scalar nlopt_objFunc(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data);
+        static nlopt::vfunc core_objFunc;
         
-        virtual scalar objectiveFunction
-        (
-            const std::vector<scalar>& x,
-            std::vector<double>& grad,
-            void *data
-        );
-        
-        void setBounds(std::vector<scalar> lower, std::vector<scalar> upper);
-        
-        
-        
-        virtual
-        
-        
+    private:
+        static bool singleton;
+        static bool masterDone;
 };
 
 }

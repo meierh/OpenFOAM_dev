@@ -1,38 +1,151 @@
 #include "Optimizer.H"
 
+bool Optimizer::singleton = false;
+nlopt::vfunc Optimizer::core_objFunc = nullptr;
+bool Optimizer::masterDone = false;
+
+
+bool OptimizerStop::activated = false;
+bool OptimizerStop::singleton = false;
+
+OptimizerStop::OptimizerStop
+():
+std::runtime_error("Master process done with optimizer")
+{
+    if(OptimizerStop::singleton)
+        FatalErrorInFunction<<"Can not have two activations of OptimizerStop"<<exit(FatalError);
+    OptimizerStop::singleton=true;
+    OptimizerStop::activated=true;
+}
+
+bool OptimizerStop::active()
+{
+    return activated;
+}
+
+void OptimizerStop::reset()
+{
+    activated=false;
+}
+
+Foam::Optimizer::Optimizer
+(
+    nlopt::vfunc obj,
+    label n
+):
+n(n),
+opt(nlopt::LD_MMA, n)
+{
+    if(singleton)
+        FatalErrorInFunction<<"Can not have two instances of optimizer"<<exit(FatalError);
+    Optimizer::singleton = true;
+
+    Optimizer::core_objFunc = obj;
+    opt.set_min_objective(&(Optimizer::nlopt_objFunc), NULL);
+    opt.set_xtol_rel(1e-4);
+}
+
 scalar Foam::Optimizer::run()
 {
+    Info<<"Run"<<Foam::endl;
     double minf;
-    if(x_initial.size()!=n)
+    if(static_cast<label>(x_initial.size())!=n)
         FatalErrorInFunction<<"Dimension mismatch for initial variables"<<exit(FatalError);
-    try
+    
+    bool validEnd = false;
+    nlopt::result result;
+    while(!validEnd)
     {
-        nlopt::result result = opt.optimize(x, minf);
+        bool slaveProcStopped = false;
+        try
+        {
+            result = opt.optimize(x_initial, minf);
+        }
+        catch(std::exception &e)
+        {
+            //Slave process stopped due to master done
+            if(OptimizerStop::active())
+            {
+                if(Pstream::master())
+                    FatalErrorInFunction<<"Master can not be stopped"<<exit(FatalError);
+                slaveProcStopped = true;
+                OptimizerStop::reset();
+                break;
+            }
+            
+            //Other exception
+            FatalErrorInFunction<<"Optimizer internal fail"<<exit(FatalError);
+        }
+        
+        if(Pstream::master())
+        {
+            Optimizer::masterDone = true;
+        }
+        else
+        {
+            if(!slaveProcStopped)
+                continue;
+        }
+        
+        Pstream::scatter(Optimizer::masterDone);
+        if(!Optimizer::masterDone)
+            FatalErrorInFunction<<"Master not done can not appear here"<<exit(FatalError);
+        if(Optimizer::masterDone)
+            break;
     }
-    catch(std::exception &e)
-    {
-        std::cout << "nlopt failed: " << e.what() << std::endl;
-    }
+    
     return minf;
 }
 
 void Foam::Optimizer::setBounds
 (
-    std::vector<scalar> lower,
-    std::vector<scalar> upper
+    const std::vector<scalar>& lower,
+    const std::vector<scalar>& upper
 )
 {
-    if(lower.size()==0)
+    if(lower.size()!=0)
     {
-        if(lower.size()!=n)
+        if(static_cast<label>(lower.size())!=n)
             FatalErrorInFunction<<"Dimension mismatch for lower bounds"<<exit(FatalError);
         opt.set_lower_bounds(lower);
     }
-    if(upper.size()==0)
+    if(upper.size()!=0)
     {
-        if(upper.size()!=n)
+        if(static_cast<label>(upper.size())!=n)
             FatalErrorInFunction<<"Dimension mismatch for upper bounds"<<exit(FatalError);
-        opt.set_lower_bounds(upper);
+        opt.set_upper_bounds(upper);
     }
 }
 
+void Foam::Optimizer::setInitial
+(
+    const std::vector<scalar>& initial
+)
+{
+    if(static_cast<label>(initial.size())!=n)
+        FatalErrorInFunction<<"Dimension mismatch for initial values"<<exit(FatalError);
+    x_initial = initial;
+}
+
+scalar Foam::Optimizer::nlopt_objFunc
+(
+    const std::vector<double> &x,
+    std::vector<double> &grad,
+    void *my_func_data
+)
+{
+    if(Pstream::master())
+        Optimizer::masterDone = false;
+    else
+        Optimizer::masterDone = true;
+    Pstream::scatter(Optimizer::masterDone);
+    if(!Pstream::master())
+    {
+        if(Optimizer::masterDone)
+        {
+            throw OptimizerStop();
+        }
+    }
+    
+    return Optimizer::core_objFunc(x,grad,my_func_data);
+}
