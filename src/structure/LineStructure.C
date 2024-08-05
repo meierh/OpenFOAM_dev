@@ -385,8 +385,12 @@ void Foam::LineStructure::reduceMarkers()
         }
     }
     reduceMarkers(allMarkers);
+    removeOverlapMarkers();    
     status.executed(status.markersReduction);
 }
+
+void Foam::LineStructure::removeOverlapMarkers(){};
+
 
 void Foam::LineStructure::collectMarkers()
 {

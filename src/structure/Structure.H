@@ -52,6 +52,55 @@
 namespace Foam
 {
 
+class BoundingBox
+{
+    public:
+        BoundingBox(){}
+        BoundingBox(vector smaller, vector larger):smaller(smaller),larger(larger){}
+        BoundingBox operator+(const BoundingBox& rhs) const;
+        BoundingBox U(const BoundingBox& rhs) const;
+        void enlarge(scalar size);
+        bool inside(vector point, scalar eps=0) const;
+        scalar innerSize();
+        
+        static BoundingBox boundsOfCoefficients(const gsMatrix<scalar>& coefs);
+        static BoundingBox boundsOfNurbs(const gsNurbs<scalar>& curve);
+        static BoundingBox boundsOfNurbs(gsNurbs<scalar> curve, scalar start, scalar end);
+        
+    private:
+        vector smaller;
+        vector larger;
+};
+    
+template<class Key,class Value>
+class BinaryTree
+{
+    public:
+        BinaryTree& operator=(const BinaryTree& rhs);
+        const Value* find(const Key& key);
+        class Node
+        {
+            public:
+                Node();
+                Node(const Node& other);
+                Key key;
+                Value value;
+                std::unique_ptr<Node> leftChild;
+                std::unique_ptr<Node> rightChild;
+        };
+        
+    protected:
+        std::unique_ptr<Node> root;
+};
+
+class BoundingBoxTree : public BinaryTree<scalar,BoundingBox>
+{
+    public:
+        BoundingBoxTree& operator=(const BoundingBoxTree& rhs);
+        void findPointParameters(std::vector<scalar>& parameters, vector point) const;
+        std::unique_ptr<Node>& getRoot(){return root;}
+};
+
 template<typename A,typename B>
 struct stdPairHash
 {
@@ -78,7 +127,7 @@ class Structure
             dynamicRefineFvMesh& mesh,
             const Time& runTime
         );
-        ~Structure();
+        virtual ~Structure();
         Structure(const Structure&) = delete;
         
         label getNumberRods();
@@ -102,7 +151,10 @@ class Structure
             std::vector<vector> coefficients
         );
 
+        static vector rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
+        static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
+        
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         const scalar initialMeshSpacing;
@@ -131,6 +183,32 @@ class Structure
         std::vector<gsNurbs<double>> rodsList;
         const int nR; // Number of Rods
         std::string folder;
+        
+        List<bool> rodInMesh;
+        List<BoundingBoxTree> rodTrees;
+        /*
+        BoundingBox computeBox
+        (
+            const gsMatrix<scalar>& coefs
+        );
+        */
+        virtual BoundingBox computeBox
+        (
+            label rodNumber
+        );
+        virtual BoundingBox computeBox
+        (
+            label rodNumber,
+            scalar parStart,
+            scalar parEnd
+        );
+        virtual scalar characteristicSize
+        (
+            label rodNumber,
+            scalar par
+        );
+        void buildTrees();
+        void buildTreeOnRod(label rodNumber);
         
         //******************* Parameters *******************//
             double    latScale;// = 1;			// Scaling factor for XML geometry

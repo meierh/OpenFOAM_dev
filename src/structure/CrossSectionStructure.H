@@ -47,6 +47,10 @@ class CrossSection
         
         scalar lowerLimitRadius(scalar parameter) const;
         scalar upperLimitRadius(scalar parameter) const;
+        std::pair<scalar,scalar> nurbsBounds(gsNurbs<scalar> curve) const;
+        std::pair<scalar,scalar> nurbsBounds(gsNurbs<scalar> curve, scalar start, scalar end) const;
+        std::pair<scalar,scalar> radiusBounds() const;
+        std::pair<scalar,scalar> radiusBounds(scalar start, scalar end) const;
         
         const gsNurbs<scalar>& get_a_0() const {return a_0;}
         const std::vector<gsNurbs<scalar>>& get_a_k() const {return a_k;}
@@ -183,6 +187,24 @@ class CrossSectionStructure : public LineStructure
         void evaluateMarkerMeshRelation(std::list<LagrangianMarkerOnCrossSec>& markerList);
         
         void reduceMarkers() override;
+        
+        BoundingBox computeBox
+        (
+            label rodNumber
+        ) override;
+        BoundingBox computeBox
+        (
+            label rodNumber,
+            scalar parStart,
+            scalar parEnd
+        ) override;
+        scalar characteristicSize
+        (
+            label rodNumber,
+            scalar par
+        ) override;
+        
+        void removeOverlapMarkers() override;
         
         //void transferMarkers();
         

@@ -348,6 +348,8 @@ class LineStructure : public Structure
         (
             std::vector<MarkerReference<MARKER>>& allMarkers
         );
+        
+        virtual void removeOverlapMarkers();
 
         template<class MARKER>
         void maxOneMarkerPerOctant
@@ -369,7 +371,7 @@ class LineStructure : public Structure
             std::vector<MarkerReference<MARKER>>& allMarkers,
             std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker
         );
-
+        
         virtual void collectMarkers();
         
         void collectHaloMarkers();

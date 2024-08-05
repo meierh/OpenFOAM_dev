@@ -919,6 +919,179 @@ void Foam::CrossSectionStructure::reduceMarkers()
     LineStructure::reduceMarkers(allMarkers);
 }
 
+BoundingBox Foam::CrossSectionStructure::computeBox
+(
+    label rodNumber
+)
+{
+    BoundingBox nurbsCurveBox = Structure::computeBox(rodNumber);
+    std::pair<scalar,scalar> minMax = rodCrossSection[rodNumber].radiusBounds();
+    nurbsCurveBox.enlarge(minMax.second);
+    return nurbsCurveBox;
+}
+
+BoundingBox Foam::CrossSectionStructure::computeBox
+(
+    label rodNumber,
+    scalar parStart,
+    scalar parEnd
+)
+{
+    BoundingBox nurbsCurveBox = Structure::computeBox(rodNumber,parStart,parEnd);
+    std::pair<scalar,scalar> minMax = rodCrossSection[rodNumber].radiusBounds(parStart,parEnd);
+    nurbsCurveBox.enlarge(minMax.second);
+    return nurbsCurveBox;
+}
+
+scalar Foam::CrossSectionStructure::characteristicSize
+(
+    label rodNumber,
+    scalar par
+)
+{
+    return rodCrossSection[rodNumber].upperLimitRadius(par);
+}
+
+void Foam::CrossSectionStructure::removeOverlapMarkers()
+{
+    std::vector<MarkerReference<LagrangianMarkerOnCrossSec>> deleteMarkers;
+    for(std::size_t rodI=0; rodI<rodMarkersList.size(); rodI++)
+    {
+        if(rodInMesh[rodI])
+        {
+            std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>& singleRodMarkers = rodMarkersList[rodI];
+            for(std::list<std::list<LagrangianMarkerOnCrossSec>>& oneParaRodMarkers : *singleRodMarkers)
+            {
+                for(std::list<LagrangianMarkerOnCrossSec>& radialFracRodMarkers : oneParaRodMarkers)
+                {
+                    std::list<LagrangianMarkerOnCrossSec>* singleRadMarkers = &(radialFracRodMarkers);
+                    for(auto iter=singleRadMarkers->begin(); iter!=singleRadMarkers->end(); iter++)
+                    {
+                        LagrangianMarkerOnCrossSec& marker = *iter;
+                        vector P = marker.getMarkerPosition();
+                        
+                        for(std::size_t rodIOther=0; rodIOther<rodMarkersList.size(); rodIOther++)
+                        {
+                            if(rodInMesh[rodIOther] && rodI!=rodIOther)
+                            {
+                                const BoundingBoxTree& tree = rodTrees[rodIOther];
+                                std::vector<scalar> parameters;
+                                tree.findPointParameters(parameters,P);
+                                
+                                if(parameters.size()>0)
+                                {
+                                    const ActiveRodMesh::rodCosserat* rod = Rods[rodIOther];
+                                    const CrossSection& crossSec = rodCrossSection[rodIOther];
+                                    std::function<vector(scalar)> C_u=[rod](scalar u){return rodEval(rod,u);};
+                                    std::function<vector(scalar)> dC_u=[rod](scalar u){return rodDerivEval(rod,u);};
+                                    std::function<vector(scalar)> d2C_u=[rod](scalar u){return rodDeriv2Eval(rod,u);};
+                                    
+                                    std::function<scalar(scalar)> f_u=[rod,P,dC_u,C_u](scalar u)
+                                    {
+                                        return dC_u(u)&(C_u(u)-P);                                        
+                                    };
+                                    std::function<scalar(scalar)> df_u=[rod,P,d2C_u,dC_u,C_u](scalar u)
+                                    {
+                                        vector dC = dC_u(u);
+                                        scalar abs_dC_2 = dC&dC;
+                                        return (d2C_u(u)&(C_u(u)-P)) + abs_dC_2;
+                                    };
+                                    
+                                    std::function<scalar(scalar)> f_df_u = [rod,P,f_u,df_u](scalar u)
+                                    {
+                                        return u-f_u(u)/df_u(u);
+                                    };
+                                    
+                                    scalar u_start = rod->m_Curve.domainStart();
+                                    scalar u_end = rod->m_Curve.domainEnd();
+                                    
+                                    for(scalar& para : parameters)
+                                    {
+                                        for(label iteration=0; iteration<1000; iteration++)
+                                        {
+                                            scalar paraNext = f_df_u(para);
+                                            paraNext = std::max(paraNext,u_start);
+                                            paraNext = std::min(paraNext,u_end);
+                                            
+                                            scalar orthogonalErr = std::abs(f_u(paraNext));
+                                            if(orthogonalErr<1e-8)
+                                                break;
+                                            
+                                            scalar changeMag = std::abs((paraNext-para)*(paraNext-para)*(dC_u(paraNext)&dC_u(paraNext)));
+                                            if(changeMag<1e-8)
+                                                break;
+                                            
+                                            para = paraNext;
+                                        }
+                                    }
+                                    scalar minimalPara = parameters[0];
+                                    scalar minimalOffOrtho = std::abs(f_u(parameters[0]));
+                                    for(scalar& para : parameters)
+                                    {
+                                        scalar offOrtho = std::abs(f_u(para));
+                                        if(offOrtho<minimalOffOrtho)
+                                        {
+                                            minimalPara = para;
+                                            minimalOffOrtho = offOrtho;
+                                        }
+                                    }
+                                    if(minimalOffOrtho>1e-8)
+                                    {
+                                        if(std::abs(minimalPara-u_start)>1e-4)
+                                        {
+                                            if(std::abs(minimalPara-u_end)>1e-4)
+                                            {
+                                                FatalErrorInFunction<<"Non solution found"<<exit(FatalError);
+                                            }
+                                        }
+                                    }
+                                    if(u_start==minimalPara || u_end==minimalPara)
+                                        continue;
+                                        
+                                    vector d1,d2,d3,r;
+                                    rodEval(rod,minimalPara,d1,d2,d3,r);
+                                    
+                                    scalar v1 = (d1&P)/(d1&d1);
+                                    scalar v2 = (d2&P)/(d2&d2);
+                                    
+                                    const scalar sign_v1 = v1<0?-1:1;
+                                    const scalar sign_v2 = v2<0?-1:1;
+                                    
+                                    v1 *= sign_v1;
+                                    v2 *= sign_v2;
+                                    
+                                    scalar angle;
+                                    if(v1!=0)
+                                        angle = std::atan(v2/v1);
+                                    else
+                                        angle = 0.5*Foam::constant::mathematical::pi;
+                                    
+                                    if(sign_v1==-1)
+                                        angle = Foam::constant::mathematical::pi-angle;
+                                    if(sign_v2==-1)
+                                        angle = 2*Foam::constant::mathematical::pi-angle;
+                                    
+                                    vector dist = P-r;
+                                    scalar radius = std::sqrt(dist&dist);
+                                    
+                                    if(radius<crossSec(minimalPara,angle))
+                                    {
+                                        deleteMarkers.push_back
+                                        (
+                                            MarkerReference<LagrangianMarkerOnCrossSec>(iter,singleRadMarkers)
+                                        );
+                                        deleteMarkers.back().deleteMarker();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void Foam::CrossSectionStructure::collectMarkers()
 {
     std::cout<<"CrossSectionStructure::collectMarkers"<<std::endl;

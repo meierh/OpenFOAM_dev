@@ -315,6 +315,140 @@ scalar Foam::CrossSection::upperLimitRadius(scalar parameter) const
     return maxValue;
 }
 
+std::pair<scalar,scalar> Foam::CrossSection::nurbsBounds
+(
+    gsNurbs<scalar> curve
+) const
+{
+    if(curve.coefs().cols()<1)
+        FatalErrorInFunction<<"Size mismatch"<<exit(FatalError);
+    
+    scalar min = curve.coefs()(0,0);
+    scalar max = curve.coefs()(0,0);
+    for(label i=0; i<curve.coefs().cols(); i++)
+    {
+        min = std::min(min,curve.coefs()(i,0));
+        max = std::max(max,curve.coefs()(i,0));
+    }
+    return {min,max};
+}
+
+std::pair<scalar,scalar> Foam::CrossSection::nurbsBounds
+(
+    gsNurbs<scalar> curve,
+    scalar start,
+    scalar end
+) const
+{
+    std::unordered_set<label> knotSet;
+    for(scalar knot : curve.knots())
+        knotSet.insert(knot);
+
+    if(knotSet.find(start)==knotSet.end())
+        curve.insertKnot(start);
+    if(knotSet.find(end)==knotSet.end())
+        curve.insertKnot(end);
+
+    label degree = curve.knots().degree();
+    label knot_start = -1;
+    label knot_end = -1;
+    for(std::size_t knotI=0; knotI<curve.knots().size()-1; knotI++)
+    {
+        scalar knot_i0 = curve.knots()[knotI];
+        scalar knot_i1 = curve.knots()[knotI+1];
+        
+        if(knot_i0==start && knot_i0!=knot_i1)
+        {
+            if(knot_start!=-1)
+                FatalErrorInFunction<<"Duplicate assigned"<<exit(FatalError);
+            knot_start=static_cast<label>(knotI);
+        }
+        if(knot_i1==end && knot_i0!=knot_i1)
+        {
+            if(knot_end!=-1)
+                FatalErrorInFunction<<"Duplicate assigned"<<exit(FatalError);
+            knot_end=static_cast<label>(knotI+1);
+        }
+    }
+    if(knot_start==-1 || knot_end==-1)
+        FatalErrorInFunction<<"Not assigned"<<exit(FatalError);
+
+    label coeff_start = knot_start-degree;
+    label coeff_end = knot_end-1;
+
+    if(curve.coefs().rows()!=1)
+        FatalErrorInFunction<<"Rows number out of range"<<exit(FatalError);
+    if(coeff_start<0 || coeff_start>=curve.coefs().cols())
+        FatalErrorInFunction<<"Coeff start out of range"<<exit(FatalError);
+    if(coeff_end<0 || coeff_end>=curve.coefs().cols())
+        FatalErrorInFunction<<"Coeff start out of range"<<exit(FatalError);
+
+    gsMatrix<scalar> coeffs(coeff_end-coeff_start+1,1);
+    label ind=0;
+    for(label c_s=coeff_start; c_s<coeff_end+1; c_s++,ind++)
+    {
+        coeffs(ind,0) = curve.coefs()(c_s,0);
+    }
+    if(ind!=coeffs.cols())
+        FatalErrorInFunction<<"Size mismatch"<<exit(FatalError);
+    
+    scalar min = coeffs(0,0);
+    scalar max = coeffs(0,0);
+    for(label i=0; i<coeffs.cols(); i++)
+    {
+        min = std::min(min,coeffs(i,0));
+        max = std::max(max,coeffs(i,0));
+    }
+    return {min,max};
+}
+
+std::pair<scalar,scalar> Foam::CrossSection::radiusBounds() const
+{
+    auto minMax = nurbsBounds(a_0);
+    scalar min = minMax.first/2;
+    scalar max = minMax.second/2;
+    
+    for(const gsNurbs<scalar>& ak : a_k)
+    {
+        auto minMax = nurbsBounds(ak);
+        min += minMax.first;
+        max += minMax.second;
+    }
+    for(const gsNurbs<scalar>& bk : b_k)
+    {
+        auto minMax = nurbsBounds(bk);
+        min += minMax.first;
+        max += minMax.second;
+    }
+    return {min,max};
+}
+
+std::pair<scalar,scalar> Foam::CrossSection::radiusBounds
+(
+    scalar start,
+    scalar end
+) const
+{
+    auto minMax = nurbsBounds(a_0,start,end);
+    scalar min = minMax.first/2;
+    scalar max = minMax.second/2;
+    
+    for(const gsNurbs<scalar>& ak : a_k)
+    {
+        auto minMax = nurbsBounds(ak,start,end);
+        min += minMax.first;
+        max += minMax.second;
+    }
+    for(const gsNurbs<scalar>& bk : b_k)
+    {
+        auto minMax = nurbsBounds(bk,start,end);
+        min += minMax.first;
+        max += minMax.second;
+    }
+    
+    return {min,max};
+}
+
 gsNurbs<scalar> Foam::CrossSection::createConstNurbs(scalar coeff) const
 {
     std::vector<scalar> knotContainer = {0,0,1,1};
