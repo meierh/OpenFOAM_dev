@@ -81,7 +81,7 @@ class BinaryTree
         class Node
         {
             public:
-                Node();
+                Node(){}
                 Node(const Node& other);
                 Key key;
                 Value value;

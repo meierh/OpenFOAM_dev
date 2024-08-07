@@ -47,20 +47,10 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
     
-    /*
     CrossSection circle(1);
     CrossSectionStructure structure(mesh,{circle});
-    */
-    
-    LineStructure structure(mesh,Structure::initialSpacingFromMesh(mesh));
-    structure.to_string();
     
     StaticVelocityPressureAction U_Interaction(mesh,structure,U,Uf);
-    
-    U_Interaction.interpolateFluidVelocityToMarkers();
-    U_Interaction.computeCouplingForceOnMarkers();
-    U_Interaction.computeRodForceMoment();
-    U_Interaction.interpolateFluidForceField();    
     
     FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);    
     

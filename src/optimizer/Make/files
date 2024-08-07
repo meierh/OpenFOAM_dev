@@ -1,3 +1,5 @@
 Optimizer.C
+Application.C
+IcoFlow.C
 
 LIB = $(FOAM_USER_LIBBIN)/libOptimizer

@@ -154,6 +154,15 @@ BoundingBox Foam::BoundingBox::boundsOfNurbs
     return BoundingBox::boundsOfCoefficients(coeffs);
 }
 
+BoundingBoxTree& Foam::BoundingBoxTree::operator=
+(
+    const BoundingBoxTree& rhs
+)
+{
+    root = std::make_unique<Node>(*(rhs.root));
+    return *this;
+}
+
 void Foam::BoundingBoxTree::findPointParameters
 (
     std::vector<scalar>& parameters,
@@ -877,6 +886,20 @@ BoundingBox Foam::Structure::computeBox
     const gsNurbs<scalar>& def = rod->m_Def;
 
     return BoundingBox::boundsOfNurbs(curve,parStart,parEnd)+BoundingBox::boundsOfNurbs(def,parStart,parEnd);
+}
+
+scalar Foam::Structure::characteristicSize
+(
+    label rodNumber,
+    scalar par
+)
+{
+    vector position = rodEval(Rods[rodNumber],par);
+    label cell = mesh.findCell(position);
+    if(cell!=-1)
+        return initialSpacingFromMesh(mesh,cell);
+    else
+        return initialSpacingFromMesh(mesh);
 }
 
 void Foam::Structure::buildTrees()
