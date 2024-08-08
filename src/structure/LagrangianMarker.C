@@ -81,7 +81,7 @@ std::string Foam::LagrangianMarker::to_string() const
            std::to_string(markerPosition[0])+","+std::to_string(markerPosition[1])+","+
            std::to_string(markerPosition[2])+")"+" vol:"+std::to_string(markerVolume)+" dilation:("+
            std::to_string(dilation[0])+","+std::to_string(dilation[1])+","+
-           std::to_string(dilation[2])+")";
+           std::to_string(dilation[2])+")"+ " existingDims:("+std::to_string(existingDims[0])+","+std::to_string(existingDims[1])+","+std::to_string(existingDims[2])+")";
 }
 
 void Foam::LagrangianMarker::total_print() const
@@ -1001,7 +1001,6 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     }
     else
     {
-        Info<<"searchValidConvolutionSetup"<<Foam::endl;
         searchValidConvolutionSetup(system);
     }
     
@@ -1213,7 +1212,6 @@ scalar Foam::LagrangianMarker::deltaDirac
     }
     scalar deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
     deltaDir /= (h[0]*h[1]*h[2]);
-    //Info<<h<<"  X:"<<X<<"  x:"<<x<<" -> "<<deltaDir<<Foam::endl;
     return deltaDir;
 }
 

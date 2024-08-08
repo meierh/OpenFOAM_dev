@@ -10,6 +10,7 @@ Foam::CrossSectionStructure::CrossSectionStructure
 LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
+    Info<<"CrossSectionStructure"<<Foam::endl;
     initialize();
 }
 
@@ -61,9 +62,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
     label rodNumber,
     scalar spacing
 )
-{
-    Info<<"CrossSectionStructure::createSpacedPointsOnRod "<<spacing<<Foam::endl;
-    
+{   
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
     
@@ -118,8 +117,6 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         pntIter1++;
     }
     
-    std::cout<<onRodPoints.size()<<std::endl;
-
     //Compute points along the rod end
     pointsVec.resize(onRodPoints.size());
     uint index=0;
@@ -143,7 +140,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             {
                 radialData[r].first = radFrac;
                 createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,radFrac,spacing,radialData[r].second);
-                Info<<radFrac<<"  radialData["<<r<<"].second.size():"<<radialData[r].second.size()<<Foam::endl;
+                //Info<<radFrac<<"  radialData["<<r<<"].second.size():"<<radialData[r].second.size()<<Foam::endl;
                 radFrac-=radFracPart;
             }
                         
@@ -156,13 +153,10 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             radialData.resize(1);
             radialData[0].first = 1.0;
             createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,1.0,spacing,radialData[0].second);
-            Info<<"radialData[0].second.size():"<<radialData[0].second.size()<<Foam::endl;
+            //Info<<"radialData[0].second.size():"<<radialData[0].second.size()<<Foam::endl;
         }
     }
-    std::cout<<"Done"<<std::endl;
-    std::cout<<initialRodPoints.size()<<std::endl;
     initialRodPoints[rodNumber] = std::move(pointsPtr);
-    std::cout<<"Done 2"<<std::endl;
 }
 
 void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
@@ -174,24 +168,19 @@ void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
     scalar spacing,
     std::vector<scalar>& angleData
 )
-{
-    Info<<"CrossSectionStructure::createSpacedPointsOnCrossSec:" <<spacing<<Foam::endl;
-    
+{    
     std::list<scalar> points;
     points.push_back(0);
     points.push_back(2*Foam::constant::mathematical::pi);
     bool refined=true;
     while(refined)
     {
-        //Info<<"Refine"<<Foam::endl;
         refined = false;
-        //bool cond = true;
         auto pntsIter0 = points.begin();
         auto pntsIter1 = ++(points.begin());
         for( ; pntsIter1!=points.end() ; )
         {
             scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
-            //Info<<"   "<<(*pntsIter0)<<"->"<<(*pntsIter1)<<":"<<dist<<Foam::endl;
             if(dist>spacing)
             {
                 scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
@@ -212,9 +201,7 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
 (
     label rodNumber
 )
-{
-    Info<<"CrossSectionStructure::createMarkersFromSpacedPointsOnRod:"<<Foam::endl;
-    
+{   
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
     
@@ -278,7 +265,6 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
                 refineCircumferential(*iterRadial);
         }
     }
-    Info<<"Circum refined"<<Foam::endl;
     
     // Refine rod endings radially
     refineRadial(markers.front(),initialMeshSpacing);
@@ -339,7 +325,6 @@ void Foam::CrossSectionStructure::refineCircumferential
     std::pair<bool,scalar> refineSpacing
 )
 {
-    Info<<"refineCircumferential"<<Foam::endl;
     if(circumMarkers.size()<2)
     {
         Info<<circumMarkers.front().getMarkerRadiusFrac()<<Foam::endl;
@@ -408,7 +393,6 @@ void Foam::CrossSectionStructure::refineRadial
     std::pair<bool,scalar> refineSpacing
 )
 {
-    Info<<"refineRadial"<<Foam::endl;
     if(radialMarkers.size()<2)
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
     if(radialMarkers.front().size()<2)
@@ -531,7 +515,6 @@ void Foam::CrossSectionStructure::refineRadial
             radMarkerIter1++;
         }
     }
-    Info<<"refineRadial done"<<Foam::endl;
 }
 
 void Foam::CrossSectionStructure::refineTangential
@@ -541,7 +524,6 @@ void Foam::CrossSectionStructure::refineTangential
     std::pair<bool,scalar> refineSpacing
 )
 {
-    Info<<"refineTangential"<<Foam::endl;
     if(tangMarkers.size()<2)
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
     if(tangMarkers.front().size()<2)
@@ -1117,8 +1099,6 @@ void Foam::CrossSectionStructure::collectMarkers()
             FatalErrorInFunction<<"Rod with no markers given"<<exit(FatalError);
     }
     status.executed(status.markersCollected);
-    
-    std::cout<<"collectedMarkers.size():"<<collectedMarkers.size()<<std::endl;
     std::cout<<"CrossSectionStructure::collectMarkers done"<<std::endl;
 }
 
