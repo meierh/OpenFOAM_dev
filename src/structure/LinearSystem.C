@@ -669,6 +669,26 @@ globalRows(-1),
 global(global)
 {}
 
+scalar& Foam::Vector_par::operator [](int idx)
+{
+    if(idx<0 || idx>=V.size())
+    {
+        Info<<"idx:"<<idx<<Foam::endl;
+        FatalErrorInFunction<<"Out of range"<<exit(FatalError);
+    }
+    return V[idx];
+}
+
+scalar Foam::Vector_par::operator [](int idx) const
+{
+    if(idx<0 || idx>=V.size())
+    {
+        Info<<"idx:"<<idx<<Foam::endl;
+        FatalErrorInFunction<<"Out of range"<<exit(FatalError);
+    }
+    return V[idx];
+}
+
 scalar Foam::Vector_par::operator&
 (
     const Vector_par& vec
@@ -1005,7 +1025,10 @@ void Foam::CSR_Matrix_par::addRow(List<std::pair<scalar,label>> row)
     if(writtenRow<localRows)
         writtenRow++;
     else
+    {
+        Info<<"writtenRow:"<<writtenRow<<"  localRows:"<<localRows<<Foam::endl;
         FatalErrorInFunction<<"Out of range row"<<exit(FatalError);
+    }
     
     Row_Index.append(lastWrittenRowIndex);
     lastWrittenRowIndex+=row.size();
@@ -1014,8 +1037,12 @@ void Foam::CSR_Matrix_par::addRow(List<std::pair<scalar,label>> row)
         std::pair<scalar,label>& entry = row[i];
         scalar value = entry.first;
         label col = entry.second;
-        if(col>=globalCols)
+        if(col>=globalCols || col<0)
+        {
+            Info<<"col:"<<col<<Foam::endl;
+            Info<<"globalCols:"<<globalCols<<Foam::endl;
             FatalErrorInFunction<<"Col out of range"<<exit(FatalError);
+        }
         V.append(value);
         Col_Index.append(col);
     }

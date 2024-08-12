@@ -41,6 +41,16 @@ class CrossSection
         
         scalar deriv_angle(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
+        
+    private:
+        std::unique_ptr<gismo::gsNurbs<scalar>> A;
+        //std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
+        const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
+
+    public:
+        label numberFourierCoeff();
+        label numberNurbsCoeffs(label fourierCoeffNumber);
+        scalar evalRadiusDerivCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter);
                 
         scalar domainStart(){return domStart;}
         scalar domainEnd(){return domEnd;}
@@ -270,6 +280,17 @@ class CrossSectionStructure : public LineStructure
             scalar var_radius = 0
         );
         
+        
+        
+        vector evalRodDerivCoeff
+        (
+            label rodNumber,
+            label derivCoeffNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac = 1
+        );
+        
     private:
         static vector evaluateRodCircumDerivAngle
         (
@@ -319,6 +340,10 @@ class CrossSectionStructure : public LineStructure
         );
 
         std::vector<CrossSection> rodCrossSection;
+    public:
+        const std::vector<CrossSection>& getRodCrossSections(){return rodCrossSection;}
+    
+    private:
         //[rod] -> {para , [] -> {rad , [] -> angle}}
         std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
         std::vector<std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>> rodMarkersList;
@@ -368,6 +393,45 @@ class CrossSectionStructure : public LineStructure
             scalar radiusFrac = 1
         );
         */
+};
+
+class CrossSectionCoeffReference
+{
+    public:
+        label rodNumber;
+        label fourierCoeffNumber;
+        label coeffNumber;
+};
+
+struct CrossSecCoeffHash
+{
+    label operator()(const CrossSectionCoeffReference &r) const
+    {
+        return std::hash<label>{}(r.rodNumber)^std::hash<label>{}(r.fourierCoeffNumber)^std::hash<label>{}(r.coeffNumber);
+    }
+};
+
+class CrossSectionStructureParameter
+{
+    public:
+        CrossSectionStructureParameter();
+        CrossSectionStructureParameter(CrossSectionCoeffReference coeff);
+        CrossSectionStructureParameter(const std::vector<CrossSectionCoeffReference>& coeffs);
+        void addCoeff(CrossSectionCoeffReference ref);
+        
+    private:
+        std::vector<CrossSectionCoeffReference> coeffs;
+};
+
+class CrossSectionStructureParameters : public LineStructureParameters
+{
+    public:
+        CrossSectionStructureParameters();
+        virtual ~CrossSectionStructureParameters() = default;
+        virtual void collectParameters(CrossSectionStructure* structure);
+        
+    private:
+        std::vector<CrossSectionStructureParameter> parameters;
 };
 
 }

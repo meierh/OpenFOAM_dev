@@ -236,6 +236,7 @@ mesh(mesh)
         if(curve.domainEnd()!=deformation.domainEnd())
             FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
     }
+    coeffDerivedCurves.resize(nR);
 }
 
 Foam::Structure::~Structure()
@@ -828,6 +829,53 @@ void Foam::Structure::rodEval
     gsMatrix<scalar> pnt = basePnt+defPnt;    
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
+
+label Foam::Structure::numberCoeffs(label rodNumber)
+{
+    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    return curve.coefs().cols();
+}
+
+vector Foam::Structure::evalDerivCoeff
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    scalar parameter
+)
+{
+    std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>& rodCoeffDerivedCurves = coeffDerivedCurves[rodNumber];
+    if(!rodCoeffDerivedCurves)
+    {
+        rodCoeffDerivedCurves = std::make_unique<std::vector<std::unique_ptr<gsNurbs<scalar>>>>();
+        rodCoeffDerivedCurves->resize(numberCoeffs(rodNumber));
+    }
+    std::unique_ptr<gsNurbs<scalar>>& rodOneCoeffDerivedCurve = (*rodCoeffDerivedCurves)[derivCoeffNumber];
+    if(!rodOneCoeffDerivedCurve)
+    {
+        rodOneCoeffDerivedCurve = std::make_unique<gsNurbs<scalar>>();
+        const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+        const gsNurbs<scalar>& curve = rod->m_Curve;
+        *rodOneCoeffDerivedCurve = curve;
+        gsMatrix<scalar>& coeffs = rodOneCoeffDerivedCurve->coefs();
+        for(label col=0; col<coeffs.cols(); col++)
+        {
+            scalar replVal = col==derivCoeffNumber?1:0;
+            for(label row=0; row<coeffs.rows(); row++)
+            {
+                coeffs(col,row) = replVal;
+            }
+        }
+    }
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    const gsNurbs<scalar> coeffDerivCurve = *rodOneCoeffDerivedCurve;
+    gsMatrix<scalar> coeffDerivEval;
+    coeffDerivCurve.eval_into(parMat,coeffDerivEval);    
+    return vector(coeffDerivEval(0,0),coeffDerivEval(1,0),coeffDerivEval(2,0));
+}
+
 
 /*
 BoundingBox Foam::Structure::computeBox

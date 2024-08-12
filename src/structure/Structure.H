@@ -157,6 +157,14 @@ class Structure
         
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
+        
+    private:
+        std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
+
+    public:
+        label numberCoeffs(label rodNumber);
+        vector evalDerivCoeff(label rodNumber, label derivCoeffNumber, scalar parameter); 
+        
         const scalar initialMeshSpacing;
         
         const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourhoodProcesses;}

@@ -197,8 +197,8 @@ namespace Foam
             Vector_par(const Vector_par& vec);
             Vector_par(bool global=true);
             
-            inline scalar& operator [](int idx){return V[idx];}
-            inline scalar operator [](int idx) const {return V[idx];}
+            scalar& operator [](int idx);
+            scalar operator [](int idx) const;
             scalar operator& (const Vector_par&) const;
             Vector_par operator* (scalar) const;
             Vector_par operator+ (const Vector_par&) const;

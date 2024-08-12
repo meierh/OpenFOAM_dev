@@ -253,6 +253,81 @@ std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar pa
     };
 }
 
+const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr(label fourierCoeffNumber)
+{
+    const gsNurbs<scalar>* curve;
+    if(fourierCoeffNumber==0)
+    {
+        curve = &a_0;
+    }
+    else
+    {
+        fourierCoeffNumber -= 1;
+        if(fourierCoeffNumber%2==0)
+        {
+            fourierCoeffNumber /= 2;
+            curve = &(a_k[fourierCoeffNumber]);
+        }
+        else
+        {
+            fourierCoeffNumber -= 1;
+            fourierCoeffNumber /= 2;
+            curve = &(b_k[fourierCoeffNumber]);
+        }
+    }
+    return curve;
+}
+
+label Foam::CrossSection::numberFourierCoeff()
+{
+    return numberCoeffs+1;
+}
+
+label Foam::CrossSection::numberNurbsCoeffs(label fourierCoeffNumber)
+{
+    const gsNurbs<scalar>* curve = getCurvePtr(fourierCoeffNumber);
+    return curve->coefs().cols();
+}
+
+scalar Foam::CrossSection::evalRadiusDerivCoeff
+(
+    label fourierCoeffNumber,
+    label derivCoeffNumber,
+    scalar parameter
+)
+{
+    /*
+    std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>& coeffDerivedCurve = coeffDerivedCurves[fourierCoeffNumber];
+    if(!coeffDerivedCurve)
+    {
+        coeffDerivedCurve = std::make_unique<std::vector<std::unique_ptr<gsNurbs<scalar>>>>();
+        coeffDerivedCurve->resize(numberNurbsCoeffs(fourierCoeffNumber));
+    }
+    std::unique_ptr<gsNurbs<scalar>>& coeffOneCoeffDerivedCurve = (*coeffDerivedCurve)[derivCoeffNumber];
+    if(!coeffOneCoeffDerivedCurve)
+    {
+        coeffOneCoeffDerivedCurve = std::make_unique<gsNurbs<scalar>>();
+        *coeffOneCoeffDerivedCurve = *(getCurvePtr(fourierCoeffNumber));
+        gsMatrix<scalar>& coeffs = coeffOneCoeffDerivedCurve->coefs();
+        for(label col=0; col<coeffs.cols(); col++)
+        {
+            scalar replVal = col==derivCoeffNumber?1:0;
+            for(label row=0; row<coeffs.rows(); row++)
+            {
+                coeffs(col,row) = replVal;
+            }
+        }
+    }
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    const gsNurbs<scalar>& coeffDerivCurve = *coeffOneCoeffDerivedCurve;
+    gsMatrix<scalar> coeffDerivEval;
+    coeffDerivCurve.eval_into(parMat,coeffDerivEval);    
+    return coeffDerivEval(0,0);
+    */
+}
+
 scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const
 {
     gsMatrix<scalar> parMat(1,1);

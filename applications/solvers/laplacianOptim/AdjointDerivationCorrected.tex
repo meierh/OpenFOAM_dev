@@ -1,0 +1,116 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+\documentclass[10pt]{article} % use larger type; default would be 10pt
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+\geometry{margin=1.5cm} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+
+%%%PACKAGES%%%
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+\usepackage{amsmath} % mathematics
+
+\usepackage{tikz}
+\usetikzlibrary{trees}
+
+\usepackage{multirow}
+\usepackage{parallel,enumitem}
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+
+%%% END Article customizations
+
+
+\title{Adjoint derivation laplacian}
+\date{}
+%\date{} % Activate to display a given date or no date (if empty),
+         % otherwise the current date is printed 
+
+\begin{document}
+\maketitle
+\begin{center}
+	\textbf{Basis DGL}\\
+	$-\frac{\partial}{\partial x}\alpha(x) \frac{\partial T(x)}{\partial x} = q(x) \quad \text{on} \quad x\in\Omega$\\
+	$T(x) = T_D \quad \text{on} \quad x\in\Gamma_D$\\
+	$\frac{\partial T}{\partial x} = dT_N \quad \text{on} \quad x\in\Gamma_N$\\
+	\textbf{Weak Form}\\
+	$\int - \alpha(x) \frac{\partial T(x)}{\partial x} n d \Gamma = \int q(x) d\Omega \quad \text{on} \quad x\in\Omega$\\
+	\textbf{Optimization functional}\\
+	$J = J_\Gamma + J_\Omega = \int_\Gamma j_\Gamma + \int_\Omega j_\Omega$\\
+	$R = \frac{\partial}{\partial x}\alpha(x) \frac{\partial T(x)}{\partial x} + q(x) = 0$\\
+	\textbf{Lagrangian method}\\
+	$L(s,T) = J + \int_\Omega \lambda \cdot R d\Omega$\\
+	$\delta L(s,T) = \delta_s L + \delta_T L = \left( \frac{\partial J}{\partial s} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial s}d\Omega\right) \delta s + \left( \frac{\partial J}{\partial T} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial T}d\Omega\right) \delta T$\\
+	$\Rightarrow$\\
+	$\delta L(s,T) = \delta_s L = \left( \frac{\partial J}{\partial s} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial s}d\Omega\right) \delta s $\\
+	subject to: $ \delta_T L = \left( \frac{\partial J}{\partial T} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial T}d\Omega\right) \delta T = 0$\\
+	Simplification $\Rightarrow$\\
+	$\delta L(s,T) = \delta_s L = \left( \frac{\partial J}{\partial s} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial s}\delta s d\Omega\right)$\\
+	subject to: $ \delta_T L = \left( \frac{\partial J}{\partial T} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial T} \delta T d\Omega\right) = 0$\\
+	\textbf{Variation of DGL}\\
+	$\delta_T R = \frac{\partial}{\partial x}\alpha(x) \frac{\partial \delta_T(x)}{\partial x}$\\
+	\textbf{Insertion and extension}\\
+	$\delta_T L = \frac{\partial J}{\partial T} \delta_T + \int_\Omega \lambda \cdot \frac{\partial}{\partial x}\alpha(x) \frac{\partial \delta_T(x)}{\partial x} d\Omega$\\
+	$\delta_T L = \frac{\partial J}{\partial T}\delta_T + \int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma - \int_\Omega \frac{\partial}{\partial x}\lambda \cdot \alpha(x) \frac{\partial \delta_T(x)}{\partial x} d\Omega$\\
+	$\delta_T L = \int_\Gamma \frac{\partial j_\Gamma}{\partial T}\delta_T d\Gamma + \int_\Omega \frac{\partial j_\Omega}{\partial T}\delta_T d\Omega + \int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma - \int_\Gamma \frac{\partial \lambda}{\partial x} \alpha(x) \delta_T(x) d\Gamma + \int_\Omega \frac{\partial^2 \lambda}{\partial^2 x} \cdot \alpha(x) \delta_T(x) d\Omega$\\
+	\textbf{Reorder}\\
+	$\delta_T L = \int_\Gamma \frac{\partial j_\Gamma}{\partial T}\delta_T + \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n  - \frac{\partial \lambda}{\partial x} \alpha(x) \delta_T(x)d\Gamma + \int_\Omega \frac{\partial j_\Omega}{\partial T}\delta_T + \frac{\partial^2 \lambda}{\partial^2 x} \cdot \alpha(x) \delta_T(x)d\Omega$\\
+	$\delta_T L = \int_\Gamma \left[ \frac{\partial j_\Gamma}{\partial T} - \frac{\partial \lambda}{\partial x} \alpha(x) \right]\delta_T d\Gamma + \int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma + \int_\Omega \left[ \frac{\partial j_\Omega}{\partial T} + \alpha \frac{\partial^2 \lambda}{\partial^2 x} \right]\delta_T d\Omega$\\
+	\textbf{Adjoint DGL}\\
+	$\frac{\partial j_\Omega}{\partial T} + \alpha \frac{\partial^2 \lambda}{\partial^2 x} = 0 \quad on \quad x \in \Omega$\\
+	$\int_\Gamma \left[ \frac{\partial j_\Gamma}{\partial T} - \frac{\partial \lambda}{\partial x} \alpha(x) \right]\delta_T d\Gamma + \int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma = 0$\\
+	\textbf{Dirac Boundary Condition}:\\
+	$T(x) = T_D \quad \text{on} \quad x\in\Gamma_D$ $\rightarrow$ $\delta_T = 0$\\
+	$\int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma = 0$\\
+	$\lambda (x) = 0 \quad \text{on} \quad x\in\Gamma_D$\\
+	\textbf{Neumann Boundary Condition}:\\
+	$\frac{\partial T}{\partial x} = dT_N \quad \text{on} \quad x\in\Gamma_N$ $\rightarrow$ $\frac{\partial \delta_T(x)}{\partial x} = 0$\\
+	$\int_\Gamma \left[ \frac{\partial j_\Gamma}{\partial T} - \frac{\partial \lambda}{\partial x} \alpha(x) \right]\delta_T d\Gamma = 0$\\
+	$\frac{\partial j_\Gamma}{\partial T} - \alpha \frac{\partial \lambda}{\partial x} = 0 \quad \text{on} \quad x\in\Gamma_N$\\
+	\textbf{Combined adjoint DGL}:\\
+	$\frac{\partial j_\Omega}{\partial T} + \alpha \frac{\partial^2 \lambda}{\partial^2 x} = 0 \quad on \quad x \in \Omega$\\
+	$\lambda (x) = 0 \quad \text{on} \quad x\in\Gamma_D$\\
+	$\frac{\partial j_\Gamma}{\partial T} - \alpha \frac{\partial \lambda}{\partial x} = 0 \quad \text{on} \quad x\in\Gamma_D$\\
+	\textbf{Sensitivities}:\\
+	$\delta L(s,T) = \delta_s L = \left( \frac{\partial J}{\partial s} + \int_\Omega \lambda \cdot \frac{\partial R}{\partial s}\delta s d\Omega\right)  $\\
+	$\delta R = \frac{\partial R}{\partial s}\delta s + \frac{\partial R}{\partial T}\delta T  = 0$\quad$\rightarrow$\quad$\frac{\partial R}{\partial s}\delta s  = - \frac{\partial R}{\partial T}\delta T$\\
+	$\delta_s L = \left( \frac{\partial J}{\partial s} - \int_\Omega \lambda \cdot \frac{\partial R}{\partial T}\delta T d\Omega\right)  $\\
+	$\delta_s L = \left( \frac{\partial J}{\partial s} - \int_\Omega \lambda \cdot \frac{\partial}{\partial x}\alpha(x) \frac{\partial \delta_T(x)}{\partial x} d\Omega\right)  $\\
+	$\delta_s L = \left( \frac{\partial J}{\partial s} - \left[\int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma - \int_\Gamma \frac{\partial \lambda}{\partial x} \alpha(x) \delta_T(x) d\Gamma + \int_\Omega \frac{\partial^2 \lambda}{\partial^2 x} \cdot \alpha(x) \delta_T(x) d\Omega \right] \right)$\\
+	$\delta_s L = \left( \int_\Gamma \frac{\partial j_\Gamma}{\partial s}\delta_s d\Gamma + \int_\Omega \frac{\partial j_\Omega}{\partial s}\delta_s d\Omega - \left[\int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma - \int_\Gamma \frac{\partial \lambda}{\partial x} \alpha(x) \delta_T(x) d\Gamma + \int_\Omega \frac{\partial^2 \lambda}{\partial^2 x} \cdot \alpha(x) \delta_T(x) d\Omega \right] \right)  $\\
+	$\delta_s L = \int_\Gamma \frac{\partial j_\Gamma}{\partial s}\delta_s + \frac{\partial \lambda}{\partial x} \alpha(x) \delta_T(x)d\Gamma - \int_\Gamma \lambda \alpha(x) \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma + \int_\Omega \frac{\partial j_\Omega}{\partial s}\delta_s - \frac{\partial^2 \lambda}{\partial^2 x} \cdot \alpha(x) \delta_T(x) d\Omega $\\
+	\textbf{Special Case}: $j_\Omega = 0$\\
+	$\alpha \frac{\partial^2 \lambda}{\partial^2 x} = 0 \quad on \quad x \in \Omega$\\
+	$\lambda (x) = 0 \quad \text{on} \quad x\in\Gamma_D$\\
+	$\frac{\partial j_\Gamma}{\partial T} - \alpha \frac{\partial \lambda}{\partial x} = 0 \quad \text{on} \quad x\in\Gamma_N$\\
+	$\delta_s L = \int_\Gamma \frac{\partial j_\Gamma}{\partial s}\delta_s + \alpha\frac{\partial \lambda}{\partial x} \delta_Td\Gamma - \int_\Gamma \alpha \lambda \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma - \int_\Omega \alpha \frac{\partial^2 \lambda}{\partial^2 x} \cdot  \delta_T d\Omega $\\
+	$\delta_s L = \int_\Gamma \frac{\partial j_\Gamma}{\partial s}\delta_s + \alpha\frac{\partial \lambda}{\partial x} \delta_Td\Gamma - \int_\Gamma \alpha \lambda \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma $\\
+	$\delta_s L = \int_\Gamma \frac{\partial j_\Gamma}{\partial s}\delta_s + \alpha \frac{\partial \lambda}{\partial x} \delta_Td\Gamma - \int_\Gamma \alpha \lambda \frac{\partial \delta_T(x)}{\partial x} \cdot n d\Gamma $\\
+\end{center}
+
+
+\end{document}

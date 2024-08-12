@@ -548,5 +548,46 @@ class LineStructure : public Structure
 };
 #include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"
+
+class NurbsCoeffReference
+{
+    public:
+        label rodNumber;
+        label coeffNumber;
+        label dimension;
+};
+
+struct NurbsCoeffHash
+{
+    label operator()(const NurbsCoeffReference &r) const
+    {
+        return std::hash<label>{}(r.rodNumber)^std::hash<label>{}(r.coeffNumber)^std::hash<label>{}(r.dimension);
+    }
+};
+
+class LineStructureParameter
+{
+    public:
+        LineStructureParameter();
+        LineStructureParameter(NurbsCoeffReference coeff);
+        LineStructureParameter(const std::vector<NurbsCoeffReference>& coeffs):coeffs(coeffs){}
+        void addCoeff(NurbsCoeffReference coeffRef);
+        label getDimension() const {return dimension;}
+        
+    private:
+        std::vector<NurbsCoeffReference> coeffs;
+        label dimension;
+};
+
+class LineStructureParameters
+{
+    public:
+        LineStructureParameters();
+        virtual ~LineStructureParameters() = default;
+        virtual void collectParameters(const LineStructure* structure);
+        
+    protected:
+        std::vector<std::array<LineStructureParameter,3>> threeDimParameters;
+};
 }
 #endif

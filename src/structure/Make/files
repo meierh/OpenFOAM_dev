@@ -3,9 +3,11 @@ LineStructure.C
 LagrangianMarker.C
 FieldMarkerStructureInteraction.C
 LineStructureStatus.C
+LineStructureParameters.C
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
+CrossSectionStructureParameters.C
 VelocityPressureForceMarkerInteraction.C
 StaticVelocityPressureAction.C
 TemperatureInteraction.C

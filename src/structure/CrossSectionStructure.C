@@ -1547,6 +1547,17 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     return (r+tangentialDev)+coordXDir+coordYDir;
 }
 
+vector Foam::CrossSectionStructure::evalRodDerivCoeff
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    scalar parameter,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    return vector(0,0,0);
+}
 
 Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
 (
