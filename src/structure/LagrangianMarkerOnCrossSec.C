@@ -28,6 +28,10 @@ void Foam::LagrangianMarkerOnCrossSec::evaluateMarker()
     );
     markerCell = mesh.findCell(markerPosition);
     computeSupport();
-    //minMaxNeighbourWidth();
-    //dilationFactors();
+    Pair<vector> h = minMaxNeighbourWidth(directSupport);
+    h_plus = h.first();
+    h_minus = h.second();
+    dilation = dilationFactors(h);
+    checkDirectSupport();
+    reduceSupport();
 }

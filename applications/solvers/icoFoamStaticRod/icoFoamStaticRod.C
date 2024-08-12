@@ -47,12 +47,10 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "initContinuityErrs.H"
     
-    CrossSection circle(1);
+    CrossSection circle(0.05);
     CrossSectionStructure structure(mesh,{circle});
     
     StaticVelocityPressureAction U_Interaction(mesh,structure,U,Uf);
-    
-    FatalErrorInFunction<<"Temp Stop"<< exit(FatalError);    
     
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
     

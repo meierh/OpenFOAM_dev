@@ -481,24 +481,7 @@ void Foam::LineStructure::computeMarkerCellWeights()
 }
 
 std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeMarkerEpsilonMatrix()
-{
-    /*
-    for(uint I=0; I<collectedMarkers.size(); I++)
-    {
-        LagrangianMarker* marker = collectedMarkers[I];
-        Pout<<"I:"<<marker->getMarkerPosition()[0]<<"||"<<marker->getDilation()<<Foam::endl;
-        Pout<<"     "<<marker->getCorrParaB()<<Foam::endl;
-        const DynamicList<std::tuple<bool,label,label>>& supp = marker->getSupportCells();
-        for(auto tupl : supp)
-        {
-            vector centre; scalar volume;
-            marker->getCellData(tupl,centre,volume);
-            Pout<<"     centre:"<<centre<<"  vol:"<<volume<<Foam::endl;
-        }
-    }
-    Barrier(true);
-    */
-    
+{   
     label locProcMarkerNbr = collectedMarkers.size();
 
     List<label> globalMarkerNumber(Pstream::nProcs());
