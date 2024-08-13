@@ -47,6 +47,34 @@ Foam::CrossSection::CrossSection
     init(a_0,a_k,b_k,phaseShift);
 }
 
+Foam::CrossSection::CrossSection
+(
+    CrossSection& other
+):
+a_0(other.a_0),
+a_k(other.a_k),
+b_k(other.b_k),
+phaseShift(other.phaseShift),
+numberCoeffs(other.numberCoeffs),
+domStart(other.domStart),
+domEnd(other.domEnd)
+{
+    A = std::make_unique<scalar>(*(other.A));
+}
+
+CrossSection& Foam::CrossSection::operator=(CrossSection other)
+{
+    a_0 = other.a_0;
+    a_k = other.a_k;
+    b_k = other.b_k;
+    phaseShift = other.phaseShift;
+    numberCoeffs = other.numberCoeffs;
+    domStart = other.domStart;
+    domEnd = other.domEnd;
+    A = std::make_unique<scalar>(*(other.A));
+    return *this;
+}
+
 std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> Foam::CrossSection::constCrossSec
 (
     scalar a_0,
@@ -253,7 +281,10 @@ std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar pa
     };
 }
 
-const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr(label fourierCoeffNumber)
+const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
+(
+    label fourierCoeffNumber
+) const
 {
     const gsNurbs<scalar>* curve;
     if(fourierCoeffNumber==0)
@@ -278,12 +309,43 @@ const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr(label fourierCoeffNumber)
     return curve;
 }
 
-label Foam::CrossSection::numberFourierCoeff()
+gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
+(
+    label fourierCoeffNumber
+)
+{
+    gsNurbs<scalar>* curve;
+    if(fourierCoeffNumber==0)
+    {
+        curve = &a_0;
+    }
+    else
+    {
+        fourierCoeffNumber -= 1;
+        if(fourierCoeffNumber%2==0)
+        {
+            fourierCoeffNumber /= 2;
+            curve = &(a_k[fourierCoeffNumber]);
+        }
+        else
+        {
+            fourierCoeffNumber -= 1;
+            fourierCoeffNumber /= 2;
+            curve = &(b_k[fourierCoeffNumber]);
+        }
+    }
+    return curve;
+}
+
+label Foam::CrossSection::numberFourierCoeff() const
 {
     return numberCoeffs+1;
 }
 
-label Foam::CrossSection::numberNurbsCoeffs(label fourierCoeffNumber)
+label Foam::CrossSection::numberNurbsCoeffs
+(
+    label fourierCoeffNumber
+) const
 {
     const gsNurbs<scalar>* curve = getCurvePtr(fourierCoeffNumber);
     return curve->coefs().cols();
@@ -326,6 +388,23 @@ scalar Foam::CrossSection::evalRadiusDerivCoeff
     coeffDerivCurve.eval_into(parMat,coeffDerivEval);    
     return coeffDerivEval(0,0);
     */
+    return 0;
+}
+
+void Foam::CrossSection::setNurbsCoeff
+(
+    label fourierCoeffNumber,
+    label derivCoeffNumber,
+    scalar value
+)
+{
+    if(fourierCoeffNumber<0 || fourierCoeffNumber>=numberFourierCoeff())
+        FatalErrorInFunction<<"Invalid fourierCoeffNumber"<<exit(FatalError);
+    gsNurbs<scalar>* curve = getCurvePtr(fourierCoeffNumber);
+    gsMatrix<scalar>& coeffs = curve->coefs();
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+        FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
+    coeffs(derivCoeffNumber,0) = value;
 }
 
 scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const

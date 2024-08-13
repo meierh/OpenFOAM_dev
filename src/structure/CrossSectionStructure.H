@@ -2,6 +2,7 @@
 #define CROSSSECTIONSTRUCTURE_H
 
 #include "LineStructure.H"
+#include <memory>
 
 namespace Foam
 {
@@ -36,6 +37,11 @@ class CrossSection
             std::vector<gsNurbs<scalar>> b_k,
             gsNurbs<scalar> phaseShift
         );
+        
+        CrossSection(CrossSection& other);
+        
+        CrossSection& operator=(CrossSection other);
+        
         scalar operator()(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getEvalOnPoint(scalar parameter) const;
         
@@ -43,14 +49,17 @@ class CrossSection
         std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
         
     private:
-        std::unique_ptr<gismo::gsNurbs<scalar>> A;
+        std::unique_ptr<scalar> A;
         //std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
-        const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
+        const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber) const;
+        gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
 
     public:
-        label numberFourierCoeff();
-        label numberNurbsCoeffs(label fourierCoeffNumber);
+        label numberFourierCoeff() const;
+        label numberNurbsCoeffs(label fourierCoeffNumber) const;
         scalar evalRadiusDerivCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter);
+        
+        void setNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar value);
                 
         scalar domainStart(){return domStart;}
         scalar domainEnd(){return domEnd;}
@@ -141,6 +150,8 @@ class CrossSectionStructure : public LineStructure
         //void transferMarkers(FieldMarkerStructureInteraction& connector);
         
         void to_string() override;
+        
+        void setCrossSecParameters(label rodNumber, label fourierCoeffNumber, label derivCoeffNumber, scalar value);
         
     private:
         void check() override;
@@ -341,7 +352,7 @@ class CrossSectionStructure : public LineStructure
 
         std::vector<CrossSection> rodCrossSection;
     public:
-        const std::vector<CrossSection>& getRodCrossSections(){return rodCrossSection;}
+        const std::vector<CrossSection>& getRodCrossSections() const {return rodCrossSection;}
     
     private:
         //[rod] -> {para , [] -> {rad , [] -> angle}}
@@ -398,6 +409,7 @@ class CrossSectionStructure : public LineStructure
 class CrossSectionCoeffReference
 {
     public:
+        CrossSectionCoeffReference(label rodNumber, label fourierCoeffNumber, label coeffNumber);
         label rodNumber;
         label fourierCoeffNumber;
         label coeffNumber;
@@ -428,7 +440,7 @@ class CrossSectionStructureParameters : public LineStructureParameters
     public:
         CrossSectionStructureParameters();
         virtual ~CrossSectionStructureParameters() = default;
-        virtual void collectParameters(CrossSectionStructure* structure);
+        virtual void collectParameters(const CrossSectionStructure* structure);
         
     private:
         std::vector<CrossSectionStructureParameter> parameters;

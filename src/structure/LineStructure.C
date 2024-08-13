@@ -59,6 +59,17 @@ void Foam::LineStructure::to_string()
     Info<<"------------------------------------"<<Foam::endl;
 }
 
+void Foam::LineStructure::setNurbsParameters
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label dimension,
+    scalar value
+)
+{
+    setNurbsCoeff(rodNumber,derivCoeffNumber,dimension,value);
+}
+
 void Foam::LineStructure::initialize()
 {
     check();

@@ -1,0 +1,465 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+\documentclass[10pt]{article} % use larger type; default would be 10pt
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+\geometry{margin=1.5cm} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+
+%%%PACKAGES%%%
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+\usepackage{amsmath} % mathematics
+
+\usepackage{tikz}
+\usetikzlibrary{trees}
+
+\usepackage{multirow}
+\usepackage{parallel,enumitem}
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+
+%%% END Article customizations
+
+
+\title{Adjoint derivation}
+\date{}
+%\date{} % Activate to display a given date or no date (if empty),
+         % otherwise the current date is printed 
+
+\begin{document}
+\maketitle
+\begin{center}
+	\textbf{Steady adjoint method}\\
+	$\text{min}_\Gamma \quad f(\phi,\Gamma)$\\
+	$\text{s.t. } g(\phi,\Gamma) = 0$
+\end{center}
+\begin{Parallel}[v]{0.50\textwidth}{0.5\textwidth}
+	\ParallelLText
+	{	
+		First derivation\\
+		\begin{center}
+			$\frac{d f}{d \Gamma} = \frac{d f}{d \phi} \frac{d \phi}{d \Gamma} + \frac{df}{d\Gamma}$\\
+			$\forall \phi,\Gamma :g(\phi,\Gamma)=0 \rightarrow \frac{d g}{d \Gamma} = 0$\\
+			Expand total derivative:\\
+			$\frac{d g}{d \Gamma} = \frac{d g}{d \phi}\frac{d \phi}{d \Gamma} + \frac{d g}{d \Gamma} = 0$\\
+			$\frac{d\phi}{d\Gamma} = -\left(\frac{dg}{d\phi}\right)^{-1} \frac{dg}{d\Gamma}$\\
+			Insert in target function derivative:\\
+			$\frac{d f}{d \Gamma} = \frac{d f}{d \phi} \frac{d \phi}{d \Gamma} + \frac{df}{d\Gamma} = - \frac{d f}{d \phi} \left(\frac{dg}{d\phi}\right)^{-1} \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
+			$- \frac{d f}{d \phi} \left(\frac{dg}{d\phi}\right)^{-1} = \lambda$ is the solution to the following equation.\\
+			$ \left(\frac{dg}{d\phi}\right)^T \lambda =  -\left(\frac{df}{d\phi}\right)^T $\\
+			Leads to the target function derivation\\
+			$\frac{d f}{d \Gamma} = \lambda^T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
+		\end{center}
+	}
+	\ParallelRText
+	{	
+		Second derivation\\
+		\begin{center}
+			$\mathcal{L}(\phi,\Gamma,\lambda) = f(\phi) + \lambda ^ T g(\phi,\Gamma)$\\
+			As $g=0$ everywhere:\\
+			$\frac{df}{d\Gamma} = \frac{d\mathcal{L}(\phi,\Gamma,\lambda)}{d\Gamma}$\\
+			$\frac{df}{d\Gamma} = \frac{df}{d\phi} \frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \frac{d}{d\Gamma} \left(\lambda ^ T g\right) + \lambda ^ T \left(\frac{dg}{d\phi} \frac{d\phi}{d\Gamma} + \frac{dg}{d\Gamma}\right)$\\
+			Simplify $g=0$:\\
+			$\frac{df}{d\Gamma} = \frac{df}{d\phi} \frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda ^ T \left(\frac{dg}{d\phi} \frac{d\phi}{d\Gamma} + \frac{dg}{d\Gamma}\right)$\\
+			Reorder terms:\\
+			$\frac{df}{d\Gamma} = \left(\frac{df}{d\phi} + \lambda ^ T \frac{dg}{d\phi}\right) \frac{d\phi}{d\Gamma}  + \lambda ^ T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
+			Solve $ \left(\frac{dg}{d\phi}\right)^T \lambda =  -\left(\frac{df}{d\phi}\right)^T $ for $\lambda$ to avoid solving $\frac{d\phi}{d\Gamma}$\\
+			Leads to:\\
+			$\frac{df}{d\Gamma} = \left(0\right) \frac{d\phi}{d\Gamma}  + \lambda ^ T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
+			Finally:\\
+			$\frac{df}{d\Gamma} =  \lambda ^ T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
+		\end{center}
+	}
+	\ParallelPar
+\end{Parallel}
+\newpage
+\begin{center}
+	\textbf{Unsteady adjoint method}\\
+	$\text{min}_\Gamma \quad F(\phi,\Gamma) = \int_{0}^{T} f(\phi,\Gamma,t) dt$\\
+	$\text{s.t. } h(\phi,\dot \phi,\Gamma,t) = 0$\\
+	$\text{     } g(\phi(t=0),\Gamma) = 0$\\
+	$g(\phi(t=0),\Gamma)=0:$ initial condition of unknown parameters\\
+	$h(\phi,\dot \phi,\Gamma,t) = 0:$ ODE resulting from semi-discretized PDE: $\dot \phi = \overline{h}(\phi,\Gamma,t)$\\
+	Problem:$\frac{\partial F(\phi,\Gamma)}{\partial \Gamma} = \int _0 ^T \left[\frac{\partial f}{\partial \phi} \frac{d \phi}{d \Gamma} + \frac{\partial f}{\partial \Gamma}\right]dt $
+\end{center}
+\begin{center}
+	Introduce Lagrangian $\left[\lambda: \text{Time dependend vector}, \mu: \text{Steady vector}\right]$\\
+	$\mathcal{L} = \int_{0}^{T} \left(f(\phi,\Gamma,t) + \lambda(t)^T h(\phi,\dot \phi,\Gamma,t)\right)dt + \mu^T g(\phi(t=0),\Gamma)$\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\phi}\frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda(t)^T \left( \frac{dh}{d\phi}\frac{d\phi}{d\Gamma} + \frac{dh}{d\dot \phi}\frac{d\dot \phi}{d\Gamma} + \frac{dh}{d\Gamma}\right) \right)dt + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
+	Remove $\frac{d\dot \phi}{d\Gamma}$ by using integration by parts:\\
+	$\int_{0}^{T} \lambda(t)^T \frac{dh}{d\dot \phi}\frac{d\dot \phi}{d\Gamma} dt = \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 ^T - \int_{0}^{T} \left[\dot \lambda(t)^T \frac{dh}{d\dot \phi} + \lambda(t)^T \frac{d}{dt}\frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} dt$\\
+	Restructuring terms to isolate $\frac{d\phi}{d\Gamma}$ and $\frac{d\phi(0)}{d\Gamma}$.\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\phi}\frac{d\phi}{d\Gamma} + \lambda^T \frac{dh}{d\phi}\frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma} +\lambda^T \left( \frac{dh}{d\dot \phi}\frac{d\dot \phi}{d\Gamma}\right) \right)dt + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
+	Insert the result of partial integration:\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\phi}\frac{d\phi}{d\Gamma} + \lambda^T \frac{dh}{d\phi}\frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma} - \left[\dot \lambda^T \frac{dh}{d\dot \phi} + \lambda^T \frac{d}{dt}\frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} \right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 ^T + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 ^T + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_T - \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_T + \left[- \lambda^T \frac{dh}{d\dot \phi} +\mu^T  \frac{d g}{d\phi(0)} \right]_0 \frac{d \phi(0)}{d\Gamma} + \mu^T \frac{dg}{d\Gamma}$\\$ $\\
+	Set $\lambda(T) = 0$ \\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[- \lambda^T \frac{dh}{d\dot \phi} +\mu^T  \frac{d g}{d\phi(0)} \right]_0 \frac{d \phi(0)}{d\Gamma} + \mu^T \frac{dg}{d\Gamma}$\\$ $\\
+	Set $\mu^T  = \left[ \lambda(t)^T \frac{dh}{d\dot \phi} \left( \frac{d g}{d\phi(0)} \right)^{-1} \right]_0 $ \\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda(t)^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda(t)^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda(t)^T \frac{dh}{d\Gamma}\right)dt + \mu^T \frac{dg}{d\Gamma}$\\$ $\\$ $\\
+	Solution: Set $\left[\frac{df}{d\phi} + \lambda(t)^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda(t)^T \frac{dh}{d\dot \phi}\right]=0$ for $\lambda(t)$ to avoid solving $\frac{d\phi}{d\Gamma}$\\$ $\\
+	Leads to :\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[0\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \mu^T \frac{dg}{d\Gamma}$\\
+	\underline{Finally}:\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\Gamma} + \lambda(t)^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda(t)^T \frac{dh}{d\dot \phi} \left( \frac{d g}{d\phi(0)} \right)^{-1} \right]_{t=0} \frac{dg}{d\Gamma}$\\$ $\\$ $\\
+	Convert to steady: $\dot \lambda = 0$, $\frac{d}{dt} = 0$, $\frac{dh}{d \dot \phi} = 0$\\
+	Solve : $\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} \right) \right]=0$ for $\lambda$ to avoid solving $\frac{d\phi}{d\Gamma}$\\$ $\\
+	$\frac{d \mathcal{L}}{d\Gamma} = \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma} $\\
+\end{center}
+\newpage
+\begin{center}
+	\textbf{ Immersed Boundary Incompressible Navier Stokes with Nurbs Structure}\\
+	Identify $\phi= \left(u,v,w,p,T_{\text{fluid}},T_{\text{structure}},U,V,W\right)^T$\\
+	Identify $\Gamma= \left((\vec{P}_{i})_0,...,(\vec{P}_{i})_{\lvert\lvert \text{Struts}\lvert\lvert-1},r_0,...,r_{\lvert\lvert \text{Struts}\lvert\lvert-1} \right)^T$\\
+\begin{flushleft}
+	Navier Stokes Equations:
+\end{flushleft}
+	$ \text{NS}_{\text{conti}} =- \nabla \cdot \vec{u} = 0$\\
+	$ \text{NS}_{\text{mom}} = \frac{\partial \vec{u}}{\partial t} + \vec{u} \cdot \nabla \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} + \frac{1}{\rho} \nabla p - \int_{\Omega} \frac{u_M - \int_{\Omega} \vec{u} \delta(\vec{x}-\vec{X}) d\Omega}{\Delta T} d\Omega = 0$\\
+	$\text{NS}_{\text{T}_{\text{fluid}}} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} - \int_{\Omega} \frac{T_{\text{M,fluid}} - \int_{\Omega} T_{\text{fluid}} \delta(\vec{x}-\vec{X}) d\Omega}{\Delta T} d\Omega = 0$\\
+\begin{flushleft}
+	Navier Stokes Boundary Conditions:
+\end{flushleft}
+	$\vec{u}(x)=\vec{U}_{\text{Wall}} \quad \frac{\partial p}{\partial \vec{n}}(x)=0 \quad  T(x) = T_{\text{Wall}} \quad  \text{at } x \in X_{\text{Wall}}$\\
+	$\vec{u}(x)=\vec{U}_{\text{inlet}} \quad \frac{\partial p}{\partial \vec{n}}(x)=0 \quad  T(x) = T_{\text{inlet}} \quad \text{at } x \in X_{\text{inlet}}$\\
+	$\frac{\partial \vec{U}}{\partial \vec{n}}(x) = 0\quad p(x)=p_{\text{outlet}} \quad  \frac{\partial T}{\partial \vec{n}_{\text{outlet}}}(x) = 0 \quad \text{at } x \in X_{\text{outlet}}$\\
+\begin{flushleft}
+	Navier Stokes \& Structure Coupling Conditions:
+\end{flushleft}
+	$\vec{u}(x_{\text{solid}}\left(s,\theta\right))= \frac{\partial \vec{C}(s,t)}{\partial t} \quad \quad \text{at } s \in S_{\text{Strut}}$\\
+	$ \vec{F}_{\text{solid}}(s) = \int_0^{2\pi} \tau_{\text{fluid}}(x_{\text{solid}}(s,\theta)) \cdot \vec{n} r d\theta \quad  \quad \text{at } s \in S_{\text{Strut}}$\\
+	$ \pi r^2 \lambda_{\text{solid}} \frac{\partial T_{\text{solid}}(s)}{\partial s} = \int_0^{2\pi} \dot q_{\text{fluid}}(x_{\text{solid}}(s,\theta)) \cdot \vec{n} r d\theta \quad  \quad \text{at } s \in S_{\text{Strut}}$\\
+	using\\
+	$\tau_{\text{fluid}} = - p I + \mu \left(\nabla u + \nabla u ^T\right)$\\
+	$\dot q_{\text{fluid}} = - \lambda_{\text{fluid}} \nabla T_{\text{fluid}}$\\
+	$x_{\text{solid}}\left(s,\theta\right) = \vec{C}(s,t) + r\frac{\vec{C}(s,t)_{ss}}{\lvert \lvert \vec{C}(s,t)_{ss} \lvert \lvert_2}\sin(\theta) + r\frac{\vec{C}(s,t)_{ss} \times \vec{C}(s,t)_{s}}{\lvert \lvert \vec{C}(s,t)_{ss} \times \vec{C}(s,t)_{s} \lvert \lvert_2}\cos(\theta) $\\
+\begin{flushleft}
+	Structure Equations:
+\end{flushleft}
+	$X(s,...) = 0$\\
+	$T_{\text{solid}}(s,...) =0$\\
+\begin{flushleft}
+	Structure Boundary Equation:
+\end{flushleft}
+	$\text{RB}_X(s,...) = 0$\\
+	$\text{RB}_T(s,...) =0$\\
+\end{center}
+\newpage
+\begin{center}
+	\textbf{Optimization Immersed Boundary Incompressible Navier Stokes with Nurbs Structure}
+\begin{flushleft}
+	Optimization problem
+\end{flushleft}	
+	minimize $J(\Gamma,\phi)$\\
+	subject to $\text{NS}(\phi) = 0$
+\begin{flushleft}
+	Lagrangian formulation
+\end{flushleft}	
+	$L = J + \int_{\Omega} \vec{\lambda} \cdot \text{NS}(\phi)  d\Omega$\\
+	$\delta L = \delta_\Gamma L + \delta_\phi L$\\
+\begin{flushleft}
+	Variational Immersed Boundary Navier Stokes
+\end{flushleft}	
+	$\delta\vec{u} \text{NS}_{\text{conti}} = - \nabla \cdot \delta\vec{u}$ \\
+	$\delta\vec{u} \text{NS}_{\text{mom}} = (\vec{u}\cdot\nabla) \delta{\vec{u}} + (\delta{\vec{u}}\cdot\nabla)\vec{u}-\frac{1}{Re} \Delta \delta{\vec{u}} - \int_{\Omega}\frac{\delta U - \int_\Omega \delta\vec{u} \delta (\vec{x} - \vec{X}) d\Omega}{\Delta T}d\Omega$ \\
+	$\delta\vec{u} \text{NS}_{\text{T}_{\text{fluid}}} = \delta\vec{u} \cdot \nabla T_{\text{fluid}} $ \\
+	$\delta p \text{NS}_{\text{conti}} = 0$ \\
+	$\delta p \text{NS}_{\text{mom}} = \frac{1}{\rho} \nabla \delta p $ \\
+	$\delta p \text{NS}_{\text{T}_{\text{fluid}}} = 0 $ \\
+	$\delta \text{T}_{\text{fluid}} \text{NS}_{\text{conti}} = 0$ \\
+	$\delta \text{T}_{\text{fluid}} \text{NS}_{\text{mom}} = 0 $ \\
+	$\delta \text{T}_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}}} = \vec{u} \cdot \nabla \delta T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla \delta T_{\text{fluid}} - \int_{\Omega} \frac{\delta T_{\text{M,fluid}} - \int_{\Omega} \delta T_{\text{fluid}} \delta(\vec{x}-\vec{X}) d\Omega}{\Delta T} d\Omega $ \\
+\begin{flushleft}
+	Variational Immersed Boundary Navier Stokes
+\end{flushleft}
+	$\delta_\phi L = \delta_\phi J + \delta_\phi \int_{\Omega} \vec{\lambda} \cdot \text{NS}(\phi) d\Omega$\\
+$\delta_\phi L = \delta p J + \delta{\vec{u}} J + \delta T_{\text{fluid}} J + 
+    \int_{\Omega}
+	\begin{pmatrix} \lambda_p \\ \lambda_{\vec{u}}\\ \lambda_{T_\text{fluid}} \end{pmatrix}
+	\cdot
+	\begin{pmatrix} \delta p \text{NS}_{\text{conti}} \\ \delta p \text{NS}_{\text{mom}} \\ \delta p \text{NS}_{\text{T}_{\text{fluid}}} \end{pmatrix}
+	 d\Omega + 
+	 \int_{\Omega}
+	 \begin{pmatrix} \lambda_p \\ \lambda_{\vec{u}}\\ \lambda_{T_\text{fluid}} \end{pmatrix}
+	 \cdot
+	 \begin{pmatrix} \delta\vec{u} \text{NS}_{\text{conti}} \\ \delta\vec{u} \text{NS}_{\text{mom}} \\ \delta\vec{u} \text{NS}_{\text{T}_{\text{fluid}}} \end{pmatrix}
+	 d\Omega +
+	 \int_{\Omega}
+	 \begin{pmatrix} \lambda_p \\ \lambda_{\vec{u}}\\ \lambda_{T_\text{fluid}} \end{pmatrix}
+	 \cdot
+	 \begin{pmatrix} \delta \text{T}_{\text{fluid}} \text{NS}_{\text{conti}} \\ \delta \text{T}_{\text{fluid}} \text{NS}_{\text{mom}} \\ \delta \text{T}_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}}} \end{pmatrix}
+	 d\Omega = 0$\\
+$\delta_\phi L = \delta p J + \delta{\vec{u}} J + \delta T_{\text{fluid}} J + 
+	\int_{\Omega}
+	\begin{pmatrix} \lambda_p \\ \lambda_{\vec{u}}\\ \lambda_{T_\text{fluid}} \end{pmatrix}
+	\cdot
+	\begin{pmatrix} 0 \\ \delta p \text{NS}_{\text{mom}} \\ 0 \end{pmatrix}
+	d\Omega + 
+	\int_{\Omega}
+	\begin{pmatrix} \lambda_p \\ \lambda_{\vec{u}}\\ \lambda_{T_\text{fluid}} \end{pmatrix}
+	\cdot
+	\begin{pmatrix} \delta\vec{u} \text{NS}_{\text{conti}} \\ \delta\vec{u} \text{NS}_{\text{mom}} \\ \delta\vec{u} \text{NS}_{\text{T}_{\text{fluid}}} \end{pmatrix}
+	d\Omega +
+	\int_{\Omega}
+	\begin{pmatrix} \lambda_p \\ \lambda_{\vec{u}}\\ \lambda_{T_\text{fluid}} \end{pmatrix}
+	\cdot
+	\begin{pmatrix} 0 \\ 0 \\ \delta \text{T}_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}}} \end{pmatrix}
+	d\Omega = 0$\\
+$\delta_\phi L = \delta p J + \delta{\vec{u}} J + \delta T_{\text{fluid}} J + 
+	\int_{\Omega}
+	\lambda_{\vec{u}} \delta p \text{NS}_{\text{mom}} d\Omega + 
+	\int_{\Omega} \lambda_p \delta\vec{u} \text{NS}_{\text{conti}} d\Omega +
+	\int_{\Omega} \lambda_{\vec{u}} \delta\vec{u} \text{NS}_{\text{mom}} d\Omega +
+	\int_{\Omega} \lambda_{T_\text{fluid}} \delta\vec{u} \text{NS}_{\text{T}_{\text{fluid}}} d\Omega +
+	\int_{\Omega}\lambda_{T_\text{fluid}} \delta \text{T}_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}}}d\Omega = 0$\\
+	\quad \\
+$\int_{\Omega} \lambda_p \delta\vec{u} \text{NS}_{\text{conti}} d\Omega  = \int_{\Omega} - \lambda_p \nabla 	
+	\cdot \delta \vec{u} d\Omega = \int_S - \lambda_p \delta \vec{u} \cdot \vec{n} dS + \int_{\Omega} \delta \vec{u} \cdot \nabla \lambda_p d\Omega $\\
+$\int_{\Omega} \lambda_{\vec{u}} \delta\vec{u} \text{NS}_{\text{mom}}d\Omega = 
+	\int_{\Omega} \lambda_{\vec{u}} (\vec{u}\cdot\nabla) \delta{\vec{u}} + 
+	\lambda_{\vec{u}}(\delta{\vec{u}}\cdot\nabla)\vec{u}-\lambda_{\vec{u}}\frac{1}{Re} \Delta \delta{\vec{u}} - \lambda_{\vec{u}} \int_{\Omega}\frac{\delta U - \int_\Omega \delta\vec{u} \delta (\vec{x} - \vec{X}) d\Omega}{\Delta T}d\Omega d\Omega = $\\
+$\int_{\Omega} \lambda_{T_\text{fluid}} \delta\vec{u} \text{NS}_{\text{T}_{\text{fluid}}} d\Omega = $\\
+$\int_{\Omega}\lambda_{T_\text{fluid}} \delta \text{T}_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}}}d\Omega = $\\
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	\newpage
+	
+	Evaluate $\frac{\partial h}{\partial \phi} \rightarrow \left( \frac{\partial \text{NS}_{\text{conti}}}{\partial \phi}\right)$\\
+	$\frac{\partial \text{NS}_{\text{conti}}}{\partial \vec{u}} = \delta_{\vec{u}} \text{NS}_{\text{conti}} = - \nabla \cdot \delta \vec{u}$\\
+	$\frac{\partial  \text{NS}_{\text{conti}}}{\partial p} = \delta_{p} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial  \text{NS}_{\text{conti}}}{\partial T_{\text{fluid}}} = \delta_{T_{\text{fluid}}} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{conti}}}{\partial T_{\text{structure}}} = \delta_{T_{\text{structure}}} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial  \text{NS}_{\text{conti}}}{\partial \vec{U}} = \delta_{\vec{U}} \text{NS}_{\text{conti}} = 0$\\$ $\\
+	
+	Evaluate $\frac{\partial h}{\partial \phi} \rightarrow \left( \frac{\partial \text{NS}_{\text{mom}}}{\partial \phi}\right)$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \vec{u}} = \delta_{\vec{u}} \text{NS}_{\text{mom}} = \left(\delta \vec{u} \cdot \nabla\right)\vec{u}+\left(\vec{u}\cdot \nabla\right)\delta \vec{u}- \frac{\mu}{\rho}\nabla \cdot \nabla \delta \vec{u}$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial p} = \delta_{p} \text{NS}_{\text{mom}} = \nabla \delta p $\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial T_{\text{fluid}}} = \delta_{T_{\text{fluid}}} \text{NS}_{\text{mom}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial T_{\text{structure}}} = \delta_{T_{\text{structure}}} \text{NS}_{\text{mom}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \vec{U}} = \delta_{\vec{U}} \text{NS}_{\text{mom}} = 0$\\$ $\\
+	
+	Evaluate $\frac{\partial h}{\partial \phi} \rightarrow \left( \frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \phi}\right)$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \vec{u}} = \delta_{\vec{u}} \text{NS}_{\text{T}_{\text{fluid}}} = \left(\delta \vec{u} \cdot \nabla\right)T_{\text{fluid}}$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial p} = \delta_{p} \text{NS}_{\text{T}_{\text{fluid}}} = 0 $\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial T_{\text{fluid}}} = \delta_{T_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}}} = \left(\vec{u}\cdot \nabla\right)\delta T_{\text{fluid}} - \frac{\kappa}{\rho c_p}\nabla \cdot \nabla \delta T_{\text{fluid}}$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial T_{\text{structure}}} = \delta_{T_{\text{structure}}} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \vec{U}} = \delta_{\vec{U}} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\$ $\\
+	
+	Evaluate $\frac{\partial h}{\partial \phi} \rightarrow \left( \frac{\partial X}{\partial \phi}\right)$\\$ $\\
+	
+	Evaluate $\frac{\partial h}{\partial \phi} \rightarrow \left( \frac{\partial T_{\text{fluid}}}{\partial \phi}\right)$\\$ $\\
+	
+	$\int_\Omega \frac{\partial}{\partial \phi} \left[\lambda(t) h \right] hdV = 
+	\int_\Omega
+	\frac{\partial}{\partial \phi} \left[
+	\begin{pmatrix}
+		\lambda_{\text{p}}(t)\\
+		\vec{\lambda}_{\vec{u}}(t)\\
+		\lambda_{\text{T}_{\text{fluid}}}(t)\\
+		\lambda_{\text{X}}(t)\\
+		\lambda_{\text{T}_\text{solid}}(t)
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		\frac{\partial \text{NS}_{\text{conti}}}{\partial \phi}\\
+		\frac{\partial \text{NS}_{\text{mom}}}{\partial \phi}\\
+		\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \phi}\\
+		\frac{\partial \text{X}}{\partial \phi}\\
+		\frac{\partial \text{T}_\text{solid}}{\partial \phi}
+	\end{pmatrix}
+	\right]	
+	dV
+	= 
+	\int_\Omega
+	\begin{pmatrix}
+		- \nabla \cdot \delta \vec{u} & 0 & 0 & 0 & 0\\
+		\left(\delta \vec{u} \cdot \nabla\right)\vec{u}+\left(\vec{u}\cdot 	\nabla\right)\delta \vec{u}- \frac{\mu}{\rho}\nabla \cdot \nabla \delta \vec{u} & \nabla \delta p & 0 & 0 & 0\\
+		\left(\delta \vec{u} \cdot \nabla\right)T_{\text{fluid}}& 0 & 	\left(\vec{u}\cdot \nabla\right)\delta T_{\text{fluid}} - \frac{\kappa}{\rho c_p}\nabla \cdot \nabla \delta T_{\text{fluid}} & 0 & 0\\
+		0 & 0 & 0 & ...& ...\\
+		0 & 0 & 0 & ...& ...\\
+	\end{pmatrix}^T
+	\begin{pmatrix}
+		\lambda_{\text{p}}(t)\\
+		\vec{\lambda}_{\vec{u}}(t)\\
+		\lambda_{\text{T}_{\text{fluid}}}(t)\\
+		\lambda_{\text{X}}(t)\\
+		\lambda_{\text{T}_\text{solid}}(t)
+	\end{pmatrix}
+	dV	= 
+	\int_\Omega
+	\begin{pmatrix}
+		- \nabla \cdot \delta \vec{u} & \left(\delta \vec{u} \cdot \nabla\right)\vec{u}+\left(\vec{u}\cdot 	\nabla\right)\delta \vec{u}- \frac{\mu}{\rho}\nabla \cdot \nabla \delta \vec{u} & \left(\delta \vec{u} \cdot \nabla\right)T_{\text{fluid}} & 0 & 0\\
+		0 & \nabla \delta p & 0 & 0 & 0\\
+		0 & 0 & \left(\vec{u}\cdot \nabla\right)\delta T_{\text{fluid}} - \frac{\kappa}{\rho c_p}\nabla \cdot \nabla \delta T_{\text{fluid}} & 0 & 0\\
+		0 & 0 & 0 & ...& ...\\
+		0 & 0 & 0 & ...& ...\\
+	\end{pmatrix}
+	\begin{pmatrix}
+		\lambda_{\text{p}}(t)\\
+		\vec{\lambda}_{\vec{u}}(t)\\
+		\lambda_{\text{T}_{\text{fluid}}}(t)\\
+		\lambda_{\text{X}}(t)\\
+		\lambda_{\text{T}_\text{solid}}(t)
+	\end{pmatrix}
+	dV= 
+	\int_\Omega
+	\begin{pmatrix}
+		-\lambda_{\text{p}} \nabla \cdot \delta \vec{u} + \vec{\lambda}_{\vec{u}} \left(\delta \vec{u} \cdot \nabla\right)\vec{u}+\vec{\lambda}_{\vec{u}} \left(\vec{u}\cdot 	\nabla\right)\delta \vec{u}- \vec{\lambda}_{\vec{u}}\frac{\mu}{\rho}\nabla \cdot \nabla \delta \vec{u} + \lambda_{\text{T}_{\text{fluid}}} \left(\delta \vec{u} \cdot \nabla\right)T_{\text{fluid}} \\
+		\vec{\lambda}_{\vec{u}} \nabla \delta p \\
+		\lambda_{\text{T}_{\text{fluid}}} \left(\vec{u}\cdot \nabla\right)\delta T_{\text{fluid}} - \lambda_{\text{T}_{\text{fluid}}} \frac{\kappa}{\rho c_p}\nabla \cdot \nabla \delta T_{\text{fluid}} \\
+		...\\
+		...\\
+	\end{pmatrix}
+	dV$\\$ $\\
+	\pagebreak
+	
+	Evaluate $\frac{\partial h}{\partial \dot \phi} \rightarrow \left( \frac{\partial \text{NS}_{\text{conti}}}{\partial \dot\phi}\right)$\\
+	$\frac{\partial \text{NS}_{\text{conti}}}{\partial \dot \vec{u}} =  \delta_{\dot \vec{u}} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial  \text{NS}_{\text{conti}}}{\partial \dot p} = \delta_{\dot p} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial  \text{NS}_{\text{conti}}}{\partial \dot T_{\text{fluid}}} =  \delta_{\dot T_{\text{fluid}}} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{conti}}}{\partial \dot T_{\text{structure}}} = \delta_{\dot T_{\text{structure}}} \text{NS}_{\text{conti}} = 0$\\
+	$\frac{\partial  \text{NS}_{\text{conti}}}{\partial \dot \vec{U}} = \delta_{\dot \vec{U}} \text{NS}_{\text{conti}} = 0$\\$ $\\
+
+	Evaluate $\frac{\partial h}{\partial \dot \phi} \rightarrow \left( \frac{\partial \text{NS}_{\text{mom}}}{\partial \dot \phi}\right)$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \dot \vec{u}} =  \delta_{\dot \vec{u}} \text{NS}_{\text{mom}} = \delta \dot \vec{u} $\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \dot p} = \delta_{\dot p} \text{NS}_{\text{mom}} = 0 $\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \dot T_{\text{fluid}}} = \delta_{\dot T_{\text{fluid}}} \text{NS}_{\text{mom}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \dot T_{\text{structure}}} = \delta_{\dot T_{\text{structure}}} \text{NS}_{\text{mom}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{mom}}}{\partial \dot \vec{U}} = \delta_{\dot \vec{U}} \text{NS}_{\text{mom}} = 0$\\$ $\\
+
+	Evaluate $\frac{\partial h}{\partial \dot \phi} \rightarrow \left( \frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \dot \phi}\right)$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \dot \vec{u}} = \delta_{\dot \vec{u}} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \dot p} = \delta_{\dot p} \text{NS}_{\text{T}_{\text{fluid}}} = 0 $\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \dot T_{\text{fluid}}} = \delta_{\dot T_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}}} = \delta \dot T_{\text{fluid}} $\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \dot T_{\text{structure}}} = \delta_{\dot T_{\text{structure}}} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\
+	$\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \dot \vec{U}} = \delta_{\dot \vec{U}} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\$ $\\
+
+	Evaluate $\frac{\partial h}{\partial \dot \phi} \rightarrow \left( \frac{\partial X}{\partial \dot \phi}\right)$\\$ $\\
+
+	Evaluate $\frac{\partial h}{\partial \dot \phi} \rightarrow \left( \frac{\partial T_{\text{structure}}}{\partial \dot \phi}\right)$\\$ $\\
+	
+	$\int_\Omega \frac{\partial }{\partial \dot \phi} \left[ \dot \lambda(t) h\right] hdV = 
+	\int_\Omega \frac{\partial }{\partial \dot \phi} \left[
+	\begin{pmatrix}
+	\dot \lambda_{\text{p}}(t)\\
+	\dot  \vec{\lambda}_{\vec{u}}(t)\\
+	\dot \lambda_{\text{T}_{\text{fluid}}}(t)\\
+	\dot \lambda_{\text{X}}(t)\\
+	\dot \lambda_{\text{T}_\text{solid}}(t)
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+	\frac{\partial \text{NS}_{\text{conti}}}{\partial \phi}\\
+	\frac{\partial \text{NS}_{\text{mom}}}{\partial \phi}\\
+	\frac{\partial \text{NS}_{\text{T}_{\text{fluid}}}}{\partial \phi}\\
+	\frac{\partial \text{X}}{\partial \phi}\\
+	\frac{\partial \text{T}_\text{solid}}{\partial \phi}
+	\end{pmatrix}\right]
+	dV
+	= 
+	\int_\Omega
+	\begin{pmatrix}
+		0 & \dot \delta \vec{u} & 0 & 0 & 0\\
+		0 & 0 & 0 & 0 & 0\\
+		0 & 0 & \delta \dot T_{\text{fluid}}  & 0 & 0 \\
+		0 & 0 & 0 & ...& ...\\
+		0 & 0 & 0 & ...& ...\\
+	\end{pmatrix}
+	\begin{pmatrix}
+		\dot \lambda_{\text{p}}(t)\\
+		\dot \vec{\lambda}_{\vec{u}}(t)\\
+		\dot \lambda_{\text{T}_{\text{fluid}}}(t)\\
+		\dot \lambda_{\text{X}}(t)\\
+		\dot \lambda_{\text{T}_\text{solid}}(t)
+	\end{pmatrix}	
+	dV= 
+	\int_\Omega
+	\begin{pmatrix}
+		\dot \vec{\lambda}_{\vec{u}}(t) \dot \delta \vec{u} \\
+		0\\
+		\dot \lambda_{\text{T}_{\text{fluid}}}(t) \delta \dot T_{\text{fluid}} \\
+		...\\
+		...
+	\end{pmatrix}	
+	dV$\\$ $\\
+\pagebreak
+	$\frac{\partial f}{\partial \phi} \frac{\partial \phi}{\partial \Gamma}  + \int_\Omega \left[ \frac{\partial }{\partial \phi}\left[\lambda h\right] -  \frac{\partial }{\partial \dot \phi} \left[\dot \lambda h\right]+ \frac{d}{dt} \frac{\partial}{\partial \dot \phi}\left[\lambda h\right]\right]\frac{\partial \phi}{\partial \Gamma} dV = 0$\\
+	$\frac{\partial f}{\partial \phi} + \int_\Omega \left[ \frac{\partial }{\partial \phi}\left[\lambda h\right] -  \frac{\partial }{\partial \dot \phi} \left[\dot \lambda h\right]+ \frac{d}{dt} \frac{\partial}{\partial \dot \phi}\left[\lambda h\right]\right] dV = 0$\\
+	$\frac{\partial f}{\partial \phi} + \int_\Omega \left[ \frac{\partial }{\partial \phi}\left[\lambda h\right] -  \frac{\partial }{\partial \dot \phi} \left[\dot \lambda h\right]+ \frac{d}{dt} \frac{\partial}{\partial \dot \phi}\left[\lambda h\right]\right] dV = 0$\\
+	$\frac{\partial f}{\partial \phi} + \int_\Omega \left[ 	
+	\begin{pmatrix}
+		-\lambda_{\text{p}} \nabla \cdot \delta \vec{u} + \vec{\lambda}_{\vec{u}} \left(\delta \vec{u} \cdot \nabla\right)\vec{u}+\vec{\lambda}_{\vec{u}} \left(\vec{u}\cdot 	\nabla\right)\delta \vec{u}- \vec{\lambda}_{\vec{u}}\frac{\mu}{\rho}\nabla \cdot \nabla \delta \vec{u} + \lambda_{\text{T}_{\text{fluid}}} \left(\delta \vec{u} \cdot \nabla\right)T_{\text{fluid}} \\
+		\vec{\lambda}_{\vec{u}} \nabla \delta p \\
+		\lambda_{\text{T}_{\text{fluid}}} \left(\vec{u}\cdot \nabla\right)\delta T_{\text{fluid}} - \lambda_{\text{T}_{\text{fluid}}} \frac{\kappa}{\rho c_p}\nabla \cdot \nabla \delta T_{\text{fluid}}  \\
+		...\\
+		...\\
+	\end{pmatrix} -  	
+	\begin{pmatrix}
+		\dot \vec{\lambda}_{\vec{u}}(t) \dot \delta \vec{u} \\
+		0\\
+		\dot \lambda_{\text{T}_{\text{fluid}}}(t) \delta \dot T_{\text{fluid}} \\
+		...\\
+		...
+	\end{pmatrix} + 0 \right] dV = 0$\\
+	$\frac{\partial f}{\partial \phi} + \int_\Omega  	
+	\begin{pmatrix}
+		-\dot \vec{\lambda}_{\vec{u}}(t) \dot \delta \vec{u} -\lambda_{\text{p}} \nabla \cdot \delta \vec{u} + \vec{\lambda}_{\vec{u}} 	\left(\delta \vec{u} \cdot \nabla\right)\vec{u}+\vec{\lambda}_{\vec{u}} \left(\vec{u}\cdot 	\nabla\right)\delta \vec{u}- \vec{\lambda}_{\vec{u}}\frac{\mu}{\rho}\nabla \cdot \nabla \delta \vec{u} + \lambda_{\text{T}_{\text{fluid}}} \left(\delta \vec{u} \cdot \nabla\right)T_{\text{fluid}} \\
+		\vec{\lambda}_{\vec{u}} \nabla \delta p \\
+		-\dot \lambda_{\text{T}_{\text{fluid}}}(t) \delta \dot T_{\text{fluid}} +\lambda_{\text{T}_{\text{fluid}}} \left(\vec{u}\cdot \nabla\right)\delta T_{\text{fluid}} - \lambda_{\text{T}_{\text{fluid}}} \frac{\kappa}{\rho 	c_p}\nabla \cdot \nabla \delta T_{\text{fluid}}  \\
+		...\\
+		...\\
+	\end{pmatrix} dV = 0$\\
+	
+\end{center}
+
+\end{document}

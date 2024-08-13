@@ -647,9 +647,9 @@ void Foam::Structure::updateRodCoordinateSystem()
     }
 }
 
-label Foam::Structure::getNumberRods()
+label Foam::Structure::getNumberRods() const
 {
-    return myMesh->m_Rods.size();
+    return nR;
 }
 
 label Foam::Structure::getMaxDegree
@@ -830,7 +830,10 @@ void Foam::Structure::rodEval
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
 
-label Foam::Structure::numberCoeffs(label rodNumber)
+label Foam::Structure::numberCoeffs
+(
+    label rodNumber
+) const 
 {
     const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
     const gsNurbs<scalar>& curve = rod->m_Curve;
@@ -876,6 +879,25 @@ vector Foam::Structure::evalDerivCoeff
     return vector(coeffDerivEval(0,0),coeffDerivEval(1,0),coeffDerivEval(2,0));
 }
 
+void Foam::Structure::setNurbsCoeff
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label dimension,
+    scalar value
+)
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber"<<exit(FatalError);
+    ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+    gsNurbs<scalar>& curve = rod->m_Curve;
+    gsMatrix<scalar>& coeffs = curve.coefs();
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+        FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
+    if(dimension<0 || dimension>=3)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    coeffs(derivCoeffNumber,dimension) = value;
+}
 
 /*
 BoundingBox Foam::Structure::computeBox

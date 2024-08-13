@@ -130,7 +130,7 @@ class Structure
         virtual ~Structure();
         Structure(const Structure&) = delete;
         
-        label getNumberRods();
+        label getNumberRods() const;
         label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod);
         
         void solveOneStep();
@@ -159,11 +159,14 @@ class Structure
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         
     private:
+        std::unique_ptr<gismo::gsNurbs<scalar>> A;
         std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
 
     public:
-        label numberCoeffs(label rodNumber);
-        vector evalDerivCoeff(label rodNumber, label derivCoeffNumber, scalar parameter); 
+        label numberCoeffs(label rodNumber) const;
+        vector evalDerivCoeff(label rodNumber, label derivCoeffNumber, scalar parameter);
+        
+        void setNurbsCoeff(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         
         const scalar initialMeshSpacing;
         

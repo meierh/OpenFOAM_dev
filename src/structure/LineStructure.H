@@ -271,6 +271,8 @@ class LineStructure : public Structure
         void test();
         
         virtual void to_string();
+        
+        void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
 
     protected:
         LineStructureStatus status;
@@ -552,6 +554,7 @@ class LineStructure : public Structure
 class NurbsCoeffReference
 {
     public:
+        NurbsCoeffReference(label rodNumber, label coeffNumber, label dimension);
         label rodNumber;
         label coeffNumber;
         label dimension;
@@ -570,7 +573,7 @@ class LineStructureParameter
     public:
         LineStructureParameter();
         LineStructureParameter(NurbsCoeffReference coeff);
-        LineStructureParameter(const std::vector<NurbsCoeffReference>& coeffs):coeffs(coeffs){}
+        LineStructureParameter(const std::vector<NurbsCoeffReference>& coeffs);
         void addCoeff(NurbsCoeffReference coeffRef);
         label getDimension() const {return dimension;}
         

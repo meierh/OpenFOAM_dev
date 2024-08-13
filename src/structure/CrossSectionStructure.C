@@ -39,6 +39,22 @@ void Foam::CrossSectionStructure::to_string()
     Info<<"------------------------------------"<<Foam::endl;
 }
 
+void Foam::CrossSectionStructure::setCrossSecParameters
+(
+    label rodNumber,
+    label fourierCoeffNumber,
+    label derivCoeffNumber,
+    scalar value
+)
+{    
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber"<<exit(FatalError);
+    CrossSection& crossSec = rodCrossSection[rodNumber];
+    if(fourierCoeffNumber<0 || fourierCoeffNumber>=crossSec.numberFourierCoeff())
+        FatalErrorInFunction<<"Invalid fourierCoeffNumber"<<exit(FatalError);
+    crossSec.setNurbsCoeff(fourierCoeffNumber,derivCoeffNumber,value);
+}
+
 void Foam::CrossSectionStructure::check()
 {
     if(!myMesh)

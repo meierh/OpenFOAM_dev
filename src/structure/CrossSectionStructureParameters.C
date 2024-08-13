@@ -1,8 +1,19 @@
 #include "CrossSectionStructure.H"
 
+Foam::CrossSectionCoeffReference::CrossSectionCoeffReference
+(
+    label rodNumber,
+    label fourierCoeffNumber,
+    label coeffNumber
+):
+rodNumber(rodNumber),
+fourierCoeffNumber(fourierCoeffNumber),
+coeffNumber(coeffNumber)
+{}
+
 Foam::CrossSectionStructureParameter::CrossSectionStructureParameter
 (
-    CrossSectionCoeffReference coeff
+    CrossSectionCoeffReference coeffRef
 )
 {
     coeffs.push_back(coeffRef);
@@ -30,7 +41,7 @@ void Foam::CrossSectionStructureParameters::collectParameters
 )
 {
     LineStructureParameters::collectParameters(structure);
-    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    for(label rodNumber=0; rodNumber<structure->getNumberRods(); rodNumber++)
     {
         const CrossSection& crossSec = structure->getRodCrossSections()[rodNumber];
         label nbrFourierCoeffs = crossSec.numberFourierCoeff();
@@ -39,7 +50,8 @@ void Foam::CrossSectionStructureParameters::collectParameters
             label nbrNurbsCoeffs = crossSec.numberNurbsCoeffs(fourCoeffInd);
             for(label coeffInd=0; coeffInd<nbrNurbsCoeffs; coeffInd++)
             {
-                parameters.push_back(CrossSectionStructureParameter{rodNumber,fourCoeffInd,coeffInd});
+                CrossSectionStructureParameter para(CrossSectionCoeffReference(rodNumber,fourCoeffInd,coeffInd));
+                parameters.push_back(para);
             }
         }
     }
