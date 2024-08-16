@@ -159,7 +159,6 @@ class Structure
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         
     private:
-        std::unique_ptr<gismo::gsNurbs<scalar>> A;
         std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
 
     public:

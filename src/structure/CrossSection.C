@@ -47,34 +47,6 @@ Foam::CrossSection::CrossSection
     init(a_0,a_k,b_k,phaseShift);
 }
 
-Foam::CrossSection::CrossSection
-(
-    CrossSection& other
-):
-a_0(other.a_0),
-a_k(other.a_k),
-b_k(other.b_k),
-phaseShift(other.phaseShift),
-numberCoeffs(other.numberCoeffs),
-domStart(other.domStart),
-domEnd(other.domEnd)
-{
-    A = std::make_unique<scalar>(*(other.A));
-}
-
-CrossSection& Foam::CrossSection::operator=(CrossSection other)
-{
-    a_0 = other.a_0;
-    a_k = other.a_k;
-    b_k = other.b_k;
-    phaseShift = other.phaseShift;
-    numberCoeffs = other.numberCoeffs;
-    domStart = other.domStart;
-    domEnd = other.domEnd;
-    A = std::make_unique<scalar>(*(other.A));
-    return *this;
-}
-
 std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> Foam::CrossSection::constCrossSec
 (
     scalar a_0,
@@ -281,6 +253,25 @@ std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar pa
     };
 }
 
+void Foam::CrossSection::delete_coeffDerivedCurves()
+{
+    for(std::vector<gsNurbs<scalar>*>* coeffDerivedCurve : coeffDerivedCurves)
+    {
+        if(coeffDerivedCurve!=nullptr)
+        {
+            for(gsNurbs<scalar>* coeffOneCoeffDerivedCurve : *coeffDerivedCurve)
+            {
+                if(coeffOneCoeffDerivedCurve!=nullptr)
+                {
+                    delete coeffOneCoeffDerivedCurve;
+                }
+            }
+            delete coeffDerivedCurve;
+        }
+    }
+};
+
+
 const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
 (
     label fourierCoeffNumber
@@ -358,17 +349,16 @@ scalar Foam::CrossSection::evalRadiusDerivCoeff
     scalar parameter
 )
 {
-    /*
-    std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>& coeffDerivedCurve = coeffDerivedCurves[fourierCoeffNumber];
-    if(!coeffDerivedCurve)
+    std::vector<gsNurbs<scalar>*>* coeffDerivedCurve = coeffDerivedCurves[fourierCoeffNumber];
+    if(coeffDerivedCurve==nullptr)
     {
-        coeffDerivedCurve = std::make_unique<std::vector<std::unique_ptr<gsNurbs<scalar>>>>();
+        coeffDerivedCurve = new std::vector<gsNurbs<scalar>*>();
         coeffDerivedCurve->resize(numberNurbsCoeffs(fourierCoeffNumber));
     }
-    std::unique_ptr<gsNurbs<scalar>>& coeffOneCoeffDerivedCurve = (*coeffDerivedCurve)[derivCoeffNumber];
-    if(!coeffOneCoeffDerivedCurve)
+    gsNurbs<scalar>* coeffOneCoeffDerivedCurve = (*coeffDerivedCurve)[derivCoeffNumber];
+    if(coeffOneCoeffDerivedCurve==nullptr)
     {
-        coeffOneCoeffDerivedCurve = std::make_unique<gsNurbs<scalar>>();
+        coeffOneCoeffDerivedCurve = new gsNurbs<scalar>();
         *coeffOneCoeffDerivedCurve = *(getCurvePtr(fourierCoeffNumber));
         gsMatrix<scalar>& coeffs = coeffOneCoeffDerivedCurve->coefs();
         for(label col=0; col<coeffs.cols(); col++)
@@ -387,8 +377,6 @@ scalar Foam::CrossSection::evalRadiusDerivCoeff
     gsMatrix<scalar> coeffDerivEval;
     coeffDerivCurve.eval_into(parMat,coeffDerivEval);    
     return coeffDerivEval(0,0);
-    */
-    return 0;
 }
 
 void Foam::CrossSection::setNurbsCoeff
@@ -405,6 +393,19 @@ void Foam::CrossSection::setNurbsCoeff
     if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
     coeffs(derivCoeffNumber,0) = value;
+    
+    std::vector<gsNurbs<scalar>*>* coeffDerivedCurve = coeffDerivedCurves[fourierCoeffNumber];
+    if(coeffDerivedCurve!=nullptr)
+    {
+        for(gsNurbs<scalar>* coeffOneCoeffDerivedCurve : *coeffDerivedCurve)
+        {
+            if(coeffOneCoeffDerivedCurve!=nullptr)
+            {
+                delete coeffOneCoeffDerivedCurve;
+            }
+        }
+        delete coeffDerivedCurve;
+    }
 }
 
 scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const

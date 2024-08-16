@@ -53,87 +53,6 @@
 \begin{document}
 \maketitle
 \begin{center}
-	\textbf{Steady adjoint method}\\
-	$\text{min}_\Gamma \quad f(\phi,\Gamma)$\\
-	$\text{s.t. } g(\phi,\Gamma) = 0$
-\end{center}
-\begin{Parallel}[v]{0.50\textwidth}{0.5\textwidth}
-	\ParallelLText
-	{	
-		First derivation\\
-		\begin{center}
-			$\frac{d f}{d \Gamma} = \frac{d f}{d \phi} \frac{d \phi}{d \Gamma} + \frac{df}{d\Gamma}$\\
-			$\forall \phi,\Gamma :g(\phi,\Gamma)=0 \rightarrow \frac{d g}{d \Gamma} = 0$\\
-			Expand total derivative:\\
-			$\frac{d g}{d \Gamma} = \frac{d g}{d \phi}\frac{d \phi}{d \Gamma} + \frac{d g}{d \Gamma} = 0$\\
-			$\frac{d\phi}{d\Gamma} = -\left(\frac{dg}{d\phi}\right)^{-1} \frac{dg}{d\Gamma}$\\
-			Insert in target function derivative:\\
-			$\frac{d f}{d \Gamma} = \frac{d f}{d \phi} \frac{d \phi}{d \Gamma} + \frac{df}{d\Gamma} = - \frac{d f}{d \phi} \left(\frac{dg}{d\phi}\right)^{-1} \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
-			$- \frac{d f}{d \phi} \left(\frac{dg}{d\phi}\right)^{-1} = \lambda$ is the solution to the following equation.\\
-			$ \left(\frac{dg}{d\phi}\right)^T \lambda =  -\left(\frac{df}{d\phi}\right)^T $\\
-			Leads to the target function derivation\\
-			$\frac{d f}{d \Gamma} = \lambda^T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
-		\end{center}
-	}
-	\ParallelRText
-	{	
-		Second derivation\\
-		\begin{center}
-			$\mathcal{L}(\phi,\Gamma,\lambda) = f(\phi) + \lambda ^ T g(\phi,\Gamma)$\\
-			As $g=0$ everywhere:\\
-			$\frac{df}{d\Gamma} = \frac{d\mathcal{L}(\phi,\Gamma,\lambda)}{d\Gamma}$\\
-			$\frac{df}{d\Gamma} = \frac{df}{d\phi} \frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \frac{d}{d\Gamma} \left(\lambda ^ T g\right) + \lambda ^ T \left(\frac{dg}{d\phi} \frac{d\phi}{d\Gamma} + \frac{dg}{d\Gamma}\right)$\\
-			Simplify $g=0$:\\
-			$\frac{df}{d\Gamma} = \frac{df}{d\phi} \frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda ^ T \left(\frac{dg}{d\phi} \frac{d\phi}{d\Gamma} + \frac{dg}{d\Gamma}\right)$\\
-			Reorder terms:\\
-			$\frac{df}{d\Gamma} = \left(\frac{df}{d\phi} + \lambda ^ T \frac{dg}{d\phi}\right) \frac{d\phi}{d\Gamma}  + \lambda ^ T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
-			Solve $ \left(\frac{dg}{d\phi}\right)^T \lambda =  -\left(\frac{df}{d\phi}\right)^T $ for $\lambda$ to avoid solving $\frac{d\phi}{d\Gamma}$\\
-			Leads to:\\
-			$\frac{df}{d\Gamma} = \left(0\right) \frac{d\phi}{d\Gamma}  + \lambda ^ T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
-			Finally:\\
-			$\frac{df}{d\Gamma} =  \lambda ^ T \frac{dg}{d\Gamma} + \frac{df}{d\Gamma}$\\
-		\end{center}
-	}
-	\ParallelPar
-\end{Parallel}
-\newpage
-\begin{center}
-	\textbf{Unsteady adjoint method}\\
-	$\text{min}_\Gamma \quad F(\phi,\Gamma) = \int_{0}^{T} f(\phi,\Gamma,t) dt$\\
-	$\text{s.t. } h(\phi,\dot \phi,\Gamma,t) = 0$\\
-	$\text{     } g(\phi(t=0),\Gamma) = 0$\\
-	$g(\phi(t=0),\Gamma)=0:$ initial condition of unknown parameters\\
-	$h(\phi,\dot \phi,\Gamma,t) = 0:$ ODE resulting from semi-discretized PDE: $\dot \phi = \overline{h}(\phi,\Gamma,t)$\\
-	Problem:$\frac{\partial F(\phi,\Gamma)}{\partial \Gamma} = \int _0 ^T \left[\frac{\partial f}{\partial \phi} \frac{d \phi}{d \Gamma} + \frac{\partial f}{\partial \Gamma}\right]dt $
-\end{center}
-\begin{center}
-	Introduce Lagrangian $\left[\lambda: \text{Time dependend vector}, \mu: \text{Steady vector}\right]$\\
-	$\mathcal{L} = \int_{0}^{T} \left(f(\phi,\Gamma,t) + \lambda(t)^T h(\phi,\dot \phi,\Gamma,t)\right)dt + \mu^T g(\phi(t=0),\Gamma)$\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\phi}\frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda(t)^T \left( \frac{dh}{d\phi}\frac{d\phi}{d\Gamma} + \frac{dh}{d\dot \phi}\frac{d\dot \phi}{d\Gamma} + \frac{dh}{d\Gamma}\right) \right)dt + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
-	Remove $\frac{d\dot \phi}{d\Gamma}$ by using integration by parts:\\
-	$\int_{0}^{T} \lambda(t)^T \frac{dh}{d\dot \phi}\frac{d\dot \phi}{d\Gamma} dt = \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 ^T - \int_{0}^{T} \left[\dot \lambda(t)^T \frac{dh}{d\dot \phi} + \lambda(t)^T \frac{d}{dt}\frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} dt$\\
-	Restructuring terms to isolate $\frac{d\phi}{d\Gamma}$ and $\frac{d\phi(0)}{d\Gamma}$.\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\phi}\frac{d\phi}{d\Gamma} + \lambda^T \frac{dh}{d\phi}\frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma} +\lambda^T \left( \frac{dh}{d\dot \phi}\frac{d\dot \phi}{d\Gamma}\right) \right)dt + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
-	Insert the result of partial integration:\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\phi}\frac{d\phi}{d\Gamma} + \lambda^T \frac{dh}{d\phi}\frac{d\phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma} - \left[\dot \lambda^T \frac{dh}{d\dot \phi} + \lambda^T \frac{d}{dt}\frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} \right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 ^T + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 ^T + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_T - \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_0 + \mu^T \left( \frac{d g}{d\phi(0)} \frac{d \phi(0)}{d\Gamma} + \frac{dg}{d\Gamma} \right)$\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda^T \frac{dh}{d\dot \phi}\frac{d \phi}{d\Gamma} \right]_T + \left[- \lambda^T \frac{dh}{d\dot \phi} +\mu^T  \frac{d g}{d\phi(0)} \right]_0 \frac{d \phi(0)}{d\Gamma} + \mu^T \frac{dg}{d\Gamma}$\\$ $\\
-	Set $\lambda(T) = 0$ \\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \left[- \lambda^T \frac{dh}{d\dot \phi} +\mu^T  \frac{d g}{d\phi(0)} \right]_0 \frac{d \phi(0)}{d\Gamma} + \mu^T \frac{dg}{d\Gamma}$\\$ $\\
-	Set $\mu^T  = \left[ \lambda(t)^T \frac{dh}{d\dot \phi} \left( \frac{d g}{d\phi(0)} \right)^{-1} \right]_0 $ \\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[\frac{df}{d\phi} + \lambda(t)^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda(t)^T \frac{dh}{d\dot \phi}\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda(t)^T \frac{dh}{d\Gamma}\right)dt + \mu^T \frac{dg}{d\Gamma}$\\$ $\\$ $\\
-	Solution: Set $\left[\frac{df}{d\phi} + \lambda(t)^T \left( \frac{dh}{d\phi} -  \frac{d}{dt}\frac{dh}{d\dot \phi}\right) -\dot \lambda(t)^T \frac{dh}{d\dot \phi}\right]=0$ for $\lambda(t)$ to avoid solving $\frac{d\phi}{d\Gamma}$\\$ $\\
-	Leads to :\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\left[0\right]\frac{d \phi}{d\Gamma} + \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma}\right)dt + \mu^T \frac{dg}{d\Gamma}$\\
-	\underline{Finally}:\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \int_{0}^{T} \left(\frac{df}{d\Gamma} + \lambda(t)^T \frac{dh}{d\Gamma}\right)dt + \left[ \lambda(t)^T \frac{dh}{d\dot \phi} \left( \frac{d g}{d\phi(0)} \right)^{-1} \right]_{t=0} \frac{dg}{d\Gamma}$\\$ $\\$ $\\
-	Convert to steady: $\dot \lambda = 0$, $\frac{d}{dt} = 0$, $\frac{dh}{d \dot \phi} = 0$\\
-	Solve : $\left[\frac{df}{d\phi} + \lambda^T \left( \frac{dh}{d\phi} \right) \right]=0$ for $\lambda$ to avoid solving $\frac{d\phi}{d\Gamma}$\\$ $\\
-	$\frac{d \mathcal{L}}{d\Gamma} = \frac{df}{d\Gamma} + \lambda^T \frac{dh}{d\Gamma} $\\
-\end{center}
-\newpage
-\begin{center}
 	\textbf{ Immersed Boundary Incompressible Navier Stokes with Nurbs Structure}\\
 	Identify $\phi= \left(\vec{u},p,f_u,F_u,U_M,T_{\text{fluid}},f_{T_{\text{fluid}}},F_{T_{\text{fluid}}},T_{\text{fluid}_M},T_{\text{structure}},\vec{U}_\text{structure}\right)^T$\\
 	Identify $\Gamma= \left((\vec{P}_{i})_0,...,(\vec{P}_{i})_{\lvert\lvert \text{Struts}\lvert\lvert-1},r_0,...,r_{\lvert\lvert \text{Struts}\lvert\lvert-1} \right)^T$\\
@@ -143,12 +62,14 @@
 	$ \text{NS}_{\text{conti}} =- \nabla \cdot \vec{u} = 0$\\
 	$ \text{NS}_{\text{mom}} = \frac{\partial \vec{u}}{\partial t} + (\vec{u} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} + \frac{1}{\rho} \nabla p - f_u = 0$\\
 	$\text{NS}_{\text{f}_u} = f_u (\vec{x}) - \sum_{X} F_u (X) \delta (\vec{x}-\vec{X}) = 0$\\
-	$\text{NS}_{\text{F}_u} = F_u (\vec{X}) - \frac{U_G (\vec{X}) - U_M(\vec{X})}{\Delta t} = 0$\\
+	$\text{NS}_{\text{F}_u} = F_u (\vec{X}) - \frac{\vec{U}_\text{structure} (\vec{X}) - U_M(\vec{X})}{\Delta t} = 0$\\
 	$\text{NS}_{\text{U}_M} = U_M (\vec{X}) - \int u(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega= 0$\\
-	$\text{NS}_{\text{T}_{\text{fluid}}} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} - \int_{\Omega} \frac{T_{\text{M,fluid}} - \int_{\Omega} T_{\text{fluid}} \delta(\vec{x}-\vec{X}) d\Omega}{\Delta T} d\Omega = 0$\\
+	$\text{NS}_{\text{T}_{\text{fluid}}} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} - f_{\text{T}_{\text{fluid}}} = 0$\\
 	$\text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = f_{\text{T}_{\text{fluid}}} (\vec{x}) - \sum_{X} F_{\text{T}_{\text{fluid}}} (X) \delta (\vec{x}-\vec{X}) = 0$\\
-	$\text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = F_{\text{T}_{\text{fluid}}} (\vec{X}) - \frac{{\text{T}_{\text{fluid}}}_G (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t} = 0$\\
+	$\text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = F_{\text{T}_{\text{fluid}}} (\vec{X}) - \frac{T_{\text{structure}} (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t} = 0$\\
 	$\text{NS}_{\text{T}_{\text{fluid}_M}} = \text{T}_{\text{fluid}_M} (\vec{X}) - \int {\text{T}_{\text{fluid}}}(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega= 0$\\
+	$\text{FOUR}_{\text{T}_{\text{structure}}} = \rho c_p \frac{\partial T_{\text{structure}}}{\partial t} - \nabla \cdot (k\nabla T_{\text{structure}}) - \dot q$\\
+	$\text{TIMO}_{\vec{U}} = ...$\\
 \begin{flushleft}
 	Navier Stokes Boundary Conditions:
 \end{flushleft}
@@ -204,6 +125,8 @@
 	$\delta \vec{u} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta \vec{u} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta \vec{u} \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta \vec{u} \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta \vec{u} \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
 	$\delta p \text{NS}:$
 \end{flushleft}
@@ -216,6 +139,8 @@
 	$\delta p \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta p \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta p \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta p \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta p \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
 	$\delta f_u \text{NS}:$
 \end{flushleft}
@@ -228,6 +153,8 @@
 	$\delta f_u \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta f_u \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta f_u \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta f_u \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta f_u \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
 	$\delta F_u \text{NS}:$
 \end{flushleft}
@@ -240,6 +167,8 @@
 	$\delta F_u \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta F_u \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta F_u \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta F_u \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta F_u \text{TIMO}_{\vec{U}} = ...$\\
 \begin{flushleft}
 	$\delta U_M \text{NS}:$
 \end{flushleft}
@@ -252,6 +181,8 @@
 	$\delta U_M \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta U_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta U_M \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta U_M \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta U_M \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
 	$\delta T_{\text{fluid}} \text{NS}:$
 \end{flushleft}
@@ -264,6 +195,8 @@
 	$\delta T_{\text{fluid}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta T_{\text{fluid}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta T_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}_M}} = -\int \delta T_{\text{fluid}} \delta (\vec{x}-\vec{X}) d\Omega$\\
+	$\delta T_{\text{fluid}} \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta T_{\text{fluid}} \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}:$
 \end{flushleft}
@@ -276,6 +209,8 @@
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = \delta f_{\text{T}_{\text{fluid}}}$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta f_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta f_{\text{T}_{\text{fluid}}} \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
 	$\delta F_{\text{T}_{\text{fluid}}} \text{NS}:$
 \end{flushleft}
@@ -288,18 +223,50 @@
 	$\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = -\sum_X \delta F_{\text{T}_{\text{fluid}}} \delta (\vec{x}-\vec{X})$\\
 	$\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = \delta F_{\text{T}_{\text{fluid}}}$\\
 	$\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta F_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}} = ...$\\
+	$\delta F_{\text{T}_{\text{fluid}}} \text{TIMO}_{\vec{U}} = 0$\\
 \begin{flushleft}
-	$\delta T_M \text{NS}:$
+	$\delta T_{\text{fluid}_M} \text{NS}:$
 \end{flushleft}
-	$\delta T_M \text{NS}_{\text{mom}} =  0$\\
-	$\delta T_M \text{NS}_{\text{conti}} = 0$\\
-	$\delta T_M \text{NS}_{\text{f}_u} = 0$\\
-	$\delta T_M \text{NS}_{\text{F}_u} = 0$\\
-	$\delta T_M \text{NS}_{\text{U}_M} = 0$\\
-	$\delta T_M \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\
-	$\delta T_M \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
-	$\delta T_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = \frac{\delta T_M}{\Delta t}$\\
-	$\delta T_M \text{NS}_{\text{T}_{\text{fluid}_M}} = \delta T_M$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{mom}} =  0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{conti}} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{f}_u} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{F}_u} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{U}_M} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = \frac{\delta T_{\text{fluid}_M}}{\Delta t}$\\
+	$\delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}_M}} = \delta T_{\text{fluid}_M}$\\
+	$\delta T_{\text{fluid}_M} \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta T_{\text{fluid}_M} \text{TIMO}_{\vec{U}} = 0$\\
+\begin{flushleft}
+	$\delta T_{\text{structure}} \text{NS}:$
+\end{flushleft}
+	$\delta T_{\text{structure}} \text{NS}_{\text{mom}} = 0$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{conti}} = 0$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{f}_u} = 0$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{F}_u} = 0$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{U}_M} = 0$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}}} = 0 $\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = -\frac{\delta T_{\text{structure}}}{\Delta t}$\\
+	$\delta T_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} = ...$\\
+	$\delta T_{\text{structure}} \text{TIMO}_{\vec{U}} = 0$\\
+\begin{flushleft}
+	$\delta \vec{U}_{\text{structure}} \text{NS}:$
+\end{flushleft}
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{mom}} =  0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{conti}} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{f}_u} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_u} = -\frac{\delta \vec{U}_{\text{structure}}}{\Delta t}$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{U}_M} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}}} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} = 0$\\
+	$\delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}} = ...$\\
 \newpage
 \begin{flushleft}
 	Variational Immersed Boundary Navier Stokes
@@ -307,10 +274,10 @@
 $\delta_\phi L = \delta_\phi J + \delta_\phi \int_{\Omega \cup X} \vec{\lambda} \cdot \text{NS}(\phi)
 	d\Omega\cup X $\\
 $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \delta U_M J +
-	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_M J +$\\
+	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_{\text{fluid}_M} J +$\\
     $\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -323,12 +290,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta \vec{u} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta \vec{u} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta \vec{u} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta \vec{u} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta \vec{u} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -341,12 +310,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta p \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta p \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta p \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta p \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta p \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -359,12 +330,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta f_u \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta f_u \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta f_u \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta f_u \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta f_u \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -377,12 +350,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta F_u \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta F_u \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta F_u \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta F_u \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta F_u \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -395,12 +370,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta U_M \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta U_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta U_M \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta U_M \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta U_M \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -413,12 +390,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta T_{\text{fluid}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta T_{\text{fluid}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta T_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta T_{\text{fluid}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta T_{\text{fluid}} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 		$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -431,12 +410,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta f_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta f_{\text{T}_{\text{fluid}}} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 		$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -449,35 +430,80 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta F_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta F_{\text{T}_{\text{fluid}}} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 		$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
-		\delta T_M \text{NS}_{\text{mom}} \\
-		\delta T_M \text{NS}_{\text{conti}}\\
-		\delta T_M \text{NS}_{\text{f}_u} \\
-		\delta T_M \text{NS}_{\text{F}_u} \\
-		\delta T_M \text{NS}_{\text{U}_M} \\
-		\delta T_M \text{NS}_{\text{T}_{\text{fluid}}} \\
-		\delta T_M \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
-		\delta T_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
-		\delta T_M \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{mom}} \\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{conti}}\\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{f}_u} \\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{F}_u} \\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{U}_M} \\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}}} \\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta T_{\text{fluid}_M} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta T_{\text{fluid}_M} \text{TIMO}_{\vec{U}}\\
+	\end{pmatrix}
+	d\Omega \cup X +$\\
+	
+	$\int_{\Omega \cup X}
+	\begin{pmatrix}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		\delta T_{\text{structure}} \text{NS}_{\text{mom}} \\
+		\delta T_{\text{structure}} \text{NS}_{\text{conti}}\\
+		\delta T_{\text{structure}} \text{NS}_{\text{f}_u} \\
+		\delta T_{\text{structure}} \text{NS}_{\text{F}_u} \\
+		\delta T_{\text{structure}} \text{NS}_{\text{U}_M} \\
+		\delta T_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}}} \\
+		\delta T_{\text{structure}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
+		\delta T_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
+		\delta T_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta T_{\text{structure}} \text{TIMO}_{\vec{U}}\\
+	\end{pmatrix}
+	d\Omega \cup X + $\\
+
+	$\int_{\Omega \cup X}
+	\begin{pmatrix}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{mom}} \\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{conti}}\\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{f}_u} \\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_u} \\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{U}_M} \\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}}} \\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta \vec{U}_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		\delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X $\\
+	
 	$=0$\\
 	
 	\newpage
 	
 	$\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \delta U_M J +
-	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_M J +$\\
+	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_{\text{fluid}_M} J +$\\
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -490,12 +516,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -508,12 +536,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -526,30 +556,34 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
-		0 \\
+		0\\
 		0\\
 		\delta F_u \text{NS}_{\text{f}_u} \\
 		\delta F_u \text{NS}_{\text{F}_u} \\
-		0 \\
-		0 \\
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
+		0\\
+		\delta F_u \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -562,12 +596,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		\delta F_u \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -580,12 +616,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		\delta T_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -598,12 +636,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -616,12 +656,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}}\\
 		\delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
 		0\\
+		\delta F_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -632,19 +674,62 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0 \\
 		0\\
 		0\\
-		\delta T_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
-		\delta T_M \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}}\\
+		\delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}_M}}\\
+		0\\
+		0\\
+	\end{pmatrix}
+	d\Omega \cup X + $\\
+	
+	$\int_{\Omega \cup X}
+	\begin{pmatrix}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		0\\
+		0\\
+		0\\
+		0\\
+		0\\
+		0\\
+		0\\
+		\delta T_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} \\
+		0\\
+		\delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		0\\
+	\end{pmatrix}
+	d\Omega \cup X + $\\
+
+	$\int_{\Omega \cup X}
+	\begin{pmatrix}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		0 \\
+		0 \\
+		0 \\
+		\delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_u} \\
+		0 \\
+		0 \\
+		0 \\
+		0 \\
+		0 \\
+		0 \\
+		\delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X $\\
+
 	$=0$\\
 
 	\newpage
 
 	$\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \delta U_M J +
-	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_M J +$\\
+	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_{\text{fluid}_M} J +$\\
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -657,12 +742,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -675,12 +762,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -693,12 +782,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -711,12 +802,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		\delta F_u \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -729,12 +822,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -747,12 +842,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0\\
 		0\\
 		-\int \delta T_{\text{fluid}} \delta (\vec{x}-\vec{X}) d\Omega\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -765,12 +862,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		\delta f_{\text{T}_{\text{fluid}}}\\
 		0\\
 		0\\
+		0\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -783,12 +882,14 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		-\sum_X \delta F_{\text{T}_{\text{fluid}}} \delta (\vec{x}-\vec{X}) \\
 		\delta F_{\text{T}_{\text{fluid}}}\\
 		0\\
+		\delta F_{T_{\text{fluid}}} \text{FOUR}_{T_{\text{structure}}}\\
+		0\\
 	\end{pmatrix}
 	d\Omega \cup X + $\\
 
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
-		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
@@ -799,10 +900,53 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0 \\
 		0\\
 		0\\
-		\frac{\delta T_M}{\Delta t}\\
-		\delta T_M\\
+		\frac{\delta T_{\text{fluid}_M}}{\Delta t}\\
+		\delta T_{\text{fluid}_M}\\
+		0\\
+		0\\
+	\end{pmatrix}
+	d\Omega \cup X +$\\
+	
+		$\int_{\Omega \cup X}
+	\begin{pmatrix}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		0\\
+		0\\
+		0\\
+		0\\
+		0\\
+		0\\
+		0\\
+		-\frac{\delta T_{\text{structure}}}{\Delta t}\\
+		0\\
+		\delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}}\\
+		0\\
+	\end{pmatrix}
+	d\Omega \cup X + $\\
+	
+	$\int_{\Omega \cup X}
+	\begin{pmatrix}
+		\lambda_{\vec{u}} \\ \lambda_p \\ \lambda_{f_u} \\ \lambda_{F_u} \\ \lambda_{U_M}\\ \lambda_{T_{\text{fluid}}} \\ \lambda_{f_{T_{\text{fluid}}}} \\ \lambda_{F_{T_{\text{fluid}}}} \\ \lambda_{T_{\text{fluid}_M}} \\ \lambda_{T_{structure}} \\ \lambda_{\vec{U}_{structure}}
+	\end{pmatrix}
+	\cdot
+	\begin{pmatrix}
+		0 \\
+		0 \\
+		0 \\
+		-\frac{\delta \vec{U}_{\text{structure}}}{\Delta t}\\
+		0 \\
+		0 \\
+		0 \\
+		0 \\
+		0 \\
+		0 \\
+		\delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}}\\
 	\end{pmatrix}
 	d\Omega \cup X $\\
+	
 $=0$\\
 
 \newpage
@@ -833,6 +977,8 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta \vec{u} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta \vec{u} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta \vec{u} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta \vec{u} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta \vec{u} \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta \vec{u} \text{NS}d\Omega \cup X 
@@ -857,6 +1003,8 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta p \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta p \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta p \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta p \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta p \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta p \text{NS}d\Omega \cup X 
@@ -877,6 +1025,8 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta f_u \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta f_u \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta f_u \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta f_u \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta f_u \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta f_u \text{NS}d\Omega \cup X 
@@ -902,10 +1052,12 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta F_u \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta F_u \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta F_u \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta F_u \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta F_u \text{TIMO}_{\vec{U}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta F_u \text{TIMO}_{\vec{U}} d\Omega \cup X\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta f_u \text{NS}d\Omega \cup X 
-	=&\int_{X} \delta F_u \left[ \lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega\right] d X\\
+	=&\int_{X} \delta F_u \left[ \lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega\right] d X + \int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta F_u \text{TIMO}_{\vec{U}} d\Omega \cup X\\
 \end{align*}
 \noindent\rule[1ex]{\textwidth}{1pt}
 \begin{flushleft}
@@ -925,6 +1077,8 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta U_M \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta U_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta U_M \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta U_M \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta U_M \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta U_M \text{NS}d\Omega \cup X 
@@ -949,6 +1103,8 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta T_{\text{fluid}} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X 
 	=& \int \delta T_{\text{fluid}} \int_{X} -\lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) dX d\Omega\\
 	=& \int \delta T_{\text{fluid}} \sum_{X} -\lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) d\Omega\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta T_{\text{fluid}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta T_{\text{fluid}} \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta T_{\text{fluid}} \text{NS}d\Omega \cup X 
@@ -969,6 +1125,8 @@ $=0$\\
 	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta f_{\text{T}_{\text{fluid}}}d\Omega \cup X\\
 	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta T_{\text{fluid}_M} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta T_{\text{fluid}_M} \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta f_{\text{T}_{\text{fluid}}} \text{NS}d\Omega \cup X 
@@ -993,31 +1151,82 @@ $=0$\\
 	=& \int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta F_{\text{T}_{\text{fluid}}} d\Omega \cup X\\
 	=& \int_{X} \lambda_{F_{T_{\text{fluid}}}} \delta F_{\text{T}_{\text{fluid}}} d X\\
 	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta F_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta F_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{T_{structure}} \delta F_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta F_{\text{T}_{\text{fluid}}} \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
 	\int_{\Omega \cup X} \lambda \cdot \delta F_{\text{T}_{\text{fluid}}} \text{NS}d\Omega \cup X 
-	=&\int_{X} \delta F_{\text{T}_{\text{fluid}}} \left[ -\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}}\right] dX\\
+	=&\int_{X} \delta F_{\text{T}_{\text{fluid}}} \left[ -\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}}\right] dX + \int_{\Omega \cup X} \lambda_{T_{structure}} \delta F_{\text{T}_{\text{fluid}}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X\\
 \end{align*}
 \noindent\rule[1ex]{\textwidth}{1pt}
 \begin{flushleft}
-	$\int_{\Omega \cup X} \lambda \cdot \delta T_M \text{NS}d\Omega \cup X :$
+	$\int_{\Omega \cup X} \lambda \cdot \delta T_{\text{fluid}_M} \text{NS}d\Omega \cup X :$
 \end{flushleft}
 \begin{align*}
-	\int_{\Omega \cup X} \lambda_{\vec{u}} \delta T_M \text{NS}_{\text{mom}} d\Omega \cup X =&  0\\
-	\int_{\Omega \cup X} \lambda_p \delta T_M \text{NS}_{\text{conti}} d\Omega \cup X =& 0\\
-	\int_{\Omega \cup X} \lambda_{f_u} \delta T_M \text{NS}_{\text{f}_u} d\Omega \cup X =& 0\\
-	\int_{\Omega \cup X} \lambda_{F_u} \delta T_M \text{NS}_{\text{F}_u} d\Omega \cup X =& 0\\
-	\int_{\Omega \cup X} \lambda_{U_M} \delta T_M \text{NS}_{\text{U}_M} d\Omega \cup X =& 0\\
-	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}}} \delta T_M \text{NS}_{\text{T}_{\text{fluid}}} d\Omega \cup X =& 0\\
-	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta T_M \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
-	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta T_M \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X 
-	=& \int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \frac{\delta T_M}{\Delta t} d\Omega \cup X\\
-	=& \int_{\Omega \cup X} \delta T_M  \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} d\Omega \cup X\\
-	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta T_M \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta T_M d\Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{\vec{u}} \delta T_{\text{fluid}_M} \text{NS}_{\text{mom}} d\Omega \cup X =&  0\\
+	\int_{\Omega \cup X} \lambda_p \delta T_{\text{fluid}_M} \text{NS}_{\text{conti}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{f_u} \delta T_{\text{fluid}_M} \text{NS}_{\text{f}_u} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{F_u} \delta T_{\text{fluid}_M} \text{NS}_{\text{F}_u} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{U_M} \delta T_{\text{fluid}_M} \text{NS}_{\text{U}_M} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}}} \delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta T_{\text{fluid}_M} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta T_{\text{fluid}_M} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X 
+	=& \int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \frac{\delta T_{\text{fluid}_M}}{\Delta t} d\Omega \cup X\\
+	=& \int_{\Omega \cup X} \delta T_{\text{fluid}_M}  \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} d\Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta T_{\text{fluid}_M} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta T_{\text{fluid}_M} d\Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta \vec{U}_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
 \end{align*}
 \begin{align*}
-	\int_{\Omega \cup X} \lambda \cdot \delta T_M \text{NS}d\Omega \cup X 
-	=&\int_{X} \delta T_M \left[ \lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} \right] d X\\
+	\int_{\Omega \cup X} \lambda \cdot \delta T_{\text{fluid}_M} \text{NS}d\Omega \cup X 
+	=&\int_{X} \delta T_{\text{fluid}_M} \left[ \lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} \right] d X\\
+\end{align*}
+\noindent\rule[1ex]{\textwidth}{1pt}
+\begin{flushleft}
+	$\int_{\Omega \cup X} \lambda \cdot \delta T_{\text{structure}} \text{NS}d\Omega \cup X :$
+\end{flushleft}
+\begin{align*}
+	\int_{\Omega \cup X} \lambda_{\vec{u}} \delta T_{\text{structure}} \text{NS}_{\text{mom}} d\Omega \cup X =&  0\\
+	\int_{\Omega \cup X} \lambda_p \delta T_{\text{structure}} \text{NS}_{\text{conti}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{f_u} \delta T_{\text{structure}} \text{NS}_{\text{f}_u} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{F_u} \delta T_{\text{structure}} \text{NS}_{\text{F}_u} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{U_M} \delta T_{\text{structure}} \text{NS}_{\text{U}_M} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}}} \delta T_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta T_{\text{structure}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta T_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X 
+	=& \int -  \lambda_{F_{T_{\text{fluid}}}} \frac{\delta T_{\text{structure}}}{\Delta t} d\Omega \cup X\\
+	=& \int - \delta T_{\text{structure}}\frac{ \lambda_{F_{T_{\text{fluid}}}} }{\Delta t} d\Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta T_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{T_{structure}} \delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta T_{\text{structure}} \text{TIMO}_{\vec{U}} d\Omega \cup X =& 0\\
+\end{align*}
+\begin{align*}
+	\int_{\Omega \cup X} \lambda \cdot \delta T_{\text{structure}} \text{NS}d\Omega \cup X 
+	=&\int_{X} \delta T_{\text{structure}} \left[ - \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} \right] d X + \int_{\Omega \cup X} \lambda_{T_{structure}} \delta T_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X\\
+\end{align*}
+\noindent\rule[1ex]{\textwidth}{1pt}
+\begin{flushleft}
+	$\int_{\Omega \cup X} \lambda \cdot \delta \vec{U}_{\text{structure}} \text{NS}d\Omega \cup X :$
+\end{flushleft}
+\begin{align*}
+	\int_{\Omega \cup X} \lambda_{\vec{u}} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{mom}} d\Omega \cup X =&  0\\
+	\int_{\Omega \cup X} \lambda_p \delta \vec{U}_{\text{structure}} \text{NS}_{\text{conti}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{f_u} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{f}_u} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{F_u} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_u} d\Omega \cup X 
+	=& \int_{\Omega \cup X} -\lambda_{F_u}\frac{\delta \vec{U}_{\text{structure}}}{\Delta t} d \Omega \cup X\\
+	=& \int_{\Omega \cup X} -\delta \vec{U}_{\text{structure}}\frac{\lambda_{F_u}}{\Delta t} d \Omega \cup X\\
+	\int_{\Omega \cup X} \lambda_{U_M} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{U}_M} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}}} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{f_{T_{\text{fluid}}}} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{F_{T_{\text{fluid}}}} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} d\Omega \cup X 
+	=& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{\text{fluid}_M}} \delta \vec{U}_{\text{structure}} \text{NS}_{\text{T}_{\text{fluid}_M}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{T_{structure}} \delta \vec{U}_{\text{structure}} \text{FOUR}_{\text{T}_{\text{structure}}} d\Omega \cup X =& 0\\
+	\int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}} d\Omega \cup X =& \int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}} d\Omega \cup X\\
+\end{align*}
+\begin{align*}
+	\int_{\Omega \cup X} \lambda \cdot \delta \vec{U}_{\text{structure}} \text{NS}d\Omega \cup X 
+	=&\int_{X} \delta \vec{U}_{\text{structure}} \left[ - \frac{\lambda_{F_u}}{\Delta t} \right] d X + \int_{\Omega \cup X} \lambda_{\vec{U}_{structure}} \delta \vec{U}_{\text{structure}} \text{TIMO}_{\vec{U}} d\Omega \cup X\\
 \end{align*}
 \noindent\rule[1ex]{\textwidth}{1pt}
 \newpage
@@ -1028,14 +1237,29 @@ $=0$\\
 	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$ \quad on $\Omega,X$\\
 	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
 	$-\lambda_{\vec{u}} + \lambda_{f_u} = 0$ \quad on $\Omega$\\
-	$\lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega = 0$ \quad on $\Omega,X$\\
+	$\lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega + ... = 0$ \quad on $\Omega,X$\\
 	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
 	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) = 0$ \quad on $\Omega,X$\\
 	$- \lambda_{T_{\text{fluid}}} +\lambda_{f_{T_{\text{fluid}}}} = 0$ \quad on $\Omega$\\
-	$-\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} = 0$ \quad on $\Omega, X$\\
+	$-\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
 	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+\begin{flushleft}
+	Adjoint Immersed Boundary Navier Stokes system without temperature
+\end{flushleft}
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$ \quad on $\Omega,X$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
+	$-\lambda_{\vec{u}} + \lambda_{f_u} = 0$ \quad on $\Omega$\\
+	$\lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega = 0$ \quad on $\Omega,X$\\
+	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
+	$\rightarrow$\\
+	$(\vec{u}\cdot\nabla) \lambda_{\vec{u}} + \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) = \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X})$ \quad on $\Omega,X$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
+	$\lambda_{\vec{u}} = \lambda_{f_u} $ \quad on $\Omega$\\
+	$\lambda_{F_u} = \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega$ \quad on $\Omega,X$\\
+	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
 \end{center}
 \newpage
+
 \begin{center}
 \begin{flushleft}
 	Immersed Boundary Navier Stokes system sensitivities

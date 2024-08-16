@@ -897,6 +897,9 @@ void Foam::Structure::setNurbsCoeff
     if(dimension<0 || dimension>=3)
         FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
     coeffs(derivCoeffNumber,dimension) = value;
+    
+    std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>& rodCoeffDerivedCurves = coeffDerivedCurves[rodNumber];
+    rodCoeffDerivedCurves.reset();
 }
 
 /*

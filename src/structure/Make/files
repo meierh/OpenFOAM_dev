@@ -8,6 +8,7 @@ CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
 CrossSectionStructureParameters.C
+SensitivityInteraction.C
 VelocityPressureForceMarkerInteraction.C
 StaticVelocityPressureAction.C
 TemperatureInteraction.C

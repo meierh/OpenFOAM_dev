@@ -38,10 +38,6 @@ class CrossSection
             gsNurbs<scalar> phaseShift
         );
         
-        CrossSection(CrossSection& other);
-        
-        CrossSection& operator=(CrossSection other);
-        
         scalar operator()(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getEvalOnPoint(scalar parameter) const;
         
@@ -49,8 +45,8 @@ class CrossSection
         std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
         
     private:
-        std::unique_ptr<scalar> A;
-        //std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
+        std::vector<std::vector<gsNurbs<scalar>*>*> coeffDerivedCurves;
+        void delete_coeffDerivedCurves();
         const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber) const;
         gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
 
