@@ -5,6 +5,30 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
     DynamicList<T>& markerData
 )
 {
+    std::function<T(const LagrangianMarker*,std::function<T(Pair<label>)> valueFunction)> convolution;
+    convolution = [this](const LagrangianMarker* marker, std::function<T(Pair<label>)> valueFunction)
+    {
+        std::function<scalar(vector,vector)> weightFunction;
+        if(modusFieldToMarker==markerMeshType::Uniform)
+        {
+            weightFunction = [&marker] (vector X, vector x)
+            {
+                return marker->deltaDirac(X,x);
+            };
+        }
+        else
+        {
+            weightFunction = [&marker] (vector X, vector x)
+            {
+                return marker->correctedDeltaDirac(X,x);
+            };
+        }
+        return marker->convolute<T>(weightFunction,valueFunction);
+    };
+    
+    integrateFieldOverMarker(fieldData,markerData,convolution);
+    
+    /*
     LineStructure& structure = this->structure;
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
@@ -51,6 +75,69 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
             };
         }
         markerData[index] = oneMarker.convolute<T>(weightFunction,valueFunction);
+    }
+    */
+}
+
+template<typename T>
+void Foam::FieldMarkerStructureInteraction::integrateFieldOverMarker
+(
+    const GeometricField<T,fvPatchField,volMesh>& fieldData,
+    DynamicList<T>& markerData,
+    std::function<T(const LagrangianMarker*, std::function<T(Pair<label>)>)> integration
+)
+{
+    LineStructure& structure = this->structure;
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    
+    std::unique_ptr<List<List<T>>> haloFieldsPtr = structure.broadcastHaloFields(fieldData);
+    const List<List<T>>& haloFields = *haloFieldsPtr;
+
+    markerData.resize(markers.size());
+    std::function<T(Pair<label>)> valueFunction = 
+    [&fieldData,&haloFields,&structure](Pair<label> cell)
+    {
+        const Pair<label>& suppCellData = cell;
+        label proc = suppCellData.first();
+        label cellInd = suppCellData.second();
+        if(proc==Pstream::myProcNo())
+        {
+            return fieldData[cellInd];
+        }
+        else
+        {
+            const std::unordered_map<label,label>& procCellToInd = structure.getHaloCellToIndexMap(proc);
+            auto iterIndex = procCellToInd.find(cellInd);
+            if(iterIndex!=procCellToInd.end())
+                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            label haloIndex = iterIndex->second;
+            return haloFields[proc][haloIndex];                    
+        }
+    };
+    for(label index=0; index<markerData.size(); index++)
+    {
+        const LagrangianMarker* oneMarker = markers[index];
+        markerData[index] = integration(oneMarker,valueFunction);
+
+        /*
+        const LagrangianMarker& oneMarker = *(markers[index]);
+        std::function<scalar(vector,vector)> weightFunction;
+        if(modusFieldToMarker==markerMeshType::Uniform)
+        {
+            weightFunction = [&oneMarker] (vector X, vector x)
+            {
+                return oneMarker.deltaDirac(X,x);
+            };
+        }
+        else
+        {
+            weightFunction = [&oneMarker] (vector X, vector x)
+            {
+                return oneMarker.correctedDeltaDirac(X,x);
+            };
+        }
+        markerData[index] = oneMarker.convolute<T>(weightFunction,valueFunction);
+        */
     }
 }
 
@@ -131,7 +218,7 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                 FatalErrorInFunction<<"Marker number mismatch"<<exit(FatalError);
             for(label markerInd=0; markerInd<numHaloCellMarkers; markerInd++)
             {
-                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> haloMarkerData;
+                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> haloMarkerData;
                 haloMarkerData = gHM.getMarkerData(proc,haloCellInd,markerInd);
 
                 vector position = std::get<0>(haloMarkerData);

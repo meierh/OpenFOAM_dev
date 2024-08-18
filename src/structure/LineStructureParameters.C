@@ -11,30 +11,34 @@ coeffNumber(coeffNumber),
 dimension(dimension)
 {}
 
-Foam::LineStructureParameter::LineStructureParameter
+Foam::Parameter::Parameter
 ():
+parameterType(Type::None),
 dimension(-1)
 {}
 
-Foam::LineStructureParameter::LineStructureParameter
+Foam::Parameter::Parameter
 (
     NurbsCoeffReference coeff
 ):
-dimension(-1)
+parameterType(Type::Rod),
+dimension(-1),
+valid(true)
 {
     dimension = coeff.dimension;
-    coeffs.push_back(coeff);
+    nurbsCoeffs.push_back(coeff);
 }
 
 
-Foam::LineStructureParameter::LineStructureParameter
+Foam::Parameter::Parameter
 (
     const std::vector<NurbsCoeffReference>& coeffs
 ):
-coeffs(coeffs),
-dimension(-1)
+nurbsCoeffs(coeffs),
+dimension(-1),
+valid(true)
 {
-    for(const NurbsCoeffReference& coeffRef : coeffs)
+    for(const NurbsCoeffReference& coeffRef : nurbsCoeffs)
     {
         if(dimension==-1)
             dimension = coeffRef.dimension;
@@ -43,16 +47,55 @@ dimension(-1)
     }
 }
 
-void Foam::LineStructureParameter::addCoeff
+void Foam::Parameter::addCoeff
 (
     NurbsCoeffReference coeffRef
 )
 {
+    valid=true;
+    if(parameterType==Type::None)
+        parameterType=Type::Rod;
+    else if(parameterType==Type::CrossSection)
+        FatalErrorInFunction<<"Can not add nurbs references to cross section parameter!"<<exit(FatalError);
     if(dimension==-1)
         dimension = coeffRef.dimension;
     else if(dimension!=coeffRef.dimension)
         FatalErrorInFunction<<"Coefficients of different dimensions can not be one parameter!"<<exit(FatalError);
-    coeffs.push_back(coeffRef);
+    nurbsCoeffs.push_back(coeffRef);
+}
+
+Foam::Parameter::Parameter
+(
+    CrossSectionCoeffReference coeff
+):
+parameterType(Type::CrossSection),
+dimension(-1),
+valid(true)
+{
+    crossSecCoeffs.push_back(coeff);
+}
+
+Foam::Parameter::Parameter
+(
+    const std::vector<CrossSectionCoeffReference>& coeffs
+):
+parameterType(Type::CrossSection),
+dimension(-1),
+crossSecCoeffs(coeffs),
+valid(true)
+{}
+
+void Foam::Parameter::addCoeff
+(
+    CrossSectionCoeffReference coeffRef
+)
+{
+    valid = true;
+    if(parameterType==Type::None)
+        parameterType=Type::CrossSection;
+    else if(parameterType==Type::Rod)
+        FatalErrorInFunction<<"Can not add cross section references to nurbs parameter!"<<exit(FatalError);
+    crossSecCoeffs.push_back(coeffRef);
 }
 
 void Foam::LineStructureParameters::collectParameters
@@ -65,10 +108,10 @@ void Foam::LineStructureParameters::collectParameters
         label nbrCoeffs = structure->numberCoeffs(rodNumber);
         for(label coeffInd=0; coeffInd<nbrCoeffs; coeffInd++)
         {
-            std::array<LineStructureParameter,3> thriDimPara;
+            std::array<Parameter,3> thriDimPara;
             for(label dim=0; dim<3; dim++)
             {
-                LineStructureParameter para(NurbsCoeffReference(rodNumber,coeffInd,dim));
+                Parameter para(NurbsCoeffReference(rodNumber,coeffInd,dim));
                 thriDimPara[dim] = para;
             }
             threeDimParameters.push_back(thriDimPara);

@@ -13,6 +13,7 @@ class LagrangianMarker
 {
     public:
         enum SupportType {Direct,Full};
+        virtual ~LagrangianMarker()=default;
         
         explicit LagrangianMarker
         (
@@ -50,6 +51,8 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
+        virtual inline scalar getMarkerAngle() const {return 0;}
+        virtual inline scalar getMarkerRadiusFrac() const {return 0;}
         inline const DynamicList<Pair<label>>& getSupportCells(SupportType type=SupportType::Direct) const
         {
             if(type==SupportType::Direct)
@@ -66,9 +69,15 @@ class LagrangianMarker
         static scalar correctedDeltaDirac(vector X, vector x, vector h, const FixedList<scalar,10>& b);
         static scalar phiFunction(scalar r);
         
+        static scalar ddeltaDirac_dX(vector X, vector x, vector h);
+        static scalar dcorrectedDeltaDirac_dX(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        
         //h=getDilation() b=b;
         scalar correctedDeltaDirac(vector X, vector x) const;
         scalar deltaDirac(vector X, vector x) const;
+        
+        vector dcorrectedDeltaDirac_dX(vector X, vector x) const;
+        vector ddeltaDirac_dX(vector X, vector x) const;
         
         void compNonUniformCorrWeights() {computeCorrectionWeights();}
         
@@ -209,8 +218,21 @@ class FieldMarkerStructureInteraction
             const GeometricField<T,fvPatchField,volMesh>& fieldData,
             DynamicList<T>& markerData
         );
+        
+        template<typename T> void integrateFieldOverMarker
+        (
+            const GeometricField<T,fvPatchField,volMesh>& fieldData,
+            DynamicList<T>& markerData,
+            std::function<T(const LagrangianMarker*, std::function<T(Pair<label>)>)> integration            
+        );
                 
         template<typename T> void markerToField
+        (
+            const DynamicList<T>& markerData,
+            GeometricField<T,fvPatchField,volMesh>& fieldData
+        );
+                
+        template<typename T> void integrateMarkersOverField
         (
             const DynamicList<T>& markerData,
             GeometricField<T,fvPatchField,volMesh>& fieldData
@@ -227,6 +249,72 @@ class FieldMarkerStructureInteraction
         const scalar h;
         const markerMeshType modusFieldToMarker;
         const markerMeshType modusMarkerToField;
+};
+
+class NurbsCoeffReference
+{
+    public:
+        NurbsCoeffReference(label rodNumber, label coeffNumber, label dimension);
+        label rodNumber;
+        label coeffNumber;
+        label dimension;
+};
+
+struct NurbsCoeffHash
+{
+    label operator()(const NurbsCoeffReference &r) const
+    {
+        return std::hash<label>{}(r.rodNumber)^std::hash<label>{}(r.coeffNumber)^std::hash<label>{}(r.dimension);
+    }
+};
+
+class CrossSectionCoeffReference
+{
+    public:
+        CrossSectionCoeffReference(label rodNumber, label fourierCoeffNumber, label coeffNumber);
+        label rodNumber;
+        label fourierCoeffNumber;
+        label coeffNumber;
+};
+
+struct CrossSecCoeffHash
+{
+    label operator()(const CrossSectionCoeffReference &r) const
+    {
+        return std::hash<label>{}(r.rodNumber)^std::hash<label>{}(r.fourierCoeffNumber)^std::hash<label>{}(r.coeffNumber);
+    }
+};
+
+class Parameter
+{
+    public:
+        enum Type {Rod,CrossSection,None};   
+        Parameter();
+        
+        Parameter(NurbsCoeffReference coeff);
+        Parameter(const std::vector<NurbsCoeffReference>& coeffs);
+        void addCoeff(NurbsCoeffReference coeffRef);
+        
+        Parameter(CrossSectionCoeffReference coeff);
+        Parameter(const std::vector<CrossSectionCoeffReference>& coeffs);
+        void addCoeff(CrossSectionCoeffReference ref);
+        
+        label getDimension() const {return dimension;}
+        bool isValid() const {return valid;}
+        Type getType() const {return parameterType;}
+        
+        const std::vector<NurbsCoeffReference>& getNurbsCoeffs() const {return nurbsCoeffs;}
+        const std::vector<CrossSectionCoeffReference>& getCrossSecCoeffs() const {return crossSecCoeffs;}
+        
+    private:
+        Type parameterType;
+        
+        std::vector<NurbsCoeffReference> nurbsCoeffs;
+        label dimension;
+        
+        std::vector<CrossSectionCoeffReference> crossSecCoeffs;
+        
+        bool valid=false;
 };
 
 class LineStructure : public Structure
@@ -273,6 +361,9 @@ class LineStructure : public Structure
         virtual void to_string();
         
         void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
+        
+        virtual vector rodDeriveParam(const LagrangianMarker* marker,const Parameter& par);
+        virtual vector rodDeriveParam(label rodNumber,scalar rodParameter, scalar angle, scalar radiusFrac, const Parameter& par);
 
     protected:
         LineStructureStatus status;
@@ -458,7 +549,7 @@ class LineStructure : public Structure
                 void appendMarkerData
                 (
                     label haloCellInd,
-                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> data
+                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> data
                 );
                 
                 void insertMarkerWeight
@@ -468,7 +559,7 @@ class LineStructure : public Structure
                     scalar weight
                 );
                 
-                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> getMarkerData
+                std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> getMarkerData
                 (
                     label process,
                     label haloCellInd,
@@ -522,6 +613,14 @@ class LineStructure : public Structure
                 List<List<DynamicList<FixedList<scalar,10>>>> globalHaloCellsMarkerb;
                 // [nProc] -> [haloCells] -> [markers] -> weight
                 List<List<DynamicList<scalar>>> globalHaloCellsMarkerWeight;
+                // [nProc] -> [haloCells] -> [markers] -> nurbsInd
+                List<List<DynamicList<label>>> globalHaloCellsMarkerNurbsInd;
+                // [nProc] -> [haloCells] -> [markers] -> markerParameter
+                List<List<DynamicList<scalar>>> globalHaloCellsMarkerParameter;
+                // [nProc] -> [haloCells] -> [markers] -> markerAngle
+                List<List<DynamicList<scalar>>> globalHaloCellsMarkerAngle;
+                // [nProc] -> [haloCells] -> [markers] -> markerRadiusFrac
+                List<List<DynamicList<scalar>>> globalHaloCellsMarkerRadiusFrac;
                 
                 void check();
                 void check(label process, label haloCellInd, label cellMarkerInd) const;
@@ -551,37 +650,6 @@ class LineStructure : public Structure
 #include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"
 
-class NurbsCoeffReference
-{
-    public:
-        NurbsCoeffReference(label rodNumber, label coeffNumber, label dimension);
-        label rodNumber;
-        label coeffNumber;
-        label dimension;
-};
-
-struct NurbsCoeffHash
-{
-    label operator()(const NurbsCoeffReference &r) const
-    {
-        return std::hash<label>{}(r.rodNumber)^std::hash<label>{}(r.coeffNumber)^std::hash<label>{}(r.dimension);
-    }
-};
-
-class LineStructureParameter
-{
-    public:
-        LineStructureParameter();
-        LineStructureParameter(NurbsCoeffReference coeff);
-        LineStructureParameter(const std::vector<NurbsCoeffReference>& coeffs);
-        void addCoeff(NurbsCoeffReference coeffRef);
-        label getDimension() const {return dimension;}
-        
-    private:
-        std::vector<NurbsCoeffReference> coeffs;
-        label dimension;
-};
-
 class LineStructureParameters
 {
     public:
@@ -590,7 +658,7 @@ class LineStructureParameters
         virtual void collectParameters(const LineStructure* structure);
         
     protected:
-        std::vector<std::array<LineStructureParameter,3>> threeDimParameters;
+        std::vector<std::array<Parameter,3>> threeDimParameters;
 };
 }
 #endif

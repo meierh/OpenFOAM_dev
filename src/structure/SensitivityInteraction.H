@@ -17,33 +17,20 @@ class SensitivityInteraction : public FieldMarkerStructureInteraction
         );
 
     protected:
-        template<typename T> void derivedFieldToMarker
+        template<typename T> void deriveParamFieldToMarker
         (
             const GeometricField<T,fvPatchField,volMesh>& fieldData,
             DynamicList<T>& markerData,
-            const LineStructureParameter& parameter
+            const Parameter& par
         );
                 
-        template<typename T> void derivedMarkerToField
+        template<typename T> void deriveParamMarkerToField
         (
             const DynamicList<T>& markerData,
             GeometricField<T,fvPatchField,volMesh>& fieldData,
-            const LineStructureParameter& parameter
-        );
-        
-        template<typename T> void derivedFieldToMarker
-        (
-            const GeometricField<T,fvPatchField,volMesh>& fieldData,
-            DynamicList<T>& markerData,
-            const CrossSectionStructureParameter& parameter
-        );
-                
-        template<typename T> void derivedMarkerToField
-        (
-            const DynamicList<T>& markerData,
-            GeometricField<T,fvPatchField,volMesh>& fieldData,
-            const CrossSectionStructureParameter& parameter
+            const Parameter& par
         );
 };
+#include "SensitivityInteraction.T.H"
 }
 #endif

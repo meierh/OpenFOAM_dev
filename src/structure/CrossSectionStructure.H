@@ -120,8 +120,8 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
             const scalar radiusFrac
         );
         
-        inline scalar getMarkerAngle() const {return markerAngle;}
-        inline scalar getMarkerRadiusFrac() const {return markerRadiusFrac;}
+        inline scalar getMarkerAngle() const override {return markerAngle;}
+        inline scalar getMarkerRadiusFrac() const override {return markerRadiusFrac;}
         inline const CrossSection* getBaseCrossSec() const {return baseCrossSec;}
         void evaluateMarker();
         
@@ -148,6 +148,10 @@ class CrossSectionStructure : public LineStructure
         void to_string() override;
         
         void setCrossSecParameters(label rodNumber, label fourierCoeffNumber, label derivCoeffNumber, scalar value);
+        
+        vector rodDeriveParam(const LagrangianMarker* marker,const Parameter& par) override;
+        vector rodDeriveParam(label rodNumber,scalar rodParameter, scalar angle, scalar radiusFrac,
+const Parameter& par) override;
         
     private:
         void check() override;
@@ -402,35 +406,6 @@ class CrossSectionStructure : public LineStructure
         */
 };
 
-class CrossSectionCoeffReference
-{
-    public:
-        CrossSectionCoeffReference(label rodNumber, label fourierCoeffNumber, label coeffNumber);
-        label rodNumber;
-        label fourierCoeffNumber;
-        label coeffNumber;
-};
-
-struct CrossSecCoeffHash
-{
-    label operator()(const CrossSectionCoeffReference &r) const
-    {
-        return std::hash<label>{}(r.rodNumber)^std::hash<label>{}(r.fourierCoeffNumber)^std::hash<label>{}(r.coeffNumber);
-    }
-};
-
-class CrossSectionStructureParameter
-{
-    public:
-        CrossSectionStructureParameter();
-        CrossSectionStructureParameter(CrossSectionCoeffReference coeff);
-        CrossSectionStructureParameter(const std::vector<CrossSectionCoeffReference>& coeffs);
-        void addCoeff(CrossSectionCoeffReference ref);
-        
-    private:
-        std::vector<CrossSectionCoeffReference> coeffs;
-};
-
 class CrossSectionStructureParameters : public LineStructureParameters
 {
     public:
@@ -439,7 +414,7 @@ class CrossSectionStructureParameters : public LineStructureParameters
         virtual void collectParameters(const CrossSectionStructure* structure);
         
     private:
-        std::vector<CrossSectionStructureParameter> parameters;
+        std::vector<Parameter> parameters;
 };
 
 }

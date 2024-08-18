@@ -11,30 +11,6 @@ fourierCoeffNumber(fourierCoeffNumber),
 coeffNumber(coeffNumber)
 {}
 
-Foam::CrossSectionStructureParameter::CrossSectionStructureParameter
-(
-    CrossSectionCoeffReference coeffRef
-)
-{
-    coeffs.push_back(coeffRef);
-}
-
-
-Foam::CrossSectionStructureParameter::CrossSectionStructureParameter
-(
-    const std::vector<CrossSectionCoeffReference>& coeffs
-):
-coeffs(coeffs)
-{}
-
-void Foam::CrossSectionStructureParameter::addCoeff
-(
-    CrossSectionCoeffReference coeffRef
-)
-{
-    coeffs.push_back(coeffRef);
-}
-
 void Foam::CrossSectionStructureParameters::collectParameters
 (
     const CrossSectionStructure* structure
@@ -50,7 +26,7 @@ void Foam::CrossSectionStructureParameters::collectParameters
             label nbrNurbsCoeffs = crossSec.numberNurbsCoeffs(fourCoeffInd);
             for(label coeffInd=0; coeffInd<nbrNurbsCoeffs; coeffInd++)
             {
-                CrossSectionStructureParameter para(CrossSectionCoeffReference(rodNumber,fourCoeffInd,coeffInd));
+                Parameter para(CrossSectionCoeffReference(rodNumber,fourCoeffInd,coeffInd));
                 parameters.push_back(para);
             }
         }

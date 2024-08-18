@@ -70,6 +70,44 @@ void Foam::LineStructure::setNurbsParameters
     setNurbsCoeff(rodNumber,derivCoeffNumber,dimension,value);
 }
 
+vector Foam::LineStructure::rodDeriveParam
+(
+    const LagrangianMarker* marker,
+    const Parameter& par
+)
+{
+    return rodDeriveParam(marker->getRodNumber(),marker->getMarkerParameter(),0,0,par);
+}
+
+vector Foam::LineStructure::rodDeriveParam
+(
+    label rodNumber,
+    scalar rodParameter,
+    scalar angle,
+    scalar radiusFrac,
+    const Parameter& par
+)
+{
+    if(!(par.isValid()))
+        FatalErrorInFunction<<"Invalid parameter here!"<<exit(FatalError);
+    if(par.getType()!=Parameter::Type::Rod)
+        FatalErrorInFunction<<"Invalid type of parameter here!"<<exit(FatalError);
+    vector rodDerive(0,0,0);
+    label dimension = par.getDimension();
+    const std::vector<NurbsCoeffReference>& nurbsCoeffs = par.getNurbsCoeffs();
+    for(const NurbsCoeffReference& ref : nurbsCoeffs)
+    {
+        if(rodNumber==ref.rodNumber)
+        {
+            if(dimension!=ref.dimension)
+                FatalErrorInFunction<<"Dimension mismatch!"<<exit(FatalError);
+            vector derivCoeff = evalDerivCoeff(rodNumber,ref.coeffNumber,rodParameter);
+            rodDerive[dimension] += derivCoeff[dimension];
+        }
+    }
+    return rodDerive;
+}
+
 void Foam::LineStructure::initialize()
 {
     check();
@@ -460,6 +498,12 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             DynamicList<Pair<label>> supportCellsIndices;
             DynamicList<vector> supportCellsCentre;
             DynamicList<scalar> supportCellsVolume;
+            label nurbsInd = marker->getRodNumber();
+            scalar para = marker->getMarkerParameter();
+            scalar angle = marker->getMarkerAngle();
+            scalar radiusFrac = marker->getMarkerRadiusFrac();
+
+            
             
             const DynamicList<Pair<label>>& supportCells = marker->getSupportCells();
             for(Pair<label> oneSupport : supportCells)
@@ -474,7 +518,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             globHaloMarkers.appendMarkerData
             (
                 haloCellInd,
-                {position,volume,index,dilation,supportCellsIndices,supportCellsCentre,supportCellsVolume,marker->getCorrParaB()}
+                {position,volume,index,dilation,supportCellsIndices,supportCellsCentre,supportCellsVolume,marker->getCorrParaB(),nurbsInd,para,angle,radiusFrac}
             );
         }
     }
@@ -643,7 +687,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 {
                     //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"  haloCellMarkerInd:"<<haloCellMarkerInd<<"/"<<haloCellMarkerNum<<Foam::endl;
                     
-                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> markerData;
+                    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> markerData;
                     markerData = globHaloMarkers.getMarkerData(process,haloCellInd,haloCellMarkerInd);
                     
                     vector markerKposition = std::get<0>(markerData);
@@ -945,6 +989,26 @@ broadcastedWeights(false)
     globalHaloCellsMarkerWeight[Pstream::myProcNo()].clear();
     globalHaloCellsMarkerWeight[Pstream::myProcNo()].setSize(selfHaloCellSize);
     
+    globalHaloCellsMarkerNurbsInd.clear();
+    globalHaloCellsMarkerNurbsInd.setSize(Pstream::nProcs());
+    globalHaloCellsMarkerNurbsInd[Pstream::myProcNo()].clear();
+    globalHaloCellsMarkerNurbsInd[Pstream::myProcNo()].setSize(selfHaloCellSize);
+    
+    globalHaloCellsMarkerParameter.clear();
+    globalHaloCellsMarkerParameter.setSize(Pstream::nProcs());
+    globalHaloCellsMarkerParameter[Pstream::myProcNo()].clear();
+    globalHaloCellsMarkerParameter[Pstream::myProcNo()].setSize(selfHaloCellSize);
+    
+    globalHaloCellsMarkerAngle.clear();
+    globalHaloCellsMarkerAngle.setSize(Pstream::nProcs());
+    globalHaloCellsMarkerAngle[Pstream::myProcNo()].clear();
+    globalHaloCellsMarkerAngle[Pstream::myProcNo()].setSize(selfHaloCellSize);
+    
+    globalHaloCellsMarkerRadiusFrac.clear();
+    globalHaloCellsMarkerRadiusFrac.setSize(Pstream::nProcs());
+    globalHaloCellsMarkerRadiusFrac[Pstream::myProcNo()].clear();
+    globalHaloCellsMarkerRadiusFrac[Pstream::myProcNo()].setSize(selfHaloCellSize);
+    
     nProcs = Pstream::nProcs();
     
     procHaloCellsSize.setSize(nProcs);
@@ -960,7 +1024,7 @@ broadcastedWeights(false)
 void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
 (
     label haloCellInd,
-    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> data
+    std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> data
 )
 {
     if(broadcasted)
@@ -980,6 +1044,10 @@ void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
     globalHaloCellsMarkerSupportCellVolume[proc][hCI].append(std::get<6>(data));
     globalHaloCellsMarkerb[proc][hCI].append(std::get<7>(data));
     globalHaloCellsMarkerWeight[proc][hCI].append(-1);
+    globalHaloCellsMarkerNurbsInd[proc][hCI].append(std::get<8>(data));
+    globalHaloCellsMarkerParameter[proc][hCI].append(std::get<9>(data));
+    globalHaloCellsMarkerAngle[proc][hCI].append(std::get<10>(data));
+    globalHaloCellsMarkerRadiusFrac[proc][hCI].append(std::get<11>(data));
     
     procHaloCellMarkerSize[proc][hCI]++;
 }
@@ -1005,7 +1073,7 @@ void Foam::LineStructure::GlobalHaloMarkers::insertMarkerWeight
     globalHaloCellsMarkerWeight[proc][hCI][cMI] = weight;
 }
 
-std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
+std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
 (
     label process,
     label haloCellInd,
@@ -1029,8 +1097,12 @@ std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vecto
     DynamicList<vector> suppCellsCentre = globalHaloCellsMarkerSupportCellCentres[proc][hCI][cMI];
     DynamicList<scalar> suppCellsVolume = globalHaloCellsMarkerSupportCellVolume[proc][hCI][cMI];
     FixedList<scalar,10> b = globalHaloCellsMarkerb[proc][hCI][cMI];
+    label nurbsInd = globalHaloCellsMarkerNurbsInd[proc][hCI][cMI];
+    scalar parameter = globalHaloCellsMarkerParameter[proc][hCI][cMI];
+    scalar angle = globalHaloCellsMarkerAngle[proc][hCI][cMI];
+    scalar radiusFrac = globalHaloCellsMarkerRadiusFrac[proc][hCI][cMI];
     
-    return {position,volume,index,dilation,suppCellsIndices,suppCellsCentre,suppCellsVolume,b};
+    return {position,volume,index,dilation,suppCellsIndices,suppCellsCentre,suppCellsVolume,b,nurbsInd,parameter,angle,radiusFrac};
 }
 
 scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
@@ -1089,6 +1161,10 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     Pstream::gatherList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::gatherList(globalHaloCellsMarkerb);
     Pstream::gatherList(globalHaloCellsMarkerWeight);
+    Pstream::gatherList(globalHaloCellsMarkerNurbsInd);
+    Pstream::gatherList(globalHaloCellsMarkerParameter);
+    Pstream::gatherList(globalHaloCellsMarkerAngle);
+    Pstream::gatherList(globalHaloCellsMarkerRadiusFrac);
     
     Pstream::scatterList(globalHaloCellsMarkerPos);
     Pstream::scatterList(globalHaloCellsMarkerVolume);
@@ -1099,7 +1175,11 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     Pstream::scatterList(globalHaloCellsMarkerSupportCellVolume);
     Pstream::scatterList(globalHaloCellsMarkerb);
     Pstream::scatterList(globalHaloCellsMarkerWeight);
-    
+    Pstream::scatterList(globalHaloCellsMarkerNurbsInd);
+    Pstream::scatterList(globalHaloCellsMarkerParameter);
+    Pstream::scatterList(globalHaloCellsMarkerAngle);
+    Pstream::scatterList(globalHaloCellsMarkerRadiusFrac);
+
     Pstream::gatherList(procHaloCellMarkerSize);
     Pstream::scatterList(procHaloCellMarkerSize);
 
@@ -1136,7 +1216,15 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
         FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
     if(numProcs!=globalHaloCellsMarkerWeight.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerWeight size error"<<exit(FatalError);
-        
+    if(numProcs!=globalHaloCellsMarkerNurbsInd.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerNurbsInd size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerParameter.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerParameter size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerAngle.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerAngle size error"<<exit(FatalError);
+    if(numProcs!=globalHaloCellsMarkerRadiusFrac.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac size error"<<exit(FatalError);
+    
     for(label proc=0; proc<numProcs; proc++)
     {
         label numHaloCells = size_haloCells(proc);
@@ -1158,6 +1246,14 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
             FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"] size error"<<exit(FatalError);
         if(numHaloCells!=globalHaloCellsMarkerWeight[proc].size())
             FatalErrorInFunction<<"globalHaloCellsMarkerWeight["<<proc<<"] size error"<<exit(FatalError);
+        if(numHaloCells!=globalHaloCellsMarkerNurbsInd[proc].size())
+            FatalErrorInFunction<<"globalHaloCellsMarkerNurbsInd["<<proc<<"] size error"<<exit(FatalError);
+        if(numHaloCells!=globalHaloCellsMarkerParameter[proc].size())
+            FatalErrorInFunction<<"globalHaloCellsMarkerParameter["<<proc<<"] size error"<<exit(FatalError);
+        if(numHaloCells!=globalHaloCellsMarkerAngle[proc].size())
+            FatalErrorInFunction<<"globalHaloCellsMarkerAngle["<<proc<<"] size error"<<exit(FatalError);
+        if(numHaloCells!=globalHaloCellsMarkerRadiusFrac[proc].size())
+            FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac["<<proc<<"] size error"<<exit(FatalError);
         
         for(label haloCellInd=0; haloCellInd<numHaloCells; haloCellInd++)
         {
@@ -1180,6 +1276,14 @@ void Foam::LineStructure::GlobalHaloMarkers::check()
                 FatalErrorInFunction<<"globalHaloCellsMarkerb["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerb[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
             if(numHaloCellMarkers!=globalHaloCellsMarkerWeight[proc][haloCellInd].size())
                 FatalErrorInFunction<<"globalHaloCellsMarkerWeight["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerWeight[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            if(numHaloCellMarkers!=globalHaloCellsMarkerNurbsInd[proc][haloCellInd].size())
+                FatalErrorInFunction<<"globalHaloCellsMarkerNurbsInd["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerNurbsInd[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            if(numHaloCellMarkers!=globalHaloCellsMarkerParameter[proc][haloCellInd].size())
+                FatalErrorInFunction<<"globalHaloCellsMarkerParameter["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerParameter[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            if(numHaloCellMarkers!=globalHaloCellsMarkerAngle[proc][haloCellInd].size())
+                FatalErrorInFunction<<"globalHaloCellsMarkerAngle["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerAngle[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
+            if(numHaloCellMarkers!=globalHaloCellsMarkerRadiusFrac[proc][haloCellInd].size())
+                FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac["<<proc<<"]["<<haloCellInd<<"] size "<<globalHaloCellsMarkerRadiusFrac[proc][haloCellInd].size()<<" error:"<<numHaloCellMarkers<<exit(FatalError);
         }
     }    
 }
@@ -1209,6 +1313,14 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerb size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerWeight.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerWeight size error"<<exit(FatalError);
+    if(process>=globalHaloCellsMarkerNurbsInd.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerNurbsInd size error"<<exit(FatalError);
+    if(process>=globalHaloCellsMarkerParameter.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerParameter size error"<<exit(FatalError);
+    if(process>=globalHaloCellsMarkerAngle.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerAngle size error"<<exit(FatalError);
+    if(process>=globalHaloCellsMarkerRadiusFrac.size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac size error"<<exit(FatalError);
     
     if(haloCellInd<0)
         FatalErrorInFunction<<"Invalid haloCell index"<<Foam::endl;
@@ -1228,6 +1340,14 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerb[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerWeight[process].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerWeight[process] size error"<<exit(FatalError);
+    if(haloCellInd>=globalHaloCellsMarkerNurbsInd[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerNurbsInd[process] size error"<<exit(FatalError);
+    if(haloCellInd>=globalHaloCellsMarkerParameter[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerParameter[process] size error"<<exit(FatalError);
+    if(haloCellInd>=globalHaloCellsMarkerAngle[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerAngle[process] size error"<<exit(FatalError);
+    if(haloCellInd>=globalHaloCellsMarkerRadiusFrac[process].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac[process] size error"<<exit(FatalError);
     
     if(cellMarkerInd<0)
         FatalErrorInFunction<<"Invalid cellMarker index"<<Foam::endl;
@@ -1247,4 +1367,12 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerb[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerWeight[process][haloCellInd].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerWeight[process][haloCellInd] size error"<<exit(FatalError);
+    if(cellMarkerInd>=globalHaloCellsMarkerNurbsInd[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerNurbsInd[process][haloCellInd] size error"<<exit(FatalError);
+    if(cellMarkerInd>=globalHaloCellsMarkerParameter[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerParameter[process][haloCellInd] size error"<<exit(FatalError);
+    if(cellMarkerInd>=globalHaloCellsMarkerAngle[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerAngle[process][haloCellInd] size error"<<exit(FatalError);
+    if(cellMarkerInd>=globalHaloCellsMarkerRadiusFrac[process][haloCellInd].size())
+        FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac[process][haloCellInd] size error"<<exit(FatalError);
 }

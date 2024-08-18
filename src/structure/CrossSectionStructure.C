@@ -55,6 +55,64 @@ void Foam::CrossSectionStructure::setCrossSecParameters
     crossSec.setNurbsCoeff(fourierCoeffNumber,derivCoeffNumber,value);
 }
 
+vector Foam::CrossSectionStructure::rodDeriveParam
+(
+    const LagrangianMarker* marker,
+    const Parameter& par
+)
+{
+    vector rodDerive(0,0,0);
+    const LagrangianMarkerOnCrossSec* crossSecMarker;
+    if((crossSecMarker = dynamic_cast<const LagrangianMarkerOnCrossSec*>(marker))!=nullptr)
+    {
+        if(par.getType()!=Parameter::Type::None)
+            rodDerive = rodDeriveParam(marker->getRodNumber(),marker->getMarkerParameter(),marker->getMarkerAngle(),marker->getMarkerRadiusFrac(),par);
+        else
+            FatalErrorInFunction<<"Invalid type of parameter!"<<exit(FatalError);
+    }
+    else
+        FatalErrorInFunction<<"Can not be called with non LagrangianMarkerOnCrossSec marker"<<exit(FatalError);
+    return rodDerive;
+}
+
+vector Foam::CrossSectionStructure::rodDeriveParam
+(
+    label rodNumber,
+    scalar rodParameter,
+    scalar angle,
+    scalar radiusFrac,
+    const Parameter& par
+)
+{
+    if(!(par.isValid()))
+        FatalErrorInFunction<<"Invalid parameter here!"<<exit(FatalError);
+    
+    vector rodDerive(0,0,0);
+    if(par.getType()==Parameter::Type::Rod)
+    {
+        FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
+    }
+    else if(par.getType()==Parameter::Type::CrossSection)
+    {
+        vector d1,d2,d3,r;
+        rodEval(Rods[rodNumber],rodParameter,d1,d2,d3,r);        
+        vector radiusDirection = std::cos(angle)*d1+std::sin(angle)*d2;
+        scalar derivRadius = 0;
+        const std::vector<CrossSectionCoeffReference>& crossSecCoeffs = par.getCrossSecCoeffs();
+        for(const CrossSectionCoeffReference& ref : crossSecCoeffs)
+        {
+            if(rodNumber==ref.rodNumber)
+            {
+                derivRadius += rodCrossSection[rodNumber].evalRadiusDerivCoeff(ref.fourierCoeffNumber,ref.coeffNumber,rodParameter);
+            }
+        }
+        rodDerive = radiusDirection*derivRadius;
+    }
+    else
+        FatalErrorInFunction<<"Invalid type of parameter here!"<<exit(FatalError);
+    return rodDerive;
+}
+
 void Foam::CrossSectionStructure::check()
 {
     if(!myMesh)
@@ -1552,6 +1610,7 @@ vector Foam::CrossSectionStructure::evalRodDerivCoeff
     scalar radiusFrac
 )
 {
+    FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
     return vector(0,0,0);
 }
 
