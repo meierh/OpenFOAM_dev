@@ -38,7 +38,6 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         DynamicList<scalar> makerCouplingHeating;
         DynamicList<scalar> rodHeating;
         
-        
         void assignForceOnRod();
 };
 

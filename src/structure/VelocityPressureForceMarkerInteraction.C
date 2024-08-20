@@ -64,6 +64,9 @@ vector Foam::VelocityPressureForceInteraction::sumForces
         if(condition(*oneMarker))
             result += rodForce[i];
     }
+    Pstream::gather(result,std::plus<vector>());
+    Pstream::scatter(result);
+    
     return result;
 }
 

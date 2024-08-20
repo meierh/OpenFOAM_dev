@@ -1,6 +1,7 @@
 #ifndef ICOFLOWOPTIM_H
 #define ICOFLOWOPTIM_H
 #include "IcoFlow.H"
+#include "SensitivityInteraction.H"
 
 namespace Foam
 {
@@ -23,9 +24,9 @@ class IcoFlowOptim : public IcoFlow
         
         volScalarField adj_p;
         volVectorField adj_U;
-        surfaceScalarField phi;
-        label pRefCell;
-        scalar pRefValue;
+        surfaceScalarField adj_phi;
+        label adj_pRefCell;
+        scalar ajd_pRefValue;
         // --- ----------- --- //
 };
 

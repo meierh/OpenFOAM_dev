@@ -9,9 +9,9 @@ class Application
 {
     public:
         explicit Application(int argc, char *argv[]);
-        virtual ~Application()=default;
+        virtual ~Application() = default;
         
-        virtual void run();
+        virtual void run()=0;
 
     protected:
         int argc;

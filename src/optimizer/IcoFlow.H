@@ -12,6 +12,8 @@ class IcoFlow : public Application
         explicit IcoFlow(int argc,char *argv[]);
         virtual ~IcoFlow()=default;
         
+        virtual void run();
+        
     protected:
         // --- create Piso --- //
         void createPiso();
@@ -35,6 +37,14 @@ class IcoFlow : public Application
         void initContinuityErrs();
         
         scalar cumulativeContErr;
+        // --- ----------- --- //
+        
+        // --- create Immersed Boundary Fields --- //
+        virtual void setupImmersedBoundary();
+        std::unique_ptr<VelocityPressureForceInteraction> velocityImmersedBoundary;
+        std::unique_ptr<volVectorField> f_U;
+        std::unique_ptr<TemperatureInteraction> temperatureImmersedBoundary;
+        std::unique_ptr<volVectorField> f_U;
         // --- ----------- --- //
 };
 

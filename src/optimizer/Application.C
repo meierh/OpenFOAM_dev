@@ -25,11 +25,6 @@ mesh
     createMesh();
 }
 
-void Foam::Application::run()
-{
-    
-}
-
 void Foam::Application::setRootCaseLists()
 {
     listOptions();
