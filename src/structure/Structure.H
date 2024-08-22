@@ -43,10 +43,13 @@
 
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include "fvCFD.H"
-#include "mapPolyMesh.H"
-#include "polyTopoChange.H"
-#include "dynamicRefineFvMesh.H"
+#include "fvMesh.H"
+#include "processorPolyPatch.H"
+#include "GeometricField.H"
+#include "volFieldsFwd.H"
+#include "volMesh.H"
+#include "fvPatchField.H"
+#include "fvFieldSource.H"
 #include <array>
 
 namespace Foam
@@ -124,7 +127,7 @@ class Structure
     public:
         explicit Structure
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             const Time& runTime
         );
         virtual ~Structure();
@@ -264,7 +267,7 @@ class Structure
 
 
         //******************* Parameters *******************//
-        dynamicRefineFvMesh& mesh;
+        fvMesh& mesh;
 
         void updateRodCoordinateSystem();
 
@@ -337,7 +340,7 @@ class Structure
         
         void collectMeshHaloData(label iterations=1);
     public:
-        static scalar initialSpacingFromMesh(const dynamicRefineFvMesh& mesh, label cellInd=0);
+        static scalar initialSpacingFromMesh(const fvMesh& mesh, label cellInd=0);
 };
 #include "Structure.T.H"
 void Barrier(bool stop);

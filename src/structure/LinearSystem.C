@@ -444,7 +444,7 @@ void Foam::eig
     gsl_eigen_symmv_free(w);
 }
 
-void eig
+void Foam::eig
 (
     const CSR_Matrix_par& mat,
     gismo::gsMatrix<scalar>& eigenvalues,
@@ -456,7 +456,7 @@ void eig
     eig(gsMat,eigenvalues,eigenvectors);
 }
 
-scalar Foam::determinant
+Foam::scalar Foam::determinant
 (
     const gismo::gsMatrix<scalar>& A
 )
@@ -473,7 +473,7 @@ scalar Foam::determinant
     return det;    
 }
 
-scalar Foam::determinant
+Foam::scalar Foam::determinant
 (
     const CSR_Matrix_par& mat
 )
@@ -483,7 +483,7 @@ scalar Foam::determinant
     return determinant(gsMat);
 }
 
-scalar Foam::condition
+Foam::scalar Foam::condition
 (
     const gismo::gsMatrix<scalar>& A
 )
@@ -500,7 +500,7 @@ scalar Foam::condition
     return maxEval/minEval;    
 }
 
-scalar Foam::condition
+Foam::scalar Foam::condition
 (
     const CSR_Matrix_par& mat
 )
@@ -669,7 +669,7 @@ globalRows(-1),
 global(global)
 {}
 
-scalar& Foam::Vector_par::operator [](int idx)
+Foam::scalar& Foam::Vector_par::operator [](int idx)
 {
     if(idx<0 || idx>=V.size())
     {
@@ -679,7 +679,7 @@ scalar& Foam::Vector_par::operator [](int idx)
     return V[idx];
 }
 
-scalar Foam::Vector_par::operator [](int idx) const
+Foam::scalar Foam::Vector_par::operator [](int idx) const
 {
     if(idx<0 || idx>=V.size())
     {
@@ -689,7 +689,7 @@ scalar Foam::Vector_par::operator [](int idx) const
     return V[idx];
 }
 
-scalar Foam::Vector_par::operator&
+Foam::scalar Foam::Vector_par::operator&
 (
     const Vector_par& vec
 ) const
@@ -724,7 +724,7 @@ scalar Foam::Vector_par::operator&
     }
 }
 
-Vector_par Foam::Vector_par::operator*
+Foam::Vector_par Foam::Vector_par::operator*
 (
     scalar scale
 ) const
@@ -735,7 +735,7 @@ Vector_par Foam::Vector_par::operator*
     return result;
 }
 
-Vector_par Foam::Vector_par::operator+
+Foam::Vector_par Foam::Vector_par::operator+
 (
     const Vector_par& vec
 ) const
@@ -747,7 +747,7 @@ Vector_par Foam::Vector_par::operator+
     return result;
 }
 
-Vector_par Foam::Vector_par::operator-
+Foam::Vector_par Foam::Vector_par::operator-
 (
     const Vector_par& vec
 ) const
@@ -759,7 +759,7 @@ Vector_par Foam::Vector_par::operator-
     return result;
 }
 
-Vector_par& Foam::Vector_par::operator=
+Foam::Vector_par& Foam::Vector_par::operator=
 (
     const Vector_par& vec
 )
@@ -773,7 +773,7 @@ Vector_par& Foam::Vector_par::operator=
     return *this;
 }
 
-scalar Foam::Vector_par::norm2() const
+Foam::scalar Foam::Vector_par::norm2() const
 {
     return std::sqrt((*this)&(*this));
 }
@@ -1060,7 +1060,7 @@ void Foam::CSR_Matrix_par::addRows(List<List<scalar>> rows)
     //Info<<"Added rows to CSR_Matrix_par: ["<<localRows<<","<<localRowStart<<","<<globalRows<<","<<globalCols<<"]"<<Foam::endl;
 }
 
-Vector_par Foam::CSR_Matrix_par::operator*
+Foam::Vector_par Foam::CSR_Matrix_par::operator*
 (
     const Vector_par& vec
 ) const
@@ -1118,7 +1118,7 @@ Vector_par Foam::CSR_Matrix_par::operator*
     }
 }
 
-CSR_Matrix_par Foam::CSR_Matrix_par::operator* 
+Foam::CSR_Matrix_par Foam::CSR_Matrix_par::operator*
 (
     const CSR_Matrix_par& mat
 ) const
@@ -1127,7 +1127,7 @@ CSR_Matrix_par Foam::CSR_Matrix_par::operator*
     return CSR_Matrix_par();
 }
 
-scalar Foam::CSR_Matrix_par::getDiagonal
+Foam::scalar Foam::CSR_Matrix_par::getDiagonal
 (
     label localRow
 ) const
@@ -1150,7 +1150,7 @@ scalar Foam::CSR_Matrix_par::getDiagonal
     return 0;    
 }
 
-scalar Foam::CSR_Matrix_par::evalOnDiagonal
+Foam::scalar Foam::CSR_Matrix_par::evalOnDiagonal
 (
     const Vector_par& vec,
     label localRow
@@ -1172,7 +1172,7 @@ bool Foam::CSR_Matrix_par::isSquare() const
     return (globalRows==globalCols);// && globalRows>0;
 }
 
-CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
+Foam::CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
 {
     if(!isSquare())
         FatalErrorInFunction<<"Must be square!"<<exit(FatalError);
@@ -1201,7 +1201,7 @@ CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
     return result;
 }
 
-CSR_Matrix_par Foam::CSR_Matrix_par::offDiagonalMatrix() const
+Foam::CSR_Matrix_par Foam::CSR_Matrix_par::offDiagonalMatrix() const
 {
     CSR_Matrix_par result(localRows,localRowStart,globalRows,globalCols,global);
     for(label localRow=0; localRow<localRows; localRow++)
@@ -1488,7 +1488,7 @@ void Foam::CSR_DiagMatrix_par::addRows(List<scalar> diagonal)
         addRow(element);
 }
 
-CSR_Matrix_par Foam::CSR_DiagMatrix_par::operator*
+Foam::CSR_Matrix_par Foam::CSR_DiagMatrix_par::operator*
 (
     const CSR_Matrix_par& mat
 ) const
@@ -1515,7 +1515,7 @@ CSR_Matrix_par Foam::CSR_DiagMatrix_par::operator*
     return result;
 }
 
-Vector_par Foam::CSR_DiagMatrix_par::operator*
+Foam::Vector_par Foam::CSR_DiagMatrix_par::operator*
 (
     const Vector_par& vec
 ) const
@@ -1530,7 +1530,7 @@ Vector_par Foam::CSR_DiagMatrix_par::operator*
     return result;
 }
 
-scalar Foam::CSR_DiagMatrix_par::getDiagonal
+Foam::scalar Foam::CSR_DiagMatrix_par::getDiagonal
 (
     label localRow
 ) const

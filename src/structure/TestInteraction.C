@@ -2,7 +2,7 @@
 
 Foam::TestInteraction::TestInteraction
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     volScalarField& testField
 ):
 FieldMarkerStructureInteraction(mesh),

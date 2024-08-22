@@ -2,6 +2,10 @@
 #define ICOFLOW_H
 #include "Application.H"
 #include "pisoControl.H"
+#include <memory>
+
+#include "VelocityPressureForceInteraction.H"
+#include "TemperatureInteraction.H"
 
 namespace Foam
 {

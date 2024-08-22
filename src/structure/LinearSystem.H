@@ -9,7 +9,7 @@
 #include "gsl/gsl_linalg.h"
 #include "gsl/gsl_eigen.h"
 
-#include "fvCFD.H"
+#include "fvMesh.H"
 #include <limits>
 #include <queue>
 #include <unordered_set>

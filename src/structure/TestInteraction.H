@@ -10,7 +10,7 @@ class TestInteraction : public FieldMarkerStructureInteraction
     public:
         explicit TestInteraction
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             volScalarField& testField
         );
         

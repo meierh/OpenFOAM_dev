@@ -2,7 +2,7 @@
 
 Foam::FixedTemperatureAction::FixedTemperatureAction
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     LineStructure& structure,
     volScalarField& input_T,
     volScalarField& output_Tf,
@@ -13,7 +13,7 @@ fixedTemperature(temperature)
 {
 }
 
-scalar Foam::FixedTemperatureAction::getTemperature
+Foam::scalar Foam::FixedTemperatureAction::getTemperature
 (
     const LagrangianMarker* marker
 )

@@ -10,7 +10,7 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
     public:
         explicit StaticVelocityPressureAction
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf

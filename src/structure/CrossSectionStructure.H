@@ -111,7 +111,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         explicit LagrangianMarkerOnCrossSec
         (
             const Structure& structure,
-            const dynamicRefineFvMesh& mesh,
+            const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter,
@@ -136,7 +136,7 @@ class CrossSectionStructure : public LineStructure
     public:
         explicit CrossSectionStructure
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             std::vector<CrossSection> rodCrossSection,
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform

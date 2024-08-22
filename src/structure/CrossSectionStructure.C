@@ -2,7 +2,7 @@
 
 Foam::CrossSectionStructure::CrossSectionStructure
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     std::vector<CrossSection> rodCrossSection,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -55,7 +55,7 @@ void Foam::CrossSectionStructure::setCrossSecParameters
     crossSec.setNurbsCoeff(fourierCoeffNumber,derivCoeffNumber,value);
 }
 
-vector Foam::CrossSectionStructure::rodDeriveParam
+Foam::vector Foam::CrossSectionStructure::rodDeriveParam
 (
     const LagrangianMarker* marker,
     const Parameter& par
@@ -75,7 +75,7 @@ vector Foam::CrossSectionStructure::rodDeriveParam
     return rodDerive;
 }
 
-vector Foam::CrossSectionStructure::rodDeriveParam
+Foam::vector Foam::CrossSectionStructure::rodDeriveParam
 (
     label rodNumber,
     scalar rodParameter,
@@ -975,7 +975,7 @@ void Foam::CrossSectionStructure::reduceMarkers()
     LineStructure::reduceMarkers(allMarkers);
 }
 
-BoundingBox Foam::CrossSectionStructure::computeBox
+Foam::BoundingBox Foam::CrossSectionStructure::computeBox
 (
     label rodNumber
 )
@@ -986,7 +986,7 @@ BoundingBox Foam::CrossSectionStructure::computeBox
     return nurbsCurveBox;
 }
 
-BoundingBox Foam::CrossSectionStructure::computeBox
+Foam::BoundingBox Foam::CrossSectionStructure::computeBox
 (
     label rodNumber,
     scalar parStart,
@@ -999,7 +999,7 @@ BoundingBox Foam::CrossSectionStructure::computeBox
     return nurbsCurveBox;
 }
 
-scalar Foam::CrossSectionStructure::characteristicSize
+Foam::scalar Foam::CrossSectionStructure::characteristicSize
 (
     label rodNumber,
     scalar par
@@ -1601,7 +1601,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     return (r+tangentialDev)+coordXDir+coordYDir;
 }
 
-vector Foam::CrossSectionStructure::evalRodDerivCoeff
+Foam::vector Foam::CrossSectionStructure::evalRodDerivCoeff
 (
     label rodNumber,
     label derivCoeffNumber,
@@ -1638,7 +1638,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
     return coordXDerivAngle+coordYDerivAngle;
 }
 
-scalar Foam::CrossSectionStructure::restrictAngle
+Foam::scalar Foam::CrossSectionStructure::restrictAngle
 (
     scalar angle
 )
@@ -1710,7 +1710,7 @@ T Foam::CrossSectionStructure::integrateCircumwise
     return totalValue;
 }
 
-scalar Foam::CrossSectionStructure::distance
+Foam::scalar Foam::CrossSectionStructure::distance
 (
     const ActiveRodMesh::rodCosserat* oneRod,
     scalar parameter,
@@ -1730,7 +1730,7 @@ scalar Foam::CrossSectionStructure::distance
     return integrateCircumwise<scalar>(oneRod,parameter,crossSec,angleStart,angleEnd,curveLen);
 }
 
-scalar Foam::CrossSectionStructure::distance
+Foam::scalar Foam::CrossSectionStructure::distance
 (
     const LagrangianMarkerOnCrossSec& A,
     const LagrangianMarkerOnCrossSec& B

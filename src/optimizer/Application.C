@@ -1,4 +1,5 @@
 #include "Application.H"
+#include <memory>
 
 Foam::Application::Application
 (
@@ -9,15 +10,13 @@ argc(argc),
 argv(argv),
 args(Foam::argList(argc, argv)),
 runTime(Foam::Time::controlDictName, args),
-mesh
-(
-    Foam::IOobject
-    (
-        Foam::fvMesh::defaultRegion,
-        runTime.timeName(),
-        runTime,
-        Foam::IOobject::MUST_READ
-    )
+mesh(std::make_unique<Foam::fvMesh>
+        (
+            Foam::IOobject(Foam::fvMesh::defaultRegion,
+            runTime.name(),
+            runTime,
+            Foam::IOobject::MUST_READ)
+        )
 )
 {
     setRootCaseLists();
@@ -27,10 +26,11 @@ mesh
 
 void Foam::Application::setRootCaseLists()
 {
-    listOptions();
+    //listOptions();
     setRootCase();
-    listOutput();
+    //listOutput();
 }
+/*
 void Foam::Application::listOptions()
 {
     argList::addBoolOption
@@ -86,6 +86,7 @@ void Foam::Application::listOptions()
     );
     #endif
 }
+*/
 void Foam::Application::setRootCase()
 {
     if (!args.checkRootCase())
@@ -93,6 +94,7 @@ void Foam::Application::setRootCase()
         Foam::FatalError.exit();
     }
 }
+/*
 void Foam::Application::listOutput()
 {
     _listOptions = false ;
@@ -198,7 +200,7 @@ void Foam::Application::listOutput()
         FatalErrorInFunction<<"exit(0)"<<exit(FatalError);
     }
 }
-
+*/
 void Foam::Application::createTime()
 {
     Foam::Info<< "Create time\n" << Foam::endl;
@@ -208,14 +210,14 @@ void Foam::Application::createMesh()
 {
     Foam::Info
         << "Create mesh for time = "
-        << runTime.timeName() << Foam::nl << Foam::endl;
+        << runTime.name() << Foam::nl << Foam::endl;
 
-    mesh = Foam::fvMesh
+    mesh = std::make_unique<Foam::fvMesh>
     (
         Foam::IOobject
         (
             Foam::fvMesh::defaultRegion,
-            runTime.timeName(),
+            runTime.name(),
             runTime,
             Foam::IOobject::MUST_READ
         )
