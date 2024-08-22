@@ -3,7 +3,7 @@
 
 Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf
@@ -43,7 +43,7 @@ void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
     markerToField<vector>(makerCouplingForce,output_Uf);
 }
 
-vector Foam::VelocityPressureForceInteraction::sumForces
+Foam::vector Foam::VelocityPressureForceInteraction::sumForces
 (
     std::function<bool(LagrangianMarker)> condition
 )
@@ -148,7 +148,7 @@ void Foam::VelocityPressureForceInteraction::assignForceOnRod()
     }
 }
 
-vector Foam::VelocityPressureForceInteraction::getVelocity
+Foam::vector Foam::VelocityPressureForceInteraction::getVelocity
 (
     const LagrangianMarker* marker
 )

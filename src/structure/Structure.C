@@ -1,6 +1,6 @@
 #include "Structure.H"
 
-BoundingBox Foam::BoundingBox::operator+
+Foam::BoundingBox Foam::BoundingBox::operator+
 (
     const BoundingBox& rhs
 ) const
@@ -11,7 +11,7 @@ BoundingBox Foam::BoundingBox::operator+
     return result;
 }
 
-BoundingBox Foam::BoundingBox::U
+Foam::BoundingBox Foam::BoundingBox::U
 (
     const BoundingBox& rhs
 ) const
@@ -54,13 +54,13 @@ bool Foam::BoundingBox::inside
     return inside;
 }
 
-scalar Foam::BoundingBox::innerSize()
+Foam::scalar Foam::BoundingBox::innerSize()
 {
     vector diag = larger-smaller;
     return std::sqrt(diag&diag);
 }
 
-BoundingBox Foam::BoundingBox::boundsOfCoefficients
+Foam::BoundingBox Foam::BoundingBox::boundsOfCoefficients
 (
     const gsMatrix<scalar>& coefs
 )
@@ -82,7 +82,7 @@ BoundingBox Foam::BoundingBox::boundsOfCoefficients
     return BoundingBox(lowerCurve,upperCurve);
 }
 
-BoundingBox Foam::BoundingBox::boundsOfNurbs
+Foam::BoundingBox Foam::BoundingBox::boundsOfNurbs
 (
     const gsNurbs<scalar>& curve
 )
@@ -90,7 +90,7 @@ BoundingBox Foam::BoundingBox::boundsOfNurbs
     return BoundingBox::boundsOfCoefficients(curve.coefs());
 }
 
-BoundingBox Foam::BoundingBox::boundsOfNurbs
+Foam::BoundingBox Foam::BoundingBox::boundsOfNurbs
 (
     gsNurbs<scalar> curve,
     scalar start,
@@ -154,7 +154,7 @@ BoundingBox Foam::BoundingBox::boundsOfNurbs
     return BoundingBox::boundsOfCoefficients(coeffs);
 }
 
-BoundingBoxTree& Foam::BoundingBoxTree::operator=
+Foam::BoundingBoxTree& Foam::BoundingBoxTree::operator=
 (
     const BoundingBoxTree& rhs
 )
@@ -199,7 +199,7 @@ void Foam::BoundingBoxTree::findPointParameters
 
 Foam::Structure::Structure
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     const Time& runTime
 ):
 initialMeshSpacing(initialSpacingFromMesh(mesh)),
@@ -647,12 +647,12 @@ void Foam::Structure::updateRodCoordinateSystem()
     }
 }
 
-label Foam::Structure::getNumberRods() const
+Foam::label Foam::Structure::getNumberRods() const
 {
     return nR;
 }
 
-label Foam::Structure::getMaxDegree
+Foam::label Foam::Structure::getMaxDegree
 (
     const ActiveRodMesh::rodCosserat* oneRod
 )
@@ -676,7 +676,7 @@ label Foam::Structure::getMaxDegree
     return std::max<label>(baseDegreeX,defDegreeX);
 }
 
-gsNurbs<scalar> Foam::Structure::createNurbs
+gsNurbs<Foam::scalar> Foam::Structure::createNurbs
 (
     std::vector<scalar> knots,
     uint degree,
@@ -697,7 +697,7 @@ gsNurbs<scalar> Foam::Structure::createNurbs
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
 }
 
-gsNurbs<scalar> Foam::Structure::createNurbs
+gsNurbs<Foam::scalar> Foam::Structure::createNurbs
 (
     std::vector<scalar> knots,
     uint degree,
@@ -720,7 +720,7 @@ gsNurbs<scalar> Foam::Structure::createNurbs
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
 }
 
-vector Foam::Structure::rodEval
+Foam::vector Foam::Structure::rodEval
 (
     const ActiveRodMesh::rodCosserat* rod,
     scalar parameter
@@ -731,7 +731,7 @@ vector Foam::Structure::rodEval
     return r;
 }
 
-vector Foam::Structure::rodDerivEval
+Foam::vector Foam::Structure::rodDerivEval
 (
     const ActiveRodMesh::rodCosserat* rod,
     scalar parameter
@@ -752,7 +752,7 @@ vector Foam::Structure::rodDerivEval
     return vector(pnt(0,0),pnt(1,0),pnt(2,0));    
 }
 
-vector Foam::Structure::rodDeriv2Eval
+Foam::vector Foam::Structure::rodDeriv2Eval
 (
     const ActiveRodMesh::rodCosserat* rod,
     scalar parameter
@@ -830,7 +830,7 @@ void Foam::Structure::rodEval
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
 
-label Foam::Structure::numberCoeffs
+Foam::label Foam::Structure::numberCoeffs
 (
     label rodNumber
 ) const 
@@ -840,7 +840,7 @@ label Foam::Structure::numberCoeffs
     return curve.coefs().cols();
 }
 
-vector Foam::Structure::evalDerivCoeff
+Foam::vector Foam::Structure::evalDerivCoeff
 (
     label rodNumber,
     label derivCoeffNumber,
@@ -926,7 +926,7 @@ BoundingBox Foam::Structure::computeBox
 }
 */
 
-BoundingBox Foam::Structure::computeBox
+Foam::BoundingBox Foam::Structure::computeBox
 (
     label rodNumber
 )
@@ -939,7 +939,7 @@ BoundingBox Foam::Structure::computeBox
     return curve_box+def_box;
 }
 
-BoundingBox Foam::Structure::computeBox
+Foam::BoundingBox Foam::Structure::computeBox
 (
     label rodNumber,
     scalar parStart,
@@ -961,7 +961,7 @@ BoundingBox Foam::Structure::computeBox
     return BoundingBox::boundsOfNurbs(curve,parStart,parEnd)+BoundingBox::boundsOfNurbs(def,parStart,parEnd);
 }
 
-scalar Foam::Structure::characteristicSize
+Foam::scalar Foam::Structure::characteristicSize
 (
     label rodNumber,
     scalar par
@@ -1051,7 +1051,7 @@ void Foam::Structure::cellDistances
     }
 }
 
-scalar Foam::Structure::supportDomainMinSize
+Foam::scalar Foam::Structure::supportDomainMinSize
 (
     const DynamicList<label>& supportDomainCells
 )
@@ -1418,7 +1418,7 @@ void Foam::Structure::collectMeshHaloData
     generateMeshGraph();
 }
 
-scalar Foam::Structure::initialSpacingFromMesh
+Foam::scalar Foam::Structure::initialSpacingFromMesh
 (
     const fvMesh& mesh,
     label cellInd

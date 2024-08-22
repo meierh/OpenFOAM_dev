@@ -18,7 +18,7 @@ class LagrangianMarker
         explicit LagrangianMarker
         (
             const Structure& structure,
-            const dynamicRefineFvMesh& mesh,
+            const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter
@@ -27,7 +27,7 @@ class LagrangianMarker
         explicit LagrangianMarker
         (    
             const Structure& structure,
-            const dynamicRefineFvMesh& mesh,
+            const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod
         );
@@ -101,7 +101,7 @@ class LagrangianMarker
         
     protected:        
         const Structure& structure;
-        const dynamicRefineFvMesh& mesh;
+        const fvMesh& mesh;
         label rodNumber;
         const ActiveRodMesh::rodCosserat* baseRod;
         scalar markerParameter;
@@ -201,7 +201,7 @@ class FieldMarkerStructureInteraction
         enum markerMeshType {Uniform, NonUniform};
         explicit FieldMarkerStructureInteraction
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             LineStructure& structure,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
@@ -209,7 +209,7 @@ class FieldMarkerStructureInteraction
         ActiveRodMesh::rodMesh* rodMesh;
         //std::vector<LagrangianMarker*> markers;
         
-        dynamicRefineFvMesh& mesh;
+        fvMesh& mesh;
         LineStructure& structure;
         
     protected:
@@ -325,20 +325,20 @@ class LineStructure : public Structure
         enum markerMeshType {Uniform=0, NonUniform=1};
         explicit LineStructure
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             const List<scalar> crossSecArea,            
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             const scalar crossSecArea,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform

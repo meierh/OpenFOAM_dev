@@ -1,6 +1,8 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
-#include "fvCFD.H"
+#include "fvMesh.H"
+#include "argList.H"
+#include <memory>
 
 namespace Foam
 {
@@ -20,9 +22,9 @@ class Application
         // --- set Root Case Lists --- //
         void setRootCaseLists();
         
-        void listOptions();
+        //void listOptions();
         void setRootCase();
-        void listOutput();
+        //void listOutput();
 
         Foam::argList args;
         bool _listOptions;
@@ -37,7 +39,7 @@ class Application
         // --- create Time --- //
         void createMesh();
 
-        Foam::fvMesh mesh;
+        std::unique_ptr<Foam::fvMesh> mesh;
         // --- ----------- --- //
         
         // --- create Fields --- //

@@ -1,7 +1,7 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 #include <nlopt.hpp>
-#include "fvCFD.H"
+#include "fvMesh.H"
 #include <stdexcept>
 
 namespace Foam

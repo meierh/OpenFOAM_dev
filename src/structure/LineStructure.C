@@ -2,7 +2,7 @@
 
 Foam::LineStructure::LineStructure
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     const List<scalar> crossSecArea,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -17,7 +17,7 @@ crossSecArea(crossSecArea)
 
 Foam::LineStructure::LineStructure
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
@@ -28,7 +28,7 @@ modusMarkerToField(modusMarkerToField)
 
 Foam::LineStructure::LineStructure
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     const scalar crossSecArea,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -70,7 +70,7 @@ void Foam::LineStructure::setNurbsParameters
     setNurbsCoeff(rodNumber,derivCoeffNumber,dimension,value);
 }
 
-vector Foam::LineStructure::rodDeriveParam
+Foam::vector Foam::LineStructure::rodDeriveParam
 (
     const LagrangianMarker* marker,
     const Parameter& par
@@ -79,7 +79,7 @@ vector Foam::LineStructure::rodDeriveParam
     return rodDeriveParam(marker->getRodNumber(),marker->getMarkerParameter(),0,0,par);
 }
 
-vector Foam::LineStructure::rodDeriveParam
+Foam::vector Foam::LineStructure::rodDeriveParam
 (
     label rodNumber,
     scalar rodParameter,
@@ -872,7 +872,7 @@ Foam::vector Foam::LineStructure::evaluateRodPos
     return r;
 }
 
-scalar Foam::LineStructure::distance
+Foam::scalar Foam::LineStructure::distance
 (
     const ActiveRodMesh::rodCosserat* oneRod,   
     scalar parA,
@@ -888,7 +888,7 @@ scalar Foam::LineStructure::distance
     return integrateRodwise<scalar>(oneRod,parA,parB,curveLen);
 }
 
-scalar Foam::LineStructure::distance
+Foam::scalar Foam::LineStructure::distance
 (
     const LagrangianMarker& A,
     const LagrangianMarker& B
@@ -900,7 +900,7 @@ scalar Foam::LineStructure::distance
     return distance(A.getBaseRod(),A.getMarkerParameter(),B.getMarkerParameter());
 }
 
-scalar Foam::LineStructure::bisectionBinary
+Foam::scalar Foam::LineStructure::bisectionBinary
 (
     scalar startValue,
     scalar endValue,
@@ -1073,7 +1073,7 @@ void Foam::LineStructure::GlobalHaloMarkers::insertMarkerWeight
     globalHaloCellsMarkerWeight[proc][hCI][cMI] = weight;
 }
 
-std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
+std::tuple<Foam::vector,Foam::scalar,Foam::label,Foam::vector,Foam::DynamicList<Foam::Pair<Foam::label>>,Foam::DynamicList<Foam::vector>,Foam::DynamicList<Foam::scalar>,Foam::FixedList<Foam::scalar,10>,Foam::label,Foam::scalar,Foam::scalar,Foam::scalar> Foam::LineStructure::GlobalHaloMarkers::getMarkerData
 (
     label process,
     label haloCellInd,
@@ -1105,7 +1105,7 @@ std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vecto
     return {position,volume,index,dilation,suppCellsIndices,suppCellsCentre,suppCellsVolume,b,nurbsInd,parameter,angle,radiusFrac};
 }
 
-scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
+Foam::scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
 (
     label process,
     label haloCellInd,
@@ -1126,12 +1126,12 @@ scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
     return globalHaloCellsMarkerWeight[proc][hCI][cMI];
 }
 
-label Foam::LineStructure::GlobalHaloMarkers::size_processes() const
+Foam::label Foam::LineStructure::GlobalHaloMarkers::size_processes() const
 {
     return Pstream::nProcs();
 }
 
-label Foam::LineStructure::GlobalHaloMarkers::size_haloCells
+Foam::label Foam::LineStructure::GlobalHaloMarkers::size_haloCells
 (
     label process
 ) const
@@ -1139,7 +1139,7 @@ label Foam::LineStructure::GlobalHaloMarkers::size_haloCells
     return procHaloCellsSize[process];
 }
 
-label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
+Foam::label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
 (
     label process,
     label haloCellInd

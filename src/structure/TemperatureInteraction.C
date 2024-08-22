@@ -2,7 +2,7 @@
 
 Foam::TemperatureInteraction::TemperatureInteraction
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     LineStructure& structure,
     volScalarField& input_T,
     volScalarField& output_Tf
@@ -62,7 +62,7 @@ void Foam::TemperatureInteraction::computeRodHeating()
     }
 }
 
-scalar Foam::TemperatureInteraction::sumHeating
+Foam::scalar Foam::TemperatureInteraction::sumHeating
 (
     std::function<bool(LagrangianMarker)> condition
 )
@@ -85,7 +85,7 @@ scalar Foam::TemperatureInteraction::sumHeating
     return result;
 }
 
-scalar Foam::TemperatureInteraction::getTemperature
+Foam::scalar Foam::TemperatureInteraction::getTemperature
 (
     const LagrangianMarker* marker
 )

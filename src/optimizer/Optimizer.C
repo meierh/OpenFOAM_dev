@@ -1,14 +1,14 @@
 #include "Optimizer.H"
 
-bool Optimizer::singleton = false;
-nlopt::vfunc Optimizer::core_objFunc = nullptr;
-bool Optimizer::masterDone = false;
+bool Foam::Optimizer::singleton = false;
+nlopt::vfunc Foam::Optimizer::core_objFunc = nullptr;
+bool Foam::Optimizer::masterDone = false;
 
 
-bool OptimizerStop::activated = false;
-bool OptimizerStop::singleton = false;
+bool Foam::OptimizerStop::activated = false;
+bool Foam::OptimizerStop::singleton = false;
 
-OptimizerStop::OptimizerStop
+Foam::OptimizerStop::OptimizerStop
 ():
 std::runtime_error("Master process done with optimizer")
 {
@@ -18,12 +18,12 @@ std::runtime_error("Master process done with optimizer")
     OptimizerStop::activated=true;
 }
 
-bool OptimizerStop::active()
+bool Foam::OptimizerStop::active()
 {
     return activated;
 }
 
-void OptimizerStop::reset()
+void Foam::OptimizerStop::reset()
 {
     activated=false;
 }
@@ -45,7 +45,7 @@ opt(nlopt::LD_MMA, n)
     opt.set_xtol_rel(1e-4);
 }
 
-scalar Foam::Optimizer::run()
+Foam::scalar Foam::Optimizer::run()
 {
     Info<<"Run"<<Foam::endl;
     double minf;
@@ -127,7 +127,7 @@ void Foam::Optimizer::setInitial
     x_initial = initial;
 }
 
-scalar Foam::Optimizer::nlopt_objFunc
+Foam::scalar Foam::Optimizer::nlopt_objFunc
 (
     const std::vector<double> &x,
     std::vector<double> &grad,

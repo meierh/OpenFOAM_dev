@@ -3,7 +3,7 @@
 Foam::LagrangianMarker::LagrangianMarker
 (
     const Structure& structure,
-    const dynamicRefineFvMesh& mesh,
+    const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod,
     const scalar markerParameter
@@ -20,7 +20,7 @@ markerParameter(markerParameter)
 Foam::LagrangianMarker::LagrangianMarker
 (    
     const Structure& structure,
-    const dynamicRefineFvMesh& mesh,
+    const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod
 ):
@@ -31,17 +31,17 @@ baseRod(baseRod),
 markerParameter(0)
 {}
 
-vector Foam::LagrangianMarker::getMarkerVelocity()
+Foam::vector Foam::LagrangianMarker::getMarkerVelocity()
 {
     return vector(0,0,0);
 }
 
-scalar Foam::LagrangianMarker::getMarkerTemperature()
+Foam::scalar Foam::LagrangianMarker::getMarkerTemperature()
 {
     return 1;
 }
 
-scalar Foam::LagrangianMarker::getMarkerCellVolume()
+Foam::scalar Foam::LagrangianMarker::getMarkerCellVolume()
 {
     if(markerCell<0)
         return std::numeric_limits<scalar>::max();
@@ -49,7 +49,7 @@ scalar Foam::LagrangianMarker::getMarkerCellVolume()
         return mesh.cells()[markerCell].mag(mesh.points(),mesh.faces());
 }
 
-std::pair<scalar,scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
+std::pair<Foam::scalar,Foam::scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
 {
     if(markerCell<0)
     {
@@ -70,7 +70,7 @@ std::pair<scalar,scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
     }
 }
 
-scalar Foam::LagrangianMarker::getMarkerCellMinSpacing()
+Foam::scalar Foam::LagrangianMarker::getMarkerCellMinSpacing()
 {
     return getMarkerCellSpacing().first;
 }
@@ -285,7 +285,7 @@ void Foam::LagrangianMarker::computeSupport
     }
 }
 
-Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
+Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
 (
     const List<Pair<label>>& support
 ) const
@@ -346,7 +346,7 @@ Pair<vector> Foam::LagrangianMarker::minMaxNeighbourWidth
     return Pair<vector>(maxSpan,minSpan);
 }
 
-vector Foam::LagrangianMarker::dilationFactors
+Foam::vector Foam::LagrangianMarker::dilationFactors
 (
     Pair<vector> h
 ) const
@@ -441,7 +441,7 @@ void Foam::LagrangianMarker::getCellData
     }
 }
 
-scalar Foam::LagrangianMarker::computeMoment
+Foam::scalar Foam::LagrangianMarker::computeMoment
 (
     vector indices,
     std::function<scalar(vector,vector)> deltaFunction
@@ -477,7 +477,7 @@ scalar Foam::LagrangianMarker::computeMoment
     return convolute<scalar>(deltaFunction,valueFunction,*momentsCells);
 }
 
-scalar Foam::LagrangianMarker::computeCorrectedMoment
+Foam::scalar Foam::LagrangianMarker::computeCorrectedMoment
 (
     vector indices
 ) const
@@ -491,7 +491,7 @@ scalar Foam::LagrangianMarker::computeCorrectedMoment
     return computeMoment(indices,deltaFunction);
 }
 
-scalar Foam::LagrangianMarker::computeMoment
+Foam::scalar Foam::LagrangianMarker::computeMoment
 (
     vector indices
 ) const
@@ -505,7 +505,7 @@ scalar Foam::LagrangianMarker::computeMoment
     return computeMoment(indices,deltaFunction);
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix3D() const
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMomentMatrix3D() const
 {
     std::array<vector,10> gen3DIndices = 
     {
@@ -539,7 +539,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     return moments3DPtr;
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix2D
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMomentMatrix2D
 (
     std::array<label,2> dim
 ) const
@@ -590,7 +590,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     return moments2DPtr;
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMatrix1D
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMomentMatrix1D
 (
     label dim
 ) const
@@ -625,7 +625,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeMomentMa
     return moments1DPtr;
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagonal3D() const
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::rescalingDiagonal3D() const
 {
     auto diagPtr = std::make_unique<gismo::gsMatrix<scalar>>(10,10);
     gismo::gsMatrix<scalar>& diag = *diagPtr;
@@ -648,7 +648,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagon
     return diagPtr;
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagonal2D
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::rescalingDiagonal2D
 (
     label normalDim
 ) const
@@ -693,7 +693,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagon
     return diagPtr;
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagonal1D
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::rescalingDiagonal1D
 (
     label dim
 ) const
@@ -715,7 +715,7 @@ std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::rescalingDiagon
     return diagPtr;
 }
 
-std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMomentsMatrix
+std::unique_ptr<Foam::Pair<gismo::gsMatrix<Foam::scalar>>> Foam::LagrangianMarker::computeMomentsMatrix
 (
     Vector<bool> dims
 ) const
@@ -723,7 +723,7 @@ std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMo
     return computeMomentsMatrix(dims,solutionStrategy);
 }
 
-std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> Foam::LagrangianMarker::computeMomentsMatrix
+std::unique_ptr<Foam::Pair<gismo::gsMatrix<Foam::scalar>>> Foam::LagrangianMarker::computeMomentsMatrix
 (
     Vector<bool> dims,
     SystemSolve solutionStrategy
@@ -972,7 +972,7 @@ void Foam::LagrangianMarker::searchValidConvolutionSetup
     FatalErrorInFunction<<"Can not happen"<<exit(FatalError);
 }
 
-Vector<bool> Foam::LagrangianMarker::analyseMomentsMatrix
+Foam::Vector<bool> Foam::LagrangianMarker::analyseMomentsMatrix
 (
     Vector<bool> dimensions,
     const gismo::gsMatrix<scalar>& momentsMatrix
@@ -1186,7 +1186,7 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     }
 }
 
-scalar Foam::LagrangianMarker::deltaDirac
+Foam::scalar Foam::LagrangianMarker::deltaDirac
 (
     vector X,
     vector x,
@@ -1196,7 +1196,7 @@ scalar Foam::LagrangianMarker::deltaDirac
     return deltaDirac(X,x,vector(h,h,h));
 }
 
-scalar Foam::LagrangianMarker::deltaDirac
+Foam::scalar Foam::LagrangianMarker::deltaDirac
 (
     vector X,
     vector x,
@@ -1215,7 +1215,7 @@ scalar Foam::LagrangianMarker::deltaDirac
     return deltaDir;
 }
 
-scalar Foam::LagrangianMarker::correctedDeltaDirac
+Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
 (
     vector X,
     vector x
@@ -1224,7 +1224,7 @@ scalar Foam::LagrangianMarker::correctedDeltaDirac
     return correctedDeltaDirac(X,x,dilation,b);
 }
 
-scalar Foam::LagrangianMarker::deltaDirac
+Foam::scalar Foam::LagrangianMarker::deltaDirac
 (
     vector X,
     vector x
@@ -1233,7 +1233,7 @@ scalar Foam::LagrangianMarker::deltaDirac
     return deltaDirac(X,x,dilation);
 }
 
-scalar Foam::LagrangianMarker::correctedDeltaDirac
+Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
 (
     vector X,
     vector x,
@@ -1244,7 +1244,7 @@ scalar Foam::LagrangianMarker::correctedDeltaDirac
     return correctedDeltaDirac(X,x,vector(h,h,h),b);
 }
 
-scalar Foam::LagrangianMarker::correctedDeltaDirac
+Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
 (
     vector X,
     vector x,
@@ -1260,7 +1260,7 @@ scalar Foam::LagrangianMarker::correctedDeltaDirac
     return correctionFactor*deltaDirac(X,x,h);
 }
 
-scalar Foam::LagrangianMarker::phiFunction
+Foam::scalar Foam::LagrangianMarker::phiFunction
 (
     scalar r
 )
@@ -1285,7 +1285,7 @@ scalar Foam::LagrangianMarker::phiFunction
     }
 }
 
-std::unique_ptr<gismo::gsMatrix<scalar>> Foam::LagrangianMarker::computeCorrectedMomentMatrix() const
+std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeCorrectedMomentMatrix() const
 {
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;

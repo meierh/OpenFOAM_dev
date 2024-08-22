@@ -47,7 +47,7 @@ Foam::CrossSection::CrossSection
     init(a_0,a_k,b_k,phaseShift);
 }
 
-std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> Foam::CrossSection::constCrossSec
+std::tuple<gsNurbs<Foam::scalar>,std::vector<gsNurbs<Foam::scalar>>,std::vector<gsNurbs<Foam::scalar>>,gsNurbs<Foam::scalar>> Foam::CrossSection::constCrossSec
 (
     scalar a_0,
     std::vector<scalar> a_k,
@@ -70,7 +70,7 @@ std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scal
     return std::make_tuple(n_a0,n_ak,n_bk,pS);
 }
 
-std::tuple<gsNurbs<scalar>,std::vector<gsNurbs<scalar>>,std::vector<gsNurbs<scalar>>,gsNurbs<scalar>> Foam::CrossSection::twistedConstCrossSec
+std::tuple<gsNurbs<Foam::scalar>,std::vector<gsNurbs<Foam::scalar>>,std::vector<gsNurbs<Foam::scalar>>,gsNurbs<Foam::scalar>> Foam::CrossSection::twistedConstCrossSec
 (
     scalar a_0,
     std::vector<scalar> a_k,
@@ -149,14 +149,14 @@ void Foam::CrossSection::init
         FatalErrorInFunction<<"Mismatch in domain range"<<exit(FatalError);
 }
 
-scalar Foam::CrossSection::operator()(scalar parameter,scalar angle) const
+Foam::scalar Foam::CrossSection::operator()(scalar parameter,scalar angle) const
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> evalOnPoint = getEvalOnPoint(parameter);
     return evalOnPoint(angle);
 }
 
-std::function<scalar(scalar)> Foam::CrossSection::getEvalOnPoint(scalar parameter) const
+std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getEvalOnPoint(scalar parameter) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -201,14 +201,14 @@ std::function<scalar(scalar)> Foam::CrossSection::getEvalOnPoint(scalar paramete
     };
 }
 
-scalar Foam::CrossSection::deriv_angle(scalar parameter,scalar angle) const
+Foam::scalar Foam::CrossSection::deriv_angle(scalar parameter,scalar angle) const
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> derivOnPoint = getDerivAngleOnPoint(parameter);
     return derivOnPoint(angle);
 }
 
-std::function<scalar(scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar parameter) const
+std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar parameter) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -272,7 +272,7 @@ void Foam::CrossSection::delete_coeffDerivedCurves()
 };
 
 
-const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
+const gsNurbs<Foam::scalar>* Foam::CrossSection::getCurvePtr
 (
     label fourierCoeffNumber
 ) const
@@ -300,7 +300,7 @@ const gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
     return curve;
 }
 
-gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
+gsNurbs<Foam::scalar>* Foam::CrossSection::getCurvePtr
 (
     label fourierCoeffNumber
 )
@@ -328,12 +328,12 @@ gsNurbs<scalar>* Foam::CrossSection::getCurvePtr
     return curve;
 }
 
-label Foam::CrossSection::numberFourierCoeff() const
+Foam::label Foam::CrossSection::numberFourierCoeff() const
 {
     return numberCoeffs+1;
 }
 
-label Foam::CrossSection::numberNurbsCoeffs
+Foam::label Foam::CrossSection::numberNurbsCoeffs
 (
     label fourierCoeffNumber
 ) const
@@ -342,7 +342,7 @@ label Foam::CrossSection::numberNurbsCoeffs
     return curve->coefs().cols();
 }
 
-scalar Foam::CrossSection::evalRadiusDerivCoeff
+Foam::scalar Foam::CrossSection::evalRadiusDerivCoeff
 (
     label fourierCoeffNumber,
     label derivCoeffNumber,
@@ -408,7 +408,7 @@ void Foam::CrossSection::setNurbsCoeff
     }
 }
 
-scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const
+Foam::scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -439,7 +439,7 @@ scalar Foam::CrossSection::lowerLimitRadius(scalar parameter) const
     return minValue;
 }
 
-scalar Foam::CrossSection::upperLimitRadius(scalar parameter) const
+Foam::scalar Foam::CrossSection::upperLimitRadius(scalar parameter) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -470,7 +470,7 @@ scalar Foam::CrossSection::upperLimitRadius(scalar parameter) const
     return maxValue;
 }
 
-std::pair<scalar,scalar> Foam::CrossSection::nurbsBounds
+std::pair<Foam::scalar,Foam::scalar> Foam::CrossSection::nurbsBounds
 (
     gsNurbs<scalar> curve
 ) const
@@ -488,7 +488,7 @@ std::pair<scalar,scalar> Foam::CrossSection::nurbsBounds
     return {min,max};
 }
 
-std::pair<scalar,scalar> Foam::CrossSection::nurbsBounds
+std::pair<Foam::scalar,Foam::scalar> Foam::CrossSection::nurbsBounds
 (
     gsNurbs<scalar> curve,
     scalar start,
@@ -557,7 +557,7 @@ std::pair<scalar,scalar> Foam::CrossSection::nurbsBounds
     return {min,max};
 }
 
-std::pair<scalar,scalar> Foam::CrossSection::radiusBounds() const
+std::pair<Foam::scalar,Foam::scalar> Foam::CrossSection::radiusBounds() const
 {
     auto minMax = nurbsBounds(a_0);
     scalar min = minMax.first/2;
@@ -578,7 +578,7 @@ std::pair<scalar,scalar> Foam::CrossSection::radiusBounds() const
     return {min,max};
 }
 
-std::pair<scalar,scalar> Foam::CrossSection::radiusBounds
+std::pair<Foam::scalar,Foam::scalar> Foam::CrossSection::radiusBounds
 (
     scalar start,
     scalar end
@@ -604,7 +604,7 @@ std::pair<scalar,scalar> Foam::CrossSection::radiusBounds
     return {min,max};
 }
 
-gsNurbs<scalar> Foam::CrossSection::createConstNurbs(scalar coeff) const
+gsNurbs<Foam::scalar> Foam::CrossSection::createConstNurbs(scalar coeff) const
 {
     std::vector<scalar> knotContainer = {0,0,1,1};
     gsKnotVector<scalar> cKnots(knotContainer,1);

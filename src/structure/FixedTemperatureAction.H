@@ -10,7 +10,7 @@ class FixedTemperatureAction : public TemperatureInteraction
     public:
         explicit FixedTemperatureAction
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             LineStructure& structure,
             volScalarField& input_T,
             volScalarField& output_Tf,

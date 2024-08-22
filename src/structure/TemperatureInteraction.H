@@ -10,7 +10,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
     public:
         explicit TemperatureInteraction
         (
-            dynamicRefineFvMesh& mesh,
+            fvMesh& mesh,
             LineStructure& structure,
             volScalarField& input_T,
             volScalarField& output_Tf

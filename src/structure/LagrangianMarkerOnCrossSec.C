@@ -3,7 +3,7 @@
 Foam::LagrangianMarkerOnCrossSec::LagrangianMarkerOnCrossSec
 (
     const Structure& structure,
-    const dynamicRefineFvMesh& mesh,
+    const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod,
     const scalar markerParameter,

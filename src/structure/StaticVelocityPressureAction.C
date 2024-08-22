@@ -2,7 +2,7 @@
 
 Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
 (
-    dynamicRefineFvMesh& mesh,
+    fvMesh& mesh,
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf
@@ -11,7 +11,7 @@ VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf)
 {
 }
 
-vector Foam::StaticVelocityPressureAction::getVelocity
+Foam::vector Foam::StaticVelocityPressureAction::getVelocity
 (
     const LagrangianMarker* marker
 )
