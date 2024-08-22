@@ -51,6 +51,7 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
+        inline scalar getMarkerCharacLen() const {return markerCharLen;}
         virtual inline scalar getMarkerAngle() const {return 0;}
         virtual inline scalar getMarkerRadiusFrac() const {return 0;}
         inline const DynamicList<Pair<label>>& getSupportCells(SupportType type=SupportType::Direct) const
@@ -108,6 +109,7 @@ class LagrangianMarker
         label markerCell;
         scalar markerVolume;
         scalar markerWeight = 1;
+        scalar markerCharLen;
         
         // Pair<processor,cell ID>
         const label supportWidth = 2;

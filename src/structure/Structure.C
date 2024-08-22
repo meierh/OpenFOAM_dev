@@ -1420,7 +1420,7 @@ void Foam::Structure::collectMeshHaloData
 
 scalar Foam::Structure::initialSpacingFromMesh
 (
-    const dynamicRefineFvMesh& mesh,
+    const fvMesh& mesh,
     label cellInd
 )
 {
