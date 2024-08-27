@@ -643,9 +643,8 @@ class LineStructure : public Structure
         (
             const List<T>& collectedMarkerField
         );
-
         
-        const std::vector<LagrangianMarker*>& getCollectedMarkers(){return collectedMarkers;}
+        const std::vector<LagrangianMarker*>& getCollectedMarkers() const {return collectedMarkers;}
         
         //scalar initialSpacingFromMesh();
 };

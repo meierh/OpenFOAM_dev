@@ -23,7 +23,7 @@ EXE_INC = \
     -isystem$(WM_THIRD_PARTY_DIR)/gsl-2.8/build/include \
     -std=c++14
 
-LIB_LIBS = \
+EXE_LIBS = \
     -lfiniteVolume \
     -lmeshTools \
     -lfvMotionSolvers \
@@ -38,4 +38,5 @@ LIB_LIBS = \
     -L$(WM_THIRD_PARTY_DIR)/gismo-stable_20160712/build/lib \
     -lgismo \
     -L${WM_THIRD_PARTY_DIR}/SuiteSparse/lib \
-    -lumfpack
+    -lumfpack \
+    -lstdc++fs
