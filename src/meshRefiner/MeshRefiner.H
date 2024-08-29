@@ -5,7 +5,7 @@
 
 namespace Foam
 {
-    
+
 class MeshRefiner
 {
     public:
@@ -13,15 +13,29 @@ class MeshRefiner
         virtual ~MeshRefiner() = default;
 
         virtual void adaptMesh();
-        
     protected:
-        volScalarField& doRefine;
-        const LineStructure& structure;
+        const scalar REFINE   = +1;
+        const scalar MUSTKEEP = 0.25;
+        const scalar DONTCARE = -0.25;
+        const scalar UNREFINE = -1;
+
+        const scalar REFINE_LIM   = +0.5;
+        const scalar MUSTKEEP_LIM =  0;
+        const scalar DONTCARE_LIM = -0.5;
+
         fvMesh& mesh;
         Time& runTime;
+        const LineStructure& structure;
+        volScalarField& doRefine;
 
-        void setMarkerRefinementInfo();
-        volScalarField markerRefinementInfo;
+        volScalarField fieldRefineDemands;
+        virtual void fieldRefinement();
+
+        volScalarField markerRefineDemands;
+        virtual void markerRefinement(scalar defaultValue);
+
+    private:
+        scalar refinementDemandMerge(scalar fieldDemand, scalar markerDemand);
 };
 
 }

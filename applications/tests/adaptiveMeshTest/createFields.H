@@ -11,3 +11,8 @@ Foam::volScalarField refine
     ),
     mesh
 );
+
+Foam::volScalarField testField
+(
+    "test",refine
+);

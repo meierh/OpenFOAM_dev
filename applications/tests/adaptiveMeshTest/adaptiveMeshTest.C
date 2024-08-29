@@ -55,35 +55,51 @@ int main(int argc, char *argv[])
 
         Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl;
 
+        Foam::dimensionSet dim(0,2,-2,0,0,0,0);
+        Foam::dimensioned<Foam::scalar> val("test",dim,0);
+
+        val.value() = 1;
+        testField = val;
         for(Foam::label i=0; i<refine.size(); i++)
         {
             refine[i] = 1;
         }
+        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         bool refine1 = mesh.update();
         Foam::Info<<"refine 1:"<<refine1<<Foam::endl;
-        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl;
+        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
+        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
         runTime.write();
 
-
+        val.value() = 2;
+        testField = val;
         for(Foam::label i=0; i<refine.size(); i++)
         {
             refine[i] = 0;
         }
+        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         bool refine2 = mesh.update();
+        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
+        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         Foam::Info<<"refine 2:"<<refine2<<Foam::endl;
-        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl;
+        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
         runTime.write();
 
+        val.value() = 3;
+        testField = val;
         for(Foam::label i=0; i<refine.size(); i++)
         {
             refine[i] = -1;
         }
+        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         bool refine3 = mesh.update();
+        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
+        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         Foam::Info<<"refine 3:"<<refine3<<Foam::endl;
-        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl;
+        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
         runTime.write();
 
         timeStep++;
