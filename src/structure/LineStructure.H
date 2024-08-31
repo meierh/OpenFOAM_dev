@@ -8,7 +8,9 @@ namespace Foam
 {
 
 enum SystemSolve {Raw,RowAequilibration,ColAequilibration,GeoRescaled,Jacobi};   
-    
+
+class Parameter;
+
 class LagrangianMarker
 {
     public:
@@ -66,17 +68,16 @@ class LagrangianMarker
         
         static scalar deltaDirac(vector X, vector x, scalar h);
         static scalar deltaDirac(vector X, vector x, vector h);
+        static vector ddeltaDirac_dX(vector X, vector x, vector h);
         static scalar correctedDeltaDirac(vector X, vector x, scalar h, const FixedList<scalar,10>& b);
         static scalar correctedDeltaDirac(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        static vector dcorrectedDeltaDirac_dX(vector X, vector x, vector h, const FixedList<scalar,10>& b);
         static scalar phiFunction(scalar r);
-        
-        static scalar ddeltaDirac_dX(vector X, vector x, vector h);
-        static scalar dcorrectedDeltaDirac_dX(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        static scalar dphiFunction_dr(scalar r);
         
         //h=getDilation() b=b;
         scalar correctedDeltaDirac(vector X, vector x) const;
         scalar deltaDirac(vector X, vector x) const;
-        
         vector dcorrectedDeltaDirac_dX(vector X, vector x) const;
         vector ddeltaDirac_dX(vector X, vector x) const;
         

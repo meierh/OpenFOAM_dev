@@ -694,15 +694,21 @@ Foam::scalar Foam::Vector_par::operator&
     const Vector_par& vec
 ) const
 {
-    //std::cout<<"vec:"<<std::endl<<vec.to_string()<<std::endl;
     checkCompatible(vec);
     
-    if(global)
+    scalar localValue = 0;
+    if(useBlas)
     {
-        scalar localValue = 0;
+        localValue = cblas_ddot(localRows,V.cdata(),1,vec.V.cdata(),1);
+    }
+    else
+    {
         for(label i=0; i<localRows; i++)
             localValue += (*this)[i]*vec[i];
-        
+    }
+
+    if(global)
+    {
         struct scalar_plus
         {
             scalar operator()(const scalar a, const scalar b) const
@@ -715,13 +721,8 @@ Foam::scalar Foam::Vector_par::operator&
         Pstream::scatter(localValue);
         return localValue;
     }
-    else
-    {
-        scalar localValue = 0;
-        for(label i=0; i<localRows; i++)
-            localValue += (*this)[i]*vec[i];
-        return localValue;
-    }
+
+    return localValue;
 }
 
 Foam::Vector_par Foam::Vector_par::operator*
@@ -730,8 +731,15 @@ Foam::Vector_par Foam::Vector_par::operator*
 ) const
 {
     Vector_par result(*this);
-    for(label i=0; i<localRows; i++)
-        result[i] = (*this)[i]*scale;
+    if(useBlas)
+    {
+        cblas_dscal(localRows,scale,result.V.data(),1);
+    }
+    else
+    {
+        for(label i=0; i<localRows; i++)
+            result[i] = (*this)[i]*scale;
+    }
     return result;
 }
 
@@ -741,9 +749,16 @@ Foam::Vector_par Foam::Vector_par::operator+
 ) const
 {
     checkCompatible(vec);
-    Vector_par result(vec);
-    for(label i=0; i<localRows; i++)
-        result[i] = (*this)[i]+vec[i];
+    Vector_par result(*this);
+    if(useBlas)
+    {
+        cblas_daxpy(localRows,1,vec.V.cdata(),1,result.V.data(),1);
+    }
+    else
+    {
+        for(label i=0; i<localRows; i++)
+            result[i] = (*this)[i]+vec[i];
+    }
     return result;
 }
 
@@ -753,9 +768,16 @@ Foam::Vector_par Foam::Vector_par::operator-
 ) const
 {
     checkCompatible(vec);
-    Vector_par result(vec);
-    for(label i=0; i<localRows; i++)
-        result[i] = (*this)[i]-vec[i];
+    Vector_par result(*this);
+    if(useBlas)
+    {
+        cblas_daxpy(localRows,-1,vec.V.cdata(),1,result.V.data(),1);
+    }
+    else
+    {
+        for(label i=0; i<localRows; i++)
+            result[i] = (*this)[i]-vec[i];
+    }
     return result;
 }
 
@@ -783,8 +805,15 @@ void Foam::Vector_par::scale
     scalar scale
 )
 {
-    for(label i=0; i<localRows; i++)
-        (*this)[i] *= scale;
+    if(useBlas)
+    {
+        cblas_dscal(localRows,scale,V.data(),1);
+    }
+    else
+    {
+        for(label i=0; i<localRows; i++)
+            (*this)[i] *= scale;
+    }
 }
 
 void Foam::Vector_par::fill

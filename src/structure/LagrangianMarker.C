@@ -1215,22 +1215,23 @@ Foam::scalar Foam::LagrangianMarker::deltaDirac
     return deltaDir;
 }
 
-Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
+Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
 (
     vector X,
-    vector x
-) const
+    vector x,
+    vector h
+)
 {
-    return correctedDeltaDirac(X,x,dilation,b);
-}
-
-Foam::scalar Foam::LagrangianMarker::deltaDirac
-(
-    vector X,
-    vector x
-) const
-{
-    return deltaDirac(X,x,dilation);
+    vector ddeltaDir_dX;
+    for(label dim=0; dim<3; dim++)
+    {
+        scalar X_i_x_i = X[dim]-x[dim];
+        scalar r = X_i_x_i / h[dim];
+        ddeltaDir_dX[dim] = dphiFunction_dr(r);
+        ddeltaDir_dX[dim] /= h[dim];
+    }
+    ddeltaDir_dX /= (h[0]*h[1]*h[2]);
+    return ddeltaDir_dX;
 }
 
 Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
@@ -1260,6 +1261,25 @@ Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
     return correctionFactor*deltaDirac(X,x,h);
 }
 
+Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
+(
+    vector X,
+    vector x,
+    vector h,
+    const FixedList<scalar,10>& b
+)
+{
+    vector conn = x-X;
+    scalar dcorrectionFactor_dX0 = -1*b[1]+ -1*conn[1]*b[4]+ conn[2]*-1*b[6]+ -2*conn[0]*b[7];
+    scalar dcorrectionFactor_dX1 = -1*b[2]+ -1*conn[0]*b[4]+ -1*conn[2]*b[5]+ -2*conn[1]*b[8];
+    scalar dcorrectionFactor_dX2 = -1*b[3]+ conn[1]*-1*b[5]+ -1*conn[0]*b[6]+ -2*conn[2]*b[9];
+    vector ddeltaDirac_dX = LagrangianMarker::ddeltaDirac_dX(X,x,h);
+    ddeltaDirac_dX[0] *= dcorrectionFactor_dX0;
+    ddeltaDirac_dX[1] *= dcorrectionFactor_dX1;
+    ddeltaDirac_dX[2] *= dcorrectionFactor_dX2;
+    return ddeltaDirac_dX;
+}
+
 Foam::scalar Foam::LagrangianMarker::phiFunction
 (
     scalar r
@@ -1276,7 +1296,7 @@ Foam::scalar Foam::LagrangianMarker::phiFunction
     {
         scalar result = (1.0/6.0)*(5.0-3.0*abs_r-std::sqrt(-3.0*((1-abs_r)*(1-abs_r))+1));
         //Info<<"abs_r:"<<abs_r<<" -> "<<result<<Foam::endl;
-        return result;        
+        return result;
     }
     else
     {
@@ -1284,6 +1304,65 @@ Foam::scalar Foam::LagrangianMarker::phiFunction
         return 0;
     }
 }
+
+Foam::scalar Foam::LagrangianMarker::dphiFunction_dr
+(
+    scalar r
+)
+{
+    scalar abs_r = std::abs(r);
+    if(abs_r < 0.5)
+    {
+        scalar result = -1*r / std::sqrt(-3*r*r+1);
+        return result;
+    }
+    else if(abs_r <= 1.5)
+    {
+        scalar result = -0.5*(r/abs_r) - 0.5*((1-abs_r)*r/abs_r) / std::sqrt(-3.0*((1-abs_r)*(1-abs_r))+1);
+        return result;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
+(
+    vector X,
+    vector x
+) const
+{
+    return correctedDeltaDirac(X,x,dilation,b);
+}
+
+Foam::scalar Foam::LagrangianMarker::deltaDirac
+(
+    vector X,
+    vector x
+) const
+{
+    return deltaDirac(X,x,dilation);
+}
+
+Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
+(
+    vector X,
+    vector x
+) const
+{
+    return dcorrectedDeltaDirac_dX(X,x,dilation,b);
+}
+
+Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
+(
+    vector X,
+    vector x
+) const
+{
+    return ddeltaDirac_dX(X,x,dilation);
+}
+
 
 std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeCorrectedMomentMatrix() const
 {

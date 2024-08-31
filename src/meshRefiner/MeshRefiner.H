@@ -32,7 +32,7 @@ class MeshRefiner
         virtual void fieldRefinement();
 
         volScalarField markerRefineDemands;
-        virtual void markerRefinement(scalar defaultValue);
+        void markerRefinement(scalar defaultValue);
 
     private:
         scalar refinementDemandMerge(scalar fieldDemand, scalar markerDemand);

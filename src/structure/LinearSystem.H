@@ -8,6 +8,7 @@
 
 #include "gsl/gsl_linalg.h"
 #include "gsl/gsl_eigen.h"
+#include "gsl/gsl_cblas.h"
 
 #include "fvMesh.H"
 #include <limits>
@@ -228,6 +229,7 @@ namespace Foam
             label localRows;
             label globalRows;
             bool global;
+            bool useBlas = true;
     };
     
     class CSR_DiagMatrix_par;
@@ -285,6 +287,8 @@ namespace Foam
             label writtenRow;
             label lastWrittenRowIndex;
             
+            bool useBlas = true;
+
             friend class CSR_DiagMatrix_par;
     };
     
