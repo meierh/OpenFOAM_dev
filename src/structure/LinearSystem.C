@@ -1097,7 +1097,7 @@ Foam::Vector_par Foam::CSR_Matrix_par::operator*
     if(!complete || globalCols==-1)
         FatalErrorInFunction<<"Incomplete matrix"<<exit(FatalError);
     checkCompatible(vec);
-    
+
     if(global)
     {
         List<scalar> globalVector;

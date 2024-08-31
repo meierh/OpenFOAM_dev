@@ -347,7 +347,7 @@ class LineStructure : public Structure
         LineStructure(const LineStructure&) = delete;
         virtual ~LineStructure() = default;
         
-        void connect(FieldMarkerStructureInteraction& connector);
+        //void connect(FieldMarkerStructureInteraction& connector);
 
         void createMarkers();
 
