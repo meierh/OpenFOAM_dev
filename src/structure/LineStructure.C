@@ -145,6 +145,7 @@ void Foam::LineStructure::check()
         FatalErrorInFunction<<"Mismatch in size of m_Rods and m_nR"<<exit(FatalError);
 }
 
+/*
 void Foam::LineStructure::connect
 (
     FieldMarkerStructureInteraction& connector
@@ -153,6 +154,7 @@ void Foam::LineStructure::connect
     //connector.markers.resize(rodMarkersList.size());
     connectedInteractions.push_back(&connector);
 }
+*/
 
 void Foam::LineStructure::createSpacingPoints()
 {

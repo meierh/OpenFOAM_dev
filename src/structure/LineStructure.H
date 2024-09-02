@@ -657,7 +657,7 @@ class LineStructureParameters
     public:
         LineStructureParameters();
         virtual ~LineStructureParameters() = default;
-        virtual void collectParameters(const LineStructure* structure);
+        void collectParameters(const LineStructure* structure);
         
     protected:
         std::vector<std::array<Parameter,3>> threeDimParameters;

@@ -15,8 +15,9 @@ class SensitivityInteraction : public FieldMarkerStructureInteraction
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
-        
-    virtual scalar computeSensitivity(const Parameter& para) = 0;
+        virtual ~SensitivityInteraction()=default;
+
+        virtual scalar computeSensitivity(const Parameter& para) = 0;
 
     protected:
         template<typename T> void deriveParamFieldToMarker

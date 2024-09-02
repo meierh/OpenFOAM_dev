@@ -54,6 +54,8 @@ using namespace Foam;
 
 int main(int argc, char *argv[])
 {
+    Info<<" ------ icoFoamStaticRod_addForce ------ "<<Foam::endl;
+
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"    
@@ -86,7 +88,6 @@ int main(int argc, char *argv[])
             + fvm::div(phi, U)
             - fvm::laplacian(nu, U)
         );
-        
         if (piso.momentumPredictor())
         {
             solve(UEqn == -fvc::grad(p));
@@ -105,7 +106,18 @@ int main(int argc, char *argv[])
             [2]<<std::endl;
         }
         
-        U = U + runTime.deltaT()*Uf;
+        /*
+        fvVectorMatrix UEqn
+        (
+            fvm::ddt(U)
+            + fvm::div(phi, U)
+            - fvm::laplacian(nu, U)
+        );
+        */
+        if (piso.momentumPredictor())
+            solve(UEqn == -fvc::grad(p) + Uf);
+        else
+            solve(UEqn == Uf);
 
         // --- PISO loop
         while (piso.correct())
@@ -130,7 +142,7 @@ int main(int argc, char *argv[])
                 // Pressure corrector
                 fvScalarMatrix pEqn
                 (
-                    fvm::laplacian(rAU, p) == fvc::div(phiHbyA)
+                    fvm::laplacian(rAU, p) == fvc::div(phiHbyA) + fvc::div(Uf)
                 );
 
                 pEqn.setReference(pRefCell, pRefValue);

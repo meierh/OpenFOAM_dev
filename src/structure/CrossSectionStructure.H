@@ -411,7 +411,7 @@ class CrossSectionStructureParameters : public LineStructureParameters
     public:
         CrossSectionStructureParameters();
         virtual ~CrossSectionStructureParameters() = default;
-        virtual void collectParameters(const CrossSectionStructure* structure);
+        void collectParameters(const CrossSectionStructure* structure);
         
     private:
         std::vector<Parameter> parameters;

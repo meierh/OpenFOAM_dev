@@ -1,0 +1,3 @@
+icoFoamStaticRod_addForce.C
+
+EXE = $(FOAM_USER_APPBIN)/icoFoamStaticRod_addForce
