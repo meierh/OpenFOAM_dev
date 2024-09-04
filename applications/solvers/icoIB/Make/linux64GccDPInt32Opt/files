@@ -1,4 +1,0 @@
-SOURCE += setDeltaT.C
-SOURCE += icoIB.C
-
-EXE = $(FOAM_APPBIN)/icoIB
