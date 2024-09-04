@@ -81,83 +81,99 @@ int main(int argc, char *argv[])
         Info<< "Time = " << runTime.name() << nl << endl;
         #include "CourantNo.H"
 
-        // Momentum predictor
-        fvVectorMatrix UEqn
-        (
-            fvm::ddt(U)
-            + fvm::div(phi, U)
-            - fvm::laplacian(nu, U)
-        );
-        if (piso.momentumPredictor())
+        label iterationN = 0;
+        bool converged = true;
+        do
         {
-            solve(UEqn == -fvc::grad(p));
-        }
-        
-        U_Interaction.interpolateFluidVelocityToMarkers();
-        U_Interaction.computeCouplingForceOnMarkers();
-        U_Interaction.computeRodForceMoment();
-        U_Interaction.interpolateFluidForceField();
-        vector forces = U_Interaction.sumForces();
-        Info<<"sum Force:"<<forces<<Foam::endl;
+            Info<<"-----------Iteration-------------"<<iterationN++<<Foam::endl;
+            SolverPerformance<vector> solverResU;
+            SolverPerformance<scalar> solverResP;
 
-        if(Pstream::master())
-        {
-            rodForceData<<forces[0]<<" "<<forces[1]<<" "<<forces
-            [2]<<std::endl;
-        }
-        
-        /*
-        fvVectorMatrix UEqn
-        (
-            fvm::ddt(U)
-            + fvm::div(phi, U)
-            - fvm::laplacian(nu, U)
-        );
-        */
-        if (piso.momentumPredictor())
-            solve(UEqn == -fvc::grad(p) + Uf);
-        else
-            solve(UEqn == Uf);
-
-        // --- PISO loop
-        while (piso.correct())
-        {
-            volScalarField rAU(1.0/UEqn.A());
-            volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));
-            surfaceScalarField phiHbyA
+            fvVectorMatrix UEqn
             (
-                "phiHbyA",
-                fvc::flux(HbyA)
-                + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
+                fvm::ddt(U)
+                + fvm::div(phi, U)
+                - fvm::laplacian(nu, U)
             );
-
-            adjustPhi(phiHbyA, U, p);
-
-            // Update the pressure BCs to ensure flux consistency
-            constrainPressure(p, U, phiHbyA, rAU);
-
-            // Non-orthogonal pressure corrector loop
-            while (piso.correctNonOrthogonal())
+            if (piso.momentumPredictor())
             {
-                // Pressure corrector
-                fvScalarMatrix pEqn
-                (
-                    fvm::laplacian(rAU, p) == fvc::div(phiHbyA) + fvc::div(Uf)
-                );
+                solverResU = solve(UEqn == -fvc::grad(p) + Uf);
+            }
+            U_Interaction.interpolateFluidVelocityToMarkers();
+            U_Interaction.computeCouplingForceOnMarkers();
+            U_Interaction.computeRodForceMoment();
+            U_Interaction.interpolateFluidForceField();
 
-                pEqn.setReference(pRefCell, pRefValue);
-
-                pEqn.solve();
-
-                if (piso.finalNonOrthogonalIter())
-                {
-                    phi = phiHbyA - pEqn.flux();
-                }
+            UEqn = fvVectorMatrix
+            (
+                fvm::ddt(U)
+                + fvm::div(phi, U)
+                - fvm::laplacian(nu, U)
+            );
+            if (piso.momentumPredictor())
+            {
+                solverResU = solve(UEqn == -fvc::grad(p) + Uf);
             }
 
-            #include "continuityErrs.H"
-            U = HbyA - rAU*fvc::grad(p);
-            U.correctBoundaryConditions();
+            while (piso.correct())
+            {
+                volScalarField rAU(1.0/UEqn.A());
+                volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));
+                surfaceScalarField phiHbyA
+                (
+                    "phiHbyA",
+                    fvc::flux(HbyA)
+                    + fvc::interpolate(rAU)*fvc::ddtCorr(U, phi)
+                );
+                adjustPhi(phiHbyA, U, p);
+
+                volVectorField UfbyA(Uf/UEqn.A());
+
+                // Update the pressure BCs to ensure flux consistency
+                constrainPressure(p, U, phiHbyA, rAU);
+
+                // Non-orthogonal pressure corrector loop
+                while (piso.correctNonOrthogonal())
+                {
+                    // Pressure corrector
+                    fvScalarMatrix pEqn
+                    (
+                        fvm::laplacian(rAU, p) == fvc::div(phiHbyA) + fvc::div(UfbyA)
+                    );
+                    pEqn.setReference(pRefCell, pRefValue);
+                    solverResP = pEqn.solve();
+
+                    if (piso.finalNonOrthogonalIter())
+                    {
+                        phi = phiHbyA - pEqn.flux();
+                    }
+                }
+
+                #include "continuityErrs.H"
+                U = HbyA - rAU*fvc::grad(p) + UfbyA;
+                U.correctBoundaryConditions();
+            }
+
+            converged = true;
+
+            vector nIterationsU = solverResU.nIterations();
+            converged &= nIterationsU[0]>0?false:true;
+            converged &= nIterationsU[1]>0?false:true;
+            converged &= nIterationsU[2]>0?false:true;
+            label nIterationsP = solverResP.nIterations();
+            Info<<"Iterations:"<<nIterationsU<<" / "<<nIterationsP<<Foam::endl;
+            converged &= nIterationsP>0?false:true;
+
+            if(iterationN>100)
+                converged = true;
+        }
+        while (!converged);
+
+        vector forces = U_Interaction.sumForces();
+        Info<<"sum Force:"<<forces<<Foam::endl;
+        if(Pstream::master())
+        {
+            rodForceData<<forces[0]<<" "<<forces[1]<<" "<<forces[2]<<std::endl;
         }
         
         runTime.write();

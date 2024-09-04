@@ -239,6 +239,49 @@ mesh(mesh)
     coeffDerivedCurves.resize(nR);
 }
 
+Foam::Structure::Structure
+(
+    fvMesh& mesh,
+    const IOdictionary& stuctureDict,
+    const Time& runTime
+):
+initialMeshSpacing(initialSpacingFromMesh(mesh)),
+runTime(runTime),
+runDirectory(runTime.rootPath()),
+caseName(runTime.caseName()),
+xmlPath(xmlFromDict(stuctureDict)),
+name(getName()),
+nR(loadRodsFromXML()),
+mesh(mesh)
+{
+    cntOpt.ptsType = 2;
+    cntOpt.ptsN = 2;
+    cntOpt.csFac = 2.0;
+    cntOpt.preg = 0.02 * geoR0;
+    cntOpt.kc = 0.2 * geoE0*geoR0*geoR0;
+    cntOpt.initOut = 0;
+
+    folder = runDirectory+"/"+caseName;
+
+    createNurbsStructure();
+    createNurbsBoundary();
+    setSolverOptions();
+
+    collectMeshHaloData(4);
+
+    for(label rodI=0; rodI<nR; rodI++)
+    {
+        const ActiveRodMesh::rodCosserat* rod = Rods[rodI];
+        const gsNurbs<scalar>& curve = rod->m_Curve;
+        const gsNurbs<scalar>& deformation = rod->m_Def;
+        if(curve.domainStart()!=deformation.domainStart())
+            FatalErrorInFunction<<"Mismatch in curve and deformation start"<<exit(FatalError);
+        if(curve.domainEnd()!=deformation.domainEnd())
+            FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
+    }
+    coeffDerivedCurves.resize(nR);
+}
+
 Foam::Structure::~Structure()
 {
     for (int i = 0; i < nR; i++)
@@ -264,8 +307,10 @@ Foam::word Foam::Structure::getXMLPath()
     struct dirent *dp;
     while((dp=readdir(dir))!=NULL)
     {
+        /*
         if(dp->d_name==NULL)
             FatalIOError<<"Reading existing files name as null pointer!"<<exit(FatalIOError);
+        */
         directoryFiles.append(word(dp->d_name));
     }
     DynamicList<word> xmlFiles;
@@ -283,6 +328,19 @@ Foam::word Foam::Structure::getXMLPath()
     if(xmlFiles.size()>1)
         Info<<"Multiple Nurbs files found. First one will be used!"<<endl;
     word fullPath = constantDirectory+"/"+xmlFiles[0];
+    return fullPath;
+}
+
+Foam::word Foam::Structure::xmlFromDict(const IOdictionary& stuctureDict)
+{
+    ITstream rodTypeStream = stuctureDict.lookup("rodFile");
+    token rodFileToken;
+    rodTypeStream.read(rodFileToken);
+    if(!rodFileToken.isString())
+        FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodFile -- must be string"<<exit(FatalError);
+    word rodFileWord = rodFileToken.stringToken();
+    fileName caseDirectory = runDirectory+"/"+caseName+"/structure/";
+    word fullPath = caseDirectory+rodFileWord;
     return fullPath;
 }
 

@@ -130,6 +130,12 @@ class Structure
             fvMesh& mesh,
             const Time& runTime
         );
+        explicit Structure
+        (
+            fvMesh& mesh,
+            const IOdictionary& stuctureDict,
+            const Time& runTime
+        );
         virtual ~Structure();
         Structure(const Structure&) = delete;
         
@@ -183,6 +189,7 @@ class Structure
         const fileName xmlPath;
         const word name;
         word getXMLPath();
+        word xmlFromDict(const IOdictionary& stuctureDict);
         word getName();
         int loadRodsFromXML();
         void createNurbsStructure();

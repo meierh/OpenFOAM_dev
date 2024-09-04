@@ -141,6 +141,13 @@ class CrossSectionStructure : public LineStructure
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
+        explicit CrossSectionStructure
+        (
+            fvMesh& mesh,
+            const IOdictionary& stuctureDict,
+            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
+            markerMeshType modusMarkerToField = markerMeshType::Uniform
+        );
 
         CrossSectionStructure(const CrossSectionStructure&) = delete;
         //void transferMarkers(FieldMarkerStructureInteraction& connector);
@@ -154,6 +161,8 @@ class CrossSectionStructure : public LineStructure
 const Parameter& par) override;
         
     private:
+        std::vector<CrossSection> createCrossSectionsFromDict(const IOdictionary& stuctureDict);
+
         void check() override;
         
         void createSpacingPoints() override;

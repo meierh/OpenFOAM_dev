@@ -334,15 +334,30 @@ class LineStructure : public Structure
         explicit LineStructure
         (
             fvMesh& mesh,
+            const scalar crossSecArea,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
             fvMesh& mesh,
-            const scalar crossSecArea,
+            const IOdictionary& stuctureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
+        );
+        explicit LineStructure
+        (
+            fvMesh& mesh,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
+        );
+        explicit LineStructure
+        (
+            fvMesh& mesh,
+            const IOdictionary& stuctureDict,
+            bool parentConstructor,
+            markerMeshType modusFieldToMarker,
+            markerMeshType modusMarkerToField
         );
         LineStructure(const LineStructure&) = delete;
         virtual ~LineStructure() = default;

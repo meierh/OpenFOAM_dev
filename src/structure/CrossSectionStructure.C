@@ -1,4 +1,5 @@
 #include "CrossSectionStructure.H"
+#include <sys/stat.h>
 
 Foam::CrossSectionStructure::CrossSectionStructure
 (
@@ -11,6 +12,20 @@ LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
     Info<<"CrossSectionStructure"<<Foam::endl;
+    initialize();
+}
+
+Foam::CrossSectionStructure::CrossSectionStructure
+(
+    fvMesh& mesh,
+    const IOdictionary& stuctureDict,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
+):
+LineStructure(mesh,stuctureDict,true,modusFieldToMarker,modusMarkerToField)
+{
+
+
     initialize();
 }
 
@@ -111,6 +126,87 @@ Foam::vector Foam::CrossSectionStructure::rodDeriveParam
     else
         FatalErrorInFunction<<"Invalid type of parameter here!"<<exit(FatalError);
     return rodDerive;
+}
+
+std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSectionsFromDict
+(
+    const IOdictionary& stuctureDict
+)
+{
+    const dictionary& crossSecDict = stuctureDict.subDict("crossSections");
+    List<keyType> crossSectionsKey = crossSecDict.keys();
+
+    std::vector<CrossSection> crossSec;
+    for(keyType oneCrossSec : crossSectionsKey)
+    {
+        const dictionary& oneCrossSecDict = crossSecDict.subDict(oneCrossSec);
+        ITstream crossSecTypeStream = oneCrossSecDict.lookup("type");
+        token crossSecTypeToken;
+        crossSecTypeStream.read(crossSecTypeToken);
+        std::string crossSecTypeStr = crossSecTypeToken.stringToken();
+
+        if(crossSecTypeStr=="circle")
+        {
+            ITstream radiusStream = oneCrossSecDict.lookup("radius");
+            token radiusNumber;
+            radiusStream.read(radiusNumber);
+            if(!radiusNumber.isScalar())
+                FatalErrorInFunction<<"Expected scalar but got:"<<radiusNumber<<" at line "<<radiusNumber.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+            scalar radius = radiusNumber.scalarToken();
+            crossSec.push_back(CrossSection(radius));
+        }
+        else if(crossSecTypeStr=="cylinder")
+        {
+            ITstream a0Stream = oneCrossSecDict.lookup("a0");
+            token a0Token;
+            a0Stream.read(a0Token);
+            if(!a0Token.isScalar())
+                FatalErrorInFunction<<"Expected scalar but got:"<<a0Token<<" at line "<<a0Token.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+            scalar a0 = a0Token.scalarToken();
+
+            ITstream akStream = oneCrossSecDict.lookup("ak");
+            token akToken;
+            akStream.read(akToken);
+            if(!akToken.isScalar())
+                FatalErrorInFunction<<"Expected scalar but got:"<<akToken<<" at line "<<akToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+            scalar ak = akToken.scalarToken();
+
+            ITstream bkStream = oneCrossSecDict.lookup("bk");
+            token a0Token;
+            a0Stream.read(a0Token);
+            if(!a0Token.isScalar())
+                FatalErrorInFunction<<"Expected scalar but got:"<<a0Token<<" at line "<<a0Token.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+            scalar a0 = a0Token.scalarToken();
+
+            bool phaseExists = false;
+            scalar phase;
+            if(oneCrossSecDict.found("phase"))
+            {
+                ITstream phaseStream = oneCrossSecDict.lookup("phase");
+                token phaseToken;
+                phaseStream.read(phaseToken);
+                if(!phaseToken.isScalar())
+                    FatalErrorInFunction<<"Expected scalar but got:"<<phaseToken<<" at line "<<phaseToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+                phase = phaseToken.scalarToken();
+            }
+
+            crossSec.push_back(CrossSection(radius));
+
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+        }
+        else if(crossSecTypeStr=="twistedCylinder")
+        {
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+        }
+        else if(crossSecTypeStr=="fullyParam")
+        {
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+        }
+        else
+            FatalErrorInFunction<<"Invalid CrossSection type:"<<crossSecTypeStr<<" -- {circle,cylinder,twistedCylinder,fullyParam}"<<exit(FatalError);
+    }
+
+    return crossSec;
 }
 
 void Foam::CrossSectionStructure::check()

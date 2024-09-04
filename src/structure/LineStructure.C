@@ -18,17 +18,6 @@ crossSecArea(crossSecArea)
 Foam::LineStructure::LineStructure
 (
     fvMesh& mesh,
-    markerMeshType modusFieldToMarker,
-    markerMeshType modusMarkerToField
-):
-Structure(mesh,mesh.time()),
-modusFieldToMarker(modusFieldToMarker),
-modusMarkerToField(modusMarkerToField)
-{}
-
-Foam::LineStructure::LineStructure
-(
-    fvMesh& mesh,
     const scalar crossSecArea,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -40,6 +29,44 @@ crossSecArea(List<scalar>(myMesh->m_nR,crossSecArea))
 {
     initialize();
 }
+
+Foam::LineStructure::LineStructure
+(
+    fvMesh& mesh,
+    const IOdictionary& stuctureDict,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
+):
+Structure(mesh,stuctureDict,mesh.time()),
+modusFieldToMarker(modusFieldToMarker),
+modusMarkerToField(modusMarkerToField)
+{
+    initialize();
+}
+
+Foam::LineStructure::LineStructure
+(
+    fvMesh& mesh,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
+):
+Structure(mesh,mesh.time()),
+modusFieldToMarker(modusFieldToMarker),
+modusMarkerToField(modusMarkerToField)
+{}
+
+Foam::LineStructure::LineStructure
+(
+    fvMesh& mesh,
+    const IOdictionary& stuctureDict,
+    bool parentConstructor,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
+):
+Structure(mesh,stuctureDict,mesh.time()),
+modusFieldToMarker(modusFieldToMarker),
+modusMarkerToField(modusMarkerToField)
+{}
 
 void Foam::LineStructure::to_string()
 {
