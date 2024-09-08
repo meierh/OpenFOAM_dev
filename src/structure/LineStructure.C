@@ -2,7 +2,7 @@
 
 Foam::LineStructure::LineStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const List<scalar> crossSecArea,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -17,7 +17,7 @@ crossSecArea(crossSecArea)
 
 Foam::LineStructure::LineStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const scalar crossSecArea,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -32,7 +32,7 @@ crossSecArea(List<scalar>(myMesh->m_nR,crossSecArea))
 
 Foam::LineStructure::LineStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const IOdictionary& stuctureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -46,7 +46,7 @@ modusMarkerToField(modusMarkerToField)
 
 Foam::LineStructure::LineStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
@@ -57,7 +57,7 @@ modusMarkerToField(modusMarkerToField)
 
 Foam::LineStructure::LineStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const IOdictionary& stuctureDict,
     bool parentConstructor,
     markerMeshType modusFieldToMarker,
@@ -172,16 +172,31 @@ void Foam::LineStructure::check()
         FatalErrorInFunction<<"Mismatch in size of m_Rods and m_nR"<<exit(FatalError);
 }
 
-/*
-void Foam::LineStructure::connect
-(
-    FieldMarkerStructureInteraction& connector
-)
+void Foam::LineStructure::store()
 {
-    //connector.markers.resize(rodMarkersList.size());
-    connectedInteractions.push_back(&connector);
+    Structure::store();
+    
+    std::vector<LagrangianMarker>& timeMarkers = storage[mesh.time().value()];
+    for(const LagrangianMarker* marker : collectedMarkers)
+    {
+        timeMarkers.push_back(*marker);
+    }
 }
-*/
+
+void Foam::LineStructure::setToTime(scalar time)
+{
+    Structure::setToTime(time);
+    
+    if(storage.find(time)==storage.end())
+        FatalErrorInFunction<<"No data exists for "<<time<<exit(FatalError);
+    
+    std::vector<LagrangianMarker>& timeMarkers = storage[time];
+    collectedMarkers.clear();
+    for(LagrangianMarker& marker : timeMarkers)
+    {
+        collectedMarkers.push_back(&marker);
+    }
+}
 
 void Foam::LineStructure::createSpacingPoints()
 {

@@ -2,7 +2,7 @@
 
 Foam::TemperatureInteraction::TemperatureInteraction
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     LineStructure& structure,
     volScalarField& input_T,
     volScalarField& output_Tf
@@ -11,6 +11,35 @@ FieldMarkerStructureInteraction(mesh,structure),
 input_T(input_T),
 output_Tf(output_Tf)
 {
+}
+
+void Foam::TemperatureInteraction::solve()
+{
+    interpolateTemperatureToMarkers();
+    computeCouplingHeatingOnMarkers();
+    computeRodHeating();
+    interpolateHeatingField();
+}
+
+void Foam::TemperatureInteraction::store()
+{
+    std::tuple<DynamicList<scalar>,DynamicList<scalar>,DynamicList<scalar>>& markerValues = storage[mesh.time().value()];
+    
+    std::get<0>(markerValues) = markerFluidTemperature;
+    std::get<1>(markerValues) = makerCouplingHeating;
+    std::get<2>(markerValues) = rodHeating;
+}
+
+void Foam::TemperatureInteraction::setToTime(scalar time)
+{
+    if(storage.find(time)==storage.end())
+        FatalErrorInFunction<<"No data exists for "<<time<<exit(FatalError);
+    
+    std::tuple<DynamicList<scalar>,DynamicList<scalar>,DynamicList<scalar>>& markerValues = storage[time];
+    
+    markerFluidTemperature = std::get<0>(markerValues);
+    makerCouplingHeating = std::get<1>(markerValues);
+    rodHeating = std::get<2>(markerValues);
 }
 
 void Foam::TemperatureInteraction::interpolateTemperatureToMarkers()

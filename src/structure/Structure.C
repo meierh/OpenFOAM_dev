@@ -199,7 +199,7 @@ void Foam::BoundingBoxTree::findPointParameters
 
 Foam::Structure::Structure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const Time& runTime
 ):
 initialMeshSpacing(initialSpacingFromMesh(mesh)),
@@ -241,7 +241,7 @@ mesh(mesh)
 
 Foam::Structure::Structure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const IOdictionary& stuctureDict,
     const Time& runTime
 ):
@@ -776,6 +776,27 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
         }
     }            
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+}
+
+void Foam::Structure::store()
+{
+    std::vector<gsNurbs<scalar>>& timeDefs = storage[mesh.time().value()];
+    for(const ActiveRodMesh::rodCosserat* rod : Rods)
+    {
+        timeDefs.push_back(rod->m_Def);
+    }
+}
+
+void Foam::Structure::setToTime(scalar time)
+{
+    if(storage.find(time)==storage.end())
+        FatalErrorInFunction<<"No data exists for "<<time<<exit(FatalError);
+    
+    std::vector<gsNurbs<scalar>>& timeDefs = storage[time];
+    for(std::size_t i=0; i<Rods.size(); i++)
+    {
+        Rods[i]->m_Def = timeDefs[i];
+    }
 }
 
 Foam::vector Foam::Structure::rodEval

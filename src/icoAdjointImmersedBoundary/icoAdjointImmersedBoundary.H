@@ -51,15 +51,14 @@ See also
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef icoImmersedBoundary_H
-#define icoImmersedBoundary_H
+#ifndef icoAdjointImmersedBoundary_H
+#define icoAdjointImmersedBoundary_H
 
-#include "incompressibleFluid.H"
-#include "CrossSectionStructure.H"
-#include "VelocityPressureForceMarkerInteraction.H"
-#include "TemperatureInteraction.H"
-#include "MeshRefiner.H"
+#include "icoImmersedBoundary.H"
+#include "SensitivityVelocityPressureForceMarkerInteraction.H"
+#include "SensitivityTemperatureInteraction.H"
 
+/*
 #include "fvmDiv.H"
 #include "fvmLaplacian.H"
 #include "constrainHbyA.H"
@@ -71,6 +70,7 @@ See also
 #include "fvcGrad.H"
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
+*/
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -83,117 +83,95 @@ namespace solvers
                           Class incompressibleFluid Declaration
 \*---------------------------------------------------------------------------*/
 
-class icoImmersedBoundary : public incompressibleFluid
+class icoAdjointImmersedBoundary : public icoImmersedBoundary
 {
 protected:
-    IOdictionary transportProperties;
     
-    enum ImmersionMethod {addForce, substrValue};   
+    // Adjoint Veclocity
+    volVectorField adj_U_;
+    
+    //- Adjnout Velocity forcing
+    const bool useAdjointVelocityForcing = false;
+    std::unique_ptr<volVectorField> adj_fU_;
+    std::unique_ptr<SensitivityVelocityPressureForceInteraction> interaction_adj_fU;
+    void create_AdjointVelocityForcing();
+    
+    //- Adjoint Temperature
+    const bool useAdjointTemperature = false;
+    std::unique_ptr<volScalarField> adj_T_;
+    void create_AdjointTemperature();
+    
+    //- Adjoint Temperature forcing
+    const bool useAdjointTemperatureForcing = false;
+    std::unique_ptr<volScalarField> adj_fT_;
+    std::unique_ptr<SensitivityTemperatureInteraction> interaction_ajd_fT;
+    void create_AdjointTemperatureForcing();
+    
+    // Adjoint U equation
+    tmp<fvVectorMatrix> tadj_UEqn;
 
-    //- RodStructure
-    const bool useStructure = false;
-    std::unique_ptr<IOdictionary> stuctureDict;
-    std::unique_ptr<Structure> structure;
-    void create_Structure();
     
-    //- Velocity forcing
-    const bool useVelocityForcing = false;
-    ImmersionMethod velocityImmersion;
-    std::unique_ptr<volVectorField> fU_;
-    std::unique_ptr<VelocityPressureForceInteraction> interaction_fU;
-    void create_VelocityForcing();
-    
-    //- Temperature
-    const bool useTemperature = false;
-    std::unique_ptr<volScalarField> T_;
-    dimensionedScalar alpha;
-    void create_Temperature();
-    
-    //- Temperature forcing
-    const bool useTemperatureForcing = false;
-    ImmersionMethod temperatureImmersion;
-    std::unique_ptr<volScalarField> fT_;
-    std::unique_ptr<TemperatureInteraction> interaction_fT;
-    void create_TemperatureForcing();
-    
-    //- Refinement
-    const bool useRefinement = false;
-    std::unique_ptr<MeshRefiner> refinement_;
-    void create_Refiner(fvMesh& mesh);
     
     //- Solver Performances
-    SolverPerformance<vector> UEqn_res;
-    SolverPerformance<scalar> PEqn_res;
-    SolverPerformance<scalar> TEqn_res;
-    
-    //Storage
-    std::map<scalar,fvMesh> storage_Mesh;
-    std::map<scalar,volVectorField> storage_U;
-    std::map<scalar,volScalarField> storage_p;
-    std::map<scalar,volScalarField> storage_T;
-    std::vector<scalar> times;
-    std::unordered_map<scalar,label> timeToIndex;
-    void store();
-    void setToTime(scalar time);
-    
+    SolverPerformance<vector> adjUEqn_res;
+    SolverPerformance<scalar> adjPEqn_res;
+    SolverPerformance<scalar> adjTEqn_res;
+        
 public:
     //- Runtime type information
-    TypeName("icoImmersedBoundary");
+    TypeName("icoAdjointImmersedBoundary");
 
 
     // Constructors
 
         //- Construct from region mesh
-        icoImmersedBoundary(fvMesh& mesh);
+        icoAdjointImmersedBoundary(fvMesh& mesh);
 
         //- Disallow default bitwise copy construction
-        icoImmersedBoundary(const icoImmersedBoundary&) = delete;
+        icoAdjointImmersedBoundary(const icoImmersedBoundary&) = delete;
 
 
     //- Destructor
-    virtual ~icoImmersedBoundary();
+    virtual ~icoAdjointImmersedBoundary();
 
 
     // Member Functions
 
-    /*
-        //- Called at the start of the time-step, before the PIMPLE loop
-        virtual void preSolve();
+        //- Load stored sets of 
+        void adj_preSolve();
 
         //- Called at the start of the PIMPLE loop to move the mesh
-        virtual void moveMesh();
+        void adj_moveMesh(){}
 
         //- Corrections that follow mesh motion
-        virtual void motionCorrector();
+        void adj_motionCorrector(){}
 
         //- Called at the start of the PIMPLE loop
-        virtual void prePredictor();
-    */
+        void adj_prePredictor(){};
         
         //- Construct and optionally solve the momentum equation
-        void momentumPredictor() override;
+        void adj_momentumPredictor();
 
-    /*
         //- Construct and solve the energy equation,
         //  convert to temperature
         //  and update thermophysical and transport properties
-        virtual void thermophysicalPredictor();
+        void adj_thermophysicalPredictor();
 
         //- Construct and solve the pressure equation in the PISO loop
-        virtual void pressureCorrector();
+        void adj_pressureCorrector();
 
         //- Correct the momentum and thermophysical transport modelling
-        virtual void postCorrector();
-    */
-        void correctPressure() override;
+        void adj_postCorrector();
+        
+        void adj_correctPressure();
         
         //- Solve temperature equation after one timestep pimple loop
-        void postSolve() override;
-
+        void adj_postSolve(){}
+    
     // Member Operators
 
         //- Disallow default bitwise assignment
-        void operator=(const icoImmersedBoundary&) = delete;
+        void operator=(const icoAdjointImmersedBoundary&) = delete;
 };
 
 

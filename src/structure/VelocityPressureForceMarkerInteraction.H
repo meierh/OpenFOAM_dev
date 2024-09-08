@@ -10,12 +10,19 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
     public:
         explicit VelocityPressureForceInteraction
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf
         );
 
+        void solve() override;
+        
+        void store() override;
+        
+        void setToTime(scalar time) override;
+        
+    protected:
         void interpolateFluidVelocityToMarkers();
         void computeCouplingForceOnMarkers();
         void computeRodForceMoment();
@@ -27,7 +34,6 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
                                 [](LagrangianMarker marker){return true;}
         );
         
-    protected:
         volVectorField& input_U;
         volVectorField& output_Uf;
         
@@ -38,6 +44,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         DynamicList<vector> makerCouplingForce;
         DynamicList<vector> rodForce;
         DynamicList<vector> rodMoment;
+        
+        std::map<scalar,std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>> storage;
         
         void assignForceOnRod();
 };

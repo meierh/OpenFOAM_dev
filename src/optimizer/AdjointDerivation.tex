@@ -1342,5 +1342,22 @@ d\Omega \cup X$\\
 	\lambda_{T_{\text{fluid}_M}} \int -T_{\text{fluid}} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega
 	dX
 \end{align*}
+\begin{align*}
+	\delta \Gamma \delta (\vec{x}-\vec{X}) =
+	& \delta \Gamma \delta (r = \vert\vert\vec{x}-\vec{X}\vert\vert_2) = \frac{\partial \delta (r = \vert\vert\vec{x}-\vec{X}\vert\vert_2)}{\partial \Gamma} = \frac{\partial \delta}{\partial r}\frac{\partial r}{\partial \vec{X}}\frac{\partial \vec{X}}{\partial \Gamma} \\
+\end{align*}
+\begin{align*}
+	\frac{\partial \vec{X}(s,\alpha)}{\partial \Gamma} = 
+	& \frac{\partial}{\partial \Gamma} \left[ \vec{R}_{\text{Nurbs}}(s) + \left(\cos\left(\alpha\right)\vec{d}_2(s)+\sin\left(\alpha\right)\vec{d}_1(s)\right)  r_{\text{Radius}}\left(s,\alpha\right)\right]\\
+	& \frac{\partial}{\partial \Gamma} \vec{R}_{\text{Nurbs}}(s) + \frac{\partial}{\partial \Gamma}\left(\cos\left(\alpha\right)\vec{d}_2(s)+\sin\left(\alpha\right)\vec{d}_1(s)\right)  r_{\text{Radius}}\left(s,\alpha\right) + \left(\cos\left(\alpha\right)\vec{d}_2(s)+\sin\left(\alpha\right)\vec{d}_1(s)\right)  \frac{\partial}{\partial \Gamma} r_{\text{Radius}}\left(s,\alpha\right)\\
+	& \frac{\partial}{\partial \Gamma} \vec{R}_{\text{Nurbs}}(s) + \left(\cos\left(\alpha\right)\frac{\partial}{\partial \Gamma}\vec{d}_2(s)+\sin\left(\alpha\right)\frac{\partial}{\partial \Gamma}\vec{d}_1(s)\right)  r_{\text{Radius}}\left(s,\alpha\right) + \left(\cos\left(\alpha\right)\vec{d}_2(s)+\sin\left(\alpha\right)\vec{d}_1(s)\right)  \frac{\partial}{\partial \Gamma} r_{\text{Radius}}\left(s,\alpha\right)\\
+\end{align*}
+with
+\begin{align*}
+	\vec{d}_3(s) = \frac{\partial}{\partial s} \vec{R}_{\text{Nurbs}}(s) \\
+	\vec{d}_2(s) \cdot \vec{d}_3(s) = 0 \\
+	\vec{d}_1(s) \cdot \vec{d}_3(s) = 0 \\
+	\vec{d}_1(s) \cdot \vec{d}_2(s) = 0 \\
+\end{align*}
 \end{center}
 \end{document}

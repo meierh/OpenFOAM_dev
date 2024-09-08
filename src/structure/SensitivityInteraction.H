@@ -10,7 +10,7 @@ class SensitivityInteraction : public FieldMarkerStructureInteraction
     public:
         explicit SensitivityInteraction
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             LineStructure& structure,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform

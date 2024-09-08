@@ -1,6 +1,6 @@
-#include "StaticVelocityPressureAction.H"
+#include "ForcedMovementVelocityPressureAction.H"
 
-Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
+Foam::ForcedMovementVelocityPressureAction::ForcedMovementVelocityPressureAction
 (
     const fvMesh& mesh,
     LineStructure& structure,
@@ -11,7 +11,7 @@ VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf)
 {
 }
 
-Foam::vector Foam::StaticVelocityPressureAction::getVelocity
+Foam::vector Foam::ForcedMovementVelocityPressureAction::getVelocity
 (
     const LagrangianMarker* marker
 )

@@ -10,9 +10,12 @@ CrossSectionStructure.C
 CrossSectionStructureParameters.C
 SensitivityInteraction.C
 VelocityPressureForceMarkerInteraction.C
+SensitivityVelocityPressureForceMarkerInteraction.C
 StaticVelocityPressureAction.C
+ForcedMovementVelocityPressureAction.C
 TemperatureInteraction.C
 FixedTemperatureAction.C
+SensitivityTemperatureInteraction.C
 LinearSystem.C
 
 LIB = $(FOAM_USER_LIBBIN)/libStructure

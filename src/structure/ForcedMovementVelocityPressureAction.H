@@ -1,14 +1,14 @@
-#ifndef STATICVELOCITYPRESSUREACTION_H
-#define STATICVELOCITYPRESSUREACTION_H
+#ifndef FORCEDMOVEMENTVELOCITYPRESSUREACTION_H
+#define FORCEDMOVEMENTVELOCITYPRESSUREACTION_H
 #include "VelocityPressureForceMarkerInteraction.H"
 
 namespace Foam
 {
 
-class StaticVelocityPressureAction : public VelocityPressureForceInteraction
+class ForcedMovementVelocityPressureAction : public VelocityPressureForceInteraction
 {
     public:
-        explicit StaticVelocityPressureAction
+        explicit ForcedMovementVelocityPressureAction
         (
             const fvMesh& mesh,
             LineStructure& structure,

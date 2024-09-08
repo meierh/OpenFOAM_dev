@@ -127,12 +127,12 @@ class Structure
     public:
         explicit Structure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const Time& runTime
         );
         explicit Structure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const IOdictionary& stuctureDict,
             const Time& runTime
         );
@@ -160,6 +160,10 @@ class Structure
             std::vector<vector> coefficients
         );
 
+        virtual void store();
+        
+        virtual void setToTime(scalar time);
+        
         static vector rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
@@ -169,6 +173,8 @@ class Structure
         
     private:
         std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
+        
+        std::map<scalar,std::vector<gsNurbs<scalar>>> storage;
 
     public:
         label numberCoeffs(label rodNumber) const;
@@ -274,7 +280,7 @@ class Structure
 
 
         //******************* Parameters *******************//
-        fvMesh& mesh;
+        const fvMesh& mesh;
 
         void updateRodCoordinateSystem();
 

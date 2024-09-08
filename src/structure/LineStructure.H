@@ -202,18 +202,23 @@ class FieldMarkerStructureInteraction
         enum markerMeshType {Uniform, NonUniform};
         explicit FieldMarkerStructureInteraction
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             LineStructure& structure,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
-        ActiveRodMesh::rodMesh* rodMesh;
-        //std::vector<LagrangianMarker*> markers;
+        virtual ~FieldMarkerStructureInteraction()=default;
+
+        virtual void solve() = 0;
+
+        virtual void store() = 0;
         
-        fvMesh& mesh;
-        LineStructure& structure;
+        virtual void setToTime(scalar time) = 0;
         
     protected:
+        ActiveRodMesh::rodMesh* rodMesh;        
+        const fvMesh& mesh;
+        LineStructure& structure;
 
         //Map field from fielData to markerData according to markers
         template<typename T> void fieldToMarker
@@ -326,34 +331,34 @@ class LineStructure : public Structure
         enum markerMeshType {Uniform=0, NonUniform=1};
         explicit LineStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const List<scalar> crossSecArea,            
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const scalar crossSecArea,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const IOdictionary& stuctureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit LineStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const IOdictionary& stuctureDict,
             bool parentConstructor,
             markerMeshType modusFieldToMarker,
@@ -382,6 +387,10 @@ class LineStructure : public Structure
         
         virtual vector rodDeriveParam(const LagrangianMarker* marker,const Parameter& par);
         virtual vector rodDeriveParam(label rodNumber,scalar rodParameter, scalar angle, scalar radiusFrac, const Parameter& par);
+        
+        void store() override;
+        
+        void setToTime(scalar time) override;
 
     protected:
         LineStructureStatus status;
@@ -552,6 +561,8 @@ class LineStructure : public Structure
         std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         std::vector<LagrangianMarker*> collectedMarkers;
+        
+        std::map<scalar,std::vector<LagrangianMarker>> storage;
         
         /******************Halo markers data************************/
     public:

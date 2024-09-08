@@ -3,7 +3,7 @@
 
 Foam::CrossSectionStructure::CrossSectionStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     std::vector<CrossSection> rodCrossSection,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -17,7 +17,7 @@ rodCrossSection(rodCrossSection)
 
 Foam::CrossSectionStructure::CrossSectionStructure
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     const IOdictionary& stuctureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -172,11 +172,11 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
             scalar ak = akToken.scalarToken();
 
             ITstream bkStream = oneCrossSecDict.lookup("bk");
-            token a0Token;
-            a0Stream.read(a0Token);
-            if(!a0Token.isScalar())
-                FatalErrorInFunction<<"Expected scalar but got:"<<a0Token<<" at line "<<a0Token.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
-            scalar a0 = a0Token.scalarToken();
+            token bkToken;
+            bkStream.read(bkToken);
+            if(!bkToken.isScalar())
+                FatalErrorInFunction<<"Expected scalar but got:"<<bkToken<<" at line "<<bkToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+            scalar bk = bkToken.scalarToken();
 
             bool phaseExists = false;
             scalar phase;
@@ -189,8 +189,6 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
                     FatalErrorInFunction<<"Expected scalar but got:"<<phaseToken<<" at line "<<phaseToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
                 phase = phaseToken.scalarToken();
             }
-
-            crossSec.push_back(CrossSection(radius));
 
             FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
         }

@@ -10,12 +10,19 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
     public:
         explicit TemperatureInteraction
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             LineStructure& structure,
             volScalarField& input_T,
             volScalarField& output_Tf
         );
+        
+        void solve() override;
+        
+        void store() override;
+        
+        void setToTime(scalar time) override;
 
+    protected:
         void interpolateTemperatureToMarkers();
         void computeCouplingHeatingOnMarkers();
         void computeRodHeating();
@@ -27,7 +34,6 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
                                 [](LagrangianMarker marker){return true;}
         );
         
-    protected:
         scalar getTemperature(const LagrangianMarker* marker);
         
     private:
@@ -37,6 +43,8 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         DynamicList<scalar> markerFluidTemperature;
         DynamicList<scalar> makerCouplingHeating;
         DynamicList<scalar> rodHeating;
+        
+        std::map<scalar,std::tuple<DynamicList<scalar>,DynamicList<scalar>,DynamicList<scalar>>> storage;
         
         void assignForceOnRod();
 };

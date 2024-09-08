@@ -3,7 +3,7 @@
 
 Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf
@@ -12,6 +12,37 @@ FieldMarkerStructureInteraction(mesh,structure),
 input_U(input_U),
 output_Uf(output_Uf)
 {
+}
+
+void Foam::VelocityPressureForceInteraction::solve()
+{
+    interpolateFluidVelocityToMarkers();
+    computeCouplingForceOnMarkers();
+    computeRodForceMoment();
+    interpolateFluidForceField();
+}
+
+void Foam::VelocityPressureForceInteraction::store()
+{
+    std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>& markerValues = storage[mesh.time().value()];
+    
+    std::get<0>(markerValues) = markerFluidVelocity;
+    std::get<1>(markerValues) = makerCouplingForce;
+    std::get<2>(markerValues) = rodForce;
+    std::get<3>(markerValues) = rodMoment;
+}
+
+void Foam::VelocityPressureForceInteraction::setToTime(scalar time)
+{
+    if(storage.find(time)==storage.end())
+        FatalErrorInFunction<<"No data exists for "<<time<<exit(FatalError);
+    
+    std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>& markerValues = storage[time];
+    
+    markerFluidVelocity = std::get<0>(markerValues);
+    markerFluidVelocity = std::get<1>(markerValues);
+    rodForce = std::get<2>(markerValues);
+    rodMoment = std::get<3>(markerValues);
 }
 
 void Foam::VelocityPressureForceInteraction::interpolateFluidVelocityToMarkers()

@@ -136,14 +136,14 @@ class CrossSectionStructure : public LineStructure
     public:
         explicit CrossSectionStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             std::vector<CrossSection> rodCrossSection,
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform
         );
         explicit CrossSectionStructure
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             const IOdictionary& stuctureDict,
             markerMeshType modusFieldToMarker = markerMeshType::Uniform,
             markerMeshType modusMarkerToField = markerMeshType::Uniform

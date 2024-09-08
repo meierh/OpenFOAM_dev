@@ -2,7 +2,7 @@
 
 Foam::FieldMarkerStructureInteraction::FieldMarkerStructureInteraction
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     LineStructure& structure,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField

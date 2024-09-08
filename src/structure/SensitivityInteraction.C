@@ -2,7 +2,7 @@
 
 Foam::SensitivityInteraction::SensitivityInteraction
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     LineStructure& structure,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
