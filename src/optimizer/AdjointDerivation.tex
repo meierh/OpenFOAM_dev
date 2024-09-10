@@ -19,6 +19,7 @@
 
 \usepackage{tikz}
 \usetikzlibrary{trees}
+\usepackage{algorithm2e}
 
 \usepackage{multirow}
 \usepackage{parallel,enumitem}
@@ -1243,6 +1244,67 @@ $=0$\\
 	$- \lambda_{T_{\text{fluid}}} +\lambda_{f_{T_{\text{fluid}}}} = 0$ \quad on $\Omega$\\
 	$-\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
 	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+\begin{flushleft}
+	Adjoint Immersed Boundary Navier Stokes system simplified
+\end{flushleft}
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega,X$\\
+	$f_{\lambda_{U_M}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
+	$-\lambda_{\vec{u}} + \lambda_{f_u} = 0$ \quad on $\Omega$\\
+	$\lambda_{F_u} - \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega + ... = 0$ \quad on $\Omega,X$\\
+	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} = 0$ \quad on $\Omega,X$\\
+	$f_{\lambda_{T_{\text{fluid}_M}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) = 0$\\
+	$- \lambda_{T_{\text{fluid}}} +\lambda_{f_{T_{\text{fluid}}}} = 0$ \quad on $\Omega$\\
+	$-\int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
+	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+\begin{flushleft}
+	Adjoint Immersed Boundary Navier Stokes system simplified 2
+\end{flushleft}
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega,X$\\
+	$f_{\lambda_{U_M}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
+	$\lambda_{F_u} - \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega + ... = 0$ \quad on $\Omega,X$\\
+	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} = 0$ \quad on $\Omega,X$\\
+	$f_{\lambda_{T_{\text{fluid}_M}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) = 0$\\
+	$-\int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
+	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+	
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\KwData{...}
+	\KwResult{...}
+	\While{not converged}{
+		Solve for $\lambda_{T_{\text{fluid}}}$: $-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} = 0$ \quad on $\Omega$\\
+		Compute : $\lambda_{F_{T_{\text{fluid}}}} = \int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega - ... $ \quad on $X$\\
+		Compute : $\lambda_{T_{\text{fluid}_M}} = - \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t}$ \quad on $X$\\
+		Compute : $f_{\lambda_{T_{\text{fluid}_M}}} = \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+	}	
+	\While{not converged}{
+		Solve for $\lambda_{\vec{u}}$: $-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega$\\
+		Compute : $\lambda_{F_u} = \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega - ...$  \quad on $X$\\
+		Compute : $\lambda_{U_M} = - \frac{\lambda_{F_u}}{\Delta t}$ \quad on $X$\\
+		Compute : $f_{\lambda_{U_M}} = \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X})$ \quad on $\Omega$\\
+	}
+	\caption{Adjoint solution algorithm}
+\end{algorithm}
+	
+\begin{flushleft}
+	Adjoint Immersed Boundary Navier Stokes system Solution algorithm
+\end{flushleft}
+
+
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega,X$\\
+	$f_{\lambda_{U_M}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
+	$\lambda_{F_u} - \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega + ... = 0$ \quad on $\Omega,X$\\
+	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} = 0$ \quad on $\Omega,X$\\
+	$f_{\lambda_{T_{\text{fluid}_M}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) = 0$\\
+	$-\int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
+	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+	
 \begin{flushleft}
 	Adjoint Immersed Boundary Navier Stokes system without temperature
 \end{flushleft}

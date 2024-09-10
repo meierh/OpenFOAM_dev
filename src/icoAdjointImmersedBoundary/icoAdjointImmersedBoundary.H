@@ -90,6 +90,9 @@ protected:
     // Adjoint Veclocity
     volVectorField adj_U_;
     
+    // Adjoint Pressure
+    volScalarField adj_p_;
+    
     //- Adjnout Velocity forcing
     const bool useAdjointVelocityForcing = false;
     std::unique_ptr<volVectorField> adj_fU_;
