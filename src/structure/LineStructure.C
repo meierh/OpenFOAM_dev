@@ -128,8 +128,14 @@ Foam::vector Foam::LineStructure::rodDeriveParam
         {
             if(dimension!=ref.dimension)
                 FatalErrorInFunction<<"Dimension mismatch!"<<exit(FatalError);
-            vector derivCoeff = evalDerivCoeff(rodNumber,ref.coeffNumber,rodParameter);
-            rodDerive[dimension] += derivCoeff[dimension];
+            vector d1dC;
+            vector d2dC;
+            vector d3dC;
+            vector rdC;
+            rodEvalDerivCoeff(rodNumber,ref.coeffNumber,dimension,rodParameter,d1dC,d2dC,d3dC,rdC);
+            
+            FatalErrorInFunction<<"Implementation missing"<<exit(FatalError);
+            //rodDerive[dimension] += derivCoeff[dimension];
         }
     }
     return rodDerive;

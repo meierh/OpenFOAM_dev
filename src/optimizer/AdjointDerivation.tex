@@ -1421,5 +1421,89 @@ with
 	\vec{d}_1(s) \cdot \vec{d}_3(s) = 0 \\
 	\vec{d}_1(s) \cdot \vec{d}_2(s) = 0 \\
 \end{align*}
+$\left(\vec{d}_1, \vec{d}_2, \vec{d}_3\right)(\vec{q}) =
+\begin{pmatrix}
+	1-2(q_2 ^2 + q_3 ^2)   &  -2q_0 q_3 + 2 q_1 q_2  &  2q_0 q_2 + 2q_1 q_3 \\
+	  2q_0 q_3 + 2 q_1 q_2 & 1-2(q_1 ^2 + q_3 ^2)    & -2q_0 q_1 + 2 q_2 q_3 \\
+	 -2q_0 q_2 + 2 q_1 q_3 &   2q_0 q_1 + 2 q_2 q_3  & 1-2(q_1 ^2 + q_2 ^2) \\
+\end{pmatrix}$\\
+$\frac{\partial \vec{d}_1}{\partial \vec{q}} = ´
+	\begin{pmatrix}
+		0      &  0   &  -4q_2  & -4q_3 \\
+		2 q_3  & 2q_2 & 2 q_1   & 2q_0  \\
+		-2 q_2 & 2q_3 & -2q_0   & 2q_1  \\
+	\end{pmatrix}$\\
+$\frac{\partial \vec{d}_2}{\partial \vec{q}} = ´
+	\begin{pmatrix}
+		-2q_3  & 2q_2 &  2q_1   & -2q_0 \\
+		 0     & -4q_1&   0     & -4q_3  \\
+		 2q_1  & 2q_0 &  2q_3   & 2q_2  \\
+	\end{pmatrix}$\\
+$\frac{\partial \vec{d}_3}{\partial \vec{q}} = ´
+	\begin{pmatrix}
+		2q_2 & 2q_3 & 2q_0 & 2q_1 \\
+		-2q_1&-2q_0 & 2q_3 & 2q_2 \\
+		 0   &-4q_1 &-4q_2 & 0 \\
+	\end{pmatrix}$\\
+$\vec{q}_{\text{def}} \cdot \vec{q}_{\text{ini}} = 
+	\begin{pmatrix}
+		q_{0,\text{def}} \\
+		q_{1,\text{def}} \\
+		q_{2,\text{def}} \\
+		q_{3,\text{def}} \\
+	\end{pmatrix} 
+	\cdot
+	\begin{pmatrix}
+		q_{0,\text{ini}} \\
+		q_{1,\text{ini}} \\
+		q_{2,\text{ini}} \\
+		q_{3,\text{ini}} \\
+	\end{pmatrix}
+	= 
+	\begin{pmatrix}
+		q_{0,\text{def}} q_{0,\text{ini}} - q_{1,\text{def}} q_{1,\text{ini}} - q_{2,\text{def}} q_{2,\text{ini}} - q_{3,\text{def}} q_{3,\text{ini}}\\
+		q_{0,\text{def}} q_{1,\text{ini}} + q_{1,\text{def}} q_{0,\text{ini}} + q_{2,\text{def}} q_{3,\text{ini}} - q_{3,\text{def}} q_{2,\text{ini}}\\
+		q_{0,\text{def}} q_{2,\text{ini}} - q_{1,\text{def}} q_{3,\text{ini}} + q_{2,\text{def}} q_{0,\text{ini}} + q_{3,\text{def}} q_{1,\text{ini}}\\
+		q_{0,\text{def}} q_{3,\text{ini}} + q_{1,\text{def}} q_{2,\text{ini}} - q_{2,\text{def}} q_{1,\text{ini}} + q_{3,\text{def}} q_{0,\text{ini}}\\
+	\end{pmatrix}
+$\\
+$\frac{\partial}{\partial \Gamma}\left(\vec{q}_{\text{def}} \cdot \vec{q}_{\text{ini}}\left(\Gamma\right)\right) =  \frac{\partial}{\partial \Gamma}
+\begin{pmatrix}
+	q_{0,\text{def}} q_{0,\text{ini}} - q_{1,\text{def}} q_{1,\text{ini}} - q_{2,\text{def}} q_{2,\text{ini}} - q_{3,\text{def}} q_{3,\text{ini}}\\
+	q_{0,\text{def}} q_{1,\text{ini}} + q_{1,\text{def}} q_{0,\text{ini}} + q_{2,\text{def}} q_{3,\text{ini}} - q_{3,\text{def}} q_{2,\text{ini}}\\
+	q_{0,\text{def}} q_{2,\text{ini}} - q_{1,\text{def}} q_{3,\text{ini}} + q_{2,\text{def}} q_{0,\text{ini}} + q_{3,\text{def}} q_{1,\text{ini}}\\
+	q_{0,\text{def}} q_{3,\text{ini}} + q_{1,\text{def}} q_{2,\text{ini}} - q_{2,\text{def}} q_{1,\text{ini}} + q_{3,\text{def}} q_{0,\text{ini}}\\
+\end{pmatrix}
+=
+\begin{pmatrix}
+	q_{0,\text{def}} \frac{\partial}{\partial \Gamma}q_{0,\text{ini}} - q_{1,\text{def}} \frac{\partial}{\partial \Gamma}q_{1,\text{ini}} - q_{2,\text{def}} \frac{\partial}{\partial \Gamma}q_{2,\text{ini}} - q_{3,\text{def}} \frac{\partial}{\partial \Gamma}q_{3,\text{ini}}\\
+	q_{0,\text{def}} \frac{\partial}{\partial \Gamma}q_{1,\text{ini}} + q_{1,\text{def}} \frac{\partial}{\partial \Gamma}q_{0,\text{ini}} + q_{2,\text{def}} \frac{\partial}{\partial \Gamma}q_{3,\text{ini}} - q_{3,\text{def}} \frac{\partial}{\partial \Gamma}q_{2,\text{ini}}\\
+	q_{0,\text{def}} \frac{\partial}{\partial \Gamma}q_{2,\text{ini}} - q_{1,\text{def}} \frac{\partial}{\partial \Gamma}q_{3,\text{ini}} + q_{2,\text{def}} \frac{\partial}{\partial \Gamma}q_{0,\text{ini}} + q_{3,\text{def}} \frac{\partial}{\partial \Gamma}q_{1,\text{ini}}\\
+	q_{0,\text{def}} \frac{\partial}{\partial \Gamma}q_{3,\text{ini}} + q_{1,\text{def}} \frac{\partial}{\partial \Gamma}q_{2,\text{ini}} - q_{2,\text{def}} \frac{\partial}{\partial \Gamma}q_{1,\text{ini}} + q_{3,\text{def}} \frac{\partial}{\partial \Gamma}q_{0,\text{ini}}\\
+\end{pmatrix}
+=
+\begin{pmatrix}
+	q_{0,\text{def}} \\
+	q_{1,\text{def}} \\
+	q_{2,\text{def}} \\
+	q_{3,\text{def}} \\
+\end{pmatrix} 
+\cdot
+\begin{pmatrix}
+	\frac{\partial}{\partial \Gamma} q_{0,\text{ini}} \\
+	\frac{\partial}{\partial \Gamma} q_{1,\text{ini}} \\
+	\frac{\partial}{\partial \Gamma} q_{2,\text{ini}} \\
+	\frac{\partial}{\partial \Gamma} q_{3,\text{ini}} \\
+\end{pmatrix}
+=
+\left(\vec{q}_{\text{def}} \cdot \frac{\partial \vec{q}_{\text{ini}}\left(\Gamma\right)}{\partial \Gamma}\right)
+$\\
+$\vec{q} \cdot \left(\vec{q}_{\text{ini}}\right)^{-1} = \vec{q}_{\text{def}} \cdot \vec{q}_{\text{ini}}\cdot \left(\vec{q}_{\text{ini}}\right)^{-1} = \vec{q}_{\text{def}} $
+\begin{align*}
+	\frac{\partial \vec{d}_k(\vec{q} = \vec{q}_{\text{def}} \cdot \vec{q}_{\text{ini}})}{\partial \Gamma}
+	&= \frac{\partial \vec{d}_k(\vec{q})}{\partial \vec{q}} \frac{\partial \vec{q}}{\partial \Gamma} \\
+	&= \frac{\partial \vec{d}_k(\vec{q})}{\partial \vec{q}} \frac{\partial}{\partial \Gamma}\left(\vec{q}_{\text{def}} \cdot \vec{q}_{\text{ini}}\right)\\
+	&= \frac{\partial \vec{d}_k(\vec{q})}{\partial \vec{q}} \left(\vec{q}_{\text{def}} \cdot \frac{\partial \vec{q}_{\text{ini}}\left(\Gamma\right)}{\partial \Gamma}\right)
+\end{align*}
 \end{center}
 \end{document}

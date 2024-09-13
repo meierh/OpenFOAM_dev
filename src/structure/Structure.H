@@ -160,25 +160,42 @@ class Structure
             std::vector<vector> coefficients
         );
 
+    private:
+        std::map<scalar,std::vector<gsNurbs<scalar>>> storage;
+    public:
         virtual void store();
-        
         virtual void setToTime(scalar time);
         
         static vector rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
-        
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         
     private:
-        std::vector<std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>> coeffDerivedCurves;
-        
-        std::map<scalar,std::vector<gsNurbs<scalar>>> storage;
-
+        void constructCoeffDerivedData();
+        FixedList<gsMatrix<scalar>,3> compute_dRdq(const gsMatrix<scalar>& q);
+        gsMatrix<scalar> quaternionMultiply(const gsMatrix<scalar>& q1,const gsMatrix<scalar>& q2);
+        gsMatrix<scalar> quaternionInvert(const gsMatrix<scalar>& q);
+        //[rodNumber] -> [coeffNumber] -> [dims] -> nurbs
+        std::vector<std::vector<std::vector<gsNurbs<scalar>>>> coeffDerivedCenterline;
+        //[rodNumber] -> nurbs
+        std::vector<gsNurbs<scalar>> initialRotation;
+        //[rodNumber] -> [coeffNumber] -> [dims] -> nurbs
+        std::vector<std::vector<std::vector<gsNurbs<scalar>>>> coeffDerivedQuaternions;
     public:
         label numberCoeffs(label rodNumber) const;
-        vector evalDerivCoeff(label rodNumber, label derivCoeffNumber, scalar parameter);
+        void rodEvalDerivCoeff
+        (
+            label rodNumber,
+            label derivCoeffNumber,
+            label derivDimension,
+            scalar parameter,
+            vector& d1dC,
+            vector& d2dC,
+            vector& d3dC,
+            vector& rdC
+        );
         
         void setNurbsCoeff(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         
