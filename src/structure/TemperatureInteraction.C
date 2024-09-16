@@ -5,11 +5,13 @@ Foam::TemperatureInteraction::TemperatureInteraction
     const fvMesh& mesh,
     LineStructure& structure,
     volScalarField& input_T,
-    volScalarField& output_Tf
+    volScalarField& output_Tf,
+    const IOdictionary& structureDict
 ):
 FieldMarkerStructureInteraction(mesh,structure),
 input_T(input_T),
-output_Tf(output_Tf)
+output_Tf(output_Tf),
+structureDict(structureDict)
 {
 }
 

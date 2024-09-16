@@ -3,17 +3,13 @@
 Foam::VelocityRefiner::VelocityRefiner
 (
     volScalarField& doRefine,
-    const LineStructure& structure,
+    LineStructure& structure,
     fvMesh& mesh,
-    Time& runTime,
-    volVectorField& velocity,
-    scalar refineGradient,
-    scalar unrefineGradient
+    const dictionary& dynamicMeshDict,
+    volVectorField& velocity
 ):
-MeshRefiner(doRefine,structure,mesh,runTime),
-velocity(velocity),
-refineGradient(refineGradient),
-unrefineGradient(unrefineGradient)
+MeshRefiner(mesh,structure,doRefine,dynamicMeshDict),
+velocity(velocity)
 {}
 
 void Foam::VelocityRefiner::fieldRefinement()

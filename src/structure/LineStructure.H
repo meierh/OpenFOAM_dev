@@ -385,8 +385,8 @@ class LineStructure : public Structure
         
         void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         
-        virtual vector rodDeriveParam(const LagrangianMarker* marker,const Parameter& par);
-        virtual vector rodDeriveParam(label rodNumber,scalar rodParameter, scalar angle, scalar radiusFrac, const Parameter& par);
+        virtual vector dXdParam(const LagrangianMarker* marker,const Parameter& par);
+        virtual vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par);
         
         void store() override;
         

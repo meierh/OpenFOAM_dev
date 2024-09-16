@@ -56,8 +56,9 @@ See also
 
 #include "incompressibleFluid.H"
 #include "CrossSectionStructure.H"
-#include "VelocityPressureForceMarkerInteraction.H"
-#include "TemperatureInteraction.H"
+#include "StaticVelocityPressureAction.H"
+#include "ForcedMovementVelocityPressureAction.H"
+#include "FixedTemperatureAction.H"
 #include "MeshRefiner.H"
 
 #include "fvmDiv.H"
@@ -87,38 +88,37 @@ class icoImmersedBoundary : public incompressibleFluid
 {
 protected:
     IOdictionary transportProperties;
+    dimensionedScalar nu;
     
     enum ImmersionMethod {addForce, substrValue};   
 
     //- RodStructure
-    const bool useStructure = false;
-    std::unique_ptr<IOdictionary> stuctureDict;
-    std::unique_ptr<Structure> structure;
-    void create_Structure();
+    bool useStructure;
+    std::unique_ptr<IOdictionary> structureDict;
+    std::unique_ptr<LineStructure> structure;
     
     //- Velocity forcing
-    const bool useVelocityForcing = false;
-    ImmersionMethod velocityImmersion;
+    bool useVelocityForcing;
     std::unique_ptr<volVectorField> fU_;
     std::unique_ptr<VelocityPressureForceInteraction> interaction_fU;
     void create_VelocityForcing();
     
     //- Temperature
-    const bool useTemperature = false;
+    bool useTemperature;
     std::unique_ptr<volScalarField> T_;
     dimensionedScalar alpha;
     void create_Temperature();
     
     //- Temperature forcing
-    const bool useTemperatureForcing = false;
-    ImmersionMethod temperatureImmersion;
+    bool useTemperatureForcing;
     std::unique_ptr<volScalarField> fT_;
     std::unique_ptr<TemperatureInteraction> interaction_fT;
     void create_TemperatureForcing();
     
     //- Refinement
-    const bool useRefinement = false;
+    bool useRefinement;
     std::unique_ptr<MeshRefiner> refinement_;
+    std::unique_ptr<volScalarField> refine_;
     void create_Refiner(fvMesh& mesh);
     
     //- Solver Performances
@@ -138,7 +138,7 @@ protected:
     
 public:
     //- Runtime type information
-    TypeName("icoImmersedBoundary");
+    //TypeName("icoImmersedBoundary");
 
 
     // Constructors
@@ -151,7 +151,7 @@ public:
 
 
     //- Destructor
-    virtual ~icoImmersedBoundary();
+    virtual ~icoImmersedBoundary() = default;
 
 
     // Member Functions

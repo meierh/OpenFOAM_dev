@@ -22,10 +22,9 @@ Foam::CrossSectionStructure::CrossSectionStructure
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-LineStructure(mesh,stuctureDict,true,modusFieldToMarker,modusMarkerToField)
+LineStructure(mesh,stuctureDict,true,modusFieldToMarker,modusMarkerToField),
+rodCrossSection(createCrossSectionsFromDict(stuctureDict))
 {
-
-
     initialize();
 }
 
@@ -70,7 +69,7 @@ void Foam::CrossSectionStructure::setCrossSecParameters
     crossSec.setNurbsCoeff(fourierCoeffNumber,derivCoeffNumber,value);
 }
 
-Foam::vector Foam::CrossSectionStructure::rodDeriveParam
+Foam::vector Foam::CrossSectionStructure::dXdParam
 (
     const LagrangianMarker* marker,
     const Parameter& par
@@ -81,7 +80,7 @@ Foam::vector Foam::CrossSectionStructure::rodDeriveParam
     if((crossSecMarker = dynamic_cast<const LagrangianMarkerOnCrossSec*>(marker))!=nullptr)
     {
         if(par.getType()!=Parameter::Type::None)
-            rodDerive = rodDeriveParam(marker->getRodNumber(),marker->getMarkerParameter(),marker->getMarkerAngle(),marker->getMarkerRadiusFrac(),par);
+            rodDerive = dXdParam(marker->getRodNumber(),marker->getMarkerParameter(),marker->getMarkerAngle(),marker->getMarkerRadiusFrac(),par);
         else
             FatalErrorInFunction<<"Invalid type of parameter!"<<exit(FatalError);
     }
@@ -90,7 +89,7 @@ Foam::vector Foam::CrossSectionStructure::rodDeriveParam
     return rodDerive;
 }
 
-Foam::vector Foam::CrossSectionStructure::rodDeriveParam
+Foam::vector Foam::CrossSectionStructure::dXdParam
 (
     label rodNumber,
     scalar rodParameter,
@@ -102,16 +101,37 @@ Foam::vector Foam::CrossSectionStructure::rodDeriveParam
     if(!(par.isValid()))
         FatalErrorInFunction<<"Invalid parameter here!"<<exit(FatalError);
     
+    vector d1,d2,d3,r;
+    rodEval(Rods[rodNumber],rodParameter,d1,d2,d3,r);
+    scalar radius = rodCrossSection[rodNumber](rodParameter,angle)*radiusFrac;
+
     vector rodDerive(0,0,0);
     if(par.getType()==Parameter::Type::Rod)
     {
-        FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
+        label dimension = par.getDimension();
+        const std::vector<NurbsCoeffReference>& nurbsCoeffs = par.getNurbsCoeffs();
+        for(const NurbsCoeffReference& ref : nurbsCoeffs)
+        {
+            if(rodNumber==ref.rodNumber)
+            {
+                if(dimension!=ref.dimension)
+                    FatalErrorInFunction<<"Dimension mismatch!"<<exit(FatalError);
+                
+                vector d1dC,d2dC,d3dC,rdC;
+                rodEvalDerivCoeff(rodNumber,ref.coeffNumber,dimension,rodParameter,d1dC,d2dC,d3dC,rdC);
+                
+                vector cosd1dC = std::cos(angle)*d1dC;
+                vector sind2dC = std::sin(angle)*d2dC;
+
+                rodDerive += ( rdC + (cosd1dC+sind2dC)*radius );
+            }
+        }
     }
     else if(par.getType()==Parameter::Type::CrossSection)
     {
-        vector d1,d2,d3,r;
-        rodEval(Rods[rodNumber],rodParameter,d1,d2,d3,r);        
-        vector radiusDirection = std::cos(angle)*d1+std::sin(angle)*d2;
+        vector cosd1 = std::cos(angle)*d1;
+        vector sind2 = std::sin(angle)*d2;
+        vector radiusDirection = cosd1+sind2;
         scalar derivRadius = 0;
         const std::vector<CrossSectionCoeffReference>& crossSecCoeffs = par.getCrossSecCoeffs();
         for(const CrossSectionCoeffReference& ref : crossSecCoeffs)
@@ -130,20 +150,25 @@ Foam::vector Foam::CrossSectionStructure::rodDeriveParam
 
 std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSectionsFromDict
 (
-    const IOdictionary& stuctureDict
+    const IOdictionary& structureDict
 )
 {
-    const dictionary& crossSecDict = stuctureDict.subDict("crossSections");
+    Info<<"createCrossSectionsFromDict"<<Foam::endl;
+    
+    const dictionary& crossSecDict = structureDict.subDict("crossSections");
     List<keyType> crossSectionsKey = crossSecDict.keys();
 
     std::vector<CrossSection> crossSec;
     for(keyType oneCrossSec : crossSectionsKey)
     {
+        Info<<"Read rod "<<oneCrossSec<<" cross Section"<<Foam::endl;
         const dictionary& oneCrossSecDict = crossSecDict.subDict(oneCrossSec);
         ITstream crossSecTypeStream = oneCrossSecDict.lookup("type");
         token crossSecTypeToken;
         crossSecTypeStream.read(crossSecTypeToken);
-        std::string crossSecTypeStr = crossSecTypeToken.stringToken();
+        if(!crossSecTypeToken.isWord())
+            FatalErrorInFunction<<"Invalid token type in structure/structureDict/crossSections/"<<oneCrossSec<<"/type"<<exit(FatalError);
+        word crossSecTypeStr = crossSecTypeToken.wordToken();
 
         if(crossSecTypeStr=="circle")
         {
@@ -203,7 +228,8 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
         else
             FatalErrorInFunction<<"Invalid CrossSection type:"<<crossSecTypeStr<<" -- {circle,cylinder,twistedCylinder,fullyParam}"<<exit(FatalError);
     }
-
+    if(crossSec.size()!=nR)
+        FatalErrorInFunction<<"Mismatch in crossSection and rod number"<<exit(FatalError);
     return crossSec;
 }
 

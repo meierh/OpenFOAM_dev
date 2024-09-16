@@ -10,17 +10,18 @@ class FixedTemperatureAction : public TemperatureInteraction
     public:
         explicit FixedTemperatureAction
         (
-            fvMesh& mesh,
+            const fvMesh& mesh,
             LineStructure& structure,
             volScalarField& input_T,
             volScalarField& output_Tf,
-            scalar temperature
+            const IOdictionary& structureDict
         );
         
     protected:
         scalar getTemperature(const LagrangianMarker* marker);
         
     private:
+        scalar readTemperatureFromDict();
         scalar fixedTemperature;
 };
 

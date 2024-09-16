@@ -2,15 +2,15 @@
 
 Foam::MeshRefiner::MeshRefiner
 (
-    volScalarField& doRefine,
-    const LineStructure& structure,
     fvMesh& mesh,
-    Time& runTime
+    LineStructure& structure,
+    volScalarField& doRefine,
+    const dictionary& dynamicMeshDict
 ):
 mesh(mesh),
-runTime(runTime),
 structure(structure),
 doRefine(doRefine),
+dynamicMeshDict(dynamicMeshDict),
 fieldRefineDemands("fieldDemands",doRefine),
 markerRefineDemands("markerDemands",doRefine)
 {}

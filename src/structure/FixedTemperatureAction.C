@@ -2,15 +2,15 @@
 
 Foam::FixedTemperatureAction::FixedTemperatureAction
 (
-    fvMesh& mesh,
+    const fvMesh& mesh,
     LineStructure& structure,
     volScalarField& input_T,
     volScalarField& output_Tf,
-    scalar temperature
+    const IOdictionary& structureDict
 ):
-TemperatureInteraction(mesh,structure,input_T,output_Tf),
-fixedTemperature(temperature)
+TemperatureInteraction(mesh,structure,input_T,output_Tf,structureDict)
 {
+    
 }
 
 Foam::scalar Foam::FixedTemperatureAction::getTemperature
@@ -19,4 +19,15 @@ Foam::scalar Foam::FixedTemperatureAction::getTemperature
 )
 {
     return fixedTemperature;
+}
+
+Foam::scalar Foam::FixedTemperatureAction::readTemperatureFromDict()
+{   
+    ITstream rodTemperatureStream = structureDict.lookup("rodTemperature");
+    token rodTemperatureToken;
+    rodTemperatureStream.read(rodTemperatureToken);
+    if(!rodTemperatureToken.isScalar())
+        FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodTemperature -- must be scalar"<<exit(FatalError);
+    scalar temperature = rodTemperatureToken.scalarToken();
+    return temperature;
 }

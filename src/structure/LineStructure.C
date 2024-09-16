@@ -97,16 +97,16 @@ void Foam::LineStructure::setNurbsParameters
     setNurbsCoeff(rodNumber,derivCoeffNumber,dimension,value);
 }
 
-Foam::vector Foam::LineStructure::rodDeriveParam
+Foam::vector Foam::LineStructure::dXdParam
 (
     const LagrangianMarker* marker,
     const Parameter& par
 )
 {
-    return rodDeriveParam(marker->getRodNumber(),marker->getMarkerParameter(),0,0,par);
+    return dXdParam(marker->getRodNumber(),marker->getMarkerParameter(),0,0,par);
 }
 
-Foam::vector Foam::LineStructure::rodDeriveParam
+Foam::vector Foam::LineStructure::dXdParam
 (
     label rodNumber,
     scalar rodParameter,
@@ -128,14 +128,10 @@ Foam::vector Foam::LineStructure::rodDeriveParam
         {
             if(dimension!=ref.dimension)
                 FatalErrorInFunction<<"Dimension mismatch!"<<exit(FatalError);
-            vector d1dC;
-            vector d2dC;
-            vector d3dC;
-            vector rdC;
-            rodEvalDerivCoeff(rodNumber,ref.coeffNumber,dimension,rodParameter,d1dC,d2dC,d3dC,rdC);
             
-            FatalErrorInFunction<<"Implementation missing"<<exit(FatalError);
-            //rodDerive[dimension] += derivCoeff[dimension];
+            vector d1dC,d2dC,d3dC,rdC;
+            rodEvalDerivCoeff(rodNumber,ref.coeffNumber,dimension,rodParameter,d1dC,d2dC,d3dC,rdC);
+            rodDerive += rdC;
         }
     }
     return rodDerive;

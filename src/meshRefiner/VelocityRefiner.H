@@ -9,7 +9,14 @@ namespace Foam
 class VelocityRefiner : public MeshRefiner
 {
     public:
-        explicit VelocityRefiner(volScalarField& doRefine, const LineStructure& structure, fvMesh& mesh, Time& runTime, volVectorField& velocity);
+        explicit VelocityRefiner
+        (
+            volScalarField& doRefine,
+            LineStructure& structure,
+            fvMesh& mesh,
+            const dictionary& dynamicMeshDict,
+            volVectorField& velocity
+        );
 
     protected:
         scalar refineGradient;

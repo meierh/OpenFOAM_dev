@@ -9,7 +9,13 @@ namespace Foam
 class MeshRefiner
 {
     public:
-        explicit MeshRefiner(volScalarField& doRefine, const LineStructure& structure, fvMesh& mesh, Time& runTime);
+        explicit MeshRefiner
+        (
+            fvMesh& mesh,
+            LineStructure& structure,
+            volScalarField& doRefine,
+            const dictionary& dynamicMeshDict
+        );
         virtual ~MeshRefiner() = default;
 
         virtual void adaptMesh();
@@ -24,9 +30,9 @@ class MeshRefiner
         const scalar DONTCARE_LIM = -0.5;
 
         fvMesh& mesh;
-        Time& runTime;
-        const LineStructure& structure;
+        LineStructure& structure;
         volScalarField& doRefine;
+        const dictionary& dynamicMeshDict;
 
         volScalarField fieldRefineDemands;
         virtual void fieldRefinement();

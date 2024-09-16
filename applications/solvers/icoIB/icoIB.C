@@ -60,7 +60,7 @@ Usage
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
-#include "solver.H"
+#include "icoImmersedBoundary.H"
 #include "pimpleSingleRegionControl.H"
 #include "setDeltaT.H"
 
@@ -70,46 +70,12 @@ using namespace Foam;
 
 int main(int argc, char *argv[])
 {
-    argList::addOption
-    (
-        "solver",
-        "name",
-        "Solver name"
-    );
-
     #include "setRootCase.H"
     #include "createTime.H"
-
-    // Read the solverName from the optional solver entry in controlDict
-    word solverName
-    (
-        runTime.controlDict().lookupOrDefault("solver", word::null)
-    );
-
-    // Optionally reset the solver name from the -solver command-line argument
-    args.optionReadIfPresent("solver", solverName);
-
-    // Check the solverName has been set
-    if (solverName == word::null)
-    {
-        args.printUsage();
-
-        FatalErrorIn(args.executable())
-            << "solver not specified in the controlDict or on the command-line"
-            << exit(FatalError);
-    }
-    else
-    {
-        // Load the solver library
-        solver::load(solverName);
-    }
-
-    // Create the default single region mesh
     #include "createMesh.H"
 
-    // Instantiate the selected solver
-    autoPtr<solver> solverPtr(solver::New(solverName, mesh));
-    solver& solver = solverPtr();
+    // Instantiate the solver
+    Foam::solvers::icoImmersedBoundary solver(mesh);
 
     // Create the outer PIMPLE loop and control structure
     pimpleSingleRegionControl pimple(solver.pimple);

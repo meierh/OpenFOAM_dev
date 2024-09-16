@@ -173,6 +173,7 @@ class Structure
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         
     private:
+        bool constructedCoeffDerivedData = false;
         void constructCoeffDerivedData();
         FixedList<gsMatrix<scalar>,3> compute_dRdq(const gsMatrix<scalar>& q);
         gsMatrix<scalar> quaternionMultiply(const gsMatrix<scalar>& q1,const gsMatrix<scalar>& q2);

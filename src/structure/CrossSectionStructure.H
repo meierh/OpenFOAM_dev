@@ -138,15 +138,15 @@ class CrossSectionStructure : public LineStructure
         (
             const fvMesh& mesh,
             std::vector<CrossSection> rodCrossSection,
-            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
-            markerMeshType modusMarkerToField = markerMeshType::Uniform
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         explicit CrossSectionStructure
         (
             const fvMesh& mesh,
             const IOdictionary& stuctureDict,
-            markerMeshType modusFieldToMarker = markerMeshType::Uniform,
-            markerMeshType modusMarkerToField = markerMeshType::Uniform
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
 
         CrossSectionStructure(const CrossSectionStructure&) = delete;
@@ -156,9 +156,8 @@ class CrossSectionStructure : public LineStructure
         
         void setCrossSecParameters(label rodNumber, label fourierCoeffNumber, label derivCoeffNumber, scalar value);
         
-        vector rodDeriveParam(const LagrangianMarker* marker,const Parameter& par) override;
-        vector rodDeriveParam(label rodNumber,scalar rodParameter, scalar angle, scalar radiusFrac,
-const Parameter& par) override;
+        vector dXdParam(const LagrangianMarker* marker,const Parameter& par) override;
+        vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par) override;
         
     private:
         std::vector<CrossSection> createCrossSectionsFromDict(const IOdictionary& stuctureDict);

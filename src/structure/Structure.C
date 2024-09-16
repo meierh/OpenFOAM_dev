@@ -237,7 +237,7 @@ mesh(mesh)
             FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
     }
     
-    constructCoeffDerivedData();
+    //constructCoeffDerivedData();
 }
 
 Foam::Structure::Structure
@@ -267,6 +267,7 @@ mesh(mesh)
     createNurbsStructure();
     createNurbsBoundary();
     setSolverOptions();
+    updateRodCoordinateSystem();
 
     collectMeshHaloData(4);
 
@@ -281,7 +282,7 @@ mesh(mesh)
             FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
     }
     
-    constructCoeffDerivedData();
+    //constructCoeffDerivedData();
 }
 
 Foam::Structure::~Structure()
@@ -697,6 +698,8 @@ void Foam::Structure::setSolverOptions()
     outfile1 << "\n";
     outfile2 << "\n";
     outfile3 << "t\tlf\tfx\tfy\tfz\tenEl\tenU\tenQ\tenVi\tenHa\tenTot\tdiss\n";
+    
+    Info<<"setSolverOptions done"<<Foam::endl;
 }
 
 void Foam::Structure::updateRodCoordinateSystem()
@@ -913,24 +916,31 @@ void Foam::Structure::rodEval
 
 void Foam::Structure::constructCoeffDerivedData()
 {
+    Info<<"constructCoeffDerivedData"<<Foam::endl;
     coeffDerivedCenterline.resize(nR);
     initialRotation.resize(nR);
     coeffDerivedQuaternions.resize(nR);
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
+        Info<<"rodNumber:"<<rodNumber<<Foam::endl;
         ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
         const gsNurbs<scalar>& curve = rod->m_Curve;
+        std::cout<<"curve.coefs:"<<curve.coefs()<<std::endl;
         const gsNurbs<scalar>& rotation = rod->m_Rot;
+        std::cout<<"rotation.coefs:"<<rotation.coefs()<<std::endl;
         int errorCode = rod->bishopFrameS_dQdR0();
+        Info<<"-------"<<Foam::endl;
         if(errorCode==0)
             FatalErrorInFunction<<"Failure to compute Quaternion coefficient derivatives"<<exit(FatalError);
         const gsMatrix<scalar>& dQdR = rod->m_Curve_dQdR0;
-
+        std::cout<<"dQdR:"<<dQdR<<std::endl;
+        
         coeffDerivedCenterline[rodNumber].resize(numberCoeffs(rodNumber));
         initialRotation[rodNumber] = rotation;
         coeffDerivedQuaternions[rodNumber].resize(numberCoeffs(rodNumber));
         for(label coeffNumber=0; coeffNumber<numberCoeffs(rodNumber); coeffNumber++)
         {
+            Info<<"coeffNumber:"<<coeffNumber<<Foam::endl;
             //Create centerline coefficient derivative curve
             coeffDerivedCenterline[rodNumber][coeffNumber].resize(3);
             for(label dim=0; dim<3; dim++)
@@ -970,6 +980,8 @@ void Foam::Structure::constructCoeffDerivedData()
             }
         }
     }
+    Info<<"constructCoeffDerivedData done"<<Foam::endl;
+    constructedCoeffDerivedData = true;
 }
 
 Foam::FixedList<gsMatrix<Foam::scalar>,3> Foam::Structure::compute_dRdq
@@ -1041,7 +1053,8 @@ Foam::label Foam::Structure::numberCoeffs
 {
     const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
     const gsNurbs<scalar>& curve = rod->m_Curve;
-    return curve.coefs().cols();
+    std::cout<<"curve.coefs():"<<curve.coefs()<<std::endl;
+    return curve.coefs().rows();
 }
 
 void Foam::Structure::rodEvalDerivCoeff
@@ -1056,6 +1069,9 @@ void Foam::Structure::rodEvalDerivCoeff
     vector& rdC
 )
 {
+    if(!constructedCoeffDerivedData)
+        FatalErrorInFunction<<"Data for deriv coeff data not given!"<<exit(FatalError);
+        
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
     

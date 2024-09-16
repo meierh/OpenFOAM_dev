@@ -13,7 +13,8 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
             const fvMesh& mesh,
             LineStructure& structure,
             volScalarField& input_T,
-            volScalarField& output_Tf
+            volScalarField& output_Tf,
+            const IOdictionary& structureDict
         );
         
         void solve() override;
@@ -35,6 +36,8 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         );
         
         scalar getTemperature(const LagrangianMarker* marker);
+    
+        const IOdictionary& structureDict;
         
     private:
         volScalarField& input_T;

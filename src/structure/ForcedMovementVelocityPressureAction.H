@@ -13,12 +13,14 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
             const fvMesh& mesh,
             LineStructure& structure,
             volVectorField& input_U,
-            volVectorField& output_Uf
+            volVectorField& output_Uf,
+            const IOdictionary& structureDict
         );
         
     private:
+        const IOdictionary& structureDict;
         vector getVelocity(const LagrangianMarker* marker);
-
+        std::unique_ptr<List<List<vector>>> readMovementFromDict();
 };
 
 }

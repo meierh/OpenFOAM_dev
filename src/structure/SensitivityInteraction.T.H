@@ -8,7 +8,7 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamFieldToMarker
     std::function<T(const LagrangianMarker*)> convolution;
     convolution = [this,&parameter](const LagrangianMarker* marker, std::function<T(Pair<label>)> valueFunction)
     {
-        vector dX_dParam = structure.rodDeriveParam(marker,parameter);
+        vector dX_dParam = structure.dXdParam(marker,parameter);
         
         std::function<scalar(vector,vector)> weightFunction;
         if(modusFieldToMarker==markerMeshType::Uniform)
@@ -55,7 +55,7 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamMarkerToField
         const vector& oneMarkerPos = oneMarker.getMarkerPosition();
         const DynamicList<Pair<label>>& supportCells = oneMarker.getSupportCells();
         
-        vector dX_dParam = structure.rodDeriveParam(&oneMarker,parameter);
+        vector dX_dParam = structure.dXdParam(&oneMarker,parameter);
 
         for(label suppInd=0; suppInd<supportCells.size(); suppInd++)
         {
@@ -133,7 +133,7 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamMarkerToField
                 scalar angle = std::get<10>(haloMarkerData);
                 scalar radiusFrac = std::get<11>(haloMarkerData);
                 
-                vector dX_dParam = structure.rodDeriveParam(rodNumber,param,angle,radiusFrac,parameter);
+                vector dX_dParam = structure.dXdParam(rodNumber,param,angle,radiusFrac,parameter);
                 
                 scalar weight = gHM.getMarkerWeight(proc,haloCellInd,markerInd);
                 T fieldValue = thisHaloCellMarkeField[markerInd];
