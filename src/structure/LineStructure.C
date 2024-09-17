@@ -68,6 +68,34 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {}
 
+Foam::vector Foam::LineStructure::evaluateRodVelocity
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    scalar currentTime = mesh.time().value();
+    vector currentPosition = evaluateRodPos(Rods[rodNumber],parameter);
+    
+    const std::pair<gsNurbs<scalar>,scalar>* prevDef = readPrevRodDeformation(rodNumber);
+    const std::pair<gsNurbs<scalar>,scalar>* prevRot = readPrevRodRotation(rodNumber);
+    
+    if(prevDef==nullptr || prevRot==nullptr)
+        return vector(0,0,0);
+    
+    scalar prevTime = prevDef->second;
+    if(prevTime!=prevRot->second)
+        FatalErrorInFunction<<"Mismatch in prev time stamps"<<exit(FatalError);
+    scalar deltaT = currentTime-prevTime;
+    
+    vector previousPosition;
+    rodEval(Rods[rodNumber]->m_Curve,prevDef->first,parameter,previousPosition);
+    
+    return (currentPosition-previousPosition)/deltaT;
+}
+
 void Foam::LineStructure::to_string()
 {
     Info<<"-------LineStructure::Markers-------"<<Foam::endl;

@@ -238,6 +238,8 @@ mesh(mesh)
     }
     
     //constructCoeffDerivedData();
+    prevDeformations.resize(nR);
+    prevRotations.resize(nR);
 }
 
 Foam::Structure::Structure
@@ -283,6 +285,8 @@ mesh(mesh)
     }
     
     //constructCoeffDerivedData();
+    prevDeformations.resize(nR);
+    prevRotations.resize(nR);    
 }
 
 Foam::Structure::~Structure()
@@ -783,6 +787,78 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
 }
 
+const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodDeformation
+(
+    label rodNumber
+)
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    std::pair<gsNurbs<scalar>,scalar>* prevDef = nullptr;
+    if(prevDeformations[rodNumber])
+        prevDef = prevDeformations[rodNumber].get();
+    return prevDef;
+}
+
+const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodRotation
+(
+    label rodNumber
+)
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    std::pair<gsNurbs<scalar>,scalar>* prevRot = nullptr;
+    if(prevRotations[rodNumber])
+        prevRot = prevRotations[rodNumber].get();
+    return prevRot;
+}
+
+void Foam::Structure::setDeformation
+(
+    const List<List<vector>>& deformationCoeffs
+)
+{
+    if(deformationCoeffs.size()!=nR)
+        FatalErrorInFunction<<"Mismatch in number of deformationCoeffs and number of rods!"<<exit(FatalError);
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        setDeformation(rodNumber,deformationCoeffs[rodNumber]);
+    }
+}
+
+void Foam::Structure::setDeformation
+(
+    int rodNumber,
+    const List<vector>& deformationCoeffs
+)
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    gsNurbs<scalar>& def = Rods[rodNumber]->m_Def;
+    gsMatrix<scalar>& defCoeffs = def.coefs();
+    if(defCoeffs.rows()!=deformationCoeffs.size())
+        FatalErrorInFunction<<"Mismatch in deformation coefficient number!"<<exit(FatalError);
+    if(defCoeffs.cols()!=3)
+        FatalErrorInFunction<<"Invalid coefficient dimension!"<<exit(FatalError);
+    
+    if(!prevDeformations[rodNumber])
+        prevDeformations[rodNumber] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
+    prevDeformations[rodNumber]->first = Rods[rodNumber]->m_Def;
+    prevDeformations[rodNumber]->second = mesh.time().value();
+    
+    if(!prevRotations[rodNumber])
+        prevRotations[rodNumber] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
+    prevRotations[rodNumber]->first = Rods[rodNumber]->m_Rot;
+    prevRotations[rodNumber]->second = mesh.time().value();
+    
+    for(label coeffNum=0; coeffNum<deformationCoeffs.size(); coeffNum++)
+    {
+        defCoeffs(coeffNum,0) = deformationCoeffs[coeffNum][0];
+        defCoeffs(coeffNum,1) = deformationCoeffs[coeffNum][1];
+        defCoeffs(coeffNum,2) = deformationCoeffs[coeffNum][2];        
+    }
+}
+
 void Foam::Structure::store()
 {
     std::vector<gsNurbs<scalar>>& timeDefs = storage[mesh.time().value()];
@@ -866,24 +942,46 @@ void Foam::Structure::rodEval
     vector& d3,
     vector& r
 )
+{   
+    rodEval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,d1,d2,d3,r);
+}
+
+void Foam::Structure::rodEval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter,
+    vector& r
+)
+{    
+    rodEval(rod->m_Curve,rod->m_Def,parameter,r);
+}
+
+void Foam::Structure::rodEval
+(
+    const gsNurbs<scalar>& curve,
+    const gsNurbs<scalar>& def,
+    const gsNurbs<scalar>& rot,
+    scalar parameter,
+    vector& d1,
+    vector& d2,
+    vector& d3,
+    vector& r
+)
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
         
     gsMatrix<scalar> basePnt;
-    const gsNurbs<scalar>& curve = rod->m_Curve;
     curve.eval_into(parMat,basePnt);
 
     gsMatrix<scalar> defPnt;
-    const gsNurbs<scalar>& def = rod->m_Def;
     def.eval_into(parMat,defPnt);
     
     gsMatrix<scalar> pnt = basePnt+defPnt;    
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 
     gsMatrix<scalar> rotQuat;
-    const gsNurbs<scalar>& quat = rod->m_Rot;
-    quat.eval_into(parMat,rotQuat);
+    rot.eval_into(parMat,rotQuat);
     gsMatrix<scalar,3,3> R;
     ActiveRodMesh::quat_R(rotQuat,R);
     
@@ -894,7 +992,8 @@ void Foam::Structure::rodEval
 
 void Foam::Structure::rodEval
 (
-    const ActiveRodMesh::rodCosserat* rod,
+    const gsNurbs<scalar>& curve,
+    const gsNurbs<scalar>& def,
     scalar parameter,
     vector& r
 )
@@ -903,11 +1002,9 @@ void Foam::Structure::rodEval
     parMat.at(0) = parameter;
         
     gsMatrix<scalar> basePnt;
-    const gsNurbs<scalar>& curve = rod->m_Curve;
     curve.eval_into(parMat,basePnt);
 
     gsMatrix<scalar> defPnt;
-    const gsNurbs<scalar>& def = rod->m_Def;
     def.eval_into(parMat,defPnt);
     
     gsMatrix<scalar> pnt = basePnt+defPnt;    

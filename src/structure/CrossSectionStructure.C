@@ -28,6 +28,38 @@ rodCrossSection(createCrossSectionsFromDict(stuctureDict))
     initialize();
 }
 
+Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    scalar currentTime = mesh.time().value();
+    vector currentPosition = evaluateRodCircumPos(Rods[rodNumber],parameter,&(rodCrossSection[rodNumber]),angle,radiusFrac);
+    
+    const std::pair<gsNurbs<scalar>,scalar>* prevDef = readPrevRodDeformation(rodNumber);
+    const std::pair<gsNurbs<scalar>,scalar>* prevRot = readPrevRodRotation(rodNumber);
+    
+    if(prevDef==nullptr || prevRot==nullptr)
+        return vector(0,0,0);
+    
+    scalar prevTime = prevDef->second;
+    if(prevTime!=prevRot->second)
+        FatalErrorInFunction<<"Mismatch in prev time stamps"<<exit(FatalError);
+    scalar deltaT = currentTime-prevTime;
+    
+    vector prevR,prevD1,prevD2,prevD3;
+    rodEval(Rods[rodNumber]->m_Curve,prevDef->first,prevRot->first,parameter,prevD1,prevD2,prevD3,prevR);
+    scalar radius = rodCrossSection[rodNumber](parameter,angle)*radiusFrac;
+    vector coordXDir = std::cos(angle)*radius*prevD1;
+    vector coordYDir = std::sin(angle)*radius*prevD2;
+    vector previousPosition = prevR+coordXDir+coordYDir;
+    
+    return (currentPosition-previousPosition)/deltaT;
+}
+
 void Foam::CrossSectionStructure::to_string()
 {
     Info<<"---CrossSectionStructure::Markers---"<<Foam::endl;

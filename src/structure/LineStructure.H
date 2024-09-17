@@ -369,7 +369,7 @@ class LineStructure : public Structure
         
         //void connect(FieldMarkerStructureInteraction& connector);
 
-        void createMarkers();
+        //void createMarkers();
 
         void reInitializeMarkers(bool keepMarkers=false,bool keepSeedPoints=false);
 
@@ -378,18 +378,19 @@ class LineStructure : public Structure
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter
         );
+        
+        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac);
 
-        void test();
+        //void test();
         
         virtual void to_string();
         
-        void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         
+        //Optimization related methods
+        void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         virtual vector dXdParam(const LagrangianMarker* marker,const Parameter& par);
         virtual vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par);
-        
         void store() override;
-        
         void setToTime(scalar time) override;
 
     protected:

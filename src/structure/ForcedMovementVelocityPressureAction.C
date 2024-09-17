@@ -15,6 +15,14 @@ structureDict(structureDict)
     readMovementFromDict();
 }
 
+void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
+{
+    std::unique_ptr<List<List<vector>>> deformationCoeffsPtr = readMovementFromDict();
+    List<List<vector>> deformationCoeffs = *deformationCoeffsPtr;
+    
+    
+}
+
 Foam::vector Foam::ForcedMovementVelocityPressureAction::getVelocity
 (
     const LagrangianMarker* marker

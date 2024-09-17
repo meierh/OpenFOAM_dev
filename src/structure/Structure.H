@@ -159,7 +159,17 @@ class Structure
             std::vector<scalar> weights,
             std::vector<vector> coefficients
         );
-
+        
+    private:
+        std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>> prevDeformations;
+        std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>> prevRotations;
+    protected:
+        const std::pair<gsNurbs<scalar>,scalar>* readPrevRodDeformation(label rodNumber);
+        const std::pair<gsNurbs<scalar>,scalar>* readPrevRodRotation(label rodNumber);
+    public:
+        void setDeformation(const List<List<vector>>& deformationCoeffs);
+        void setDeformation(label rodNumber, const List<vector>& deformationCoeffs);
+        
     private:
         std::map<scalar,std::vector<gsNurbs<scalar>>> storage;
     public:
@@ -171,6 +181,9 @@ class Structure
         static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
+        static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
+        static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, scalar parameter, vector& r);
+        
         
     private:
         bool constructedCoeffDerivedData = false;

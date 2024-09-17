@@ -16,6 +16,8 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
             volVectorField& output_Uf
         );
         
+        void preSolveMovement() override {}
+        
     private:
         vector getVelocity(const LagrangianMarker* marker);
 

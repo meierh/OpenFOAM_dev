@@ -17,6 +17,8 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
             const IOdictionary& structureDict
         );
         
+        void preSolveMovement() override;
+        
     private:
         const IOdictionary& structureDict;
         vector getVelocity(const LagrangianMarker* marker);

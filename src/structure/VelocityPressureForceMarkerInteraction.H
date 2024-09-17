@@ -16,6 +16,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
             volVectorField& output_Uf
         );
 
+        virtual void preSolveMovement()=0;
+        
         void solve() override;
         
         void store() override;
