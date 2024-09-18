@@ -51,58 +51,10 @@
 #include "fvPatchField.H"
 #include "fvFieldSource.H"
 #include <array>
+#include "BoundingBox.H"
 
 namespace Foam
 {
-
-class BoundingBox
-{
-    public:
-        BoundingBox(){}
-        BoundingBox(vector smaller, vector larger):smaller(smaller),larger(larger){}
-        BoundingBox operator+(const BoundingBox& rhs) const;
-        BoundingBox U(const BoundingBox& rhs) const;
-        void enlarge(scalar size);
-        bool inside(vector point, scalar eps=0) const;
-        scalar innerSize();
-        
-        static BoundingBox boundsOfCoefficients(const gsMatrix<scalar>& coefs);
-        static BoundingBox boundsOfNurbs(const gsNurbs<scalar>& curve);
-        static BoundingBox boundsOfNurbs(gsNurbs<scalar> curve, scalar start, scalar end);
-        
-    private:
-        vector smaller;
-        vector larger;
-};
-    
-template<class Key,class Value>
-class BinaryTree
-{
-    public:
-        BinaryTree& operator=(const BinaryTree& rhs);
-        const Value* find(const Key& key);
-        class Node
-        {
-            public:
-                Node(){}
-                Node(const Node& other);
-                Key key;
-                Value value;
-                std::unique_ptr<Node> leftChild;
-                std::unique_ptr<Node> rightChild;
-        };
-        
-    protected:
-        std::unique_ptr<Node> root;
-};
-
-class BoundingBoxTree : public BinaryTree<scalar,BoundingBox>
-{
-    public:
-        BoundingBoxTree& operator=(const BoundingBoxTree& rhs);
-        void findPointParameters(std::vector<scalar>& parameters, vector point) const;
-        std::unique_ptr<Node>& getRoot(){return root;}
-};
 
 template<typename A,typename B>
 struct stdPairHash
@@ -137,10 +89,11 @@ class Structure
             const Time& runTime
         );
         virtual ~Structure();
+        void cleanupActiveRodMesh();
         Structure(const Structure&) = delete;
         
         label getNumberRods() const;
-        label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod);
+        label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod) const;
         
         void solveOneStep();
         
@@ -160,22 +113,37 @@ class Structure
             std::vector<vector> coefficients
         );
         
+    // --------------- Rod setting method ---------------
+        void getCurveCoeffs(List<List<vector>>& coeffs) const;
+        void setCurveCoeffs(const List<List<vector>>& coeffs);
+    private:
+        void setCurveCoeff(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
+    // --------------- ------------------ ---------------
+        
+    // --------------- Rod movement methods ---------------
     private:
         std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>> prevDeformations;
         std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>> prevRotations;
     protected:
-        const std::pair<gsNurbs<scalar>,scalar>* readPrevRodDeformation(label rodNumber);
-        const std::pair<gsNurbs<scalar>,scalar>* readPrevRodRotation(label rodNumber);
+        const std::pair<gsNurbs<scalar>,scalar>* readPrevRodDeformation(label rodNumber) const;
+        const std::pair<gsNurbs<scalar>,scalar>* readPrevRodRotation(label rodNumber) const;
     public:
         void setDeformation(const List<List<vector>>& deformationCoeffs);
         void setDeformation(label rodNumber, const List<vector>& deformationCoeffs);
+        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const = 0;
+    // ----------------- ------------------------- -----------------
         
+    // ----------------- --------------- -----------------
+        
+    // ----------------- Storage methods -----------------
     private:
         std::map<scalar,std::vector<gsNurbs<scalar>>> storage;
     public:
         virtual void store();
         virtual void setToTime(scalar time);
+    // ----------------- --------------- -----------------
         
+    // ----------------- Rod evaluation methods -----------------
         static vector rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
@@ -183,8 +151,9 @@ class Structure
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, scalar parameter, vector& r);
+    // ----------------- ---------------------- -----------------
         
-        
+    // ----------------- Rod coefficient derivation methods -----------------
     private:
         bool constructedCoeffDerivedData = false;
         void constructCoeffDerivedData();
@@ -210,16 +179,15 @@ class Structure
             vector& d3dC,
             vector& rdC
         );
-        
-        void setNurbsCoeff(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
+    // ----------------- ---------------------------------- -----------------
         
         const scalar initialMeshSpacing;
-        
         const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourhoodProcesses;}
-        
         const List<List<Pair<label>>>& getMeshGraph() const {return meshGraph;}
         
     protected:
+
+    // -------------------------------- ActiveRodMesh Setup --------------------------------
         const Time& runTime;
         const fileName runDirectory;
         const fileName caseName;
@@ -229,10 +197,13 @@ class Structure
         word xmlFromDict(const IOdictionary& stuctureDict);
         word getName();
         int loadRodsFromXML();
+        void createRodScaling();
         void createNurbsStructure();
         void createNurbsBoundary();
         void setSolverOptions();
-        void createDeformationCurve();
+        //void createDeformationCurve();
+        void updateRodCoordinateSystem();
+        void checkActiveRodMesh();
         std::unique_ptr<ActiveRodMesh::rodMesh> myMesh;
         std::vector< ActiveRodMesh::rodCrossSection* > Geo;
         std::vector< ActiveRodMesh::rodCosserat* > Rods;
@@ -240,33 +211,7 @@ class Structure
         std::vector<gsNurbs<double>> rodsList;
         const int nR; // Number of Rods
         std::string folder;
-        
-        List<bool> rodInMesh;
-        List<BoundingBoxTree> rodTrees;
-        /*
-        BoundingBox computeBox
-        (
-            const gsMatrix<scalar>& coefs
-        );
-        */
-        virtual BoundingBox computeBox
-        (
-            label rodNumber
-        );
-        virtual BoundingBox computeBox
-        (
-            label rodNumber,
-            scalar parStart,
-            scalar parEnd
-        );
-        virtual scalar characteristicSize
-        (
-            label rodNumber,
-            scalar par
-        );
-        void buildTrees();
-        void buildTreeOnRod(label rodNumber);
-        
+        void setupActiveRodMesh();
         //******************* Parameters *******************//
             double    latScale;// = 1;			// Scaling factor for XML geometry
             const int	latDir = 2;				// Lattice direction (e.g. for gravity load)
@@ -308,21 +253,51 @@ class Structure
             
             //Solver options
             ActiveRodMesh::SolveOptions solveOpt;
-
-
         //******************* Parameters *******************//
-        const fvMesh& mesh;
-
-        void updateRodCoordinateSystem();
-
-        std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
+    // -------------------------------- ------------------ --------------------------------
         
+    // ----------------- RodBoundingBox setup -----------------
+        List<bool> rodInMesh;
+        List<BoundingBoxTree> rodTrees;
+        /*
+        BoundingBox computeBox
+        (
+            const gsMatrix<scalar>& coefs
+        );
+        */
+        virtual BoundingBox computeBox
+        (
+            label rodNumber
+        );
+        virtual BoundingBox computeBox
+        (
+            label rodNumber,
+            scalar parStart,
+            scalar parEnd
+        );
+        virtual scalar characteristicSize
+        (
+            label rodNumber,
+            scalar par
+        );
+        void buildTrees();
+        void buildTreeOnRod(label rodNumber);
+        void setupRodBoundingBoxTree();
+    public:
+        const List<bool>& getRodInMesh() {return rodInMesh;};
+    // ----------------- -------------------- -----------------
+
+    protected:
+        const fvMesh& mesh;
+        BoundingBox meshBoundingBox;
+        BoundingBox computeMeshBoundingBox();
+        
+        std::pair<scalar,scalar> minMaxSpan (const cell& thisCell);
         void cellDistances
         (
             const cell& thisCell,
             std::vector<scalar>&
         );
-        
         scalar supportDomainMinSize(const DynamicList<label>& supportDomainCells);
 
     public:

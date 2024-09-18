@@ -6,11 +6,13 @@ Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
     const fvMesh& mesh,
     LineStructure& structure,
     volVectorField& input_U,
-    volVectorField& output_Uf
+    volVectorField& output_Uf,
+    std::shared_ptr<MeshRefiner> refinement_
 ):
 FieldMarkerStructureInteraction(mesh,structure),
 input_U(input_U),
-output_Uf(output_Uf)
+output_Uf(output_Uf),
+refinement_(refinement_)
 {
 }
 
@@ -72,6 +74,34 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
 void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
     markerToField<vector>(makerCouplingForce,output_Uf);
+}
+
+void Foam::VelocityPressureForceInteraction::moveRodsAndMarkers()
+{
+    List<bool> prevRodInMesh = structure.getRodInMesh();
+    std::unique_ptr<List<List<vector>>> defPtr = getDeformation();
+    if(defPtr)
+    {
+        structure.setDeformation(*defPtr);
+        structure.moveMarkersOnRodMovement();
+        const List<bool>& rodInMesh = structure.getRodInMesh();
+        for(label rodNumber=0; rodNumber<prevRodInMesh.size(); rodNumber++)
+        {
+            if(!prevRodInMesh[rodNumber])
+            {
+                if(rodInMesh[rodNumber])
+                {
+                    structure.createMarkersOnRod(rodNumber);
+                }
+            }
+        }
+        if(refinement_)
+        {
+            refinement_->refineMeshOnStaticMarkers();
+            refinement_->refineMeshAndMarkers();
+        }
+        structure.finalizeMarkers();    
+    }
 }
 
 Foam::vector Foam::VelocityPressureForceInteraction::sumForces

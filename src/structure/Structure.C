@@ -1,202 +1,5 @@
 #include "Structure.H"
 
-Foam::BoundingBox Foam::BoundingBox::operator+
-(
-    const BoundingBox& rhs
-) const
-{
-    BoundingBox result;
-    result.smaller = this->smaller + rhs.smaller;
-    result.larger = this->larger + rhs.larger;
-    return result;
-}
-
-Foam::BoundingBox Foam::BoundingBox::U
-(
-    const BoundingBox& rhs
-) const
-{
-    BoundingBox result;
-    for(label dim=0; dim<3; dim++)
-    {
-        result.smaller[dim] = std::min(this->smaller[dim],rhs.smaller[dim]);
-        result.larger[dim] = std::max(this->larger[dim],rhs.larger[dim]);
-    }
-    return result;
-}
-
-void Foam::BoundingBox::enlarge
-(
-    scalar size
-)
-{
-    for(label d=0; d<3; d++)
-    {
-        larger[d]+=size;
-        smaller[d]-=size;
-    }
-}
-
-bool Foam::BoundingBox::inside
-(
-    vector point,
-    scalar eps    
-) const
-{
-    bool inside = true;
-    for(label d=0; d<3; d++)
-    {
-        if(point[d]>larger[d]+eps)
-            inside = false;
-        if(point[d]<=smaller[d]+eps)
-            inside = false;
-    }
-    return inside;
-}
-
-Foam::scalar Foam::BoundingBox::innerSize()
-{
-    vector diag = larger-smaller;
-    return std::sqrt(diag&diag);
-}
-
-Foam::BoundingBox Foam::BoundingBox::boundsOfCoefficients
-(
-    const gsMatrix<scalar>& coefs
-)
-{
-    if(coefs.rows()!=3 || coefs.cols()<1)
-        FatalErrorInFunction<<"Invalid coefs size"<<exit(FatalError);
-    vector lowerCurve,upperCurve;
-    lowerCurve = upperCurve = vector(coefs(0,0),coefs(0,1),coefs(0,2));
-    for(label col=0; col<coefs.cols(); col++)
-    {
-        for(label row=0; row<3; row++)
-        {
-            if(lowerCurve[row]>coefs(col,row))
-                lowerCurve[row] = coefs(col,row);
-            if(upperCurve[row]<coefs(col,row))
-                upperCurve[row] = coefs(col,row);
-        }
-    }
-    return BoundingBox(lowerCurve,upperCurve);
-}
-
-Foam::BoundingBox Foam::BoundingBox::boundsOfNurbs
-(
-    const gsNurbs<scalar>& curve
-)
-{
-    return BoundingBox::boundsOfCoefficients(curve.coefs());
-}
-
-Foam::BoundingBox Foam::BoundingBox::boundsOfNurbs
-(
-    gsNurbs<scalar> curve,
-    scalar start,
-    scalar end
-)
-{
-    std::unordered_set<label> knotSet;
-    for(scalar knot : curve.knots())
-        knotSet.insert(knot);
-
-    if(knotSet.find(start)==knotSet.end())
-        curve.insertKnot(start);
-    if(knotSet.find(end)==knotSet.end())
-        curve.insertKnot(end);
-
-    label degree = curve.knots().degree();
-    label knot_start = -1;
-    label knot_end = -1;
-    for(std::size_t knotI=0; knotI<curve.knots().size()-1; knotI++)
-    {
-        scalar knot_i0 = curve.knots()[knotI];
-        scalar knot_i1 = curve.knots()[knotI+1];
-        
-        if(knot_i0==start && knot_i0!=knot_i1)
-        {
-            if(knot_start!=-1)
-                FatalErrorInFunction<<"Duplicate assigned"<<exit(FatalError);
-            knot_start=static_cast<label>(knotI);
-        }
-        if(knot_i1==end && knot_i0!=knot_i1)
-        {
-            if(knot_end!=-1)
-                FatalErrorInFunction<<"Duplicate assigned"<<exit(FatalError);
-            knot_end=static_cast<label>(knotI+1);
-        }
-    }
-    if(knot_start==-1 || knot_end==-1)
-        FatalErrorInFunction<<"Not assigned"<<exit(FatalError);
-
-    label coeff_start = knot_start-degree;
-    label coeff_end = knot_end-1;
-
-    if(curve.coefs().rows()!=3)
-        FatalErrorInFunction<<"Rows number out of range"<<exit(FatalError);
-    if(coeff_start<0 || coeff_start>=curve.coefs().cols())
-        FatalErrorInFunction<<"Coeff start out of range"<<exit(FatalError);
-    if(coeff_end<0 || coeff_end>=curve.coefs().cols())
-        FatalErrorInFunction<<"Coeff start out of range"<<exit(FatalError);
-
-    gsMatrix<scalar> coeffs(coeff_end-coeff_start+1,3);
-    label ind=0;
-    for(label c_s=coeff_start; c_s<coeff_end+1; c_s++,ind++)
-    {
-        for(label d=0; d<3; d++)
-        {
-            coeffs(ind,d) = curve.coefs()(c_s,d);
-        }
-    }
-    if(ind!=coeffs.cols())
-        FatalErrorInFunction<<"Size mismatch"<<exit(FatalError);
-    return BoundingBox::boundsOfCoefficients(coeffs);
-}
-
-Foam::BoundingBoxTree& Foam::BoundingBoxTree::operator=
-(
-    const BoundingBoxTree& rhs
-)
-{
-    root = std::make_unique<Node>(*(rhs.root));
-    return *this;
-}
-
-void Foam::BoundingBoxTree::findPointParameters
-(
-    std::vector<scalar>& parameters,
-    vector point
-) const
-{
-    std::function<void(const Node*)> recursiveGoDown = [&](const Node* curr)
-    {
-        if(curr->leftChild && curr->rightChild)
-        {
-            if(curr->leftChild->value.inside(point))
-                recursiveGoDown(curr->leftChild.get());
-            if(curr->rightChild->value.inside(point))
-                recursiveGoDown(curr->rightChild.get());
-        }
-        else
-        {
-            parameters.push_back(curr->key);
-            if(curr->leftChild && curr->leftChild->value.inside(point))
-                recursiveGoDown(curr->leftChild.get());
-            if(curr->rightChild && curr->rightChild->value.inside(point))
-                recursiveGoDown(curr->rightChild.get());
-        }
-    };
-    
-    if(root)
-    {
-        if(root->value.inside(point))
-        {
-            recursiveGoDown(root.get());
-        }
-    }
-}
-
 Foam::Structure::Structure
 (
     const fvMesh& mesh,
@@ -209,37 +12,12 @@ caseName(runTime.caseName()),
 xmlPath(getXMLPath()),
 name(getName()),
 nR(loadRodsFromXML()),
-mesh(mesh)
+mesh(mesh),
+meshBoundingBox(computeMeshBoundingBox())
 {
-    cntOpt.ptsType = 2;
-    cntOpt.ptsN = 2;
-    cntOpt.csFac = 2.0;
-    cntOpt.preg = 0.02 * geoR0; 
-    cntOpt.kc = 0.2 * geoE0*geoR0*geoR0; 
-    cntOpt.initOut = 0;
-    
-    folder = runDirectory+"/"+caseName;
-
-    createNurbsStructure();
-    createNurbsBoundary();
-    setSolverOptions();
-       
     collectMeshHaloData(4);
-    
-    for(label rodI=0; rodI<nR; rodI++)
-    {
-        const ActiveRodMesh::rodCosserat* rod = Rods[rodI];
-        const gsNurbs<scalar>& curve = rod->m_Curve;
-        const gsNurbs<scalar>& deformation = rod->m_Def;
-        if(curve.domainStart()!=deformation.domainStart())
-            FatalErrorInFunction<<"Mismatch in curve and deformation start"<<exit(FatalError);
-        if(curve.domainEnd()!=deformation.domainEnd())
-            FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
-    }
-    
-    //constructCoeffDerivedData();
-    prevDeformations.resize(nR);
-    prevRotations.resize(nR);
+    setupActiveRodMesh();
+    setupRodBoundingBoxTree();
 }
 
 Foam::Structure::Structure
@@ -255,42 +33,17 @@ caseName(runTime.caseName()),
 xmlPath(xmlFromDict(stuctureDict)),
 name(getName()),
 nR(loadRodsFromXML()),
-mesh(mesh)
+mesh(mesh),
+meshBoundingBox(computeMeshBoundingBox())
 {
-    cntOpt.ptsType = 2;
-    cntOpt.ptsN = 2;
-    cntOpt.csFac = 2.0;
-    cntOpt.preg = 0.02 * geoR0;
-    cntOpt.kc = 0.2 * geoE0*geoR0*geoR0;
-    cntOpt.initOut = 0;
-
-    folder = runDirectory+"/"+caseName;
-
-    createNurbsStructure();
-    createNurbsBoundary();
-    setSolverOptions();
-    updateRodCoordinateSystem();
-
     collectMeshHaloData(4);
-
-    for(label rodI=0; rodI<nR; rodI++)
-    {
-        const ActiveRodMesh::rodCosserat* rod = Rods[rodI];
-        const gsNurbs<scalar>& curve = rod->m_Curve;
-        const gsNurbs<scalar>& deformation = rod->m_Def;
-        if(curve.domainStart()!=deformation.domainStart())
-            FatalErrorInFunction<<"Mismatch in curve and deformation start"<<exit(FatalError);
-        if(curve.domainEnd()!=deformation.domainEnd())
-            FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
-    }
-    
-    //constructCoeffDerivedData();
-    prevDeformations.resize(nR);
-    prevRotations.resize(nR);    
+    setupActiveRodMesh();
+    setupRodBoundingBoxTree();
 }
 
 Foam::Structure::~Structure()
 {
+    /*
     for (int i = 0; i < nR; i++)
 	{
 		//delete Geo[i];
@@ -298,6 +51,16 @@ Foam::Structure::~Structure()
 	}
 	Geo.clear();
 	Rods.clear();
+	*/
+    cleanupActiveRodMesh();
+}
+
+void Foam::Structure::cleanupActiveRodMesh()
+{
+	for(std::size_t i=0; i<Rods.size(); i++)
+        delete Rods[i];
+    Geo.clear();
+	Rods.clear(); 
 }
 
 Foam::word Foam::Structure::getXMLPath()
@@ -370,6 +133,11 @@ int Foam::Structure::loadRodsFromXML()
         FatalIOError<<"Importing of Nurbs into rodMesh failed"<<exit(FatalIOError);
     }
 	const int  nR = rodsList.size();
+    return nR;
+}
+
+void Foam::Structure::createRodScaling()
+{
     //Info<<"rodsList.size():"<<rodsList.size()<<endl;
 
     //Info<<"nR:"<<nR<<endl;
@@ -437,9 +205,7 @@ int Foam::Structure::loadRodsFromXML()
     //printf("Rods:  %i\n", nR);
     //printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
     
-    //FatalIOError<<"Temp Stop"<<exit(FatalIOError);
-    
-    return nR;
+    //FatalIOError<<"Temp Stop"<<exit(FatalIOError);    
 }
 
 void Foam::Structure::createNurbsStructure()
@@ -706,6 +472,54 @@ void Foam::Structure::setSolverOptions()
     Info<<"setSolverOptions done"<<Foam::endl;
 }
 
+void Foam::Structure::checkActiveRodMesh()
+{
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        if(rodsList[rodNumber].coefs()!=Rods[rodNumber]->m_Curve.coefs())
+            FatalErrorInFunction<<"Mismatch in basis coefficients!"<<exit(FatalError);
+    }
+}
+
+void Foam::Structure::setupActiveRodMesh()
+{
+    cleanupActiveRodMesh();
+    
+    cntOpt.ptsType = 2;
+    cntOpt.ptsN = 2;
+    cntOpt.csFac = 2.0;
+    cntOpt.preg = 0.02 * geoR0;
+    cntOpt.kc = 0.2 * geoE0*geoR0*geoR0;
+    cntOpt.initOut = 0;
+
+    folder = runDirectory+"/"+caseName;
+
+    createRodScaling();
+    createNurbsStructure();
+    createNurbsBoundary();
+    setSolverOptions();
+    checkActiveRodMesh();
+    updateRodCoordinateSystem();
+
+    for(label rodI=0; rodI<nR; rodI++)
+    {
+        const ActiveRodMesh::rodCosserat* rod = Rods[rodI];
+        const gsNurbs<scalar>& curve = rod->m_Curve;
+        const gsNurbs<scalar>& deformation = rod->m_Def;
+        if(curve.domainStart()!=deformation.domainStart())
+            FatalErrorInFunction<<"Mismatch in curve and deformation start"<<exit(FatalError);
+        if(curve.domainEnd()!=deformation.domainEnd())
+            FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
+    }
+    
+    //constructCoeffDerivedData();
+    
+    prevDeformations.clear();
+    prevDeformations.resize(nR);
+    prevRotations.clear();
+    prevRotations.resize(nR);
+}
+
 void Foam::Structure::updateRodCoordinateSystem()
 {
     for(uint rodIndex=0; rodIndex<myMesh->m_Rods.size(); rodIndex++)
@@ -722,7 +536,7 @@ Foam::label Foam::Structure::getNumberRods() const
 Foam::label Foam::Structure::getMaxDegree
 (
     const ActiveRodMesh::rodCosserat* oneRod
-)
+) const
 {
     const gsNurbs<double>& base = oneRod->m_Curve;
     label baseDegreeX = base.degree();
@@ -790,7 +604,7 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
 const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodDeformation
 (
     label rodNumber
-)
+) const
 {
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
@@ -803,7 +617,7 @@ const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRo
 const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodRotation
 (
     label rodNumber
-)
+) const
 {
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
@@ -824,6 +638,8 @@ void Foam::Structure::setDeformation
     {
         setDeformation(rodNumber,deformationCoeffs[rodNumber]);
     }
+    updateRodCoordinateSystem();
+    setupRodBoundingBoxTree();
 }
 
 void Foam::Structure::setDeformation
@@ -1148,10 +964,14 @@ Foam::label Foam::Structure::numberCoeffs
     label rodNumber
 ) const 
 {
+    /*
     const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
     const gsNurbs<scalar>& curve = rod->m_Curve;
     std::cout<<"curve.coefs():"<<curve.coefs()<<std::endl;
     return curve.coefs().rows();
+    */
+    
+    return rodsList[rodNumber].coefs().rows();
 }
 
 void Foam::Structure::rodEvalDerivCoeff
@@ -1209,7 +1029,46 @@ void Foam::Structure::rodEvalDerivCoeff
     }
 }
 
-void Foam::Structure::setNurbsCoeff
+void Foam::Structure::getCurveCoeffs
+(
+    List<List<vector>>& coeffs
+) const
+{
+    coeffs.resize(nR);
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        List<vector>& rodCoeffs = coeffs[rodNumber];
+        rodCoeffs.resize(numberCoeffs(rodNumber));
+        const gsMatrix<scalar>& curveCoeffs = rodsList[rodNumber].coefs();
+        for(label coeffNumber=0; coeffNumber<numberCoeffs(rodNumber); coeffNumber++)
+        {
+            rodCoeffs[coeffNumber] = vector(curveCoeffs(coeffNumber,0),curveCoeffs(coeffNumber,1),curveCoeffs(coeffNumber,2));
+        }
+    }
+}
+
+void Foam::Structure::setCurveCoeffs
+(
+    const List<List<vector>>& coeffs
+)
+{
+    if(coeffs.size()!=nR)
+        FatalErrorInFunction<<"Mismatch in rod number to coeffs!"<<exit(FatalError);
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        const List<vector>& rodCoeffs = coeffs[rodNumber];
+        gsMatrix<scalar>& curveCoeffs = rodsList[rodNumber].coefs();
+        for(label coeffNumber=0; coeffNumber<numberCoeffs(rodNumber); coeffNumber++)
+        {
+            curveCoeffs(coeffNumber,0) = rodCoeffs[coeffNumber][0];
+            curveCoeffs(coeffNumber,1) = rodCoeffs[coeffNumber][1];
+            curveCoeffs(coeffNumber,2) = rodCoeffs[coeffNumber][2];
+        }
+    }
+    setupActiveRodMesh();
+}
+
+void Foam::Structure::setCurveCoeff
 (
     label rodNumber,
     label derivCoeffNumber,
@@ -1347,6 +1206,39 @@ void Foam::Structure::buildTreeOnRod
             recursiveBuildTree(node->rightChild,{center,bound.second});
         }        
     };
+}
+
+void Foam::Structure::setupRodBoundingBoxTree()
+{
+    buildTrees();
+    rodInMesh.resize(nR);
+    for(label rodI=0; rodI<nR; rodI++)
+    {
+        for(const vector& vertice : meshBoundingBox.allVertices())
+        {
+            std::vector<scalar> parameters;
+            rodTrees[rodI].findPointParameters(parameters,vertice);
+            if(parameters.empty())
+                rodInMesh[rodI] = false;
+            else
+                rodInMesh[rodI] = true;
+        }
+    }
+}
+
+Foam::BoundingBox Foam::Structure::computeMeshBoundingBox()
+{
+    vector smaller = mesh.points()[0];
+    vector larger = mesh.points()[0];
+    for(const vector& pnt : mesh.points())
+    {
+        for(label d=0; d<3; d++)
+        {
+            smaller[d] = std::min(pnt[d],smaller[d]);
+            larger[d] = std::max(pnt[d],larger[d]);
+        }
+    }
+    return BoundingBox(smaller,larger);
 }
 
 std::pair<double,double> Foam::Structure::minMaxSpan

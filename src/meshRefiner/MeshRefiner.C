@@ -27,8 +27,14 @@ void Foam::MeshRefiner::adaptMesh()
         scalar& refineValue = doRefine[cellInd];
         refineValue = refinementDemandMerge(fieldRefValue,markerRefValue);
     }
+    mesh.update();
+    
+    refineMeshAndMarkers();
+}
 
-    bool refined = mesh.update();
+void Foam::MeshRefiner::refineMeshOnStaticMarkers()
+{
+    bool refined = true;
     while(refined)
     {
         markerRefinement(MUSTKEEP);
@@ -37,6 +43,22 @@ void Foam::MeshRefiner::adaptMesh()
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
         refined = mesh.update();
+    }
+}
+
+void Foam::MeshRefiner::refineMeshAndMarkers()
+{
+    bool refined = true;
+    while(refined)
+    {
+        markerRefinement(MUSTKEEP);
+        for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
+        {
+            doRefine[cellInd] = markerRefineDemands[cellInd];
+        }
+        refined = mesh.update();
+        structure.settleIntoRefinedMesh();
+        structure.refineMarkersOnRefinedMesh();
     }
 }
 

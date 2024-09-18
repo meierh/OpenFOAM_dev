@@ -125,6 +125,8 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         inline const CrossSection* getBaseCrossSec() const {return baseCrossSec;}
         void evaluateMarker();
         
+        vector getMarkerVelocity() const override;
+        
     private:
         scalar markerAngle;
         scalar markerRadiusFrac;
@@ -152,14 +154,17 @@ class CrossSectionStructure : public LineStructure
         CrossSectionStructure(const CrossSectionStructure&) = delete;
         //void transferMarkers(FieldMarkerStructureInteraction& connector);
         
-        vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) override;        
+    // ----------------- Moving Rod update methods -----------------
+        vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const override;        
+    // ----------------- ------------------------- -----------------
         
         void to_string() override;
         
-        //Optimization related methods
+    // ----------------- Optimization related methods -----------------
         void setCrossSecParameters(label rodNumber, label fourierCoeffNumber, label derivCoeffNumber, scalar value);
         vector dXdParam(const LagrangianMarker* marker,const Parameter& par) override;
         vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par) override;
+    // ----------------- ---------------------------- -----------------
         
     private:
         std::vector<CrossSection> createCrossSectionsFromDict(const IOdictionary& stuctureDict);
@@ -300,8 +305,6 @@ class CrossSectionStructure : public LineStructure
             scalar var_para = 0,
             scalar var_radius = 0
         );
-        
-        
         
         vector evalRodDerivCoeff
         (

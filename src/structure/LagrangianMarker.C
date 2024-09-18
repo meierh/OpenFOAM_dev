@@ -31,17 +31,17 @@ baseRod(baseRod),
 markerParameter(0)
 {}
 
-Foam::vector Foam::LagrangianMarker::getMarkerVelocity()
+Foam::vector Foam::LagrangianMarker::getMarkerVelocity() const
 {
-    return vector(0,0,0);
+    return structure.evaluateRodVelocity(rodNumber,markerParameter,0,0);
 }
 
-Foam::scalar Foam::LagrangianMarker::getMarkerTemperature()
+Foam::scalar Foam::LagrangianMarker::getMarkerTemperature() const
 {
     return 1;
 }
 
-Foam::scalar Foam::LagrangianMarker::getMarkerCellVolume()
+Foam::scalar Foam::LagrangianMarker::getMarkerCellVolume() const
 {
     if(markerCell<0)
         return std::numeric_limits<scalar>::max();
@@ -49,7 +49,7 @@ Foam::scalar Foam::LagrangianMarker::getMarkerCellVolume()
         return mesh.cells()[markerCell].mag(mesh.points(),mesh.faces());
 }
 
-std::pair<Foam::scalar,Foam::scalar> Foam::LagrangianMarker::getMarkerCellSpacing()
+std::pair<Foam::scalar,Foam::scalar> Foam::LagrangianMarker::getMarkerCellSpacing() const
 {
     if(markerCell<0)
     {
@@ -70,7 +70,7 @@ std::pair<Foam::scalar,Foam::scalar> Foam::LagrangianMarker::getMarkerCellSpacin
     }
 }
 
-Foam::scalar Foam::LagrangianMarker::getMarkerCellMinSpacing()
+Foam::scalar Foam::LagrangianMarker::getMarkerCellMinSpacing() const
 {
     return getMarkerCellSpacing().first;
 }

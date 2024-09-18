@@ -9,9 +9,9 @@ Foam::TemperatureInteraction::TemperatureInteraction
     const IOdictionary& structureDict
 ):
 FieldMarkerStructureInteraction(mesh,structure),
+structureDict(structureDict),
 input_T(input_T),
-output_Tf(output_Tf),
-structureDict(structureDict)
+output_Tf(output_Tf)
 {
 }
 

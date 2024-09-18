@@ -68,13 +68,39 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {}
 
+void Foam::LineStructure::finalizeMarkers()
+{
+    refineMarkers();
+    Info<<"setMarkerVolume"<<Foam::endl;
+    setMarkerVolume();    
+    Info<<"evaluateMarkerMeshRelation"<<Foam::endl;
+    evaluateMarkerMeshRelation();
+    Info<<"reduceMarkers"<<Foam::endl;
+    reduceMarkers();
+    Info<<"collectMarkers"<<Foam::endl;
+    collectMarkers();
+    Info<<"computeMarkerCellWeights"<<Foam::endl;
+    computeMarkerCellWeights();
+    Info<<"collectHaloMarkers"<<Foam::endl;
+    collectHaloMarkers();
+    Info<<"exchangeHaloMarkersData"<<Foam::endl;
+    exchangeHaloMarkersData();
+    Info<<"computeMarkerWeights"<<Foam::endl;
+    computeMarkerWeights();
+}
+
+void Foam::LineStructure::moveMarkersOnRodMovement()
+{
+    evaluateMarkerMeshRelation();
+}
+
 Foam::vector Foam::LineStructure::evaluateRodVelocity
 (
     label rodNumber,
     scalar parameter,
     scalar angle,
     scalar radiusFrac
-)
+) const
 {
     scalar currentTime = mesh.time().value();
     vector currentPosition = evaluateRodPos(Rods[rodNumber],parameter);
@@ -94,6 +120,18 @@ Foam::vector Foam::LineStructure::evaluateRodVelocity
     rodEval(Rods[rodNumber]->m_Curve,prevDef->first,parameter,previousPosition);
     
     return (currentPosition-previousPosition)/deltaT;
+}
+
+void Foam::LineStructure::settleIntoRefinedMesh()
+{
+    evaluateMarkerMeshRelation();
+}
+
+void Foam::LineStructure::refineMarkersOnRefinedMesh()
+{
+    refineMarkers();
+    evaluateMarkerMeshRelation();
+    collectMarkers();
 }
 
 void Foam::LineStructure::to_string()
@@ -122,7 +160,8 @@ void Foam::LineStructure::setNurbsParameters
     scalar value
 )
 {
-    setNurbsCoeff(rodNumber,derivCoeffNumber,dimension,value);
+    FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
+    //setNurbsCoeff(rodNumber,derivCoeffNumber,dimension,value);
 }
 
 Foam::vector Foam::LineStructure::dXdParam
@@ -172,24 +211,8 @@ void Foam::LineStructure::initialize()
     createSpacingPoints();       
     Info<<"createMarkersFromSpacedPoints"<<Foam::endl;
     createMarkersFromSpacedPoints();
-    Info<<"refineMarkers"<<Foam::endl;
-    refineMarkers();
-    Info<<"setMarkerVolume"<<Foam::endl;
-    setMarkerVolume();    
-    Info<<"evaluateMarkerMeshRelation"<<Foam::endl;
-    evaluateMarkerMeshRelation();
-    Info<<"reduceMarkers"<<Foam::endl;
-    reduceMarkers();
-    Info<<"collectMarkers"<<Foam::endl;
-    collectMarkers();
-    Info<<"computeMarkerCellWeights"<<Foam::endl;
-    computeMarkerCellWeights();
-    Info<<"collectHaloMarkers"<<Foam::endl;
-    collectHaloMarkers();
-    Info<<"exchangeHaloMarkersData"<<Foam::endl;
-    exchangeHaloMarkersData();
-    Info<<"computeMarkerWeights"<<Foam::endl;
-    computeMarkerWeights();
+    
+    finalizeMarkers();
 }
 
 void Foam::LineStructure::check()
@@ -302,13 +325,16 @@ void Foam::LineStructure::createMarkersFromSpacedPointsOnRod
     label rodNumber
 )
 {
-    const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
-    auto markersPtr = std::unique_ptr<std::list<LagrangianMarker>>(new std::list<LagrangianMarker>());
-    std::list<LagrangianMarker>& markers = *markersPtr;
-    markers.clear();
-    for(scalar point : *(initialRodPoints[rodNumber]))
-        markers.push_back(LagrangianMarker(*this,mesh,rodNumber,oneRod,point));
-    rodMarkersList[rodNumber] = std::move(markersPtr);
+    if(rodInMesh[rodNumber])
+    {
+        const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
+        auto markersPtr = std::unique_ptr<std::list<LagrangianMarker>>(new std::list<LagrangianMarker>());
+        std::list<LagrangianMarker>& markers = *markersPtr;
+        markers.clear();
+        for(scalar point : *(initialRodPoints[rodNumber]))
+            markers.push_back(LagrangianMarker(*this,mesh,rodNumber,oneRod,point));
+        rodMarkersList[rodNumber] = std::move(markersPtr);
+    }
 }
 
 void Foam::LineStructure::refineMarkers
@@ -331,48 +357,51 @@ void Foam::LineStructure::refineMarkersOnRod
 )
 {
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
-    std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
-    bool refined=true;
-    while(refined)
+    if(rodMarkersList[rodNumber])
     {
-        refined = false;
-        //bool cond = true;
-        auto markersIter0 = markers.begin();
-        auto markersIter1 = ++(markers.begin());
-        for( ; markersIter1!=markers.end() ; )
+        std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
+        bool refined=true;
+        while(refined)
         {
-            scalar markers0Para = markersIter0->getMarkerParameter();
-            scalar markers0CellSpacing = markersIter0->getMarkerCellMinSpacing();
-            bool markers0InCell = (markersIter0->getMarkerCell()!=-1);
-            
-            scalar markers1Para = markersIter0->getMarkerParameter();
-            scalar markers1CellSpacing = markersIter0->getMarkerCellMinSpacing();
-            bool markers1InCell = (markersIter1->getMarkerCell()!=-1);
-            
-            scalar dist = distance(oneRod,markers0Para,markers1Para);
-            
-            bool subdivide = false;
-            if(forcedSpacing.first)
+            refined = false;
+            //bool cond = true;
+            auto markersIter0 = markers.begin();
+            auto markersIter1 = ++(markers.begin());
+            for( ; markersIter1!=markers.end() ; )
             {
-                if(dist>forcedSpacing.second)
-                    subdivide=true;
+                scalar markers0Para = markersIter0->getMarkerParameter();
+                scalar markers0CellSpacing = markersIter0->getMarkerCellMinSpacing();
+                bool markers0InCell = (markersIter0->getMarkerCell()!=-1);
+                
+                scalar markers1Para = markersIter0->getMarkerParameter();
+                scalar markers1CellSpacing = markersIter0->getMarkerCellMinSpacing();
+                bool markers1InCell = (markersIter1->getMarkerCell()!=-1);
+                
+                scalar dist = distance(oneRod,markers0Para,markers1Para);
+                
+                bool subdivide = false;
+                if(forcedSpacing.first)
+                {
+                    if(dist>forcedSpacing.second)
+                        subdivide=true;
+                }
+                if(markers0InCell || markers1InCell)
+                {
+                    scalar minSpacing = std::min(markers0CellSpacing,markers1CellSpacing);
+                    if(dist>minSpacing)
+                        subdivide=true;
+                }
+            
+                if(subdivide)
+                {
+                    scalar middlePar = 0.5*(markers0Para+markers1Para);
+                    LagrangianMarker middleMarker(*this,mesh,rodNumber,oneRod,middlePar);
+                    markers.insert(markersIter1,middleMarker);
+                    refined=true;
+                }
+                markersIter0 = markersIter1;
+                markersIter1++;
             }
-            if(markers0InCell || markers1InCell)
-            {
-                scalar minSpacing = std::min(markers0CellSpacing,markers1CellSpacing);
-                if(dist>minSpacing)
-                    subdivide=true;
-            }
-        
-            if(subdivide)
-            {
-                scalar middlePar = 0.5*(markers0Para+markers1Para);
-                LagrangianMarker middleMarker(*this,mesh,rodNumber,oneRod,middlePar);
-                markers.insert(markersIter1,middleMarker);
-                refined=true;
-            }
-            markersIter0 = markersIter1;
-            markersIter1++;
         }
     }
 }
@@ -393,87 +422,90 @@ void Foam::LineStructure::setMarkerVolumeOnRod
 )
 {
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
-    std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
-    
-    std::function<bool(scalar)> InMesh = 
-    [&,rod=oneRod](scalar parameter)
+    if(rodMarkersList[rodNumber])
     {
-        vector position = evaluateRodPos(rod,parameter);
-        label posCell = mesh.findCell(position);
-        if(posCell==-1)
-            return false;
-        else
-            return true;
-    };
-
-    std::list<LagrangianMarker>::iterator iterPrev = markers.end();
-    std::list<LagrangianMarker>::iterator iterNext;
-    for(auto iter=markers.begin(); iter!=markers.end(); iter++)
-    {
-        scalar span = 0;
-        if(iter->getMarkerCell()!=-1)
-        {
-            iterNext = iter;
-            iterNext++;
-            scalar spanStart;
-            if(iterPrev!=markers.end())
-            {
-                if(iterPrev->getMarkerCell()==-1)
-                {
-                    scalar prevPara = iterPrev->getMarkerParameter();
-                    scalar thisPara = iter->getMarkerParameter();
-                    if(!InMesh(thisPara))
-                        FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
-                    scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
-                    spanStart = bisectionBinary(prevPara,thisPara,InMesh,threshold);
-                }
-                else
-                {
-                    spanStart = iterPrev->getMarkerParameter();
-                    spanStart = spanStart + iter->getMarkerParameter();
-                    spanStart /= 2;
-                }
-            }
-            else
-                spanStart = iter->getMarkerParameter();
-
-            scalar spanEnd;
-            if(iterNext!=markers.end())
-            {
-                if(iterNext->getMarkerCell()==-1)
-                {
-                    scalar nextPara = iterNext->getMarkerParameter();
-                    scalar thisPara = iter->getMarkerParameter();
-                    if(!InMesh(thisPara))
-                        FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
-                    scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
-                    spanEnd = bisectionBinary(thisPara,nextPara,InMesh,threshold);
-                }
-                else
-                {
-                    spanEnd = iterNext->getMarkerParameter();
-                    spanEnd = spanEnd + iter->getMarkerParameter();
-                    spanEnd /= 2;
-                }
-            }
-            else
-                spanEnd = iter->getMarkerParameter();
-            
-            if(iterPrev==markers.end() && iterNext==markers.end())
-                FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
-            
-            span = LineStructure::distance(oneRod,spanStart,spanEnd);
-            //Pout<<"Cell:"<<iter->getMarkerCell()<<":"<<iter->getMarkerParameter()<<"  start:"<<spanStart<<"  end:"<<spanEnd<<"  span:"<<span<<Foam::endl;
-        }
-        if(modusMarkerToField==markerMeshType::NonUniform)
-        {
-
-            iter->setMarkerVolume(span);
-        }
-        else
-            iter->setMarkerVolume(span*crossSecArea[rodNumber]);
+        std::list<LagrangianMarker>& markers = *(rodMarkersList[rodNumber]);
         
-        iterPrev = iter;
+        std::function<bool(scalar)> InMesh = 
+        [&,rod=oneRod](scalar parameter)
+        {
+            vector position = evaluateRodPos(rod,parameter);
+            label posCell = mesh.findCell(position);
+            if(posCell==-1)
+                return false;
+            else
+                return true;
+        };
+
+        std::list<LagrangianMarker>::iterator iterPrev = markers.end();
+        std::list<LagrangianMarker>::iterator iterNext;
+        for(auto iter=markers.begin(); iter!=markers.end(); iter++)
+        {
+            scalar span = 0;
+            if(iter->getMarkerCell()!=-1)
+            {
+                iterNext = iter;
+                iterNext++;
+                scalar spanStart;
+                if(iterPrev!=markers.end())
+                {
+                    if(iterPrev->getMarkerCell()==-1)
+                    {
+                        scalar prevPara = iterPrev->getMarkerParameter();
+                        scalar thisPara = iter->getMarkerParameter();
+                        if(!InMesh(thisPara))
+                            FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
+                        scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
+                        spanStart = bisectionBinary(prevPara,thisPara,InMesh,threshold);
+                    }
+                    else
+                    {
+                        spanStart = iterPrev->getMarkerParameter();
+                        spanStart = spanStart + iter->getMarkerParameter();
+                        spanStart /= 2;
+                    }
+                }
+                else
+                    spanStart = iter->getMarkerParameter();
+
+                scalar spanEnd;
+                if(iterNext!=markers.end())
+                {
+                    if(iterNext->getMarkerCell()==-1)
+                    {
+                        scalar nextPara = iterNext->getMarkerParameter();
+                        scalar thisPara = iter->getMarkerParameter();
+                        if(!InMesh(thisPara))
+                            FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
+                        scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
+                        spanEnd = bisectionBinary(thisPara,nextPara,InMesh,threshold);
+                    }
+                    else
+                    {
+                        spanEnd = iterNext->getMarkerParameter();
+                        spanEnd = spanEnd + iter->getMarkerParameter();
+                        spanEnd /= 2;
+                    }
+                }
+                else
+                    spanEnd = iter->getMarkerParameter();
+                
+                if(iterPrev==markers.end() && iterNext==markers.end())
+                    FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
+                
+                span = LineStructure::distance(oneRod,spanStart,spanEnd);
+                //Pout<<"Cell:"<<iter->getMarkerCell()<<":"<<iter->getMarkerParameter()<<"  start:"<<spanStart<<"  end:"<<spanEnd<<"  span:"<<span<<Foam::endl;
+            }
+            if(modusMarkerToField==markerMeshType::NonUniform)
+            {
+
+                iter->setMarkerVolume(span);
+            }
+            else
+                iter->setMarkerVolume(span*crossSecArea[rodNumber]);
+            
+            iterPrev = iter;
+        }
     }
 }
 
@@ -481,9 +513,11 @@ void Foam::LineStructure::evaluateMarkerMeshRelation()
 {
     status.execValid(status.markerMesh);
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkers : rodMarkersList)
-        evaluateMarkerMeshRelation(*singleRodMarkers);
+        if(singleRodMarkers)
+            evaluateMarkerMeshRelation(*singleRodMarkers);
     status.executed(status.markerMesh);
 }
+
 void Foam::LineStructure::evaluateMarkerMeshRelation
 (
     std::list<LagrangianMarker>& markerList
@@ -501,10 +535,13 @@ void Foam::LineStructure::reduceMarkers()
     std::vector<MarkerReference<LagrangianMarker>> allMarkers;
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkersPtr : rodMarkersList)
     {
-        std::list<LagrangianMarker>* singleRodMarkers = &(*singleRodMarkersPtr);
-        for(auto iter=singleRodMarkers->begin(); iter!=singleRodMarkers->end(); iter++)
+        if(singleRodMarkersPtr)
         {
-            allMarkers.push_back(MarkerReference<LagrangianMarker>(iter,singleRodMarkers));
+            std::list<LagrangianMarker>* singleRodMarkers = &(*singleRodMarkersPtr);
+            for(auto iter=singleRodMarkers->begin(); iter!=singleRodMarkers->end(); iter++)
+            {
+                allMarkers.push_back(MarkerReference<LagrangianMarker>(iter,singleRodMarkers));
+            }
         }
     }
     reduceMarkers(allMarkers);
@@ -521,9 +558,12 @@ void Foam::LineStructure::collectMarkers()
     collectedMarkers.resize(0);
     for(std::unique_ptr<std::list<LagrangianMarker>>& oneRodMarkers : rodMarkersList)
     {
-        for(LagrangianMarker& oneMarker : *oneRodMarkers)
+        if(oneRodMarkers)
         {
-            collectedMarkers.push_back(&oneMarker);
+            for(LagrangianMarker& oneMarker : *oneRodMarkers)
+            {
+                collectedMarkers.push_back(&oneMarker);
+            }
         }
     }
     status.executed(status.markersCollected);

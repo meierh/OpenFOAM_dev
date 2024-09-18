@@ -35,3 +35,9 @@ void Foam::LagrangianMarkerOnCrossSec::evaluateMarker()
     checkDirectSupport();
     reduceSupport();
 }
+
+Foam::vector Foam::LagrangianMarkerOnCrossSec::getMarkerVelocity() const
+{
+    return structure.evaluateRodVelocity(rodNumber,markerParameter,markerAngle,markerRadiusFrac);
+}
+

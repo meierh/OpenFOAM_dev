@@ -6,9 +6,10 @@ Foam::ForcedMovementVelocityPressureAction::ForcedMovementVelocityPressureAction
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf,
-    const IOdictionary& structureDict
+    const IOdictionary& structureDict,
+    std::shared_ptr<MeshRefiner> refinement_
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf),
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_),
 structureDict(structureDict)
 {
     Info<<"Created ForcedMovementVelocityPressureAction"<<Foam::endl;
@@ -17,21 +18,10 @@ structureDict(structureDict)
 
 void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
 {
-    std::unique_ptr<List<List<vector>>> deformationCoeffsPtr = readMovementFromDict();
-    List<List<vector>> deformationCoeffs = *deformationCoeffsPtr;
-    
-    
+    moveRodsAndMarkers();
 }
 
-Foam::vector Foam::ForcedMovementVelocityPressureAction::getVelocity
-(
-    const LagrangianMarker* marker
-)
-{
-    return vector(0,0,0);
-}
-
-std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::readMovementFromDict()
+std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::getDeformation()
 {
     const dictionary& rodMovementFieldDict = structureDict.subDict("rodMovementField");
     List<keyType> rodMovementFieldKeys = rodMovementFieldDict.keys();
@@ -55,4 +45,12 @@ std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVeloci
         movementList[rodNumber] = oneRodMovementData;
     }
     return movementListPtr;
+}
+
+Foam::vector Foam::ForcedMovementVelocityPressureAction::getVelocity
+(
+    const LagrangianMarker* marker
+)
+{
+    return vector(0,0,0);
 }

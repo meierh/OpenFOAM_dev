@@ -19,6 +19,9 @@ class MeshRefiner
         virtual ~MeshRefiner() = default;
 
         virtual void adaptMesh();
+        virtual void refineMeshOnStaticMarkers();
+        virtual void refineMeshAndMarkers();
+        
     protected:
         const scalar REFINE   = +1;
         const scalar MUSTKEEP = 0.25;

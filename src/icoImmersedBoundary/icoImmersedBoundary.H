@@ -117,7 +117,7 @@ protected:
     
     //- Refinement
     bool useRefinement;
-    std::unique_ptr<MeshRefiner> refinement_;
+    std::shared_ptr<MeshRefiner> refinement_;
     std::unique_ptr<volScalarField> refine_;
     void create_Refiner(fvMesh& mesh);
     

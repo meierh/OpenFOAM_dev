@@ -35,11 +35,11 @@ class LagrangianMarker
         );
         
     public:
-        vector getMarkerVelocity();
-        scalar getMarkerTemperature();
-        scalar getMarkerCellVolume();
-        std::pair<scalar,scalar> getMarkerCellSpacing();
-        scalar getMarkerCellMinSpacing();
+        virtual vector getMarkerVelocity() const;
+        scalar getMarkerTemperature() const;
+        scalar getMarkerCellVolume() const;
+        std::pair<scalar,scalar> getMarkerCellSpacing() const;
+        scalar getMarkerCellMinSpacing() const;
         std::string to_string() const;
         void total_print() const;
         void evaluateMarker();
@@ -379,19 +379,34 @@ class LineStructure : public Structure
             scalar parameter
         );
         
-        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac);
-
+    // ----------------- Finalize markers -----------------
+        virtual void finalizeMarkers();
+    // ----------------- ------------------------- -----------------
+        
+    // ----------------- Moving Rod update methods -----------------
+        virtual void moveMarkersOnRodMovement();
+        void createMarkersOnRod(label rodNumber){createMarkersFromSpacedPointsOnRod(rodNumber);};
+        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const;
+    // ----------------- ------------------------- -----------------
+        
+    // ----------------- Refined mesh update methods -----------------
+        // Compute mesh relation update on refined mesh
+        virtual void settleIntoRefinedMesh();
+        // Refinement of markers on refined mesh / markers not useable afterwards
+        virtual void refineMarkersOnRefinedMesh();
+    // ----------------- --------------------------- -----------------
+        
         //void test();
         
         virtual void to_string();
         
-        
-        //Optimization related methods
+    // ----------------- Optimization related methods -----------------
         void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         virtual vector dXdParam(const LagrangianMarker* marker,const Parameter& par);
         virtual vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par);
         void store() override;
         void setToTime(scalar time) override;
+    // ----------------- ---------------------------- -----------------
 
     protected:
         LineStructureStatus status;

@@ -7,7 +7,7 @@ Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
     volVectorField& input_U,
     volVectorField& output_Uf
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf)
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,nullptr)
 {
 }
 
