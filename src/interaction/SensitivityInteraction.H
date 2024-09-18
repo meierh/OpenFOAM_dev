@@ -1,6 +1,6 @@
 #ifndef SENSITIVITYINTERACTION_H
 #define SENSITIVITYINTERACTION_H
-#include "CrossSectionStructure.H"
+#include "FieldMarkerStructureInteraction.H"
 
 namespace Foam
 {

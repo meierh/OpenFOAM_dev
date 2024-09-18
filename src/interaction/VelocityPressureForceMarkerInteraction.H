@@ -1,6 +1,6 @@
 #ifndef VELOCITYPRESSUREFORCEMARKERINTERACTION_H
 #define VELOCITYPRESSUREFORCEMARKERINTERACTION_H
-#include "LineStructure.H"
+#include "FieldMarkerStructureInteraction.H"
 #include "MeshRefiner.H"
 
 namespace Foam
@@ -28,7 +28,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
     protected:
         void interpolateFluidVelocityToMarkers();
         void computeCouplingForceOnMarkers();
-        void computeRodForceMoment();
+        virtual void computeRodForceMoment();
         void interpolateFluidForceField();
         
         virtual std::unique_ptr<List<List<vector>>> getDeformation()=0;
@@ -44,17 +44,14 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         volVectorField& output_Uf;
         std::shared_ptr<MeshRefiner> refinement_;
         
-        virtual vector getVelocity(const LagrangianMarker* marker);
+        virtual vector getVelocity(const LagrangianMarker* marker) = 0;
         
-    private:
         DynamicList<vector> markerFluidVelocity;
         DynamicList<vector> makerCouplingForce;
         DynamicList<vector> rodForce;
         DynamicList<vector> rodMoment;
         
         std::map<scalar,std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>> storage;
-        
-        void assignForceOnRod();
 };
 }
 #endif

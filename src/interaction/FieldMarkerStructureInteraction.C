@@ -1,4 +1,4 @@
-#include "LineStructure.H"
+#include "FieldMarkerStructureInteraction.H"
 
 Foam::FieldMarkerStructureInteraction::FieldMarkerStructureInteraction
 (

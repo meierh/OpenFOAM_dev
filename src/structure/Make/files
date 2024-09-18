@@ -2,21 +2,12 @@ Structure.C
 BoundingBox.C
 LineStructure.C
 LagrangianMarker.C
-FieldMarkerStructureInteraction.C
 LineStructureStatus.C
 LineStructureParameters.C
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
 CrossSectionStructureParameters.C
-SensitivityInteraction.C
-VelocityPressureForceMarkerInteraction.C
-SensitivityVelocityPressureForceMarkerInteraction.C
-StaticVelocityPressureAction.C
-ForcedMovementVelocityPressureAction.C
-TemperatureInteraction.C
-FixedTemperatureAction.C
-SensitivityTemperatureInteraction.C
 LinearSystem.C
 
 LIB = $(FOAM_USER_LIBBIN)/libStructure

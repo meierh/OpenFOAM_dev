@@ -52,5 +52,5 @@ Foam::vector Foam::ForcedMovementVelocityPressureAction::getVelocity
     const LagrangianMarker* marker
 )
 {
-    return vector(0,0,0);
+    return marker->getMarkerVelocity();
 }

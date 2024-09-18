@@ -96,7 +96,7 @@ void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
         }
         else if(rodMovementWord == "MovedRod")
         {
-            interaction_fU = std::make_unique<ForcedMovementVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict);
+            interaction_fU = std::make_unique<ForcedMovementVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict,refinement_);
         }
         else if(rodMovementWord == "FluidStructureRod")
         {
@@ -248,6 +248,12 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
     }
     else
         useRefinement = false;
+}
+
+void Foam::solvers::icoImmersedBoundary::preSolve()
+{
+    if(interaction_fU)
+        interaction_fU->preSolveMovement();
 }
 
 void Foam::solvers::icoImmersedBoundary::momentumPredictor()

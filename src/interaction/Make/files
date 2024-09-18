@@ -1,0 +1,12 @@
+FieldMarkerStructureInteraction.C
+SensitivityInteraction.C
+VelocityPressureForceMarkerInteraction.C
+SensitivityVelocityPressureForceMarkerInteraction.C
+StaticVelocityPressureAction.C
+ForcedMovementVelocityPressureAction.C
+FSIAction.C
+TemperatureInteraction.C
+FixedTemperatureAction.C
+SensitivityTemperatureInteraction.C
+
+LIB = $(FOAM_USER_LIBBIN)/libInteraction

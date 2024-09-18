@@ -156,10 +156,11 @@ public:
 
     // Member Functions
 
-    /*
+    
         //- Called at the start of the time-step, before the PIMPLE loop
-        virtual void preSolve();
+        void preSolve() override;
 
+    /*
         //- Called at the start of the PIMPLE loop to move the mesh
         virtual void moveMesh();
 

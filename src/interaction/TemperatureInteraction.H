@@ -1,6 +1,6 @@
 #ifndef TEMPERATUREINTERACTION_H
 #define TEMPERATUREINTERACTION_H
-#include "LineStructure.H"
+#include "FieldMarkerStructureInteraction.H"
 
 namespace Foam
 {

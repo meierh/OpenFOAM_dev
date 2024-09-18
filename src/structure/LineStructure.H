@@ -194,8 +194,8 @@ class LineStructureStatus
         Node markersWeightExchange= Node({&markersWeight},false,"markersWeightExchange");
 };
 
+/*
 class LineStructure;
-
 class FieldMarkerStructureInteraction
 {
     public:
@@ -258,6 +258,7 @@ class FieldMarkerStructureInteraction
         const markerMeshType modusFieldToMarker;
         const markerMeshType modusMarkerToField;
 };
+*/
 
 class NurbsCoeffReference
 {
@@ -564,7 +565,7 @@ class LineStructure : public Structure
             scalar threshold
         );
         
-        std::vector<FieldMarkerStructureInteraction*> connectedInteractions;
+        //std::vector<FieldMarkerStructureInteraction*> connectedInteractions;
         //const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
@@ -691,7 +692,7 @@ class LineStructure : public Structure
         
         //scalar initialSpacingFromMesh();
 };
-#include "FieldMarkerStructureInteraction.T.H"
+//#include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"
 
 class LineStructureParameters
