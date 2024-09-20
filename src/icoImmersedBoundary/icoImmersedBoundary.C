@@ -63,7 +63,6 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
     Info<<"useRefinement:"<<useRefinement<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()

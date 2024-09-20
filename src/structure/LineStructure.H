@@ -569,6 +569,8 @@ class LineStructure : public Structure
         //const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
+        
+        scalar characteristicSize(label rodNumber, scalar par) override;
                 
     private:
         const List<scalar> crossSecArea;

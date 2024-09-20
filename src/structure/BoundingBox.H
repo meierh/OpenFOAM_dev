@@ -13,14 +13,19 @@ class BoundingBox
 {
     public:
         BoundingBox(){}
-        BoundingBox(vector smaller, vector larger):smaller(smaller),larger(larger){}
+        BoundingBox(vector smaller, vector larger);
         BoundingBox operator+(const BoundingBox& rhs) const;
-        //Union of BoundingBoxes
-        BoundingBox U(const BoundingBox& rhs) const;
+        //Compute the largest necessary bounding box around both boxes -- There must be no intersection
+        BoundingBox boundingBoxUnion(const BoundingBox& rhs) const;
+        //Computes the  Bounding box around both boxes -- There must be no intersection
+        BoundingBox boundingBoxIntersection(const BoundingBox& rhs) const;
+        bool boundingBoxOverlap(const BoundingBox& rhs) const;
         void enlarge(scalar size);
         bool inside(vector point, scalar eps=0) const;
         scalar innerSize();
+        bool isEmpty(){return empty;}
         FixedList<vector,8> allVertices();
+        void print() const {Info<<smaller<<" -> "<<larger<<Foam::endl;}
         
         static BoundingBox boundsOfCoefficients(const gsMatrix<scalar>& coefs);
         static BoundingBox boundsOfNurbs(const gsNurbs<scalar>& curve);
@@ -29,6 +34,7 @@ class BoundingBox
     private:
         vector smaller;
         vector larger;
+        bool empty = true;
 };
     
 template<class Key,class Value>
@@ -58,8 +64,10 @@ class BoundingBoxTree : public BinaryTree<scalar,BoundingBox>
         BoundingBoxTree& operator=(const BoundingBoxTree& rhs);
         void findPointParameters(std::vector<scalar>& parameters, vector point) const;
         std::unique_ptr<Node>& getRoot(){return root;}
+        const BoundingBox& rootBox(){return root->value;}
+        void printRoot(){root->value.print();}
 };
-
+#include "BoundingBox.T.H"
 }
 
 #endif

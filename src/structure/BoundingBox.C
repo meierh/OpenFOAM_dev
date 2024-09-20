@@ -1,5 +1,19 @@
 #include "BoundingBox.H"
 
+Foam::BoundingBox::BoundingBox
+(
+    vector smaller,
+    vector larger
+):
+smaller(smaller),
+larger(larger)
+{
+    empty = false;
+    for(label dim=0; dim<3; dim++)
+        if(smaller[dim] >= larger[dim])
+            empty = true;
+}
+
 Foam::BoundingBox Foam::BoundingBox::operator+
 (
     const BoundingBox& rhs
@@ -11,18 +25,42 @@ Foam::BoundingBox Foam::BoundingBox::operator+
     return result;
 }
 
-Foam::BoundingBox Foam::BoundingBox::U
+Foam::BoundingBox Foam::BoundingBox::boundingBoxUnion
 (
     const BoundingBox& rhs
 ) const
 {
-    BoundingBox result;
+    vector smaller,larger;
     for(label dim=0; dim<3; dim++)
     {
-        result.smaller[dim] = std::min(this->smaller[dim],rhs.smaller[dim]);
-        result.larger[dim] = std::max(this->larger[dim],rhs.larger[dim]);
+        smaller[dim] = std::min(this->smaller[dim],rhs.smaller[dim]);
+        larger[dim] = std::max(this->larger[dim],rhs.larger[dim]);
     }
+    BoundingBox result(smaller,larger);
     return result;
+}
+
+Foam::BoundingBox Foam::BoundingBox::boundingBoxIntersection
+(
+    const BoundingBox& rhs
+) const
+{
+    vector smaller,larger;
+    for(label dim=0; dim<3; dim++)
+    {
+        smaller[dim] = std::max(this->smaller[dim],rhs.smaller[dim]);
+        larger[dim] = std::min(this->larger[dim],rhs.larger[dim]);
+    }
+    BoundingBox result(smaller,larger);
+    return result;
+}
+
+bool Foam::BoundingBox::boundingBoxOverlap
+(
+    const BoundingBox& rhs
+) const
+{
+    return boundingBoxIntersection(rhs).isEmpty();
 }
 
 void Foam::BoundingBox::enlarge
@@ -81,21 +119,25 @@ Foam::BoundingBox Foam::BoundingBox::boundsOfCoefficients
     const gsMatrix<scalar>& coefs
 )
 {
-    if(coefs.rows()!=3 || coefs.cols()<1)
+    if(coefs.cols()!=3 || coefs.rows()<1)
+    {
+        std::cout<<"coefs:"<<coefs<<std::endl;
         FatalErrorInFunction<<"Invalid coefs size"<<exit(FatalError);
+    }
     vector lowerCurve,upperCurve;
     lowerCurve = upperCurve = vector(coefs(0,0),coefs(0,1),coefs(0,2));
     for(label col=0; col<coefs.cols(); col++)
     {
-        for(label row=0; row<3; row++)
+        for(label row=0; row<coefs.rows(); row++)
         {
-            if(lowerCurve[row]>coefs(col,row))
-                lowerCurve[row] = coefs(col,row);
-            if(upperCurve[row]<coefs(col,row))
-                upperCurve[row] = coefs(col,row);
+            if(lowerCurve[col]>coefs(row,col))
+                lowerCurve[col] = coefs(row,col);
+            if(upperCurve[col]<coefs(row,col))
+                upperCurve[col] = coefs(row,col);
         }
     }
-    return BoundingBox(lowerCurve,upperCurve);
+    BoundingBox bb(lowerCurve,upperCurve);
+    return bb;
 }
 
 Foam::BoundingBox Foam::BoundingBox::boundsOfNurbs
@@ -149,23 +191,23 @@ Foam::BoundingBox Foam::BoundingBox::boundsOfNurbs
     label coeff_start = knot_start-degree;
     label coeff_end = knot_end-1;
 
-    if(curve.coefs().rows()!=3)
-        FatalErrorInFunction<<"Rows number out of range"<<exit(FatalError);
-    if(coeff_start<0 || coeff_start>=curve.coefs().cols())
+    if(curve.coefs().cols()!=3)
+        FatalErrorInFunction<<"Col number must be 3"<<exit(FatalError);
+    if(coeff_start<0 || coeff_start>=curve.coefs().rows())
         FatalErrorInFunction<<"Coeff start out of range"<<exit(FatalError);
-    if(coeff_end<0 || coeff_end>=curve.coefs().cols())
+    if(coeff_end<0 || coeff_end>=curve.coefs().rows())
         FatalErrorInFunction<<"Coeff start out of range"<<exit(FatalError);
 
-    gsMatrix<scalar> coeffs(coeff_end-coeff_start+1,3);
+    gsMatrix<scalar> coeffs(3,coeff_end-coeff_start+1);
     label ind=0;
     for(label c_s=coeff_start; c_s<coeff_end+1; c_s++,ind++)
     {
         for(label d=0; d<3; d++)
         {
-            coeffs(ind,d) = curve.coefs()(c_s,d);
+            coeffs(d,ind) = curve.coefs()(d,c_s);
         }
     }
-    if(ind!=coeffs.cols())
+    if(ind!=coeffs.rows())
         FatalErrorInFunction<<"Size mismatch"<<exit(FatalError);
     return BoundingBox::boundsOfCoefficients(coeffs);
 }

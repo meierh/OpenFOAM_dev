@@ -68,5 +68,7 @@ class FieldMarkerStructureInteraction
         const markerMeshType modusMarkerToField;
 };
 
+#include "FieldMarkerStructureInteraction.T.H"
+
 }
 #endif

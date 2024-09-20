@@ -1047,6 +1047,15 @@ Foam::scalar Foam::LineStructure::bisectionBinary
     return 0.5*(startValue+endValue);
 }
 
+Foam::scalar Foam::LineStructure::characteristicSize
+(
+    label rodNumber,
+    scalar par
+)
+{
+    FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
+}
+
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 (
     // [haloCells] -> [marker of cell] -> ptr,index

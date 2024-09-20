@@ -105,7 +105,7 @@ void Foam::LineStructureParameters::collectParameters
 {
     for(label rodNumber=0; rodNumber<structure->getNumberRods(); rodNumber++)
     {
-        label nbrCoeffs = structure->numberCoeffs(rodNumber);
+        label nbrCoeffs = structure->numberCurveCoeffs(rodNumber);
         for(label coeffInd=0; coeffInd<nbrCoeffs; coeffInd++)
         {
             std::array<Parameter,3> thriDimPara;

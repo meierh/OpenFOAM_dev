@@ -1,4 +1,5 @@
 #include "ForcedMovementVelocityPressureAction.H"
+#include "codeStream.H"
 
 Foam::ForcedMovementVelocityPressureAction::ForcedMovementVelocityPressureAction
 (
@@ -13,7 +14,6 @@ VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_),
 structureDict(structureDict)
 {
     Info<<"Created ForcedMovementVelocityPressureAction"<<Foam::endl;
-    readMovementFromDict();
 }
 
 void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
@@ -22,7 +22,7 @@ void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
 }
 
 std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::getDeformation()
-{
+{   
     const dictionary& rodMovementFieldDict = structureDict.subDict("rodMovementField");
     List<keyType> rodMovementFieldKeys = rodMovementFieldDict.keys();
     
@@ -30,18 +30,18 @@ std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVeloci
     List<List<vector>>& movementList = *movementListPtr;
     
     if(rodMovementFieldKeys.size()!=structure.getNumberRods())
+    {
+        Info<<"rodMovementFieldKeys:"<<rodMovementFieldKeys<<Foam::endl;
         FatalErrorInFunction<<"Mismatch in movement field to rod number!"<<exit(FatalError);
+    }
     
     label rodNumber = 0;
     for(keyType oneRodMoveFieldKey : rodMovementFieldKeys)
     {
         const dictionary& oneRodMovementDict = rodMovementFieldDict.subDict(oneRodMoveFieldKey);
-        List<vector> oneRodMovementData = oneRodMovementDict.lookup("move");
-        
-        if(oneRodMovementData.size()!=structure.numberCoeffs(rodNumber))
-            FatalErrorInFunction<<"Wrong number of coefficient data at "<<oneRodMovementDict.name()<<Foam::endl
-            <<"Expected "<<structure.numberCoeffs(rodNumber)<<" but got "<<oneRodMovementData.size()<<exit(FatalError);
-        
+        const entry* cdstr = oneRodMovementDict.lookupEntryPtr("move",false,false);
+        ITstream stream = cdstr->stream();
+        List<vector> oneRodMovementData(stream);        
         movementList[rodNumber] = oneRodMovementData;
     }
     return movementListPtr;

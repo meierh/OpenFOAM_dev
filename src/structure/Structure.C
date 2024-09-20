@@ -510,8 +510,16 @@ void Foam::Structure::setupActiveRodMesh()
             FatalErrorInFunction<<"Mismatch in curve and deformation start"<<exit(FatalError);
         if(curve.domainEnd()!=deformation.domainEnd())
             FatalErrorInFunction<<"Mismatch in curve and deformation end"<<exit(FatalError);
+        const gsNurbs<scalar>& rotation = rod->m_Rot;
+        if(curve.domainStart()!=rotation.domainStart())
+            FatalErrorInFunction<<"Mismatch in curve and rotation start"<<exit(FatalError);
+        if(curve.domainEnd()!=rotation.domainEnd())
+            FatalErrorInFunction<<"Mismatch in curve and rotation end"<<exit(FatalError);
+        
+        std::cout<<"curve:"<<curve<<std::endl;
+        std::cout<<"deformation"<<deformation<<std::endl;
+        std::cout<<"rotation:"<<rotation<<std::endl;
     }
-    
     //constructCoeffDerivedData();
     
     prevDeformations.clear();
@@ -599,6 +607,221 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
         }
     }            
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+}
+
+void Foam::Structure::fitNurbsCoeffsToPoints
+(
+    const List<vector>& points,
+    const gsNurbs<scalar>& nurbs,
+    gsMatrix<scalar>& fittedCoeffs,
+    scalar epsilon
+)
+{
+    scalar start = nurbs.domainStart();
+    scalar end = nurbs.domainEnd();
+    
+    List<scalar> parameter;
+    List<vector> pnts;
+    
+    if(points.size()<2)
+    {
+        parameter.resize(2);
+        parameter[0] = start;
+        parameter[1] = end;
+        pnts.resize(2);
+        pnts[0] = points[0];
+        pnts[1] = points[0];
+    }
+    else
+    {
+        parameter.resize(points.size());
+        parameter[0] = start;
+        parameter.last() = end;
+        scalar spacing = (end-start)/(points.size()-1);
+        for(label i=1; i<points.size()-1; i++)
+            parameter[i] = parameter[i-1]+spacing;
+        pnts = points;
+    }
+    return fitNurbsCoeffsToPoints(pnts,parameter,nurbs,fittedCoeffs,epsilon);
+}
+
+void Foam::Structure::fitNurbsCoeffsToPoints
+(
+    const List<vector>& points,
+    const List<scalar>& parameters,
+    const gsNurbs<scalar>& nurbs,
+    gsMatrix<scalar>& fittedCoeffs,
+    scalar epsilon
+)
+{
+    Info<<"points:"<<points<<Foam::endl;
+    Info<<"parameters:"<<parameters<<Foam::endl;
+    std::cout<<"nurbs.coefs():"<<nurbs.coefs()<<std::endl;
+    
+    if(points.size()!=parameters.size())
+        FatalErrorInFunction<<"Mismatch in points and parameter size"<<exit(FatalError);
+    if(parameters.first()!=nurbs.domainStart() || parameters.last()!=nurbs.domainEnd())
+        FatalErrorInFunction<<"Mismatch in start and end points"<<exit(FatalError);
+    if(nurbs.coefs().cols()!=3)
+        FatalErrorInFunction<<"Mismatch coeff dimension"<<exit(FatalError);
+    if(nurbs.targetDim()!=3)
+        FatalErrorInFunction<<"Mismatch target dimension"<<exit(FatalError);
+    
+    label coeffNumber = nurbs.coefs().rows();
+    gsNurbs<scalar> nurbsCp = nurbs;
+    
+    List<gsNurbs<scalar>> dNurbsdP(coeffNumber);
+    for(label coeffI=0; coeffI<coeffNumber; coeffI++)
+    {
+        dNurbsdP[coeffI] = nurbs;
+        gsMatrix<scalar>& dNurbsCoefs = dNurbsdP[coeffI].coefs();
+        for(label coeffITemp=0; coeffITemp<coeffNumber; coeffITemp++)
+        {
+            if(coeffITemp==coeffI)
+            {
+                dNurbsCoefs(coeffITemp,0)=1;
+                dNurbsCoefs(coeffITemp,1)=1;
+                dNurbsCoefs(coeffITemp,2)=1;
+            }
+            else
+            {
+                dNurbsCoefs(coeffITemp,0)=0;
+                dNurbsCoefs(coeffITemp,1)=0;
+                dNurbsCoefs(coeffITemp,2)=0;
+            }
+        }
+    }
+    
+    gsMatrix<scalar> parMat(1,parameters.size());
+    for(label parInd=0; parInd<parameters.size(); parInd++)
+        parMat(0,parInd) = parameters[parInd];
+    
+    gsMatrix<scalar> N(3,parameters.size());
+    List<gsMatrix<scalar>> dNdC(coeffNumber);
+    for(gsMatrix<scalar>& dNdCi : dNdC)
+        dNdCi = gsMatrix<scalar>(3,parameters.size());
+    
+    gsMatrix<scalar> gradCoefs(coeffNumber,3);
+    
+    std::vector<vector> targetFuncRes;
+
+    Vector<bool> converged(false,false,false);
+    for(;;)
+    {
+        std::cout<<"nurbsCp.coefs():"<<nurbsCp.coefs()<<std::endl;        
+        
+        // Evaluate gradient
+        nurbsCp.eval_into(parMat,N);
+        List<vector> N_m_x(parameters.size());
+        for(label parInd=0; parInd<parameters.size(); parInd++)
+            N_m_x = vector(N(0,parInd),N(1,parInd),N(2,parInd))-points[parInd];
+        
+        for(label coeffI=0; coeffI<coeffNumber; coeffI++)
+            dNurbsdP[coeffI].eval_into(parMat,dNdC[coeffI]);
+        
+        vector norm_N_m_x(0,0,0);
+        for(label parInd=0; parInd<parameters.size(); parInd++)
+            for(label dim=0; dim<3; dim++)
+                norm_N_m_x[dim] += N_m_x[parInd][dim]*N_m_x[parInd][dim];
+        for(label dim=0; dim<3; dim++)
+            norm_N_m_x[dim] = std::sqrt(norm_N_m_x[dim]);
+        targetFuncRes.push_back(norm_N_m_x);
+        
+        for(label dim=0; dim<3; dim++)
+            if(norm_N_m_x[dim]<epsilon)
+                converged[dim] = true;
+        
+        for(label coeffI=0; coeffI<coeffNumber; coeffI++)
+        {
+            const gsMatrix<scalar>& dNdCi = dNdC[coeffI];
+            vector N_m_x_dNdCi(0,0,0);
+            for(label parInd=0; parInd<parameters.size(); parInd++)
+            {
+                for(label dim=0; dim<3; dim++)
+                    N_m_x_dNdCi[dim] += N_m_x[parInd][dim] * dNdCi(dim,parInd);
+            }                
+            for(label dim=0; dim<3; dim++)
+                if(!converged[dim])
+                    N_m_x_dNdCi[dim] /= norm_N_m_x[dim];
+            
+            for(label dim=0; dim<3; dim++)
+            {
+                if(!converged[dim])
+                    gradCoefs(coeffI,dim) = N_m_x_dNdCi[dim]/norm_N_m_x[dim];
+                else
+                    gradCoefs(coeffI,dim) = 0;
+            }
+        }
+        
+        // Check for step width
+        vector gradWidth(0,0,0);
+        for(label coeffI=0; coeffI<coeffNumber; coeffI++)
+        {           
+            for(label dim=0; dim<3; dim++)
+            {
+                if(!converged[dim])
+                    gradWidth[dim] = gradCoefs(coeffI,dim)*gradCoefs(coeffI,dim);
+            }
+        }
+        for(label dim=0; dim<3; dim++)
+        {
+            gradWidth[dim] = std::sqrt(gradWidth[dim]);
+            if(gradWidth[dim]<epsilon)
+                converged[dim] = true;
+        }
+        
+        // Factor step length 
+        vector factor(1,1,1);
+        Vector<bool> correctLenFound(converged[0],converged[1],converged[2]);
+        for(;;)
+        {
+            gsNurbs<scalar> nurbsCpFactor = nurbsCp;
+            for(label coeffI=0; coeffI<coeffNumber; coeffI++)
+            {           
+                for(label dim=0; dim<3; dim++)
+                {
+                    nurbsCpFactor.coefs()(coeffI,dim) = nurbsCpFactor.coefs()(coeffI,dim) - factor[dim]*gradCoefs(coeffI,dim);
+                }
+            }
+
+            nurbsCpFactor.eval_into(parMat,N);
+            List<vector> N_m_x(parameters.size());
+            for(label parInd=0; parInd<parameters.size(); parInd++)
+                N_m_x = vector(N(0,parInd),N(1,parInd),N(2,parInd))-points[parInd];
+            vector norm_N_m_x(0,0,0);
+            for(label parInd=0; parInd<parameters.size(); parInd++)
+                for(label dim=0; dim<3; dim++)
+                    norm_N_m_x[dim] += N_m_x[parInd][dim]*N_m_x[parInd][dim];
+            for(label dim=0; dim<3; dim++)
+                norm_N_m_x[dim] = std::sqrt(norm_N_m_x[dim]);
+            
+            vector prevRes = targetFuncRes.back();
+            for(label dim=0; dim<3; dim++)
+            {
+                if(!converged[dim])
+                {
+                    if(prevRes[dim] <= norm_N_m_x[dim])
+                    {
+                        if(factor[dim]<epsilon)
+                        {
+                            converged[dim] = true;
+                            correctLenFound[dim] = true;
+                        }
+                        else
+                            factor[dim] /= 2;
+                    }
+                    else
+                        correctLenFound[dim] = true;
+                }
+            }
+            if(correctLenFound[0]&&correctLenFound[1]&&correctLenFound[2])
+            {
+                nurbsCp.coefs() = nurbsCpFactor.coefs();
+                break;
+            }
+        }
+    }
+    fittedCoeffs = nurbsCp.coefs();
 }
 
 const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodDeformation
@@ -848,10 +1071,10 @@ void Foam::Structure::constructCoeffDerivedData()
         const gsMatrix<scalar>& dQdR = rod->m_Curve_dQdR0;
         std::cout<<"dQdR:"<<dQdR<<std::endl;
         
-        coeffDerivedCenterline[rodNumber].resize(numberCoeffs(rodNumber));
+        coeffDerivedCenterline[rodNumber].resize(numberCurveCoeffs(rodNumber));
         initialRotation[rodNumber] = rotation;
-        coeffDerivedQuaternions[rodNumber].resize(numberCoeffs(rodNumber));
-        for(label coeffNumber=0; coeffNumber<numberCoeffs(rodNumber); coeffNumber++)
+        coeffDerivedQuaternions[rodNumber].resize(numberCurveCoeffs(rodNumber));
+        for(label coeffNumber=0; coeffNumber<numberCurveCoeffs(rodNumber); coeffNumber++)
         {
             Info<<"coeffNumber:"<<coeffNumber<<Foam::endl;
             //Create centerline coefficient derivative curve
@@ -959,7 +1182,7 @@ gsMatrix<Foam::scalar> Foam::Structure::quaternionInvert
     return result;
 }
 
-Foam::label Foam::Structure::numberCoeffs
+Foam::label Foam::Structure::numberCurveCoeffs
 (
     label rodNumber
 ) const 
@@ -1038,9 +1261,9 @@ void Foam::Structure::getCurveCoeffs
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
         List<vector>& rodCoeffs = coeffs[rodNumber];
-        rodCoeffs.resize(numberCoeffs(rodNumber));
+        rodCoeffs.resize(numberCurveCoeffs(rodNumber));
         const gsMatrix<scalar>& curveCoeffs = rodsList[rodNumber].coefs();
-        for(label coeffNumber=0; coeffNumber<numberCoeffs(rodNumber); coeffNumber++)
+        for(label coeffNumber=0; coeffNumber<numberCurveCoeffs(rodNumber); coeffNumber++)
         {
             rodCoeffs[coeffNumber] = vector(curveCoeffs(coeffNumber,0),curveCoeffs(coeffNumber,1),curveCoeffs(coeffNumber,2));
         }
@@ -1058,7 +1281,7 @@ void Foam::Structure::setCurveCoeffs
     {
         const List<vector>& rodCoeffs = coeffs[rodNumber];
         gsMatrix<scalar>& curveCoeffs = rodsList[rodNumber].coefs();
-        for(label coeffNumber=0; coeffNumber<numberCoeffs(rodNumber); coeffNumber++)
+        for(label coeffNumber=0; coeffNumber<numberCurveCoeffs(rodNumber); coeffNumber++)
         {
             curveCoeffs(coeffNumber,0) = rodCoeffs[coeffNumber][0];
             curveCoeffs(coeffNumber,1) = rodCoeffs[coeffNumber][1];
@@ -1092,30 +1315,6 @@ void Foam::Structure::setCurveCoeff
     //std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>& rodCoeffDerivedCurves = coeffDerivedCurves[rodNumber];
     //rodCoeffDerivedCurves.reset();
 }
-
-/*
-BoundingBox Foam::Structure::computeBox
-(
-    const gsMatrix<scalar>& coefs
-)
-{
-    if(coefs.rows()!=3 || coefs.cols()<1)
-        FatalErrorInFunction<<"Invalid coefs size"<<exit(FatalError);
-    vector lowerCurve,upperCurve;
-    lowerCurve = upperCurve = vector(coefs(0,0),coefs(0,1),coefs(0,2));
-    for(label col=0; col<coefs.cols(); col++)
-    {
-        for(label row=0; row<3; row++)
-        {
-            if(lowerCurve[row]>coefs(col,row))
-                lowerCurve[row] = coefs(col,row);
-            if(upperCurve[row]<coefs(col,row))
-                upperCurve[row] = coefs(col,row);
-        }
-    }
-    return BoundingBox(lowerCurve,upperCurve);
-}
-*/
 
 Foam::BoundingBox Foam::Structure::computeBox
 (
@@ -1171,7 +1370,6 @@ void Foam::Structure::buildTrees()
     rodTrees.resize(nR);
     for(label rodI=0; rodI<nR; rodI++)
         buildTreeOnRod(rodI);
-    
 }
 
 void Foam::Structure::buildTreeOnRod
@@ -1214,15 +1412,10 @@ void Foam::Structure::setupRodBoundingBoxTree()
     rodInMesh.resize(nR);
     for(label rodI=0; rodI<nR; rodI++)
     {
-        for(const vector& vertice : meshBoundingBox.allVertices())
-        {
-            std::vector<scalar> parameters;
-            rodTrees[rodI].findPointParameters(parameters,vertice);
-            if(parameters.empty())
-                rodInMesh[rodI] = false;
-            else
-                rodInMesh[rodI] = true;
-        }
+        if(meshBoundingBox.boundingBoxOverlap(rodTrees[rodI].rootBox()))
+            rodInMesh[rodI] = true;
+        else
+            rodInMesh[rodI] = false;
     }
 }
 
@@ -1291,28 +1484,43 @@ Foam::scalar Foam::Structure::supportDomainMinSize
     return minSuppSize;
 }
 
-/*
-template<typename T>
-std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
+const Foam::DynamicList<Foam::Structure::CellDescription>& Foam::Structure::getHaloCellList
 (
-    const GeometricField<T,fvPatchField,volMesh>& fieldData
-)
+    label process
+) const
 {
-    auto haloFieldPtr = std::make_unique<List<List<T>>>(Pstream::nProcs());
-    List<List<T>>& haloField = *haloFieldPtr;
-    List<T>& ownHaloField = haloField[Pstream::myProcNo()];
-    
-    const DynamicList<CellDescription>& ownHaloCells = getHaloCellList(Pstream::myProcNo());    
-    ownHaloField.setSize(ownHaloCells.size());
-    
-    for(label haloCellInd=0; haloCellInd<ownHaloCells.size(); haloCellInd++)
-    {
-        ownHaloField[haloCellInd] = fieldData[ownHaloCells[haloCellInd].index];
-    }
-    
-    return haloFieldPtr;
+    if(process<0 || process>=globalHaloCellList_Sorted.size())
+        FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
+    return globalHaloCellList_Sorted[process];
 }
-*/
+
+const std::unordered_map<Foam::label,Foam::label>& Foam::Structure::getHaloCellToIndexMap
+(
+    label process
+) const
+{
+    if(process<0 || process>=globalHaloCellToIndexMap.size())
+        FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
+    return globalHaloCellToIndexMap[process];
+}
+
+const std::unordered_map<Foam::label,Foam::List<Foam::DynamicList<std::pair<Foam::label,Foam::label>>>>&
+Foam::Structure::getPatchFaceToCellMap
+(
+) const
+{
+    return patchFaceToCellMap;
+}
+
+const Foam::List<Foam::List<Foam::Pair<Foam::label>>>& Foam::Structure::getHaloMeshGraph
+(
+    label process
+) const
+{
+    if(process<0 || process>=globalHaloMeshGraph.size())
+        FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
+    return globalHaloMeshGraph[process];
+}
 
 void Foam::Structure::generateMeshGraph()
 {

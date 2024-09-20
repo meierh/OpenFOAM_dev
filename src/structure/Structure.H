@@ -113,6 +113,23 @@ class Structure
             std::vector<vector> coefficients
         );
         
+        static void fitNurbsCoeffsToPoints
+        (
+            const List<vector>& points,
+            const gsNurbs<scalar>& nurbs,
+            gsMatrix<scalar>& fittedCoeffs,
+            scalar epsilon = 1e-8
+        );
+        
+        static void fitNurbsCoeffsToPoints
+        (
+            const List<vector>& points,
+            const List<scalar>& parameters,
+            const gsNurbs<scalar>& nurbs,
+            gsMatrix<scalar>& fittedCoeffs,
+            scalar epsilon = 1e-8
+        );
+        
     // --------------- Rod setting method ---------------
         void getCurveCoeffs(List<List<vector>>& coeffs) const;
         void setCurveCoeffs(const List<List<vector>>& coeffs);
@@ -167,7 +184,8 @@ class Structure
         //[rodNumber] -> [coeffNumber] -> [dims] -> nurbs
         std::vector<std::vector<std::vector<gsNurbs<scalar>>>> coeffDerivedQuaternions;
     public:
-        label numberCoeffs(label rodNumber) const;
+        label numberCurveCoeffs(label rodNumber) const;
+        label numberDeformationCoeffs(label rodNumber) const;
         void rodEvalDerivCoeff
         (
             label rodNumber,
@@ -259,27 +277,9 @@ class Structure
     // ----------------- RodBoundingBox setup -----------------
         List<bool> rodInMesh;
         List<BoundingBoxTree> rodTrees;
-        /*
-        BoundingBox computeBox
-        (
-            const gsMatrix<scalar>& coefs
-        );
-        */
-        virtual BoundingBox computeBox
-        (
-            label rodNumber
-        );
-        virtual BoundingBox computeBox
-        (
-            label rodNumber,
-            scalar parStart,
-            scalar parEnd
-        );
-        virtual scalar characteristicSize
-        (
-            label rodNumber,
-            scalar par
-        );
+        virtual BoundingBox computeBox(label rodNumber);
+        virtual BoundingBox computeBox(label rodNumber, scalar parStart, scalar parEnd);
+        virtual scalar characteristicSize(label rodNumber, scalar par) = 0;
         void buildTrees();
         void buildTreeOnRod(label rodNumber);
         void setupRodBoundingBoxTree();
@@ -310,35 +310,14 @@ class Structure
         } CellDescription;
         
     public:
-        const DynamicList<CellDescription>& getHaloCellList(label process) const
-        {
-            if(process<0 || process>=globalHaloCellList_Sorted.size())
-                FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
-            return globalHaloCellList_Sorted[process];
-        }
-        const std::unordered_map<label,label>& getHaloCellToIndexMap(label process) const
-        {
-            if(process<0 || process>=globalHaloCellToIndexMap.size())
-                FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
-            return globalHaloCellToIndexMap[process];
-        }
-        const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& getPatchFaceToCellMap() const
-        {
-            return patchFaceToCellMap;
-        }
-        const List<List<Pair<label>>>& getHaloMeshGraph(label process) const
-        {
-            if(process<0 || process>=globalHaloMeshGraph.size())
-                FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
-            return globalHaloMeshGraph[process];
-        }
-        
+        const DynamicList<CellDescription>& getHaloCellList(label process) const;
+        const std::unordered_map<label,label>& getHaloCellToIndexMap(label process) const;
+        const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& getPatchFaceToCellMap() const;
+        const List<List<Pair<label>>>& getHaloMeshGraph(label process) const;
         template<typename T>
-        std::unique_ptr<List<List<T>>> broadcastHaloFields
-        (
-            const GeometricField<T,fvPatchField,volMesh>& fieldData
-        );
+        std::unique_ptr<List<List<T>>> broadcastHaloFields(const GeometricField<T,fvPatchField,volMesh>& fieldData);
         /*********************************Collect halo cells***********************************/
+    
     private:
         /*********************************Collect halo cells***********************************/
         // [proc] -> processes' halo cells 
