@@ -113,12 +113,52 @@ class Structure
             std::vector<vector> coefficients
         );
         
+        static void nurbsMinusX
+        (
+            const gsMatrix<scalar>& x,
+            const gsMatrix<scalar>& s,
+            const gsNurbs<scalar>& nurbs,
+            gsMatrix<scalar>& N_x
+        );
+                
+        static void dNurbsdCoeff
+        (
+            const gsMatrix<scalar>& s,
+            const gsNurbs<scalar>& nurbs,
+            List<gsMatrix<scalar>>& dNdC
+        );
+        
+        static void intNurbsMinusX
+        (
+            const gsMatrix<scalar>& x,
+            const gsMatrix<scalar>& s,
+            const gsNurbs<scalar>& nurbs,
+            vector& intNmX
+        );
+        
+        static void gradIntNurbsMinX
+        (
+            const gsMatrix<scalar>& x,
+            const gsMatrix<scalar>& s,
+            const gsNurbs<scalar>& nurbs,
+            gsMatrix<scalar>& N_x,
+            List<gsMatrix<scalar>>& dNdC,
+            gsMatrix<scalar>& gradIntN_x
+        );
+        
+        static void minGradStep
+        (
+            gsNurbs<scalar>& nurbs,
+            const gsMatrix<scalar>& gradient,
+            vector stepsize
+        );
+        
         static void fitNurbsCoeffsToPoints
         (
             const List<vector>& points,
             const gsNurbs<scalar>& nurbs,
             gsMatrix<scalar>& fittedCoeffs,
-            scalar epsilon = 1e-8
+            scalar epsilon = 1e-4
         );
         
         static void fitNurbsCoeffsToPoints
@@ -127,7 +167,7 @@ class Structure
             const List<scalar>& parameters,
             const gsNurbs<scalar>& nurbs,
             gsMatrix<scalar>& fittedCoeffs,
-            scalar epsilon = 1e-8
+            scalar epsilon = 1e-4
         );
         
     // --------------- Rod setting method ---------------

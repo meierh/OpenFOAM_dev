@@ -645,6 +645,167 @@ void Foam::Structure::fitNurbsCoeffsToPoints
     return fitNurbsCoeffsToPoints(pnts,parameter,nurbs,fittedCoeffs,epsilon);
 }
 
+void Foam::Structure::nurbsMinusX
+(
+    const gsMatrix<scalar>& x,
+    const gsMatrix<scalar>& s,
+    const gsNurbs<scalar>& nurbs,
+    gsMatrix<scalar>& N_x
+)
+{
+    label parameterNbr = x.cols();
+    
+    if(x.rows()!=3)
+        FatalErrorInFunction<<"x row dimension must be 3"<<exit(FatalError);
+    if(s.cols()!=parameterNbr)
+        FatalErrorInFunction<<"Mismatch x and s dimension"<<exit(FatalError);
+    if(s.rows()!=1)
+        FatalErrorInFunction<<"s row dimension must be 1"<<exit(FatalError);    
+    if(nurbs.targetDim()!=3)
+        FatalErrorInFunction<<"Mismatch target dimension"<<exit(FatalError);
+    
+    if(N_x.rows()!=3 || N_x.cols()!=parameterNbr)
+        N_x = gsMatrix<scalar>(3,parameterNbr);
+    
+    nurbs.eval_into(s,N_x);
+    N_x = N_x - x;
+}
+
+void Foam::Structure::dNurbsdCoeff
+(
+    const gsMatrix<scalar>& s,
+    const gsNurbs<scalar>& nurbs,
+    List<gsMatrix<scalar>>& dNdC
+)
+{
+    label parameterNbr = s.cols();
+    label coeffNbr = nurbs.coefs().rows();
+    
+    if(s.rows()!=1)
+        FatalErrorInFunction<<"s row dimension must be 1"<<exit(FatalError);
+    if(nurbs.targetDim()!=3)
+        FatalErrorInFunction<<"Mismatch target dimension"<<exit(FatalError);
+    
+    if(dNdC.size()!=coeffNbr)
+        dNdC.resize(coeffNbr);
+    
+    List<gsNurbs<scalar>> dNurbsdC(coeffNbr);
+    for(label coeffI=0; coeffI<coeffNbr; coeffI++)
+    {
+        dNurbsdC[coeffI] = nurbs;
+        gsMatrix<scalar>& dNurbsCoefs = dNurbsdC[coeffI].coefs();
+        for(label coeffITemp=0; coeffITemp<coeffNbr; coeffITemp++)
+        {
+            if(coeffITemp==coeffI)
+            {
+                dNurbsCoefs(coeffITemp,0)=1;
+                dNurbsCoefs(coeffITemp,1)=1;
+                dNurbsCoefs(coeffITemp,2)=1;
+            }
+            else
+            {
+                dNurbsCoefs(coeffITemp,0)=0;
+                dNurbsCoefs(coeffITemp,1)=0;
+                dNurbsCoefs(coeffITemp,2)=0;
+            }
+        }
+    }
+    
+    for(label coeffI=0; coeffI<coeffNbr; coeffI++)
+        if(dNdC[coeffI].rows()!=3 || dNdC[coeffI].cols()!=parameterNbr)
+            dNdC[coeffI] = gsMatrix<scalar>(3,parameterNbr);
+    
+    for(label coeffI=0; coeffI<coeffNbr; coeffI++)
+    {
+        dNurbsdC[coeffI].eval_into(s,dNdC[coeffI]);       
+    }
+}
+
+void Foam::Structure::intNurbsMinusX
+(
+    const gsMatrix<scalar>& x,
+    const gsMatrix<scalar>& s,
+    const gsNurbs<scalar>& nurbs,
+    vector& intNmX
+)
+{
+    gsMatrix<scalar> N_x(3,x.cols());
+    nurbsMinusX(x,s,nurbs,N_x);
+    intNmX = vector(0,0,0);
+    
+    List<scalar> deltaS(s.cols());
+    for(label col=0; col<s.cols(); col++)
+    {
+        if(col==0)
+            deltaS[col] = 0.5*(s(0,0)+s(0,1))-s(0,0);
+        else if(col==s.cols()-1)
+            deltaS[col] = s(0,col)-0.5*(s(0,col)+s(0,col-1));
+        else
+            deltaS[col] = 0.5*(s(0,col+1)+s(0,col))-0.5*(s(0,col)+s(0,col-1));;
+    }
+    
+    for(label col=0; col<x.cols(); col++)
+    {
+        intNmX[0] += std::abs(N_x(0,col))*deltaS[col];
+        intNmX[1] += std::abs(N_x(1,col))*deltaS[col];
+        intNmX[2] += std::abs(N_x(2,col))*deltaS[col];
+    }
+}
+
+void Foam::Structure::gradIntNurbsMinX
+(
+    const gsMatrix<scalar>& x,
+    const gsMatrix<scalar>& s,
+    const gsNurbs<scalar>& nurbs,
+    gsMatrix<scalar>& N_x,
+    List<gsMatrix<scalar>>& dNdC,
+    gsMatrix<scalar>& gradIntN_x
+)
+{
+    nurbsMinusX(x,s,nurbs,N_x);
+    dNurbsdCoeff(s,nurbs,dNdC);
+    
+    for(label row=0; row<N_x.rows(); row++)
+    {
+        for(label col=0; col<N_x.cols(); col++)
+        {
+            if(N_x(row,col)>0)
+                N_x(row,col) = 1;
+            else if(N_x(row,col)<0)
+                N_x(row,col) = -1;
+            else
+                N_x(row,col) = 0;
+        }
+    }
+    
+    if(gradIntN_x.rows()!=dNdC.size() || gradIntN_x.cols()!=3)
+        gradIntN_x = gsMatrix<scalar>(dNdC.size(),3);
+    
+    List<scalar> deltaS(s.cols());
+    for(label col=0; col<s.cols(); col++)
+    {
+        if(col==0)
+            deltaS[col] = 0.5*(s(0,0)+s(0,1))-s(0,0);
+        else if(col==s.cols()-1)
+            deltaS[col] = s(0,col)-0.5*(s(0,col)+s(0,col-1));
+        else
+            deltaS[col] = 0.5*(s(0,col+1)+s(0,col))-0.5*(s(0,col)+s(0,col-1));;
+    }
+    
+    for(label coeffI=0; coeffI<dNdC.size(); coeffI++)
+    {
+        const gsMatrix<scalar>& dNdCi = dNdC[coeffI];
+        vector gradCoeffi(0,0,0);
+        for(label dim=0; dim<dNdCi.rows(); dim++)
+        {
+            for(label paraInd=0; paraInd<dNdCi.cols(); paraInd++)
+                gradCoeffi[dim] += N_x(dim,paraInd)*dNdCi(dim,paraInd)*deltaS[paraInd];
+            gradIntN_x(coeffI,dim) = gradCoeffi[dim];
+        }
+    }
+}
+
+/*
 void Foam::Structure::fitNurbsCoeffsToPoints
 (
     const List<vector>& points,
@@ -654,8 +815,9 @@ void Foam::Structure::fitNurbsCoeffsToPoints
     scalar epsilon
 )
 {
-    Info<<"points:"<<points<<Foam::endl;
-    Info<<"parameters:"<<parameters<<Foam::endl;
+    Info<<"-------------------------fitNurbsCoeffsToPoints-------------------------"<<Foam::endl;
+    //Info<<"points:"<<points<<Foam::endl;
+    //Info<<"parameters:"<<parameters<<Foam::endl;
     std::cout<<"nurbs.coefs():"<<nurbs.coefs()<<std::endl;
     
     if(points.size()!=parameters.size())
@@ -690,11 +852,14 @@ void Foam::Structure::fitNurbsCoeffsToPoints
                 dNurbsCoefs(coeffITemp,2)=0;
             }
         }
+        std::cout<<"dNurbsdP["<<coeffI<<"]:"<<dNurbsdP[coeffI]<<std::endl;
     }
     
     gsMatrix<scalar> parMat(1,parameters.size());
     for(label parInd=0; parInd<parameters.size(); parInd++)
         parMat(0,parInd) = parameters[parInd];
+    
+    std::cout<<"parMat:"<<std::endl<<parMat<<std::endl;
     
     gsMatrix<scalar> N(3,parameters.size());
     List<gsMatrix<scalar>> dNdC(coeffNumber);
@@ -704,11 +869,13 @@ void Foam::Structure::fitNurbsCoeffsToPoints
     gsMatrix<scalar> gradCoefs(coeffNumber,3);
     
     std::vector<vector> targetFuncRes;
-
+    
     Vector<bool> converged(false,false,false);
-    for(;;)
+    label iterationCount = 0;
+    for(;iterationCount<1;iterationCount++)
     {
-        std::cout<<"nurbsCp.coefs():"<<nurbsCp.coefs()<<std::endl;        
+        Info<<"----------|||||||----------"<<Foam::endl;
+        std::cout<<"\t"<<"nurbsCp.coefs():"<<std::endl<<nurbsCp.coefs()<<std::endl;        
         
         // Evaluate gradient
         nurbsCp.eval_into(parMat,N);
@@ -717,7 +884,10 @@ void Foam::Structure::fitNurbsCoeffsToPoints
             N_m_x = vector(N(0,parInd),N(1,parInd),N(2,parInd))-points[parInd];
         
         for(label coeffI=0; coeffI<coeffNumber; coeffI++)
+        {
             dNurbsdP[coeffI].eval_into(parMat,dNdC[coeffI]);
+            std::cout<<"dNdC["<<coeffI<<"]:"<<std::endl<<dNdC[coeffI]<<std::endl;
+        }
         
         vector norm_N_m_x(0,0,0);
         for(label parInd=0; parInd<parameters.size(); parInd++)
@@ -726,6 +896,8 @@ void Foam::Structure::fitNurbsCoeffsToPoints
         for(label dim=0; dim<3; dim++)
             norm_N_m_x[dim] = std::sqrt(norm_N_m_x[dim]);
         targetFuncRes.push_back(norm_N_m_x);
+        
+        Info<<"\t"<<"norm_N_m_x:"<<norm_N_m_x<<Foam::endl;
         
         for(label dim=0; dim<3; dim++)
             if(norm_N_m_x[dim]<epsilon)
@@ -775,6 +947,7 @@ void Foam::Structure::fitNurbsCoeffsToPoints
         Vector<bool> correctLenFound(converged[0],converged[1],converged[2]);
         for(;;)
         {
+            Info<<"||||||||||||||||||||||"<<factor<<"||||||||||||||||||||||"<<Foam::endl;
             gsNurbs<scalar> nurbsCpFactor = nurbsCp;
             for(label coeffI=0; coeffI<coeffNumber; coeffI++)
             {           
@@ -820,8 +993,129 @@ void Foam::Structure::fitNurbsCoeffsToPoints
                 break;
             }
         }
+        
     }
     fittedCoeffs = nurbsCp.coefs();
+}
+*/
+
+void Foam::Structure::minGradStep
+(
+    gsNurbs<scalar>& nurbs,
+    const gsMatrix<scalar>& gradient,
+    vector stepsize
+)
+{
+    if(nurbs.coefs().rows()!=gradient.rows())
+        FatalErrorInFunction<<"Error"<<exit(FatalError);
+    if(nurbs.coefs().cols()!=gradient.cols())
+        FatalErrorInFunction<<"Error"<<exit(FatalError);
+    if(nurbs.coefs().cols()!=3)
+        FatalErrorInFunction<<"Error"<<exit(FatalError);
+    
+    for(label row=0; row<nurbs.coefs().rows(); row++)
+    {
+        for(label col=0; col<nurbs.coefs().cols(); col++)
+        {
+            nurbs.coefs()(row,col) = nurbs.coefs()(row,col) - stepsize[col]*gradient(row,col);
+        }
+    }
+}
+
+void Foam::Structure::fitNurbsCoeffsToPoints
+(
+    const List<vector>& points,
+    const List<scalar>& parameters,
+    const gsNurbs<scalar>& nurbs,
+    gsMatrix<scalar>& fittedCoeffs,
+    scalar epsilon
+)
+{
+    if(points.size()!=parameters.size())
+        FatalErrorInFunction<<"Mismatch in points and parameter size"<<exit(FatalError);
+    
+    gsMatrix<scalar> x(3,points.size());        
+    gsMatrix<scalar> s(1,points.size());
+    std::map<scalar,vector> pointsMap;
+    for(label pntInd=0; pntInd<points.size(); pntInd++)
+    {
+        x(0,pntInd) = points[pntInd][0];
+        x(1,pntInd) = points[pntInd][1];
+        x(2,pntInd) = points[pntInd][2];
+        s(0,pntInd) = parameters[pntInd];
+        pointsMap[parameters[pntInd]] = points[pntInd];
+    }
+    
+    gsMatrix<scalar> N_x;
+    List<gsMatrix<scalar>> dNdC;
+    gsMatrix<scalar> gradIntN_x;
+    gsNurbs<scalar> convNurbs = nurbs;
+    vector intNmX;
+    DynamicList<vector> path;
+    
+    for(label coeffI=0; coeffI<convNurbs.coefs().rows(); coeffI++)
+    {
+        scalar startU = convNurbs.knots()[coeffI];
+        scalar endU = convNurbs.knots()[coeffI+convNurbs.knots().degree()+1];
+        vector sum_point(0,0,0);
+        label sumIndex=0;
+        for(auto iter=pointsMap.lower_bound(startU); iter!=pointsMap.upper_bound(endU); iter++)
+        {
+            sum_point += iter->second;
+            sumIndex++;
+        }
+        sum_point /= sumIndex;
+        convNurbs.coefs()(coeffI,0) = sum_point[0];
+        convNurbs.coefs()(coeffI,1) = sum_point[1];
+        convNurbs.coefs()(coeffI,2) = sum_point[2];
+    }
+
+    vector stepsize(1,1,1);    
+    for(label iterationCount=0; iterationCount<100; iterationCount++)
+    {        
+        // Evaluate gradient and target function
+        intNurbsMinusX(x,s,convNurbs,intNmX);
+        path.append(intNmX);
+        gradIntNurbsMinX(x,s,convNurbs,N_x,dNdC,gradIntN_x);
+        
+        while(true)
+        {
+            gsNurbs<scalar> tempNurbs = convNurbs;
+            minGradStep(tempNurbs,gradIntN_x,stepsize);
+            vector newIntNmX;
+            intNurbsMinusX(x,s,tempNurbs,newIntNmX);
+            bool allBetter = true;
+            for(label dim=0; dim<3; dim++)
+            {
+                if(newIntNmX[dim] > path.last()[dim])
+                    allBetter = false;
+            }
+            
+            if(!allBetter)
+            {
+                for(label dim=0; dim<3; dim++)
+                {
+                    if(newIntNmX[dim] > path.last()[dim])
+                        stepsize[dim]/=2;
+                }
+            }
+            else
+            {
+                convNurbs.coefs() = tempNurbs.coefs();
+                break;
+            }
+        }
+        for(label dim=0; dim<3; dim++)
+            if(intNmX[dim]<epsilon)
+                stepsize[dim] = 0;
+        
+        if(intNmX[0]<epsilon && intNmX[1]<epsilon && intNmX[2]<epsilon)
+            break;
+        if(stepsize[0]<epsilon && stepsize[1]<epsilon && stepsize[2]<epsilon)
+            break;
+    }
+    
+    fittedCoeffs = convNurbs.coefs();
 }
 
 const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodDeformation

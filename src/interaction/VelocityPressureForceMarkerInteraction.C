@@ -83,7 +83,7 @@ void Foam::VelocityPressureForceInteraction::moveRodsAndMarkers()
     gsMatrix<scalar> P(4,3);
     for(int r=0; r<P.rows(); r++)
     {
-        P(r,0) = r;
+        P(r,0) = 1;
         P(r,1) = 0;
         P(r,2) = 0;
     }
@@ -101,13 +101,12 @@ void Foam::VelocityPressureForceInteraction::moveRodsAndMarkers()
     
     gsMatrix<scalar> fittedCoeffs;
     
-    List<vector> points(10);
+    List<vector> points(400000);
     for(vector& pnts : points)
-        pnts = vector(0,0,0);
+        pnts = vector(2,0,0);
     
     std::cout<<"testRod.coefs():"<<testRod.coefs()<<std::endl;
 
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     Structure::fitNurbsCoeffsToPoints(points,testRod,fittedCoeffs);
     
     
