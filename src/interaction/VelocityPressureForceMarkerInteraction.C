@@ -76,67 +76,27 @@ void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
     markerToField<vector>(makerCouplingForce,output_Uf);
 }
 
-void Foam::VelocityPressureForceInteraction::moveRodsAndMarkers()
-{
-    
-    std::vector<scalar> knotVec = {0,0,0,0.5,1,1,1};
-    gsMatrix<scalar> P(4,3);
-    for(int r=0; r<P.rows(); r++)
-    {
-        P(r,0) = 1;
-        P(r,1) = 0;
-        P(r,2) = 0;
-    }
-    gsMatrix<scalar> w(4,1);
-    for(int i=0; i<4; i++)
-        w.at(i) = 1;    
-    
-    gsNurbs<scalar> testRod(knotVec,w,P);
-    gsMatrix<scalar> u(1,1);
-    u.at(0) = 0.3;
-    
-    gsMatrix<scalar> res;
-    testRod.eval_into(u,res);
-    std::cout<<res<<std::endl;
-    
-    gsMatrix<scalar> fittedCoeffs;
-    
-    List<vector> points(400000);
-    for(vector& pnts : points)
-        pnts = vector(2,0,0);
-    
-    std::cout<<"testRod.coefs():"<<testRod.coefs()<<std::endl;
-
-    Structure::fitNurbsCoeffsToPoints(points,testRod,fittedCoeffs);
-    
-    
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
-    
-    
+void Foam::VelocityPressureForceInteraction::moveMarkersAndAdaptMesh()
+{  
     List<bool> prevRodInMesh = structure.getRodInMesh();
-    std::unique_ptr<List<List<vector>>> defPtr = getDeformation();
-    if(defPtr)
+    structure.moveMarkersOnRodMovement();
+    const List<bool>& rodInMesh = structure.getRodInMesh();
+    for(label rodNumber=0; rodNumber<prevRodInMesh.size(); rodNumber++)
     {
-        structure.setDeformation(*defPtr);
-        structure.moveMarkersOnRodMovement();
-        const List<bool>& rodInMesh = structure.getRodInMesh();
-        for(label rodNumber=0; rodNumber<prevRodInMesh.size(); rodNumber++)
+        if(!prevRodInMesh[rodNumber])
         {
-            if(!prevRodInMesh[rodNumber])
+            if(rodInMesh[rodNumber])
             {
-                if(rodInMesh[rodNumber])
-                {
-                    structure.createMarkersOnRod(rodNumber);
-                }
+                structure.createMarkersOnRod(rodNumber);
             }
         }
-        if(refinement_)
-        {
-            refinement_->refineMeshOnStaticMarkers();
-            refinement_->refineMeshAndMarkers();
-        }
-        structure.finalizeMarkers();    
     }
+    if(refinement_)
+    {
+        refinement_->refineMeshOnStaticMarkers();
+        refinement_->refineMeshAndMarkers();
+    }
+    structure.finalizeMarkers();
 }
 
 Foam::vector Foam::VelocityPressureForceInteraction::sumForces

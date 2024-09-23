@@ -21,7 +21,7 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
         void preSolveMovement() override;
         
     protected:
-        std::unique_ptr<List<List<vector>>> getDeformation() override;
+        std::unique_ptr<List<List<vector>>> readDeformationDict();
         
     private:
         const IOdictionary& structureDict;

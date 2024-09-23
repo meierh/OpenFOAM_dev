@@ -18,10 +18,12 @@ structureDict(structureDict)
 
 void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
 {
-    moveRodsAndMarkers();
+    std::unique_ptr<List<List<vector>>> allRodsDeformation = readDeformationDict();
+    structure.setDeformation(*allRodsDeformation);
+    moveMarkersAndAdaptMesh();
 }
 
-std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::getDeformation()
+std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::readDeformationDict()
 {   
     const dictionary& rodMovementFieldDict = structureDict.subDict("rodMovementField");
     List<keyType> rodMovementFieldKeys = rodMovementFieldDict.keys();
@@ -35,14 +37,23 @@ std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVeloci
         FatalErrorInFunction<<"Mismatch in movement field to rod number!"<<exit(FatalError);
     }
     
-    label rodNumber = 0;
-    for(keyType oneRodMoveFieldKey : rodMovementFieldKeys)
+    for(label rodNumber=0; rodNumber<structure.getNumberRods(); rodNumber++)
     {
+        keyType oneRodMoveFieldKey = rodMovementFieldKeys[rodNumber];
         const dictionary& oneRodMovementDict = rodMovementFieldDict.subDict(oneRodMoveFieldKey);
         const entry* cdstr = oneRodMovementDict.lookupEntryPtr("move",false,false);
         ITstream stream = cdstr->stream();
-        List<vector> oneRodMovementData(stream);        
-        movementList[rodNumber] = oneRodMovementData;
+        List<vector> oneRodMovementData(stream);
+        const gsNurbs<scalar>& deformation = structure.getDeformation(rodNumber);
+        gsMatrix<scalar> defCoeffs;
+        Structure::fitNurbsCoeffsToPoints(oneRodMovementData,deformation,defCoeffs);
+        movementList[rodNumber].setSize(defCoeffs.rows());
+        for(label coeffI=0; coeffI<movementList[rodNumber].size(); coeffI++)
+        {
+            movementList[rodNumber][coeffI][0] = defCoeffs(coeffI,0);
+            movementList[rodNumber][coeffI][1] = defCoeffs(coeffI,1);
+            movementList[rodNumber][coeffI][2] = defCoeffs(coeffI,2);
+        }
     }
     return movementListPtr;
 }

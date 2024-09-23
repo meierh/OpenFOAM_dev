@@ -38,27 +38,41 @@ class CrossSection
             gsNurbs<scalar> phaseShift
         );
         
+        scalar computePhaseShift(scalar parameter) const;
         scalar operator()(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getEvalOnPoint(scalar parameter) const;
         
         scalar deriv_angle(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
-        
-    private:
-        std::vector<std::vector<gsNurbs<scalar>*>*> coeffDerivedCurves;
-        void delete_coeffDerivedCurves();
-        const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber) const;
-        gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
 
     public:
+        const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber) const;
+        const gsNurbs<scalar>& getCurve(label fourierCoeffNumber) const {return *(getCurvePtr(fourierCoeffNumber));}
+    private:
+        gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
+
+    // ----------------- Cross Section coefficient derivation methods -----------------
+    private:
+        std::vector<std::vector<gsNurbs<scalar>>> coeffDerivedCurves;
+        std::vector<gsNurbs<scalar>> phaseDerivedCurve;
+        void delete_coeffDerivedCurves();
+    public:
+        void createFourierCoeffNurbsCoeffDerivatives();
+        void createPhaseNurbsCoeffDerivatives();
         label numberFourierCoeff() const;
-        label numberNurbsCoeffs(label fourierCoeffNumber) const;
-        scalar evalRadiusDerivCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter);
+        label numberFourierCoeffNurbsCoeffs(label fourierCoeffNumber) const;
+        label numberPhaseNurbsCoeffs() const;
+        scalar evalRadiusDerivPhase(label derivCoeffNumber, scalar parameter, scalar angle);
+        scalar evalPhaseDerivNurbsCoeff(label derivCoeffNumber, scalar parameter);
+        scalar evalRadiusDerivFourierCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter, scalar angle);
+        scalar evalFourierCoeffDerivNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter);
+    // ----------------- -------------------------------------------- -----------------
         
-        void setNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar value);
+        void setFourierCoeffNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar value);
+        void setPhaseNurbsCoeff(label derivCoeffNumber, scalar value);
                 
-        scalar domainStart(){return domStart;}
-        scalar domainEnd(){return domEnd;}
+        scalar domainStart() const {return domStart;}
+        scalar domainEnd() const {return domEnd;}
         
         scalar lowerLimitRadius(scalar parameter) const;
         scalar upperLimitRadius(scalar parameter) const;
@@ -241,41 +255,8 @@ class CrossSectionStructure : public LineStructure
         ) override;
         
         void removeOverlapMarkers() override;
-        
-        //void transferMarkers();
-        
+                
         void collectMarkers() override;
-        
-        /*
-        std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> constructMarkerSet
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection* oneCrossSec,
-            scalar initialSpacing,
-            bool reInitialize = false,
-            std::pair<bool,scalar> refineSpacing = {false,0}
-        );
-        */
-        
-
-        /*
-        std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>> createSpacedPointsOnCrossSecRod
-        (
-            label rodNumber,
-            const CrossSection* crossSec,            
-            scalar spacing
-        );
-        */
-        
-        /*
-        void computeMarkerVolume
-        (
-            const ActiveRodMesh::rodCosserat* oneRod,
-            const CrossSection* oneCrossSec,
-            std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
-        );
-        */
         
         std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reduceSurplusMarkers
         (
@@ -371,52 +352,6 @@ class CrossSectionStructure : public LineStructure
         //[rod] -> {para , [] -> {rad , [] -> angle}}
         std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
         std::vector<std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>> rodMarkersList;
-
-        /*
-        bool doSubdivision
-        (
-            const std::list<LagrangianMarkerOnCrossSec>& smallerSide,
-            const std::list<LagrangianMarkerOnCrossSec>& largerSide
-        );
-        bool doSubdivisionCircumferential
-        (
-            const LagrangianMarkerOnCrossSec& smallerSide,
-            const LagrangianMarkerOnCrossSec& largerSide
-        );
-        */
-    
-        /*
-        void constructMarkerSetCircumferential
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat*,
-            const CrossSection*,
-            std::list<LagrangianMarkerOnCrossSec>&,
-            scalar radiusFrac = 1
-        );
-        */
-        
-        /*
-        void constructMarkerSetRadial
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod,
-            const scalar parameter,
-            const CrossSection* oneCrossSec,
-            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers
-        );
-        */
-        
-        /*
-        std::list<LagrangianMarkerOnCrossSec> createInitialCircumMarkers
-        (
-            const label rodNumber,
-            const ActiveRodMesh::rodCosserat* oneRod,
-            scalar parameter,
-            const CrossSection* oneCrossSec,
-            scalar radiusFrac = 1
-        );
-        */
 };
 
 class CrossSectionStructureParameters : public LineStructureParameters

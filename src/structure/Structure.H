@@ -52,6 +52,7 @@
 #include "fvFieldSource.H"
 #include <array>
 #include "BoundingBox.H"
+#include "LinearSystem.H"
 
 namespace Foam
 {
@@ -153,6 +154,14 @@ class Structure
             vector stepsize
         );
         
+        static void linearLeastSquare
+        (
+            const List<vector>& points,
+            const List<scalar>& parameters,
+            const gsNurbs<scalar>& nurbs,
+            gsMatrix<scalar>& fittedCoeffs
+        );
+        
         static void fitNurbsCoeffsToPoints
         (
             const List<vector>& points,
@@ -188,6 +197,7 @@ class Structure
         void setDeformation(const List<List<vector>>& deformationCoeffs);
         void setDeformation(label rodNumber, const List<vector>& deformationCoeffs);
         virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const = 0;
+        const gsNurbs<scalar>& getDeformation(label rodNumber) const;
     // ----------------- ------------------------- -----------------
         
     // ----------------- --------------- -----------------

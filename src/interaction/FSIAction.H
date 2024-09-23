@@ -21,7 +21,6 @@ class FSIAction : public VelocityPressureForceInteraction
         void preSolveMovement() override {};
         
     protected:
-        std::unique_ptr<List<List<vector>>> getDeformation() override {return nullptr;}
         void computeRodForceMoment() override;
         
     private:

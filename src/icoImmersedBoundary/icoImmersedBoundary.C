@@ -63,6 +63,45 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
     Info<<"useRefinement:"<<useRefinement<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
+    
+    CrossSectionStructure* structure = dynamic_cast<CrossSectionStructure*>(this->structure.get());
+    const std::vector<CrossSection>& crossSec = structure->getRodCrossSections();
+    for(std::size_t rodNumber=0; rodNumber<crossSec.size(); rodNumber++)
+    {
+        Info<<"rodNumber:"<<rodNumber<<Foam::endl;
+        CrossSection cpCrossSec = crossSec[rodNumber];
+        Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::endl;
+        for(label fourierCoeff=0; fourierCoeff<cpCrossSec.numberFourierCoeff(); fourierCoeff++)
+        {
+            Info<<"      numberNurbsCoeffs:"<<cpCrossSec.numberNurbsCoeffs(fourierCoeff)<<Foam::endl;
+            //std::cout<<cpCrossSec.getCurve(fourierCoeff)<<std::endl;
+            scalar domainStart = cpCrossSec.domainStart();
+            scalar domainEnd = cpCrossSec.domainEnd();
+            
+            Info<<"nurbsCoeff:0  para:0   "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,0,0)<<Foam::endl;
+            Info<<"nurbsCoeff:0  para:0.2 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,0,0.2)<<Foam::endl;
+            Info<<"nurbsCoeff:0  para:0.4 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,0,0.4)<<Foam::endl;
+            Info<<"nurbsCoeff:0  para:0.6 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,0,0.6)<<Foam::endl;
+            Info<<"nurbsCoeff:0  para:0.8 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,0,0.8)<<Foam::endl;
+            Info<<"nurbsCoeff:0  para:1   "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,0,1)<<Foam::endl;            
+            
+            Info<<"nurbsCoeff:1  para:0   "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,1,0)<<Foam::endl;
+            Info<<"nurbsCoeff:1  para:0.2 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,1,0.2)<<Foam::endl;
+            Info<<"nurbsCoeff:1  para:0.4 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,1,0.4)<<Foam::endl;
+            Info<<"nurbsCoeff:1  para:0.6 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,1,0.6)<<Foam::endl;
+            Info<<"nurbsCoeff:1  para:0.8 "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,1,0.8)<<Foam::endl;
+            Info<<"nurbsCoeff:1  para:1   "<<cpCrossSec.evalRadiusDerivCoeff(fourierCoeff,1,1)<<Foam::endl;
+            
+            Info<<"["<<domainStart<<" - "<<domainEnd<<"]"<<Foam::endl;
+        }
+    }
+    for(label rodNumber=0; rodNumber<structure->getNumberRods(); rodNumber++)
+    {
+        
+    }
+    
+    
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()

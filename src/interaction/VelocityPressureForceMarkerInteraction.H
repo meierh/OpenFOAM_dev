@@ -29,10 +29,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         void interpolateFluidVelocityToMarkers();
         void computeCouplingForceOnMarkers();
         virtual void computeRodForceMoment();
+        void moveMarkersAndAdaptMesh();
         void interpolateFluidForceField();
-        
-        virtual std::unique_ptr<List<List<vector>>> getDeformation()=0;
-        void moveRodsAndMarkers();
         
         vector sumForces
         (

@@ -1097,13 +1097,13 @@ Foam::Vector_par Foam::CSR_Matrix_par::operator*
     if(!complete || globalCols==-1)
         FatalErrorInFunction<<"Incomplete matrix"<<exit(FatalError);
     checkCompatible(vec);
-
+    
     if(global)
     {
         List<scalar> globalVector;
         vec.collectGlobal(globalVector);
         
-        Vector_par result(vec);
+        Vector_par result(localRows,localRowStart,globalRows,global);
         for(label k=0; k<this->localRows; k++)
         {
             label rowStartInd = Row_Index[k];
@@ -1125,7 +1125,7 @@ Foam::Vector_par Foam::CSR_Matrix_par::operator*
     }
     else
     {
-        Vector_par result(vec);
+        Vector_par result(localRows,localRowStart,globalRows,global);
         for(label k=0; k<this->localRows; k++)
         {
             label rowStartInd = Row_Index[k];
@@ -1134,7 +1134,7 @@ Foam::Vector_par Foam::CSR_Matrix_par::operator*
                 rowEndInd = Row_Index[k+1];
             else
                 rowEndInd = V.size();
-            
+                        
             scalar value = 0;
             for(label ind=rowStartInd; ind<rowEndInd; ind++)
             {
@@ -1144,7 +1144,7 @@ Foam::Vector_par Foam::CSR_Matrix_par::operator*
             result[k] = value;
         }
         return result;
-    }
+    }    
 }
 
 Foam::CSR_Matrix_par Foam::CSR_Matrix_par::operator*
@@ -1152,8 +1152,74 @@ Foam::CSR_Matrix_par Foam::CSR_Matrix_par::operator*
     const CSR_Matrix_par& mat
 ) const
 {
-    FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
-    return CSR_Matrix_par();
+    if(!complete || globalCols==-1)
+        FatalErrorInFunction<<"Incomplete matrix"<<exit(FatalError);
+    checkCompatible(mat);
+    
+    //Info<<"this"<<Foam::endl;
+    //Info<<to_string()<<Foam::endl;
+    //Info<<"mat"<<Foam::endl;
+    //Info<<mat.to_string()<<Foam::endl;
+    
+    CSR_Matrix_par multiplied(localRows,localRowStart,globalRows,mat.getGlobalCols(),global);
+    
+    CSR_Matrix_par tranposedRightMat = mat.transpose();
+    CSR_Matrix_par globalTransposedRightMat;
+    tranposedRightMat.collectGlobal(globalTransposedRightMat);
+
+    //Info<<"tranposedRightMat"<<Foam::endl;
+    //Info<<tranposedRightMat.to_string()<<Foam::endl;
+    //Info<<"globalTransposedRightMat"<<Foam::endl;
+    //Info<<globalTransposedRightMat.to_string()<<Foam::endl;
+    
+    for(label localRow=0; localRow<localRows; localRow++)
+    {
+        label rowMemStart = Row_Index[localRow];
+        label rowMemEnd = localRow<localRows-1 ? Row_Index[localRow+1] : V.size();
+        
+        std::unordered_map<label,scalar> rowMap;
+        for(label rowMemInd=rowMemStart; rowMemInd<rowMemEnd; rowMemInd++)
+            rowMap[Col_Index[rowMemInd]] = V[rowMemInd];
+        
+        /*
+        Info<<"RowMap:";
+        for(auto iter=rowMap.begin(); iter!=rowMap.end(); iter++)
+            Info<<"("<<iter->first<<","<<iter->second<<") ";
+        Info<<Foam::endl;
+        */
+        
+        DynamicList<std::pair<scalar,label>> multRow;
+        //Info<<"tranposedRightMat.getGlobalRows():"<<tranposedRightMat.getGlobalRows()<<Foam::endl;
+        for(label col=0; col<tranposedRightMat.getGlobalRows(); col++)
+        {
+            label colMemStart = globalTransposedRightMat.Row_Index[col];
+            label colMemEnd = col<globalTransposedRightMat.getGlobalRows()-1 ?
+                              globalTransposedRightMat.Row_Index[col+1] :
+                              globalTransposedRightMat.V.size();
+
+            //Info<<"col:"<<col<<": ";
+            scalar multSum=0;
+            for(label colMemInd=colMemStart; colMemInd<colMemEnd; colMemInd++)
+            {
+                //Info<<"("<<globalTransposedRightMat.Col_Index[colMemInd]<<","<<globalTransposedRightMat.V[colMemInd]<<") ";
+                auto iter = rowMap.find(globalTransposedRightMat.Col_Index[colMemInd]);
+                if(iter!=rowMap.end())
+                    multSum += iter->second * globalTransposedRightMat.V[colMemInd];
+            }
+            //Info<<Foam::endl;
+            if(multSum!=0)
+                multRow.append({multSum,col});
+        }
+        /*
+        Info<<"multRow:"<<Foam::endl;
+        for(auto entry : multRow)
+            Info<<"("<<entry.first<<","<<entry.second<<") ";
+        Info<<Foam::endl;
+        */
+        multiplied.addRow(multRow);
+    }
+    
+    return multiplied;
 }
 
 Foam::scalar Foam::CSR_Matrix_par::getDiagonal
@@ -1199,6 +1265,80 @@ Foam::scalar Foam::CSR_Matrix_par::evalOnDiagonal
 bool Foam::CSR_Matrix_par::isSquare() const
 {
     return (globalRows==globalCols);// && globalRows>0;
+}
+
+Foam::CSR_Matrix_par Foam::CSR_Matrix_par::transpose() const
+{
+    if(!complete || globalCols==-1)
+        FatalErrorInFunction<<"Incomplete matrix"<<exit(FatalError);
+    
+    List<std::map<label,scalar>> columns(globalCols);
+    for(label locRowInd=0; locRowInd<Row_Index.size(); locRowInd++)
+    {
+        label rowStart = Row_Index[locRowInd];
+        label nextRowStart = locRowInd<Row_Index.size()-1 ? Row_Index[locRowInd+1] : V.size();
+        for(label memInd=rowStart; memInd<nextRowStart; memInd++)
+        {
+            columns[Col_Index[memInd]][locRowInd+localRowStart]=V[memInd];
+        }
+    }
+    
+    label rowPerProcess = globalCols / Pstream::nProcs();    
+    List<label> transposedRowPerProcess(Pstream::nProcs(),0);
+    List<label> transposedRowStartPerProcess(Pstream::nProcs(),0);
+    if(rowPerProcess<1)
+    {
+        for(label proc=0; proc<globalCols; proc++)
+            transposedRowPerProcess[proc] = 1;
+        label startInd=0;
+        for(label proc=1; proc<transposedRowStartPerProcess.size(); proc++)
+        {
+            transposedRowStartPerProcess[proc] = transposedRowPerProcess[proc]+startInd;
+            startInd = transposedRowStartPerProcess[proc];
+        }        
+    }
+    else
+    {
+        label startInd=0;
+        for(label proc=1; proc<Pstream::nProcs(); proc++)
+        {
+            transposedRowPerProcess[proc] = rowPerProcess;
+            transposedRowStartPerProcess[proc] = transposedRowPerProcess[proc]+startInd;
+            startInd = transposedRowStartPerProcess[proc];
+        }
+        label missingRows = globalCols-startInd;
+        transposedRowPerProcess.last()+=missingRows;
+    }
+    
+    CSR_Matrix_par transposed(transposedRowPerProcess[Pstream::myProcNo()],
+                              transposedRowStartPerProcess[Pstream::myProcNo()],globalCols,globalRows,global);
+    for(label colInd=0; colInd<globalCols; colInd++)
+    {
+        const std::map<label,scalar>& column = columns[colInd];
+        List<DynamicList<Tuple2<label,scalar>>> globalColumn(Pstream::nProcs());
+        for(auto iter=column.begin(); iter!=column.end(); iter++)
+            globalColumn[Pstream::myProcNo()].append(Tuple2<label,scalar>(iter->first,iter->second));
+        Pstream::gatherList(globalColumn);
+        Pstream::scatterList(globalColumn);
+        
+        if(colInd>=transposed.getLocalRowStart() && colInd<transposed.getLocalRowStart()+transposed.getLocalRows())
+        {
+            std::map<label,scalar> transpRowMap;
+            for(const DynamicList<Tuple2<label,scalar>>& oneProcData : globalColumn)
+            {
+                for(const Tuple2<label,scalar>& singleData : oneProcData)
+                {
+                    transpRowMap.insert({singleData.first(),singleData.second()});
+                }
+            }
+            DynamicList<std::pair<scalar,label>> transpRow;
+            for(auto iter=transpRowMap.begin(); iter!=transpRowMap.end(); iter++)
+                transpRow.append({iter->second,iter->first});
+            transposed.addRow(transpRow);
+        }
+    }
+    
+    return transposed;
 }
 
 Foam::CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
@@ -1378,6 +1518,43 @@ std::string Foam::CSR_Matrix_par::to_metaDataString() const
     std::string boolStr = global?"true":"false";
     metaData.append("g:"+boolStr+"\n");
     return metaData;
+}
+
+void Foam::CSR_Matrix_par::collectGlobal
+(
+    CSR_Matrix_par& globalMatrix
+) const
+{
+    globalMatrix = CSR_Matrix_par(globalRows,0,globalRows,globalCols,false);
+    List<Foam::Tuple3<List<scalar>,List<label>,List<label>>> globalData(Pstream::nProcs());
+    List<Tuple2<label,label>> globalIndices(Pstream::nProcs());
+    
+    globalData[Pstream::myProcNo()].first()=V;
+    globalData[Pstream::myProcNo()].second()=Col_Index;
+    globalData[Pstream::myProcNo()].third()=Row_Index;
+    globalIndices[Pstream::myProcNo()].first()=localRowStart;
+    globalIndices[Pstream::myProcNo()].second()=localRows;
+    
+    Pstream::gatherList(globalData);
+    Pstream::gatherList(globalIndices);
+    Pstream::scatterList(globalData);
+    Pstream::scatterList(globalIndices);
+    
+    std::map<label,label> procToRowOrder;
+    for(label proc=0; proc<globalIndices.size(); proc++)
+        procToRowOrder[globalIndices[proc].first()] = proc;
+    
+    for(auto iter=procToRowOrder.begin(); iter!=procToRowOrder.end(); iter++)
+    {
+        label proc = iter->second;
+        globalMatrix.V.append(globalData[proc].first());
+        globalMatrix.Col_Index.append(globalData[proc].second());
+        for(label i=0; i<globalData[proc].third().size(); i++)
+        {
+            globalMatrix.Row_Index.append(globalData[proc].third()[i]+globalIndices[proc].first());
+        }        
+    }
+    globalMatrix.complete = true;
 }
 
 void Foam::CSR_Matrix_par::checkCompatible

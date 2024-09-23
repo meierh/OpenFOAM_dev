@@ -19,7 +19,6 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
         void preSolveMovement() override {}
         
     protected:
-        std::unique_ptr<List<List<vector>>> getDeformation() override {return nullptr;}
         
     private:
         vector getVelocity(const LagrangianMarker* marker);

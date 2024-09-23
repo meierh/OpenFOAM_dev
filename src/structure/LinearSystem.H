@@ -11,9 +11,11 @@
 #include "gsl/gsl_cblas.h"
 
 #include "fvMesh.H"
+#include "Tuple3.H"
 #include <limits>
 #include <queue>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace Foam
 {
@@ -251,6 +253,7 @@ namespace Foam
             scalar getDiagonal(label localRow) const;
             virtual scalar evalOnDiagonal(const Vector_par& vec, label localRow) const;
             bool isSquare() const;
+            CSR_Matrix_par transpose() const;
             
             label getLocalRowStart() const {return localRowStart;}
             label getLocalRows() const {return localRows;}
@@ -265,8 +268,11 @@ namespace Foam
             std::string to_string() const;
             std::string to_metaDataString() const;
             
+            void collectGlobal(CSR_Matrix_par& globalVector) const;
+            
             void checkCompatible(const Vector_par& vec) const;
             void checkCompatible(const CSR_Matrix_par& mat) const;
+            void checkMultCompatible(const CSR_Matrix_par& mat) const;
             void globalCheck() const;
             
             virtual ~CSR_Matrix_par() = default;
