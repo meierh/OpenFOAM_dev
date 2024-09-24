@@ -94,6 +94,8 @@ class Structure
         Structure(const Structure&) = delete;
         
         label getNumberRods() const;
+        scalar domainStart (label rodNumber) const;
+        scalar domainEnd (label rodNumber) const;
         label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod) const;
         
         void solveOneStep();
@@ -182,7 +184,7 @@ class Structure
     // --------------- Rod setting method ---------------
         void getCurveCoeffs(List<List<vector>>& coeffs) const;
         void setCurveCoeffs(const List<List<vector>>& coeffs);
-    private:
+        scalar getCurveCoeff(label rodNumber, label derivCoeffNumber, label dimension) const;
         void setCurveCoeff(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
     // --------------- ------------------ ---------------
         
@@ -221,9 +223,10 @@ class Structure
     // ----------------- ---------------------- -----------------
         
     // ----------------- Rod coefficient derivation methods -----------------
-    private:
+    protected:
         bool constructedCoeffDerivedData = false;
         void constructCoeffDerivedData();
+    private:
         FixedList<gsMatrix<scalar>,3> compute_dRdq(const gsMatrix<scalar>& q);
         gsMatrix<scalar> quaternionMultiply(const gsMatrix<scalar>& q1,const gsMatrix<scalar>& q2);
         gsMatrix<scalar> quaternionInvert(const gsMatrix<scalar>& q);

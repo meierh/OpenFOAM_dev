@@ -194,72 +194,6 @@ class LineStructureStatus
         Node markersWeightExchange= Node({&markersWeight},false,"markersWeightExchange");
 };
 
-/*
-class LineStructure;
-class FieldMarkerStructureInteraction
-{
-    public:
-        enum markerMeshType {Uniform, NonUniform};
-        explicit FieldMarkerStructureInteraction
-        (
-            const fvMesh& mesh,
-            LineStructure& structure,
-            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
-            markerMeshType modusMarkerToField = markerMeshType::NonUniform
-        );
-        virtual ~FieldMarkerStructureInteraction()=default;
-
-        virtual void solve() = 0;
-
-        virtual void store() = 0;
-        
-        virtual void setToTime(scalar time) = 0;
-        
-    protected:
-        ActiveRodMesh::rodMesh* rodMesh;        
-        const fvMesh& mesh;
-        LineStructure& structure;
-
-        //Map field from fielData to markerData according to markers
-        template<typename T> void fieldToMarker
-        (
-            const GeometricField<T,fvPatchField,volMesh>& fieldData,
-            DynamicList<T>& markerData
-        );
-        
-        template<typename T> void integrateFieldOverMarker
-        (
-            const GeometricField<T,fvPatchField,volMesh>& fieldData,
-            DynamicList<T>& markerData,
-            std::function<T(const LagrangianMarker*, std::function<T(Pair<label>)>)> integration            
-        );
-                
-        template<typename T> void markerToField
-        (
-            const DynamicList<T>& markerData,
-            GeometricField<T,fvPatchField,volMesh>& fieldData
-        );
-                
-        template<typename T> void integrateMarkersOverField
-        (
-            const DynamicList<T>& markerData,
-            GeometricField<T,fvPatchField,volMesh>& fieldData
-        );
-        
-        void scatterNurbs(std::pair<gsNurbs<scalar>,label> in, std::pair<gsNurbs<scalar>,label>& out);
-        
-        template<typename T> void gatherMarkerData
-        (
-            std::tuple<List<scalar>,List<List<T>>,label> in,
-            std::tuple<List<scalar>,List<List<T>>,label>& out
-        );
-        
-        const scalar h;
-        const markerMeshType modusFieldToMarker;
-        const markerMeshType modusMarkerToField;
-};
-*/
-
 class NurbsCoeffReference
 {
     public:
@@ -281,7 +215,9 @@ class CrossSectionCoeffReference
 {
     public:
         CrossSectionCoeffReference(label rodNumber, label fourierCoeffNumber, label coeffNumber);
+        CrossSectionCoeffReference(label rodNumber, label coeffNumber);
         label rodNumber;
+        bool phase;
         label fourierCoeffNumber;
         label coeffNumber;
 };
@@ -693,6 +629,8 @@ class LineStructure : public Structure
         const std::vector<LagrangianMarker*>& getCollectedMarkers() const {return collectedMarkers;}
         
         //scalar initialSpacingFromMesh();
+        
+        virtual void selfCheck();
 };
 //#include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"

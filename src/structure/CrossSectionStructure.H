@@ -55,21 +55,24 @@ class CrossSection
     private:
         std::vector<std::vector<gsNurbs<scalar>>> coeffDerivedCurves;
         std::vector<gsNurbs<scalar>> phaseDerivedCurve;
-        void delete_coeffDerivedCurves();
     public:
         void createFourierCoeffNurbsCoeffDerivatives();
         void createPhaseNurbsCoeffDerivatives();
         label numberFourierCoeff() const;
         label numberFourierCoeffNurbsCoeffs(label fourierCoeffNumber) const;
         label numberPhaseNurbsCoeffs() const;
-        scalar evalRadiusDerivPhase(label derivCoeffNumber, scalar parameter, scalar angle);
-        scalar evalPhaseDerivNurbsCoeff(label derivCoeffNumber, scalar parameter);
-        scalar evalRadiusDerivFourierCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter, scalar angle);
-        scalar evalFourierCoeffDerivNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter);
+        scalar evalRadiusDerivPhaseNurbsCoeff(label derivCoeffNumber, scalar parameter, scalar angle) const;
+        scalar evalRadiusDerivFourierCoeffNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter, scalar angle) const;
+    private:
+        scalar evalPhaseDerivNurbsCoeff(label derivCoeffNumber, scalar parameter) const;
+        scalar evalFourierCoeffDerivNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar parameter) const;
     // ----------------- -------------------------------------------- -----------------
-        
+    
+    public:
         void setFourierCoeffNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber, scalar value);
         void setPhaseNurbsCoeff(label derivCoeffNumber, scalar value);
+        scalar getFourierCoeffNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber) const;
+        scalar getPhaseNurbsCoeff(label derivCoeffNumber) const;
                 
         scalar domainStart() const {return domStart;}
         scalar domainEnd() const {return domEnd;}
@@ -175,7 +178,14 @@ class CrossSectionStructure : public LineStructure
         void to_string() override;
         
     // ----------------- Optimization related methods -----------------
-        void setCrossSecParameters(label rodNumber, label fourierCoeffNumber, label derivCoeffNumber, scalar value);
+        void setCrossSecParameters
+        (
+            label rodNumber,
+            bool phase,
+            label fourierCoeffNumber,
+            label derivCoeffNumber,
+            scalar value
+        );
         vector dXdParam(const LagrangianMarker* marker,const Parameter& par) override;
         vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par) override;
     // ----------------- ---------------------------- -----------------
@@ -352,6 +362,9 @@ class CrossSectionStructure : public LineStructure
         //[rod] -> {para , [] -> {rad , [] -> angle}}
         std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
         std::vector<std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>> rodMarkersList;
+        
+    public:
+        void selfCheck() override;
 };
 
 class CrossSectionStructureParameters : public LineStructureParameters

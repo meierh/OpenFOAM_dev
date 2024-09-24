@@ -1499,3 +1499,44 @@ void Foam::LineStructure::GlobalHaloMarkers::check
     if(cellMarkerInd>=globalHaloCellsMarkerRadiusFrac[process][haloCellInd].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac[process][haloCellInd] size error"<<exit(FatalError);
 }
+
+void Foam::LineStructure::selfCheck()
+{
+    Info<<"-----------Check line structure derivatives-----------"<<Foam::endl;
+    for(label rodNumber=0; rodNumber<getNumberRods(); rodNumber++)
+    {
+        Info<<"rodNumber:"<<rodNumber<<Foam::endl;
+        scalar domainStart = this->domainStart(rodNumber);
+        scalar domainEnd = this->domainEnd(rodNumber);
+        Info<<"   numberCurveCoeffs:"<<numberCurveCoeffs(rodNumber)<<Foam::endl;
+        for(label coeffI=0; coeffI<numberCurveCoeffs(rodNumber); coeffI++)
+        {
+            for(label dim=0; dim<3; dim++)
+            {
+                auto deriv = [&](scalar par)
+                {
+                    vector d1,d2,d3,r;
+                    rodEvalDerivCoeff(rodNumber,coeffI,dim,par,d1,d2,d3,r);
+                    return r;
+                };
+                
+                auto fdDeriv = [&](scalar par, scalar epsilon=1e-10)
+                {                   
+                    scalar coeffBasicValue = getCurveCoeff(rodNumber,coeffI,dim);
+                    
+                    scalar lowerCoeffValue = coeffBasicValue-epsilon;
+                    setCurveCoeff(rodNumber,coeffI,dim,lowerCoeffValue);
+                    vector lowerX = rodEval(Rods[rodNumber],par);
+                    
+                    scalar upperCoeffValue = coeffBasicValue+epsilon;
+                    setCurveCoeff(rodNumber,coeffI,dim,upperCoeffValue);
+                    vector upperX = rodEval(Rods[rodNumber],par);
+                    
+                    setCurveCoeff(rodNumber,coeffI,dim,coeffBasicValue);
+                        
+                    return (upperX-lowerX)/(upperCoeffValue-lowerCoeffValue);
+                };
+            }
+        }
+    }
+}

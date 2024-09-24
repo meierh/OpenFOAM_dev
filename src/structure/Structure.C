@@ -541,6 +541,26 @@ Foam::label Foam::Structure::getNumberRods() const
     return nR;
 }
 
+Foam::scalar Foam::Structure::domainStart
+(
+    label rodNumber
+) const
+{
+    if(rodNumber<0 || rodNumber>=getNumberRods())
+        FatalErrorInFunction<<"Invalid fourierCoeffNumber"<<exit(FatalError);
+    return Rods[rodNumber]->m_Curve.domainStart();
+}
+
+Foam::scalar Foam::Structure::domainEnd
+(
+    label rodNumber
+) const
+{
+    if(rodNumber<0 || rodNumber>=getNumberRods())
+        FatalErrorInFunction<<"Invalid fourierCoeffNumber"<<exit(FatalError);
+    return Rods[rodNumber]->m_Curve.domainEnd();
+}
+
 Foam::label Foam::Structure::getMaxDegree
 (
     const ActiveRodMesh::rodCosserat* oneRod
