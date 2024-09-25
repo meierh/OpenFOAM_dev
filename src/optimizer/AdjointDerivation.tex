@@ -21,6 +21,7 @@
 \usetikzlibrary{trees}
 \usepackage{algorithm2e}
 
+
 \usepackage{multirow}
 \usepackage{parallel,enumitem}
 
@@ -46,13 +47,14 @@
 %%% END Article customizations
 
 
-\title{Adjoint derivation}
+\title{Equation derivation and algorithms}
 \date{}
 %\date{} % Activate to display a given date or no date (if empty),
          % otherwise the current date is printed 
 
 \begin{document}
-\maketitle
+	\maketitle
+
 \begin{center}
 	\textbf{ Immersed Boundary Incompressible Navier Stokes with Nurbs Structure}\\
 	Identify $\phi= \left(\vec{u},p,f_u,F_u,U_M,T_{\text{fluid}},f_{T_{\text{fluid}}},F_{T_{\text{fluid}}},T_{\text{fluid}_M},T_{\text{structure}},\vec{U}_\text{structure}\right)^T$\\
@@ -91,13 +93,108 @@
 	Structure Equations:
 \end{flushleft}
 	$X(s,...) = 0$\\
-	$T_{\text{solid}}(s,...) =0$\\
+	$T_{\text{structure}}(s,...) =0$\\
 \begin{flushleft}
 	Structure Boundary Equation:
 \end{flushleft}
 	$\text{RB}_X(s,...) = 0$\\
 	$\text{RB}_T(s,...) =0$\\
 \end{center}
+
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\KwData{$\vec{u}$,$p$,$f_u$,$U_M$,$U_\text{structure}$,$F_u$}
+	\KwData{$T_{\text{fluid}}$,$\text{T}_{\text{fluid}_M}$,$T_\text{structure}$,$f_{\text{T}_{\text{fluid}}}$}
+	\For{timestep}
+	{
+		\While{not converged}
+		{
+			Solve for $\vec{u}$: $\frac{\partial \vec{u}}{\partial t} + (\vec{u} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} = - \frac{1}{\rho} \nabla p + f_u$ \quad on $\Omega$\\
+			Compute : $U_M (\vec{X}) = \int u(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$ \quad on $X$\\
+			Compute : $U_{\text{structure}} (\vec{X}) = \frac{d \vec{X}_{\text{structure}}}{dt}$ \quad on $X$\\
+			Compute : $F_u (\vec{X}) = \frac{\vec{U}_\text{structure} (\vec{X}) - U_M(\vec{X})}{\Delta t}$ \quad on $X$\\
+			Solve for $\vec{X}_\text{structure}$: $\text{StructureSolver}(F_u)$ \quad on $X$\\
+			Compute : $f_u (\vec{x}) = \sum_{X} F_u (X) \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+			Solve for $p$: $\text{Pressure Correction}(- \nabla \cdot \vec{u} = 0)$ \quad on $\Omega$\\
+		}
+		\While{not converged}
+		{
+			Solve for $T_{\text{fluid}}$: $\frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} = f_{\text{T}_{\text{fluid}}}$ \quad on $\Omega$\\
+			Compute : $\text{T}_{\text{fluid}_M} (\vec{X}) = \int {\text{T}_{\text{fluid}}}(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$  \quad on $X$\\
+			Compute : $F_{\text{T}_{\text{fluid}}} (\vec{X}) = \frac{T_{\text{structure}} (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t}$ \quad on $X$\\
+			Solve for $T_\text{structure}$: $\text{StructureHeatSolver}(F_{\text{T}_{\text{fluid}}})$ \quad on $X$\\
+			Compute : $f_{\text{T}_{\text{fluid}}} (\vec{x}) = \sum_{X} F_{\text{T}_{\text{fluid}}} (X) \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+		}
+	}
+	\caption{TFSI solution algorithm}
+\end{algorithm}
+
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\KwData{$\vec{u}$,$\vec{\phi}$,$p$,$f_u$,$U_M$,$U_\text{structure}$,$F_u$}
+	\KwData{$T_{\text{fluid}}$,$\text{T}_{\text{fluid}_M}$,$T_\text{structure}$,$f_{\text{T}_{\text{fluid}}}$}
+	\For{timestep}
+	{
+		\While{not converged}
+		{
+			Set: $\text{UEqn} = \frac{\partial \vec{u}}{\partial t} + (\vec{\phi} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u}$\\
+			Compute: Equation under-relaxation($\text{UEqn}$) (Notes on Computational Fluid Dynamics p.157)\\
+			Constrain $(\text{UEqn})$\\
+			Solve for $\vec{u}$: $\text{UEqn} = - \frac{1}{\rho} \nabla p + f_u$ \quad on $\Omega$\\
+			Constrain $(\vec{u})$\\
+			\quad \\
+			Compute : $U_M (\vec{X}) = \int u(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$ \quad on $X$\\
+			Compute : $U_{\text{structure}} (\vec{X}) = \frac{d \vec{X}_{\text{structure}}}{dt}$ \quad on $X$\\
+			Compute : $F_u (\vec{X}) = \frac{\vec{U}_\text{structure} (\vec{X}) - U_M(\vec{X})}{\Delta t}$ \quad on $X$\\
+			Solve for $\vec{X}_\text{structure}$: $\text{StructureSolver}(F_u)$ \quad on $X$\\
+			Compute : $f_u (\vec{x}) = \sum_{X} F_u (X) \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+			\quad \\
+			\While{pressureCorrection loop}
+			{
+				Set VolScalarField $\text{rAU} =  \frac{1}{\text{diag}(\text{UEqn})}$\\
+				Set VolVectorField $\text{HbyA} =  \text{rAU}*\text{offDiag}(\text{UEqn})$\\
+				ConstrainOnBoundary $(\text{HbyA},\vec{u},p)$\\
+				\quad Set FaceVectorField $\text{HbyA}_{\text{flux}} =  \text{Compute flux on faces}(\text{HbyA})$\\
+				\quad Set FaceScalarField $\text{rAU}_{\text{face}} =  \text{interpolate}(\text{rAU})$\\
+				Set FaceScalarField $\text{phiHbyA} = \text{HbyA}_{\text{flux}} + \text{rAU}_{\text{face}}*\text{ddtCorr}(\vec{u},\vec{\phi}) $\\
+				Set VolScalarField $\text{rAtU} = \text{rAU}$\\
+				\If{pimple.consistent}
+				{
+					Compute $\text{rAtU} =  \frac{1}{max\left[(\frac{1}{\text{rAU}}) - \text{offDiag}(\text{UEqn})/\text{Vol} , \frac{0.1}{\text{rAU}}\right]} $\\
+					Compute $\text{phiHbyA} += \text{interpolate}(\text{rAtU}-\text{rAU})*\text{surfaceGrad}(p)*\text{faceVolume}$\\
+					Compute $\text{HbyA} -=  \left(\text{rAU}-\text{rAtU}\right)*\text{grad}(p)$\\
+				}
+				ConstrainPressure $(p,\vec{u},\text{phiHbyA},\text{rAtU})$\\
+				\While{pimple.correctNonOrthogonal}
+				{
+					Set: $\text{pEqn} = \nabla \cdot \left(\text{rAtU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA} - \nabla \cdot \left(\text{rAtU} \cdot f_u\right)$\\
+					$\text{pEqn}.$setReference()\\
+					$\text{pEqn}.$solve()\\
+				}
+				\If{pimple.consistent}
+				{
+					$\vec{\phi} = \text{phiHbyA} - \text{pEqn}$.flux()\\
+				}
+				$p.$relax()\\
+				Compute: $\vec{u} = \text{HbyA} - \text{rAtU}*\text{grad}(p) + \text{rAtU}*f_u$\\
+				CorrectBoundaryConditions($\vec{u}$)\\
+				Constrain($\vec{u}$)
+			}
+		}
+		\While{not converged}
+		{
+			Set: $\text{TEqn} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{\phi} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}}$\\
+			Solve for $T_{\text{fluid}}$: $\text{TEqn} = f_{\text{T}_{\text{fluid}}}$ \quad on $\Omega$\\
+			\quad \\
+			Compute : $\text{T}_{\text{fluid}_M} (\vec{X}) = \int {\text{T}_{\text{fluid}}}(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$  \quad on $X$\\
+			Compute : $F_{\text{T}_{\text{fluid}}} (\vec{X}) = \frac{T_{\text{structure}} (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t}$ \quad on $X$\\
+			Solve for $T_\text{structure}$: $\text{StructureHeatSolver}(F_{\text{T}_{\text{fluid}}})$ \quad on $X$\\
+			Compute : $f_{\text{T}_{\text{fluid}}} (\vec{x}) = \sum_{X} F_{\text{T}_{\text{fluid}}} (X) \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+		}
+	}
+	\caption{Detailed OpenFOAM Pimple TFSI solution algorithm}
+\end{algorithm}
+
 \newpage
 \begin{center}
 	\textbf{Optimization Immersed Boundary Incompressible Navier Stokes with Nurbs Structure}
@@ -1271,24 +1368,166 @@ $=0$\\
 	$-\int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
 	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
 	
+	\newpage
 \begin{algorithm}[H]
 	\SetAlgoLined
-	\KwData{...}
-	\KwResult{...}
-	\While{not converged}{
-		Solve for $\lambda_{T_{\text{fluid}}}$: $-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} = 0$ \quad on $\Omega$\\
-		Compute : $\lambda_{F_{T_{\text{fluid}}}} = \int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega - ... $ \quad on $X$\\
-		Compute : $\lambda_{T_{\text{fluid}_M}} = - \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t}$ \quad on $X$\\
-		Compute : $f_{\lambda_{T_{\text{fluid}_M}}} = \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
-	}	
-	\While{not converged}{
-		Solve for $\lambda_{\vec{u}}$: $-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega$\\
-		Compute : $\lambda_{F_u} = \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega - ...$  \quad on $X$\\
-		Compute : $\lambda_{U_M} = - \frac{\lambda_{F_u}}{\Delta t}$ \quad on $X$\\
-		Compute : $f_{\lambda_{U_M}} = \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X})$ \quad on $\Omega$\\
+	\KwData{$\lambda_{T_{\text{fluid}}}$,$\lambda_{F_{T_{\text{fluid}}}}$,$\lambda_{T_{\text{fluid}_M}}$,$f_{\lambda_{T_{\text{fluid}_M}}}$}
+	\For{timestep}
+	{
+		\While{not converged}
+		{
+			Solve for $\lambda_{T_{\text{fluid}}}$: $- \frac{\partial \lambda_{T_{\text{fluid}}}}{\partial t} -\vec{u} \cdot \nabla \lambda_{T_{\text{fluid}}} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} = f_{\lambda_{T_{\text{fluid}_M}}} $ \quad on $\Omega$\\
+			Compute : $\lambda_{F_{T_{\text{fluid}}}} = \int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega - ... $ \quad on $X$\\
+			Compute : $\lambda_{T_{\text{fluid}_M}} = \frac{... - \lambda_{F_{T_{\text{fluid}}}}}{\Delta t}$ \quad on $X$\\
+			Compute : $f_{\lambda_{T_{\text{fluid}_M}}} = \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+		}
+		\While{not converged}
+		{
+			Solve for $\lambda_{\vec{u}}$: $ -\frac{\partial \lambda_{\vec{u}}}{\partial t}-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} = - \nabla\lambda_p + T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} + f_{\lambda_{U_M}}$ \quad on $\Omega$\\
+			Compute : $\lambda_{F_u} = \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega - ...$  \quad on $X$\\
+			Compute : $\lambda_{U_M} = \frac{...-\lambda_{F_u}}{\Delta t}$ \quad on $X$\\
+			Compute : $f_{\lambda_{U_M}} = \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X})$ \quad on $\Omega$\\
+			Solve for $\lambda_p$: Adjoint pressure correction($-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}}=0$)\\
+		}
 	}
 	\caption{Adjoint solution algorithm}
 \end{algorithm}
+
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\KwData{}
+	\For{timestep}
+	{
+		\While{not converged}
+		{
+			Set: $\text{adjUEqn} = -\frac{\partial \lambda_{\vec{u}}}{\partial t}+(-\vec{\phi}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}}$ \quad on $\Omega$\\
+			Compute relaxation(adjUEqn)\\
+			Constraint(adjUEqn)\\
+			Solve for $\lambda_{\vec{u}}$: $\text{adjUEqn} = - \nabla\lambda_p + T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} + f_{\lambda_{U_M}}$ \quad on $\Omega$\\
+			Constrain($\lambda_{\vec{u}}$)\\
+			\quad \\
+			Set VolScalarField $\text{rAadjU} =  \frac{1}{\text{diag}(\text{adjUEqn})}$\\
+			Set VolVectorField $\text{adjHbyA} =  \text{rAadjU}*\text{offDiag}(\text{adjUEqn})$\\
+			\quad Set FaceVectorField $\text{adjHbyA}_{\text{flux}} =  \text{Compute flux on faces}(\text{adjHbyA})$\\
+			Set FaceScalarField $\text{phiAdjHbyA} = \text{adjHbyA}_{\text{flux}} $\\
+			AdjustPhi($\text{phiAdjHbyA}, \lambda_{\vec{u}},\lambda_p$)\\
+			
+			\While{correctNonOrthogonal}
+			{
+				Set: $\text{adjpEqn} = \nabla \cdot \left(\text{rAtadjU} \cdot \nabla \lambda_p\right) - \nabla \cdot \text{phiHbyA} $ \quad on $\Omega$\\
+				$\text{adjpEqn}.$setReference()\\
+				$\text{adjpEqn}.$solve()\\
+				
+				\If{finalNonOrthogonalIter}
+				{
+					$\text{adj}\vec{\phi} = \text{phiAdjHbyA} - \text{adjpEqn}$.flux()\\
+				}
+			}
+			Compute relaxation($\lambda_p$)\\
+			Compute: $\lambda_{\vec{u}} = \text{adjHbyA} - \text{adjpEqn}$.flux()\\
+			CorrectBoundary($\lambda_{\vec{u}}$)\\
+			Constrain($\lambda_{\vec{u}}$)
+		}
+	}
+	\caption{OpenFoam adjoint solution base algorithm}
+\end{algorithm}
+
+	\newpage
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\KwData{$\lambda_{T_{\text{fluid}}}$,$\lambda_{F_{T_{\text{fluid}}}}$,$\lambda_{T_{\text{fluid}_M}}$,$f_{\lambda_{T_{\text{fluid}_M}}}$}
+	\For{timestep}
+	{
+		\While{not converged}
+		{
+			Set: $\text{adjTEqn} = - \frac{\partial \lambda_{T_{\text{fluid}}}}{\partial t} -\vec{\phi} \cdot \nabla \lambda_{T_{\text{fluid}}} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}}$ \quad on $\Omega$\\
+			Solve for $\lambda_{T_{\text{fluid}}}$: $\text{adjTEqn} = f_{\lambda_{T_{\text{fluid}_M}}} $ \quad on $\Omega$\\
+			\quad \\
+			Compute : $\lambda_{F_{T_{\text{fluid}}}} = \int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega - ... $ \quad on $X$\\
+			Compute : $\lambda_{T_{\text{fluid}_M}} = \frac{... - \lambda_{F_{T_{\text{fluid}}}}}{\Delta t}$ \quad on $X$\\
+			Solve adjoint temperature on structure\\
+			Compute : $f_{\lambda_{T_{\text{fluid}_M}}} = \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X})$ \quad on $\Omega$\\
+		}
+		\While{not converged}
+		{
+			Set: $\text{adjUEqn} = -\frac{\partial \lambda_{\vec{u}}}{\partial t}-(\vec{\phi}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}}$ \quad on $\Omega$\\
+			Solve for $\lambda_{\vec{u}}$: $\text{adjUEqn} = - \nabla\lambda_p + T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} + f_{\lambda_{U_M}}$ \quad on $\Omega$\\
+			\quad \\
+			Compute : $\lambda_{F_u} = \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega - ...$  \quad on $X$\\
+			Compute : $\lambda_{U_M} = \frac{...-\lambda_{F_u}}{\Delta t}$ \quad on $X$\\
+			Solve adjoint structure on structure\\
+			Compute : $f_{\lambda_{U_M}} = \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X})$ \quad on $\Omega$\\
+			\quad \\
+			\While{pressureCorrection loop}
+			{
+				Set VolScalarField $\text{rAadjU} =  \frac{1}{\text{diag}(\text{adjUEqn})}$\\
+				Set VolVectorField $\text{adjHbyA} =  \text{rAadjU}*\text{offDiag}(\text{adjUEqn})$\\
+				ConstrainOnBoundary $(\text{adjHbyA},\lambda_{\vec{u}},\lambda_p)$\\
+				\quad Set FaceVectorField $\text{adjHbyA}_{\text{flux}} =  \text{Compute flux on faces}(\text{adjHbyA})$\\
+				\quad Set FaceScalarField $\text{rAadjU}_{\text{face}} =  \text{interpolate}(\text{rAadjU})$\\
+				Set FaceScalarField $\text{phiAdjHbyA} = \text{adjHbyA}_{\text{flux}} + \text{rAadjU}_{\text{face}}*\text{ddtCorr}(\lambda_{\vec{u}}, ???\vec{\phi}??? ) $\\
+				Set VolScalarField $\text{rAtadjU} = \text{rAadjU}$\\
+				\If{pimple.consistent}
+				{
+					Compute $\text{rAtadjU} =  \frac{1}{max\left[(\frac{1}{\text{rAadjU}}) - \text{offDiag}(\text{adjUEqn})/\text{Vol} , \frac{0.1}{\text{rAadjU}}\right]} $\\
+					Compute $\text{phiAdjHbyA} += \text{interpolate}(\text{rAtadjU}-\text{rAadjU})*\text{surfaceGrad}(\lambda_p)*\text{faceVolume}$\\
+					Compute $\text{adjHbyA} -=  \left(\text{rAadjU}-\text{rAtadjU}\right)*\text{grad}(\lambda_p)$\\
+				}
+				ConstrainPressure $(\lambda_p,\lambda_{\vec{u}},\text{phiAdjHbyA},\text{rAtadjU})$\\
+				\While{pimple.correctNonOrthogonal}
+				{
+					Set: $\text{adjpEqn} = \nabla \cdot \left(\text{rAtadjU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA} - \nabla \cdot \left(\text{rAtU} \cdot \left( T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} + f_{\lambda_{U_M}} \right)\right)$\\
+					$\text{adjpEqn}.$setReference()\\
+					$\text{adjpEqn}.$solve()\\
+				}
+				\If{pimple.consistent}
+				{
+					$\text{adj}\vec{\phi} = \text{phiAdjHbyA} - \text{adjpEqn}$.flux()\\
+				}
+				adj$p.$relax()\\
+				Compute: $\lambda_{\vec{u}} = \text{adjHbyA} - \text{rAtadjU}*\text{grad}(\lambda_p) + \text{rAtadjU}*f_u$\\
+				CorrectBoundaryConditions($\lambda_{\vec{u}}$)\\
+				Constrain($\lambda_{\vec{u}}$)
+			}
+			\quad \\
+			\While{pressureCorrection loop}
+			{
+				Set VolScalarField $\text{rAU} =  \frac{1}{\text{diag}(\text{UEqn})}$\\
+				Set VolVectorField $\text{HbyA} =  \text{rAU}*\text{offDiag}(\text{UEqn})$\\
+				ConstrainOnBoundary $(\text{HbyA},\vec{u},p)$\\
+				\quad Set FaceVectorField $\text{HbyA}_{\text{flux}} =  \text{Compute flux on faces}(\text{HbyA})$\\
+				\quad Set FaceScalarField $\text{rAU}_{\text{face}} =  \text{interpolate}(\text{rAU})$\\
+				Set FaceScalarField $\text{phiHbyA} = \text{HbyA}_{\text{flux}} + \text{rAU}_{\text{face}}*\text{ddtCorr}(\vec{u},\vec{\phi}) $\\
+				Set VolScalarField $\text{rAtU} = \text{rAtU}$\\
+				\If{pimple.consistent}
+				{
+					Compute $\text{rAtU} =  \frac{1}{max\left[(\frac{1}{\text{rAU}}) - \text{offDiag}(\text{UEqn})/\text{Vol} , \frac{0.1}{\text{rAU}}\right]} $\\
+					Compute $\text{phiHbyA} += \text{interpolate}(\text{rAtU}-\text{rAU})*\text{surfaceGrad}(p)*\text{faceVolume}$\\
+					Compute $\text{HbyA} -=  \left(\text{rAU}-\text{rAtU}\right)*\text{grad}(p)$\\
+				}
+				ConstrainPressure $(p,\vec{u},\text{phiHbyA},\text{rAtU})$\\
+				\While{pimple.correctNonOrthogonal}
+				{
+					Set: $\text{pEqn} = \nabla \cdot \left(\text{rAtU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA} - \nabla \cdot \left(\text{rAtU} \cdot f_u\right)$\\
+					$\text{pEqn}.$setReference()\\
+					$\text{pEqn}.$solve()\\
+				}
+				\If{pimple.consistent}
+				{
+					$\vec{\phi} = \text{phiHbyA} - \text{pEqn}$.flux()\\
+				}
+				$p.$relax()\\
+				Compute: $\vec{u} = \text{HbyA} - \text{rAtU}*\text{grad}(p) + \text{rAtU}*f_u$\\
+				CorrectBoundaryConditions($\vec{u}$)\\
+				Constrain($\vec{u}$)
+			}
+			
+			Solve for $\lambda_p$: Adjoint pressure correction($-\frac{1}{\rho} \cdot \lambda_{\vec{u}}=0$)\\
+		}
+	}
+	\caption{Adjoint solution algorithm}
+\end{algorithm}
+\newpage
 	
 \begin{flushleft}
 	Adjoint Immersed Boundary Navier Stokes system Solution algorithm

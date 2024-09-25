@@ -12,6 +12,14 @@ adj_U_
         "adj_U",runTime.name(),mesh,IOobject::MUST_READ,IOobject::AUTO_WRITE
     ),
     mesh
+),
+adj_p_
+(
+    IOobject
+    (
+        "adj_p_",runTime.name(),mesh,IOobject::MUST_READ,IOobject::AUTO_WRITE
+    ),
+    mesh
 )
 {
     create_AdjointVelocityForcing();

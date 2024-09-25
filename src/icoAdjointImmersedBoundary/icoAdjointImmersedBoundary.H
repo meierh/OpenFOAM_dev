@@ -58,7 +58,7 @@ See also
 #include "SensitivityVelocityPressureForceMarkerInteraction.H"
 #include "SensitivityTemperatureInteraction.H"
 
-/*
+
 #include "fvmDiv.H"
 #include "fvmLaplacian.H"
 #include "constrainHbyA.H"
@@ -70,7 +70,7 @@ See also
 #include "fvcGrad.H"
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
-*/
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
