@@ -15,7 +15,9 @@ class FSIAction : public VelocityPressureForceInteraction
             volVectorField& input_U,
             volVectorField& output_Uf,
             const IOdictionary& structureDict,
-            std::shared_ptr<MeshRefiner> refinement_
+            std::shared_ptr<MeshRefiner> refinement_,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
         void preSolveMovement() override {};

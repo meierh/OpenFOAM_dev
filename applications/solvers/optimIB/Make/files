@@ -1,0 +1,4 @@
+setDeltaT.C
+optimIB.C
+
+EXE = $(FOAM_APPBIN)/optimIB

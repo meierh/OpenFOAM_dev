@@ -5,7 +5,7 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamFieldToMarker
     const Parameter& parameter
 )
 {
-    std::function<T(const LagrangianMarker*)> convolution;
+    std::function<T(const LagrangianMarker*,std::function<T(Pair<label>)>)> convolution;
     convolution = [this,&parameter](const LagrangianMarker* marker, std::function<T(Pair<label>)> valueFunction)
     {
         vector dX_dParam = structure.dXdParam(marker,parameter);

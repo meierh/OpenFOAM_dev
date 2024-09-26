@@ -8,9 +8,11 @@ Foam::ForcedMovementVelocityPressureAction::ForcedMovementVelocityPressureAction
     volVectorField& input_U,
     volVectorField& output_Uf,
     const IOdictionary& structureDict,
-    std::shared_ptr<MeshRefiner> refinement_
+    std::shared_ptr<MeshRefiner> refinement_,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_),
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_,modusFieldToMarker,modusMarkerToField),
 structureDict(structureDict)
 {
     Info<<"Created ForcedMovementVelocityPressureAction"<<Foam::endl;

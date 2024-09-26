@@ -7,9 +7,11 @@ Foam::FSIAction::FSIAction
     volVectorField& input_U,
     volVectorField& output_Uf,
     const IOdictionary& structureDict,
-    std::shared_ptr<MeshRefiner> refinement_
+    std::shared_ptr<MeshRefiner> refinement_,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_),
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_,modusFieldToMarker,modusMarkerToField),
 structureDict(structureDict)
 {
 }
@@ -18,7 +20,7 @@ void Foam::FSIAction::computeRodForceMoment()
 {
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
 
-    if(makerCouplingForce.size()!=static_cast<label>(markers.size()))
+    if(markerCouplingForce.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Mismatch in size of makerCouplingForce and markers"<<exit(FatalError);
     
     List<List<vector>> globalRodForce(Pstream::nProcs());
@@ -40,12 +42,12 @@ void Foam::FSIAction::computeRodForceMoment()
         scalar volume = oneMarker->getMarkerVolume();
         scalar rho = 1.225;
         
-        rodForce[markerInd] = rho*volume*makerCouplingForce[markerInd];
+        rodForce[markerInd] = rho*volume*markerCouplingForce[markerInd];
         
         vector basePnt;
         Structure::rodEval(oneMarker->getBaseRod(),oneMarker->getMarkerParameter(),basePnt);
         vector vectorToMarker = oneMarker->getMarkerPosition()-basePnt;
-        vector momentum = vectorToMarker^makerCouplingForce[markerInd];
+        vector momentum = vectorToMarker^markerCouplingForce[markerInd];
         rodMoment[markerInd] = rho*momentum*volume;
         
         rodNumber[markerInd] = oneMarker->getRodNumber();

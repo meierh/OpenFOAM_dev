@@ -14,14 +14,19 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
             LineStructure& structure,
             volScalarField& input_T,
             volScalarField& output_Tf,
-            const IOdictionary& structureDict
+            const IOdictionary& structureDict,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
         void solve() override;
         
         void store() override;
-        
         void setToTime(scalar time) override;
+        
+        const volScalarField& getTemperatureField() const {return input_T;}
+        const volScalarField& getTemperatureForcingField() const {return output_Tf;}
+        const DynamicList<scalar>& getMarkerCouplingHeating() const {return makerCouplingHeating;}
 
     protected:
         void interpolateTemperatureToMarkers();

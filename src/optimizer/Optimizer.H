@@ -22,7 +22,7 @@ class OptimizerStop : public std::runtime_error
 class Optimizer
 {
     public:
-        explicit Optimizer(nlopt::vfunc obj,label n);
+        explicit Optimizer(nlopt::vfunc obj,label n, void* f_data);
         virtual ~Optimizer()=default;
         Optimizer(const Optimizer&) = delete;
         

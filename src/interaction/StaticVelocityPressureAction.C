@@ -5,9 +5,11 @@ Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
     const fvMesh& mesh,
     LineStructure& structure,
     volVectorField& input_U,
-    volVectorField& output_Uf
+    volVectorField& output_Uf,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,nullptr)
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,nullptr,modusFieldToMarker,modusMarkerToField)
 {
 }
 

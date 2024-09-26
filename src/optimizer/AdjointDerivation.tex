@@ -137,10 +137,10 @@
 	{
 		\While{not converged}
 		{
-			Set: $\text{UEqn} = \frac{\partial \vec{u}}{\partial t} + (\vec{\phi} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u}$\\
+			Set: $\text{UEqn} = \frac{\partial \vec{u}}{\partial t} + (\vec{\phi} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} - f_u$\\
 			Compute: Equation under-relaxation($\text{UEqn}$) (Notes on Computational Fluid Dynamics p.157)\\
 			Constrain $(\text{UEqn})$\\
-			Solve for $\vec{u}$: $\text{UEqn} = - \frac{1}{\rho} \nabla p + f_u$ \quad on $\Omega$\\
+			Solve for $\vec{u}$: $\text{UEqn} = - \frac{1}{\rho} \nabla p $ \quad on $\Omega$\\
 			Constrain $(\vec{u})$\\
 			\quad \\
 			Compute : $U_M (\vec{X}) = \int u(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$ \quad on $X$\\
@@ -167,7 +167,7 @@
 				ConstrainPressure $(p,\vec{u},\text{phiHbyA},\text{rAtU})$\\
 				\While{pimple.correctNonOrthogonal}
 				{
-					Set: $\text{pEqn} = \nabla \cdot \left(\text{rAtU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA} - \nabla \cdot \left(\text{rAtU} \cdot f_u\right)$\\
+					Set: $\text{pEqn} = \nabla \cdot \left(\text{rAtU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA}$\\
 					$\text{pEqn}.$setReference()\\
 					$\text{pEqn}.$solve()\\
 				}
@@ -176,7 +176,7 @@
 					$\vec{\phi} = \text{phiHbyA} - \text{pEqn}$.flux()\\
 				}
 				$p.$relax()\\
-				Compute: $\vec{u} = \text{HbyA} - \text{rAtU}*\text{grad}(p) + \text{rAtU}*f_u$\\
+				Compute: $\vec{u} = \text{HbyA} - \text{rAtU}*\text{grad}(p)$\\
 				CorrectBoundaryConditions($\vec{u}$)\\
 				Constrain($\vec{u}$)
 			}
@@ -1450,8 +1450,8 @@ $=0$\\
 		}
 		\While{not converged}
 		{
-			Set: $\text{adjUEqn} = -\frac{\partial \lambda_{\vec{u}}}{\partial t}-(\vec{\phi}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}}$ \quad on $\Omega$\\
-			Solve for $\lambda_{\vec{u}}$: $\text{adjUEqn} = - \nabla\lambda_p + T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} + f_{\lambda_{U_M}}$ \quad on $\Omega$\\
+			Set: $\text{adjUEqn} = -\frac{\partial \lambda_{\vec{u}}}{\partial t} + (-\vec{\phi}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}}$ \quad on $\Omega$\\
+			Solve for $\lambda_{\vec{u}}$: $\text{adjUEqn} = - \nabla\lambda_p $ \quad on $\Omega$\\
 			\quad \\
 			Compute : $\lambda_{F_u} = \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega - ...$  \quad on $X$\\
 			Compute : $\lambda_{U_M} = \frac{...-\lambda_{F_u}}{\Delta t}$ \quad on $X$\\
@@ -1465,7 +1465,7 @@ $=0$\\
 				ConstrainOnBoundary $(\text{adjHbyA},\lambda_{\vec{u}},\lambda_p)$\\
 				\quad Set FaceVectorField $\text{adjHbyA}_{\text{flux}} =  \text{Compute flux on faces}(\text{adjHbyA})$\\
 				\quad Set FaceScalarField $\text{rAadjU}_{\text{face}} =  \text{interpolate}(\text{rAadjU})$\\
-				Set FaceScalarField $\text{phiAdjHbyA} = \text{adjHbyA}_{\text{flux}} + \text{rAadjU}_{\text{face}}*\text{ddtCorr}(\lambda_{\vec{u}}, ???\vec{\phi}??? ) $\\
+				Set FaceScalarField $\text{phiAdjHbyA} = \text{adjHbyA}_{\text{flux}} + \text{rAadjU}_{\text{face}}*\text{ddtCorr}(\lambda_{\vec{u}}, \vec{\phi}) $\\
 				Set VolScalarField $\text{rAtadjU} = \text{rAadjU}$\\
 				\If{pimple.consistent}
 				{
@@ -1476,53 +1476,19 @@ $=0$\\
 				ConstrainPressure $(\lambda_p,\lambda_{\vec{u}},\text{phiAdjHbyA},\text{rAtadjU})$\\
 				\While{pimple.correctNonOrthogonal}
 				{
-					Set: $\text{adjpEqn} = \nabla \cdot \left(\text{rAtadjU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA} - \nabla \cdot \left(\text{rAtU} \cdot \left( T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} + f_{\lambda_{U_M}} \right)\right)$\\
+					Set: $\text{adjpEqn} = \nabla \cdot \left(\text{rAtadjU} \cdot \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA}$\\
 					$\text{adjpEqn}.$setReference()\\
 					$\text{adjpEqn}.$solve()\\
 				}
-				\If{pimple.consistent}
-				{
-					$\text{adj}\vec{\phi} = \text{phiAdjHbyA} - \text{adjpEqn}$.flux()\\
-				}
+				%\If{pimple.consistent}
+				%{
+				%	$\text{adj}\vec{\phi} = \text{phiAdjHbyA} - \text{adjpEqn}$.flux()\\
+				%}
 				adj$p.$relax()\\
-				Compute: $\lambda_{\vec{u}} = \text{adjHbyA} - \text{rAtadjU}*\text{grad}(\lambda_p) + \text{rAtadjU}*f_u$\\
+				Compute: $\lambda_{\vec{u}} = \text{adjHbyA} - \text{rAtadjU}*\text{grad}(\lambda_p)$\\
 				CorrectBoundaryConditions($\lambda_{\vec{u}}$)\\
 				Constrain($\lambda_{\vec{u}}$)
 			}
-			\quad \\
-			\While{pressureCorrection loop}
-			{
-				Set VolScalarField $\text{rAU} =  \frac{1}{\text{diag}(\text{UEqn})}$\\
-				Set VolVectorField $\text{HbyA} =  \text{rAU}*\text{offDiag}(\text{UEqn})$\\
-				ConstrainOnBoundary $(\text{HbyA},\vec{u},p)$\\
-				\quad Set FaceVectorField $\text{HbyA}_{\text{flux}} =  \text{Compute flux on faces}(\text{HbyA})$\\
-				\quad Set FaceScalarField $\text{rAU}_{\text{face}} =  \text{interpolate}(\text{rAU})$\\
-				Set FaceScalarField $\text{phiHbyA} = \text{HbyA}_{\text{flux}} + \text{rAU}_{\text{face}}*\text{ddtCorr}(\vec{u},\vec{\phi}) $\\
-				Set VolScalarField $\text{rAtU} = \text{rAtU}$\\
-				\If{pimple.consistent}
-				{
-					Compute $\text{rAtU} =  \frac{1}{max\left[(\frac{1}{\text{rAU}}) - \text{offDiag}(\text{UEqn})/\text{Vol} , \frac{0.1}{\text{rAU}}\right]} $\\
-					Compute $\text{phiHbyA} += \text{interpolate}(\text{rAtU}-\text{rAU})*\text{surfaceGrad}(p)*\text{faceVolume}$\\
-					Compute $\text{HbyA} -=  \left(\text{rAU}-\text{rAtU}\right)*\text{grad}(p)$\\
-				}
-				ConstrainPressure $(p,\vec{u},\text{phiHbyA},\text{rAtU})$\\
-				\While{pimple.correctNonOrthogonal}
-				{
-					Set: $\text{pEqn} = \nabla \cdot \left(\text{rAtU} * \nabla \vec{u}\right)-\nabla \cdot \text{phiHbyA} - \nabla \cdot \left(\text{rAtU} \cdot f_u\right)$\\
-					$\text{pEqn}.$setReference()\\
-					$\text{pEqn}.$solve()\\
-				}
-				\If{pimple.consistent}
-				{
-					$\vec{\phi} = \text{phiHbyA} - \text{pEqn}$.flux()\\
-				}
-				$p.$relax()\\
-				Compute: $\vec{u} = \text{HbyA} - \text{rAtU}*\text{grad}(p) + \text{rAtU}*f_u$\\
-				CorrectBoundaryConditions($\vec{u}$)\\
-				Constrain($\vec{u}$)
-			}
-			
-			Solve for $\lambda_p$: Adjoint pressure correction($-\frac{1}{\rho} \cdot \lambda_{\vec{u}}=0$)\\
 		}
 	}
 	\caption{Adjoint solution algorithm}

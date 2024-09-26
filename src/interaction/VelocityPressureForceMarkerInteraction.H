@@ -15,7 +15,9 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
             LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf,
-            std::shared_ptr<MeshRefiner> refinement_
+            std::shared_ptr<MeshRefiner> refinement_,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
 
         virtual void preSolveMovement()=0;
@@ -24,6 +26,9 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         
         void store() override;
         void setToTime(scalar time) override;
+        
+        const volVectorField& getReferenceInOutField() const {return input_U;}
+        const DynamicList<vector>& getMarkerCouplingForce() const {return markerCouplingForce;}
         
     protected:
         void interpolateFluidVelocityToMarkers();
@@ -45,7 +50,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         virtual vector getVelocity(const LagrangianMarker* marker) = 0;
         
         DynamicList<vector> markerFluidVelocity;
-        DynamicList<vector> makerCouplingForce;
+        DynamicList<vector> markerCouplingForce;
         DynamicList<vector> rodForce;
         DynamicList<vector> rodMoment;
         

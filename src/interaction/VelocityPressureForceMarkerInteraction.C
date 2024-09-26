@@ -7,9 +7,11 @@ Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf,
-    std::shared_ptr<MeshRefiner> refinement_
+    std::shared_ptr<MeshRefiner> refinement_,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
-FieldMarkerStructureInteraction(mesh,structure),
+FieldMarkerStructureInteraction(mesh,structure,modusFieldToMarker,modusMarkerToField),
 input_U(input_U),
 output_Uf(output_Uf),
 refinement_(refinement_)
@@ -29,7 +31,7 @@ void Foam::VelocityPressureForceInteraction::store()
     std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>& markerValues = storage[mesh.time().value()];
     
     std::get<0>(markerValues) = markerFluidVelocity;
-    std::get<1>(markerValues) = makerCouplingForce;
+    std::get<1>(markerValues) = markerCouplingForce;
     std::get<2>(markerValues) = rodForce;
     std::get<3>(markerValues) = rodMoment;
 }
@@ -42,7 +44,7 @@ void Foam::VelocityPressureForceInteraction::setToTime(scalar time)
     std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>& markerValues = storage[time];
     
     markerFluidVelocity = std::get<0>(markerValues);
-    markerFluidVelocity = std::get<1>(markerValues);
+    markerCouplingForce = std::get<1>(markerValues);
     rodForce = std::get<2>(markerValues);
     rodMoment = std::get<3>(markerValues);
 }
@@ -61,19 +63,19 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
     
     scalar deltaT = mesh.time().deltaTValue();
     
-    makerCouplingForce.resize(markers.size());
+    markerCouplingForce.resize(markers.size());
     for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
     {
         LagrangianMarker* oneMarkerPtr = markers[markerInd];
         vector markerVelocity = getVelocity(oneMarkerPtr);
         vector velocity = markerFluidVelocity[markerInd];
-        makerCouplingForce[markerInd] = (markerVelocity-velocity)/deltaT;
+        markerCouplingForce[markerInd] = (markerVelocity-velocity)/deltaT;
     }
 }
 
 void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
-    markerToField<vector>(makerCouplingForce,output_Uf);
+    markerToField<vector>(markerCouplingForce,output_Uf);
 }
 
 void Foam::VelocityPressureForceInteraction::moveMarkersAndAdaptMesh()
@@ -130,7 +132,7 @@ void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
 {
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
 
-    if(makerCouplingForce.size()!=static_cast<label>(markers.size()))
+    if(markerCouplingForce.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Mismatch in size of makerCouplingForce and markers"<<exit(FatalError);
     
     rodForce.resize(markers.size());
@@ -141,12 +143,12 @@ void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
         scalar volume = oneMarker->getMarkerVolume();
         scalar rho = 1.225;
         
-        rodForce[markerInd] = rho*volume*makerCouplingForce[markerInd];
+        rodForce[markerInd] = rho*volume*markerCouplingForce[markerInd];
         
         vector basePnt;
         Structure::rodEval(oneMarker->getBaseRod(),oneMarker->getMarkerParameter(),basePnt);
         vector vectorToMarker = oneMarker->getMarkerPosition()-basePnt;
-        vector momentum = vectorToMarker^makerCouplingForce[markerInd];
+        vector momentum = vectorToMarker^markerCouplingForce[markerInd];
         rodMoment[markerInd] = rho*momentum*volume;
     }
 }

@@ -92,39 +92,37 @@ protected:
     
     // Adjoint Pressure
     volScalarField adj_p_;
-    
+        
     //- Adjnout Velocity forcing
-    const bool useAdjointVelocityForcing = false;
+    bool useAdjointVelocityForcing;
     std::unique_ptr<volVectorField> adj_fU_;
     std::unique_ptr<SensitivityVelocityPressureForceInteraction> interaction_adj_fU;
     void create_AdjointVelocityForcing();
     
     //- Adjoint Temperature
-    const bool useAdjointTemperature = false;
+    bool useAdjointTemperature;
     std::unique_ptr<volScalarField> adj_T_;
     void create_AdjointTemperature();
     
     //- Adjoint Temperature forcing
-    const bool useAdjointTemperatureForcing = false;
+    bool useAdjointTemperatureForcing;
     std::unique_ptr<volScalarField> adj_fT_;
     std::unique_ptr<SensitivityTemperatureInteraction> interaction_ajd_fT;
     void create_AdjointTemperatureForcing();
     
     // Adjoint U equation
-    tmp<fvVectorMatrix> tadj_UEqn;
-
-    
+    tmp<fvVectorMatrix> tadj_UEqn;    
     
     //- Solver Performances
     SolverPerformance<vector> adjUEqn_res;
     SolverPerformance<scalar> adjPEqn_res;
     SolverPerformance<scalar> adjTEqn_res;
-        
+    bool steadyStateAdjoint;
+    
+    //Gradient Computation
+    std::vector<std::pair<Parameter,scalar>> gradient;
+    
 public:
-    //- Runtime type information
-    TypeName("icoAdjointImmersedBoundary");
-
-
     // Constructors
 
         //- Construct from region mesh
@@ -135,7 +133,7 @@ public:
 
 
     //- Destructor
-    virtual ~icoAdjointImmersedBoundary();
+    virtual ~icoAdjointImmersedBoundary()=default;
 
 
     // Member Functions
@@ -168,8 +166,8 @@ public:
         
         void adj_correctPressure();
         
-        //- Solve temperature equation after one timestep pimple loop
-        void adj_postSolve(){}
+        //- Computes gradient after one timestep
+        void adj_postSolve();
     
     // Member Operators
 

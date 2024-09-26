@@ -6,11 +6,12 @@ Foam::FixedTemperatureAction::FixedTemperatureAction
     LineStructure& structure,
     volScalarField& input_T,
     volScalarField& output_Tf,
-    const IOdictionary& structureDict
+    const IOdictionary& structureDict,
+    markerMeshType modusFieldToMarker,
+    markerMeshType modusMarkerToField
 ):
-TemperatureInteraction(mesh,structure,input_T,output_Tf,structureDict)
+TemperatureInteraction(mesh,structure,input_T,output_Tf,structureDict,modusFieldToMarker,modusMarkerToField)
 {
-    
 }
 
 Foam::scalar Foam::FixedTemperatureAction::getTemperature

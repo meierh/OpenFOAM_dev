@@ -13,7 +13,9 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
             const fvMesh& mesh,
             LineStructure& structure,
             volVectorField& input_U,
-            volVectorField& output_Uf
+            volVectorField& output_Uf,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
         void preSolveMovement() override {}

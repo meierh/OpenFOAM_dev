@@ -14,7 +14,9 @@ class FixedTemperatureAction : public TemperatureInteraction
             LineStructure& structure,
             volScalarField& input_T,
             volScalarField& output_Tf,
-            const IOdictionary& structureDict
+            const IOdictionary& structureDict,
+            markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
+            markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
     protected:

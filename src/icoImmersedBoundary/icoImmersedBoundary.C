@@ -259,16 +259,16 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
 {
     volVectorField& U(U_);
   
-    tUEqn =
-    (
-        fvm::ddt(U) + fvm::div(phi, U) - fvm::laplacian(nu,U)
-      /*
-      + MRF.DDt(U)
-      + momentumTransport->divDevSigma(U)
-     ==
-        fvModels().source(U)
-      */
-    );
+    if(useVelocityForcing)
+    {
+        volVectorField& fU = *fU_;
+        tUEqn = (fvm::ddt(U)+fvm::div(phi,U)-fvm::laplacian(nu,U)-fU);
+    }
+    else
+    {
+        tUEqn = (fvm::ddt(U)+fvm::div(phi,U)-fvm::laplacian(nu,U));
+    }
+
     fvVectorMatrix& UEqn = tUEqn.ref();
     
     Info<<"Created Ueqn"<<Foam::endl;
@@ -316,13 +316,14 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
     );
 
     //MRF.makeRelative(phiHbyA);
-
+    /*
     if (p.needReference())
     {
         fvc::makeRelative(phiHbyA, U);
         adjustPhi(phiHbyA, U, p);
         fvc::makeAbsolute(phiHbyA, U);
     }
+    */
 
     tmp<volScalarField> rAtU(rAU);
 
@@ -339,7 +340,7 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
     }
 
     // Update the pressure BCs to ensure flux consistency
-    constrainPressure(p, U, phiHbyA, rAtU(), MRF);
+    constrainPressure(p, U, phiHbyA, rAtU()/*,MRF*/);
 
     // Evaluate any volume sources
     //fvScalarMatrix p_rghEqnSource(fvModels().sourceProxy(p));
@@ -347,30 +348,7 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
     // Non-orthogonal pressure corrector loop
     while (pimple.correctNonOrthogonal())
     {
-        std::unique_ptr<fvScalarMatrix> pEqnPtr;
-        if(useVelocityForcing)
-        {
-            volVectorField& fU = *fU_;
-            pEqnPtr = std::make_unique<fvScalarMatrix>
-            (
-                fvm::laplacian(rAtU(), p)
-                ==
-                fvc::div(phiHbyA)
-                //- p_rghEqnSource
-                + fvc::div(rAtU()*fU)
-            );
-        }
-        else
-        {
-            pEqnPtr = std::make_unique<fvScalarMatrix>
-            (
-                fvm::laplacian(rAtU(), p)
-                ==
-                fvc::div(phiHbyA)
-                //- p_rghEqnSource
-            );
-        }
-        fvScalarMatrix& pEqn = *pEqnPtr;
+        fvScalarMatrix pEqn(fvm::laplacian(rAtU(),p)==fvc::div(phiHbyA));
         
         pEqn.setReference
         (
@@ -390,16 +368,7 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
 
     // Explicitly relax pressure for momentum corrector
     p.relax();
-
-    if(useVelocityForcing)
-    {
-        volVectorField& fU = *fU_;
-        U = HbyA - rAtU*fvc::grad(p) + rAtU*fU;
-    }
-    else
-    {
-        U = HbyA - rAtU*fvc::grad(p);
-    }
+    U = HbyA - rAtU*fvc::grad(p);
     U.correctBoundaryConditions();
     fvConstraints().constrain(U);
 

@@ -31,7 +31,8 @@ void Foam::OptimizerStop::reset()
 Foam::Optimizer::Optimizer
 (
     nlopt::vfunc obj,
-    label n
+    label n,
+    void* f_data
 ):
 n(n),
 opt(nlopt::LD_MMA, n)
@@ -41,7 +42,7 @@ opt(nlopt::LD_MMA, n)
     Optimizer::singleton = true;
 
     Optimizer::core_objFunc = obj;
-    opt.set_min_objective(&(Optimizer::nlopt_objFunc), NULL);
+    opt.set_min_objective(&(Optimizer::nlopt_objFunc), f_data);
     opt.set_xtol_rel(1e-4);
 }
 
