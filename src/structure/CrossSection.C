@@ -262,6 +262,22 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoi
     };
 }
 
+void Foam::CrossSection::print()
+{
+    Info<<"-----------------------------------------"<<Foam::endl;
+    std::cout<<"a0:"<<std::endl<<a_0<<std::endl;
+    std::cout<<"ak: ";
+    for(auto a: a_k)
+        std::cout<<a;
+    std::cout<<std::endl;
+    std::cout<<"bk: ";
+    for(auto b: b_k)
+        std::cout<<b;
+    std::cout<<std::endl;
+    std::cout<<"phase:"<<std::endl<<phaseShift<<std::endl;
+    Info<<"-----------------------------------------"<<Foam::endl;
+}
+
 const gsNurbs<Foam::scalar>* Foam::CrossSection::getCurvePtr
 (
     label fourierCoeffNumber
@@ -468,6 +484,7 @@ Foam::scalar Foam::CrossSection::evalRadiusDerivFourierCoeffNurbsCoeff
                                                                                derivCoeffNumber,parameter);
         }
     }
+    //Info<<"evalRadiusDerivFourierCoeffNurbsCoeff: ("<<fourierCoeffNumber<<","<<derivCoeffNumber<<","<<parameter<<","<<angle<<") - "<<result<<Foam::endl;
     return result;
 }
 
@@ -479,6 +496,7 @@ Foam::scalar Foam::CrossSection::evalFourierCoeffDerivNurbsCoeff
 ) const
 {
     //Info<<"5------------------evalRadiusDerivCoeff---------------------"<<Foam::endl;
+    scalar result;
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
     const gsNurbs<scalar>& coeffDerivCurve = coeffDerivedCurves[fourierCoeffNumber][derivCoeffNumber];
@@ -488,7 +506,9 @@ Foam::scalar Foam::CrossSection::evalFourierCoeffDerivNurbsCoeff
     //Info<<"7------------------evalRadiusDerivCoeff---------------------"<<Foam::endl;
     //std::cout<<"fourierCoeffNumber:"<<fourierCoeffNumber<<" derivCoeffNumber:"<<derivCoeffNumber<<" parameter:"<<parameter<<std::endl;
     //std::cout<<coeffDerivCurve<<std::endl;
-    return coeffDerivEval(0,0);
+    result = coeffDerivEval(0,0);
+    //Info<<"evalFourierCoeffDerivNurbsCoeff: ("<<fourierCoeffNumber<<","<<derivCoeffNumber<<","<<parameter<<") - "<<result<<Foam::endl;
+    return result;
 }
 
 
@@ -503,7 +523,7 @@ void Foam::CrossSection::setFourierCoeffNurbsCoeff
         FatalErrorInFunction<<"Invalid fourierCoeffNumber"<<exit(FatalError);
     gsNurbs<scalar>* curve = getCurvePtr(fourierCoeffNumber);
     gsMatrix<scalar>& coeffs = curve->coefs();
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
     coeffs(derivCoeffNumber,0) = value;
     
@@ -517,7 +537,7 @@ void Foam::CrossSection::setPhaseNurbsCoeff
 )
 {
     gsMatrix<scalar>& coeffs = phaseShift.coefs();
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
     coeffs(derivCoeffNumber,0) = value;
     
@@ -534,8 +554,12 @@ Foam::scalar Foam::CrossSection::getFourierCoeffNurbsCoeff
         FatalErrorInFunction<<"Invalid fourierCoeffNumber"<<exit(FatalError);
     const gsNurbs<scalar>* curve = getCurvePtr(fourierCoeffNumber);
     const gsMatrix<scalar>& coeffs = curve->coefs();
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
+    {
+        Info<<"derivCoeffNumber:"<<derivCoeffNumber<<"/"<<coeffs.rows()<<Foam::endl;
+        std::cout<<coeffs<<std::endl;
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
+    }
     return coeffs(derivCoeffNumber,0);
 }
 
@@ -545,7 +569,7 @@ Foam::scalar Foam::CrossSection::getPhaseNurbsCoeff
 ) const
 {
     const gsMatrix<scalar>& coeffs = phaseShift.coefs();
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
     return coeffs(derivCoeffNumber,0);
 }

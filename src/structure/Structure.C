@@ -516,11 +516,13 @@ void Foam::Structure::setupActiveRodMesh()
         if(curve.domainEnd()!=rotation.domainEnd())
             FatalErrorInFunction<<"Mismatch in curve and rotation end"<<exit(FatalError);
         
+        /*
         std::cout<<"curve:"<<curve<<std::endl;
         std::cout<<"deformation"<<deformation<<std::endl;
         std::cout<<"rotation:"<<rotation<<std::endl;
+        */
     }
-    //constructCoeffDerivedData();
+    constructCoeffDerivedData();
     
     prevDeformations.clear();
     prevDeformations.resize(nR);
@@ -1292,16 +1294,25 @@ void Foam::Structure::constructCoeffDerivedData()
     {
         Info<<"rodNumber:"<<rodNumber<<Foam::endl;
         ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+        rod->m_Rot_end0 = false;
         const gsNurbs<scalar>& curve = rod->m_Curve;
-        std::cout<<"curve.coefs:"<<curve.coefs()<<std::endl;
+        //std::cout<<"curve.coefs:"<<curve.coefs()<<std::endl;
+        label numberCurveCoefs = curve.coefs().rows();
         const gsNurbs<scalar>& rotation = rod->m_Rot;
-        std::cout<<"rotation.coefs:"<<rotation.coefs()<<std::endl;
+        //std::cout<<"rotation.coefs:"<<rotation.coefs()<<std::endl;
+        label numberRotQuaternions = rotation.coefs().rows();
+        gsMatrix<scalar>& dQdRreset = rod->m_Curve_dQdR0;
+        dQdRreset = gsMatrix<scalar>(numberRotQuaternions*4+10,numberCurveCoefs*3+10);
+        dQdRreset.fill(999);
+        std::cout<<"dQdRreset:"<<dQdRreset<<std::endl;
         int errorCode = rod->bishopFrameS_dQdR0();
-        Info<<"-------"<<Foam::endl;
+        //Info<<"-------"<<Foam::endl;
+        const gsMatrix<scalar>& dQdR = rod->m_Curve_dQdR0;
         if(errorCode==0)
             FatalErrorInFunction<<"Failure to compute Quaternion coefficient derivatives"<<exit(FatalError);
-        const gsMatrix<scalar>& dQdR = rod->m_Curve_dQdR0;
         std::cout<<"dQdR:"<<dQdR<<std::endl;
+
+        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         
         coeffDerivedCenterline[rodNumber].resize(numberCurveCoeffs(rodNumber));
         initialRotation[rodNumber] = rotation;
@@ -1350,6 +1361,8 @@ void Foam::Structure::constructCoeffDerivedData()
     }
     Info<<"constructCoeffDerivedData done"<<Foam::endl;
     constructedCoeffDerivedData = true;
+    
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
 }
 
 Foam::FixedList<gsMatrix<Foam::scalar>,3> Foam::Structure::compute_dRdq

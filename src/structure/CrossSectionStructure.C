@@ -18,6 +18,18 @@ rodCrossSection(rodCrossSection)
 Foam::CrossSectionStructure::CrossSectionStructure
 (
     const fvMesh& mesh,
+    std::vector<CrossSection> rodCrossSection,
+    bool empty
+):
+LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
+rodCrossSection(rodCrossSection)
+{
+    Info<<"CrossSectionStructure empty"<<Foam::endl;
+}
+
+Foam::CrossSectionStructure::CrossSectionStructure
+(
+    const fvMesh& mesh,
     const IOdictionary& stuctureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -650,6 +662,8 @@ void Foam::CrossSectionStructure::refineRadial
     std::pair<bool,scalar> refineSpacing
 )
 {
+    //Info<<"refineRadial"<<Foam::endl;
+    
     if(radialMarkers.size()<2)
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
     if(radialMarkers.front().size()<2)
@@ -671,6 +685,7 @@ void Foam::CrossSectionStructure::refineRadial
     bool refined=true;
     while(refined)
     {
+        //Info<<"\tRefine while"<<Foam::endl;
         refined = false;
         auto radMarkerIter0 = radialMarkers.begin();
         auto radMarkerIter1 = ++(radialMarkers.begin());
@@ -704,17 +719,21 @@ void Foam::CrossSectionStructure::refineRadial
                 radMarker1InCell |= (iter->getMarkerCell()!=-1);
             }
             
+            //Info<<"radMarker0RadFrac:"<<radMarker0RadFrac<<"  radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::endl;
+            //Info<<"radMarker0CellSpacing:"<<radMarker0CellSpacing<<"  radMarker1CellSpacing:"<<radMarker1CellSpacing<<Foam::endl;
+            //Info<<"radMarker0InCell:"<<radMarker0InCell<<"  radMarker1InCell:"<<radMarker1InCell<<Foam::endl;
+            
             scalar maxDist = std::numeric_limits<scalar>::max();
             for(auto iter=radMarkerIter0->begin(); iter!=radMarkerIter0->end(); iter++)
             {
                 scalar angle = iter->getMarkerAngle();
                 vector radMarker0Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker0CellSpacing
+                    oneRod,parameter,oneCrossSec,angle,radMarker0RadFrac
                 );
                 vector radMarker1Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker1CellSpacing
+                    oneRod,parameter,oneCrossSec,angle,radMarker1RadFrac
                 );
                 vector distVec = radMarker0Pos-radMarker1Pos;
                 maxDist = std::max(maxDist,std::sqrt(distVec&distVec));
@@ -724,11 +743,11 @@ void Foam::CrossSectionStructure::refineRadial
                 scalar angle = iter->getMarkerAngle();
                 vector radMarker0Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker0CellSpacing
+                    oneRod,parameter,oneCrossSec,angle,radMarker0RadFrac
                 );
                 vector radMarker1Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker1CellSpacing
+                    oneRod,parameter,oneCrossSec,angle,radMarker1RadFrac
                 );
                 vector distVec = radMarker0Pos-radMarker1Pos;
                 maxDist = std::max(maxDist,std::sqrt(distVec&distVec));
@@ -750,6 +769,7 @@ void Foam::CrossSectionStructure::refineRadial
             if(subdivide)
             {
                 scalar middleRadiusFrac = 0.5*(radMarker0RadFrac + radMarker1RadFrac);
+                //Info<<"\tSubdivide:"<<"middleRadiusFrac:"<<middleRadiusFrac<<" radMarker0RadFrac:"<<radMarker0RadFrac<<" radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::endl;
                 std::vector<scalar> angleData;
                 createSpacedPointsOnCrossSec
                 (
@@ -1398,8 +1418,10 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     scalar var_radius
 )
 {
+    
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
+    //Info<<"\t\tpara:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<" d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::endl;
     vector tangential = d3;
     scalar tangentialLen = std::sqrt(tangential&tangential);
     tangential /= tangentialLen;
@@ -1643,18 +1665,52 @@ Foam::scalar Foam::CrossSectionStructure::distance
 
 void Foam::CrossSectionStructure::selfCheck()
 {
-    Info<<"-----------Check cross Section derivatives-----------"<<Foam::endl;
+    Info<<"-----------Check cross Section derivatives-----------"<<Foam::endl;    
+    std::function<void(std::function<scalar(scalar,scalar)>,
+                       std::function<scalar(scalar,scalar)>,
+                       scalar,scalar,scalar,scalar,uint)> crossSecComparer =
+    [](auto deriv, auto fdDeriv, scalar minPar, scalar maxPar, scalar minAngle, scalar maxAngle, uint steps)
+    {
+        scalar deltaPar = maxPar-minPar;
+        scalar stepsizePar = deltaPar/steps;
+        scalar deltaAngle = maxAngle-minAngle;
+        scalar stepsizeAngle = deltaAngle/steps;
+        
+        for(scalar currPara=minPar; currPara<=maxPar; currPara+=stepsizePar)
+        {
+            for(scalar currAngle=minAngle; currAngle<=maxAngle; currAngle+=stepsizeAngle)
+            {
+                scalar derivValue = deriv(currPara,currAngle);
+                scalar fderivValue = fdDeriv(currPara,currAngle);
+                scalar error = std::abs(derivValue-fderivValue);
+                scalar avg = 0.5*(derivValue+fderivValue);
+                scalar percError;
+                if(avg!=0)
+                    percError = error/std::abs(avg);
+                else
+                    percError = error;
+                if(percError>2e-3 && error>1e-4)
+                {
+                    Info<<"("<<currPara<<" -- "<<currAngle<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+                    FatalErrorInFunction<<"Comparison failed!"<<exit(FatalError);
+                }
+            }
+        }
+    };
+    
     const std::vector<CrossSection>& crossSec = getRodCrossSections();
     for(std::size_t rodNumber=0; rodNumber<crossSec.size(); rodNumber++)
     {
-        Info<<"rodNumber:"<<rodNumber<<Foam::endl;
+        //Info<<"rodNumber:"<<rodNumber<<Foam::endl;
         CrossSection cpCrossSec = crossSec[rodNumber];
         scalar domainStart = cpCrossSec.domainStart();
         scalar domainEnd = cpCrossSec.domainEnd();
-        Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::endl;
+        //Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::endl;
+        Info<<"Changing fourierCoeff"<<Foam::endl;
         for(label fourierCoeff=0; fourierCoeff<cpCrossSec.numberFourierCoeff(); fourierCoeff++)
         {
-            Info<<"      numberNurbsCoeffs:"<<cpCrossSec.numberFourierCoeffNurbsCoeffs(fourierCoeff)<<Foam::endl;
+            //Info<<"      numberNurbsCoeffs:"<<cpCrossSec.numberFourierCoeffNurbsCoeffs(fourierCoeff)<<Foam::endl;
+            //std::cout<<"      FourierCoeff:"<<cpCrossSec.getCurve(fourierCoeff)<<std::endl;
             for(label coeffI=0; coeffI<cpCrossSec.numberFourierCoeffNurbsCoeffs(fourierCoeff); coeffI++)
             {
                 auto deriv = [&](scalar par, scalar angle)
@@ -1662,24 +1718,40 @@ void Foam::CrossSectionStructure::selfCheck()
                     return cpCrossSec.evalRadiusDerivFourierCoeffNurbsCoeff(fourierCoeff,coeffI,par,angle);
                 };
                 
-                auto fdDeriv = [&](scalar par, scalar angle, scalar epsilon=1e-10)
+                auto fdDeriv = [&](scalar par, scalar angle, scalar epsilon=1e-8)
                 {
                     CrossSection crossSec = cpCrossSec;
                     
                     scalar coeffBasicValue = cpCrossSec.getFourierCoeffNurbsCoeff(fourierCoeff,coeffI);
+                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
                     
                     scalar lowerCoeffValue = coeffBasicValue-epsilon;
+                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
                     crossSec.setFourierCoeffNurbsCoeff(fourierCoeff,coeffI,lowerCoeffValue);
                     scalar lowerR = crossSec(par,angle);
+                    //Info<<"lowerR:"<<lowerR<<Foam::endl;
                     
-                    scalar upperCoeffValue = coeffBasicValue+epsilon;
+                    scalar upperCoeffValue = coeffBasicValue+epsilon;                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
                     crossSec.setFourierCoeffNurbsCoeff(fourierCoeff,coeffI,upperCoeffValue);
                     scalar upperR = crossSec(par,angle);
-                        
-                    return (upperR-lowerR)/(upperCoeffValue-lowerCoeffValue);
+                    //Info<<"upperR:"<<upperR<<Foam::endl;
+                    
+                    scalar diffR = upperR-lowerR;
+                    //Info<<"diffR:"<<diffR<<Foam::endl;
+                    scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
+                    //Info<<"diffCoeff:"<<diffCoeff<<Foam::endl;
+                    scalar deriv;
+                    if(diffCoeff!=0)
+                         return diffR/diffCoeff;
+                    else
+                        FatalErrorInFunction<<"No delta in coeff values!"<<exit(FatalError);
                 };
+                
+                crossSecComparer(deriv,fdDeriv,domainStart,domainEnd,0,6.3,20);
             }
         }
+        //std::cout<<"      Phase:"<<cpCrossSec.getPhaseCurve()<<std::endl;
+        Info<<"Changing phase"<<Foam::endl;
         for(label phaseCoeff=0; phaseCoeff<cpCrossSec.numberPhaseNurbsCoeffs(); phaseCoeff++)
         {
             auto deriv = [&](scalar par, scalar angle)
@@ -1687,7 +1759,7 @@ void Foam::CrossSectionStructure::selfCheck()
                 return cpCrossSec.evalRadiusDerivPhaseNurbsCoeff(phaseCoeff,par,angle);
             };
             
-            auto fdDeriv = [&](scalar par, scalar angle, scalar epsilon=1e-10)
+            auto fdDeriv = [&](scalar par, scalar angle, scalar epsilon=1e-8)
             {
                 CrossSection crossSec = cpCrossSec;
                 
@@ -1700,14 +1772,24 @@ void Foam::CrossSectionStructure::selfCheck()
                 scalar upperCoeffValue = coeffBasicValue+epsilon;
                 crossSec.setPhaseNurbsCoeff(phaseCoeff,upperCoeffValue);
                 scalar upperR = crossSec(par,angle);
-                    
+                
+                scalar diffR = upperR-lowerR;
+                scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
+                scalar deriv;
+                if(diffCoeff!=0)
+                    return diffR/diffCoeff;
+                else
+                    FatalErrorInFunction<<"No delta in coeff values!"<<exit(FatalError);
+                
                 return (upperR-lowerR)/(upperCoeffValue-lowerCoeffValue);
             };
+            
+            crossSecComparer(deriv,fdDeriv,domainStart,domainEnd,0,6.3,20);
         }
     }
     
+    /*
     Info<<"-----------Cross Section structure derivatives-----------"<<Foam::endl;
-
     for(label rodNumber=0; rodNumber<getNumberRods(); rodNumber++)
     {
         Info<<"rodNumber:"<<rodNumber<<Foam::endl;
@@ -1750,6 +1832,6 @@ void Foam::CrossSectionStructure::selfCheck()
             }
         }
     }
-    
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    */
+    //FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }

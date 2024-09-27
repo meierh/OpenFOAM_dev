@@ -44,10 +44,11 @@ class CrossSection
         
         scalar deriv_angle(scalar parameter, scalar angle) const;
         std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
+        void print();
 
     public:
         const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber) const;
-        const gsNurbs<scalar>& getCurve(label fourierCoeffNumber) const {return *(getCurvePtr(fourierCoeffNumber));}
+        const gsNurbs<scalar>& getCurve(label fourierCoeffNumber) const {return *(getCurvePtr(fourierCoeffNumber));}        const gsNurbs<scalar>& getPhaseCurve() const {return phaseShift;}
     private:
         gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
 
@@ -159,6 +160,12 @@ class CrossSectionStructure : public LineStructure
             std::vector<CrossSection> rodCrossSection,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
+        );
+        explicit CrossSectionStructure
+        (
+            const fvMesh& mesh,
+            std::vector<CrossSection> rodCrossSection,
+            bool empty
         );
         explicit CrossSectionStructure
         (
