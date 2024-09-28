@@ -15,6 +15,7 @@ nR(loadRodsFromXML()),
 mesh(mesh),
 meshBoundingBox(computeMeshBoundingBox())
 {
+    Info<<"----------------Structure----------------"<<Foam::endl;
     collectMeshHaloData(4);
     setupActiveRodMesh();
     setupRodBoundingBoxTree();
@@ -36,6 +37,7 @@ nR(loadRodsFromXML()),
 mesh(mesh),
 meshBoundingBox(computeMeshBoundingBox())
 {
+    Info<<"----------------Structure dir----------------"<<Foam::endl;
     collectMeshHaloData(4);
     setupActiveRodMesh();
     setupRodBoundingBoxTree();
@@ -58,9 +60,14 @@ Foam::Structure::~Structure()
 void Foam::Structure::cleanupActiveRodMesh()
 {
 	for(std::size_t i=0; i<Rods.size(); i++)
+    {
         delete Rods[i];
+        delete Geo[i];
+        delete BasisRef[i];
+    }
     Geo.clear();
-	Rods.clear(); 
+	Rods.clear();
+    myMesh = nullptr;
 }
 
 Foam::word Foam::Structure::getXMLPath()
@@ -185,7 +192,7 @@ void Foam::Structure::createRodScaling()
         z1 = std::fmax(z1, rodsList[i].coefs().topRows(0).coeff(0, 2));
         z1 = std::fmax(z1, rodsList[i].coefs().bottomRows(1).coeff(0, 2));
     }
-    //Info<<"Bounding Box (x:["<<x0<<"-"<<x1<<"], y:["<<y0<<"-"<<y1<<"], z:["<<z0<<"-"<<z1<<"])"<<endl;
+    Info<<"Bounding Box (x:["<<x0<<"-"<<x1<<"], y:["<<y0<<"-"<<y1<<"], z:["<<z0<<"-"<<z1<<"])"<<endl;
     //Info<<"lateScale:"<<latScale<<endl;
     //Info<<"latDir:"<<latDir<<endl;
     latSize << x1 - x0, y1 - y0, z1 - z0;
@@ -200,7 +207,7 @@ void Foam::Structure::createRodScaling()
         //rodsList[i].translate(dX);				// translate to 0
         rodsList[i].scale(latScale);
     }
-    //Info<<"lateScale:"<<latScale<<endl;
+    Info<<"lateScale:"<<latScale<<endl;
     latSize *= latScale;
     //printf("Rods:  %i\n", nR);
     //printf("Dimensions: %4.1fx%4.1fx%4.1f mm\n", latSize[0], latSize[1], latSize[2]);
@@ -266,13 +273,19 @@ void Foam::Structure::createNurbsStructure()
         BasisRef[i]->degreeElevate(p_sim - BasisRef[i]->degree());
         BasisRef[i]->uniformRefine(el_sim - BasisRef[i]->numElements());
 
+        std::cout<<"use_mixed:"<<use_mixed<<std::endl;
+        std::cout<<"rodsList[0]:"<<std::endl<<rodsList[0]<<std::endl;
+        std::cout<<"*BasisRef[0]:"<<std::endl<<*BasisRef[0]<<std::endl;
+        //std::cout<<"*Geo[0]:"<<*Geo[0]<<std::endl;
+        std::cout<<"*twist:"<<std::endl<<*twist<<std::endl;
+
         // Make rod
         if (use_mixed)
             Rods[i] = new ActiveRodMesh::rodCosseratMixed(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
         else
             Rods[i] = new ActiveRodMesh::rodCosserat(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
         
-        //std::cout<<"rodsList[i].coeffs:"<<rodsList[i].coefs()<<std::endl;
+        std::cout<<"rodsList[i].coeffs:"<<rodsList[i].coefs()<<std::endl;
         //std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
         
         Rods[i]->m_Rot.setCoefs(Rods[i]->m_init_Rot.transpose());
@@ -483,6 +496,10 @@ void Foam::Structure::checkActiveRodMesh()
 
 void Foam::Structure::setupActiveRodMesh()
 {
+    Info<<"setupActiveRodMesh"<<Foam::endl;
+    for(std::size_t rodI=0; rodI<rodsList.size(); rodI++)
+        std::cout<<rodsList[rodI]<<std::endl;
+    
     cleanupActiveRodMesh();
     
     cntOpt.ptsType = 2;
@@ -516,8 +533,9 @@ void Foam::Structure::setupActiveRodMesh()
         if(curve.domainEnd()!=rotation.domainEnd())
             FatalErrorInFunction<<"Mismatch in curve and rotation end"<<exit(FatalError);
         
-        /*
+        
         std::cout<<"curve:"<<curve<<std::endl;
+        /*
         std::cout<<"deformation"<<deformation<<std::endl;
         std::cout<<"rotation:"<<rotation<<std::endl;
         */
@@ -1284,15 +1302,38 @@ void Foam::Structure::rodEval
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
 
+Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
+(
+    label rodNumber,
+    scalar parameter
+)
+{
+    return m_Rot_Eval(Rods[rodNumber],parameter);
+}
+
+Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+        
+    gsMatrix<scalar> rotPnt;
+    rod->m_Rot.eval_into(parMat,rotPnt);
+    
+    FixedList<scalar,4> quaternion = {rotPnt(0,0),rotPnt(1,0),rotPnt(2,0),rotPnt(3,0)};
+    return quaternion;
+}
+
 void Foam::Structure::constructCoeffDerivedData()
 {
-    Info<<"constructCoeffDerivedData"<<Foam::endl;
     coeffDerivedCenterline.resize(nR);
     initialRotation.resize(nR);
     coeffDerivedQuaternions.resize(nR);
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
-        Info<<"rodNumber:"<<rodNumber<<Foam::endl;
         ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
         rod->m_Rot_end0 = false;
         const gsNurbs<scalar>& curve = rod->m_Curve;
@@ -1302,24 +1343,20 @@ void Foam::Structure::constructCoeffDerivedData()
         //std::cout<<"rotation.coefs:"<<rotation.coefs()<<std::endl;
         label numberRotQuaternions = rotation.coefs().rows();
         gsMatrix<scalar>& dQdRreset = rod->m_Curve_dQdR0;
-        dQdRreset = gsMatrix<scalar>(numberRotQuaternions*4+10,numberCurveCoefs*3+10);
-        dQdRreset.fill(999);
-        std::cout<<"dQdRreset:"<<dQdRreset<<std::endl;
+        dQdRreset = gsMatrix<scalar>(numberRotQuaternions*4,numberCurveCoefs*3);
+        dQdRreset.fill(0);
         int errorCode = rod->bishopFrameS_dQdR0();
         //Info<<"-------"<<Foam::endl;
         const gsMatrix<scalar>& dQdR = rod->m_Curve_dQdR0;
         if(errorCode==0)
             FatalErrorInFunction<<"Failure to compute Quaternion coefficient derivatives"<<exit(FatalError);
-        std::cout<<"dQdR:"<<dQdR<<std::endl;
-
-        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         
         coeffDerivedCenterline[rodNumber].resize(numberCurveCoeffs(rodNumber));
         initialRotation[rodNumber] = rotation;
         coeffDerivedQuaternions[rodNumber].resize(numberCurveCoeffs(rodNumber));
         for(label coeffNumber=0; coeffNumber<numberCurveCoeffs(rodNumber); coeffNumber++)
         {
-            Info<<"coeffNumber:"<<coeffNumber<<Foam::endl;
+            
             //Create centerline coefficient derivative curve
             coeffDerivedCenterline[rodNumber][coeffNumber].resize(3);
             for(label dim=0; dim<3; dim++)
@@ -1327,42 +1364,40 @@ void Foam::Structure::constructCoeffDerivedData()
                 coeffDerivedCenterline[rodNumber][coeffNumber][dim] = curve;
                 gsNurbs<scalar>& curve = coeffDerivedCenterline[rodNumber][coeffNumber][dim];
                 gsMatrix<scalar>& coeffs = curve.coefs();
-                for(label col=0; col<coeffs.cols(); col++)
+                for(label row=0; row<coeffs.rows(); row++)
                 {
-                    for(label row=0; row<coeffs.rows(); row++)
+                    for(label col=0; col<coeffs.cols(); col++)
                     {
-                        if(coeffNumber==col && row==dim)
-                            coeffs(col,row) = 1;
+                        if(coeffNumber==row && col==dim)
+                            coeffs(row,col) = 1;
                         else
-                            coeffs(col,row) = 0;
+                            coeffs(row,col) = 0;
                     }
                 }
 
                 //Create quaternion coefficient derivative curve
                 coeffDerivedQuaternions[rodNumber][coeffNumber].resize(3);
                 coeffDerivedQuaternions[rodNumber][coeffNumber][dim] = rotation;
-                gsNurbs<scalar>& rotation = coeffDerivedCenterline[rodNumber][coeffNumber][dim];
+                gsNurbs<scalar>& rotation = coeffDerivedQuaternions[rodNumber][coeffNumber][dim];
                 gsMatrix<scalar>& qcoeffs = rotation.coefs();
-                label coeffCol = coeffNumber*3+dim;
+                label coeffRow = coeffNumber*3+dim;
                 List<scalar> dq_doneCoeff(dQdR.rows());
                 for(label row=0; row<dQdR.rows(); row++)
-                    dq_doneCoeff[row] = dQdR(coeffCol,row);
+                    dq_doneCoeff[row] = dQdR(row,coeffRow);
+
                 label listIndex=0;
-                for(label col=0; col<qcoeffs.cols(); col++)
+                for(label rotQCoeff=0; rotQCoeff<qcoeffs.rows(); rotQCoeff++)
                 {
-                    for(label row=0; row<qcoeffs.rows(); row++)
+                    for(label rotQDim=0; rotQDim<qcoeffs.cols(); rotQDim++)
                     {
-                        qcoeffs(col,row) = dq_doneCoeff[listIndex];
+                        qcoeffs(rotQCoeff,rotQDim) = dq_doneCoeff[listIndex];
                         listIndex++;
                     }
                 }
             }
         }
     }
-    Info<<"constructCoeffDerivedData done"<<Foam::endl;
-    constructedCoeffDerivedData = true;
-    
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    constructedCoeffDerivedData = true;    
 }
 
 Foam::FixedList<gsMatrix<Foam::scalar>,3> Foam::Structure::compute_dRdq
@@ -1497,6 +1532,44 @@ void Foam::Structure::rodEvalDerivCoeff
     }
 }
 
+Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval_Deriv
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label derivDimension,
+    scalar parameter
+)
+{
+    if(!constructedCoeffDerivedData)
+        FatalErrorInFunction<<"Data for deriv coeff data not given!"<<exit(FatalError);
+        
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    //Derivative of rod coordinate axis in respect to coefficient
+    const gsNurbs<scalar>& oneCoeffDerivQuaternions = coeffDerivedQuaternions[rodNumber][derivCoeffNumber][derivDimension];
+    gsMatrix<scalar> coeffDerivQuaternionEval;
+    oneCoeffDerivQuaternions.eval_into(parMat,coeffDerivQuaternionEval);
+    
+    const gsNurbs<scalar>& totalQuaternions = Rods[rodNumber]->m_Rot;
+    gsMatrix<scalar> totalQuaternionEval;
+    totalQuaternions.eval_into(parMat,totalQuaternionEval);
+    
+    const gsNurbs<scalar>& initialQuaternions = initialRotation[rodNumber];
+    gsMatrix<scalar> initialQuaternionEval;
+    initialQuaternions.eval_into(parMat,initialQuaternionEval);
+    
+    gsMatrix<scalar> deformationQuaternionEval = quaternionMultiply(totalQuaternionEval,
+                                                                    quaternionInvert(initialQuaternionEval));
+    gsMatrix<scalar> defQuat_inidQuatdCoeff = quaternionMultiply(deformationQuaternionEval,coeffDerivQuaternionEval);
+    
+    if(defQuat_inidQuatdCoeff.rows()!=4 || defQuat_inidQuatdCoeff.cols()!=1)
+        FatalErrorInFunction<<"Invalid dimension for q"<<exit(FatalError);
+    FixedList<scalar,4> derivQ = {defQuat_inidQuatdCoeff(0,0),defQuat_inidQuatdCoeff(1,0),defQuat_inidQuatdCoeff(2,0),defQuat_inidQuatdCoeff(3,0)};
+    
+    return derivQ;
+}
+
 void Foam::Structure::getCurveCoeffs
 (
     List<List<vector>>& coeffs
@@ -1520,6 +1593,8 @@ void Foam::Structure::setCurveCoeffs
     const List<List<vector>>& coeffs
 )
 {
+    Info<<"--------------- Re-set curve coeffs ----------------"<<Foam::endl;
+    
     if(coeffs.size()!=nR)
         FatalErrorInFunction<<"Mismatch in rod number to coeffs!"<<exit(FatalError);
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
@@ -1536,6 +1611,25 @@ void Foam::Structure::setCurveCoeffs
     setupActiveRodMesh();
 }
 
+Foam::scalar Foam::Structure::getCurveCoeff
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label dimension
+) const
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber"<<exit(FatalError);
+    ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+    gsNurbs<scalar>& curve = rod->m_Curve;
+    gsMatrix<scalar>& coeffs = curve.coefs();
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
+        FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
+    if(dimension<0 || dimension>=3)
+        FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
+    return coeffs(derivCoeffNumber,dimension);
+}
+
 void Foam::Structure::setCurveCoeff
 (
     label rodNumber,
@@ -1543,22 +1637,18 @@ void Foam::Structure::setCurveCoeff
     label dimension,
     scalar value
 )
-{
-    FatalErrorInFunction<<"Insufficient implementation"<<exit(FatalError);
-    
+{   
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber"<<exit(FatalError);
     ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
     gsNurbs<scalar>& curve = rod->m_Curve;
     gsMatrix<scalar>& coeffs = curve.coefs();
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.cols())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
     if(dimension<0 || dimension>=3)
         FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
     coeffs(derivCoeffNumber,dimension) = value;
-    
-    //std::unique_ptr<std::vector<std::unique_ptr<gsNurbs<scalar>>>>& rodCoeffDerivedCurves = coeffDerivedCurves[rodNumber];
-    //rodCoeffDerivedCurves.reset();
+    constructCoeffDerivedData();    
 }
 
 Foam::BoundingBox Foam::Structure::computeBox
@@ -2120,6 +2210,201 @@ Foam::scalar Foam::Structure::initialSpacingFromMesh
         }
     }
     return 2*minHalfDist;
+}
+
+void Foam::Structure::selfCheck()
+{
+    Info<<"-----------Structure derivatives-----------"<<Foam::endl;    
+    std::function<void(std::function<FixedList<vector,4>(scalar)>,
+                       std::function<FixedList<vector,4>(scalar)>,
+                       scalar,scalar,uint)> pointComparer =
+    [](auto deriv, auto fdDeriv, scalar minPar, scalar maxPar, uint steps)
+    {
+        scalar deltaPar = maxPar-minPar;
+        scalar stepsizePar = deltaPar/steps;
+        
+        for(scalar currPara=minPar; currPara<=maxPar; currPara+=stepsizePar)
+        {
+            FixedList<vector,4> derivValue = deriv(currPara);
+            FixedList<vector,4> fderivValue = fdDeriv(currPara);
+            FixedList<vector,4> errorVec;
+            FixedList<scalar,4> error;
+            FixedList<scalar,4> derivValueLen;
+            FixedList<scalar,4> fderivValueLen;
+            FixedList<scalar,4> avgLen;
+            FixedList<scalar,4> percError;
+            scalar maxError = std::numeric_limits<scalar>::min();;
+            scalar maxPercError = std::numeric_limits<scalar>::min();;
+            for(label i=0; i<4; i++)
+            {
+                errorVec[i]= derivValue[i]-fderivValue[i];
+                error[i] = std::sqrt(errorVec[i]&errorVec[i]);
+                derivValueLen[i] = std::sqrt(derivValue[i]&derivValue[i]);
+                fderivValueLen[i] = std::sqrt(fderivValue[i]&fderivValue[i]);
+                avgLen[i] = 0.5*(derivValueLen[i]+fderivValueLen[i]);
+                if(avgLen[i]!=0)
+                    percError[i] = error[i]/avgLen[i];
+                else
+                    percError[i] = error[i];
+                maxPercError = std::max(maxPercError,percError[i]);
+                maxError = std::max(maxError,error[i]);
+            }
+
+            Info<<"("<<currPara<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+            if(maxPercError>2e-3 && maxError>1e-4)
+            {
+                Info<<"("<<currPara<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+                FatalErrorInFunction<<"Comparison failed!"<<exit(FatalError);
+            }
+        }
+    };
+    
+    std::function<void(std::function<FixedList<scalar,4>(scalar)>,
+                       std::function<FixedList<scalar,4>(scalar)>,
+                       scalar,scalar,uint)> qComparer =
+    [](auto deriv, auto fdDeriv, scalar minPar, scalar maxPar, uint steps)
+    {
+        scalar deltaPar = maxPar-minPar;
+        scalar stepsizePar = deltaPar/steps;
+        
+        for(scalar currPara=minPar; currPara<=maxPar; currPara+=stepsizePar)
+        {
+            FixedList<scalar,4> derivValue = deriv(currPara);
+            FixedList<scalar,4> fderivValue = fdDeriv(currPara);
+            FixedList<scalar,4> error;
+            scalar derivValueLen = std::sqrt(derivValue[0]*derivValue[0]+derivValue[1]*derivValue[1]
+                                            +derivValue[2]*derivValue[2]+derivValue[3]*derivValue[3]);
+            scalar fderivValueLen = std::sqrt(fderivValue[0]*fderivValue[0]+fderivValue[1]*fderivValue[1]
+                                             +fderivValue[2]*fderivValue[2]+fderivValue[3]*fderivValue[3]);
+            scalar avgLen = 0.5*(derivValueLen+fderivValueLen);
+            scalar maxError = std::numeric_limits<scalar>::min();;
+            for(label i=0; i<4; i++)
+            {
+                error[i]= std::abs(derivValue[i]-fderivValue[i]);
+                maxError = std::max(maxError,error[i]);
+            }
+            
+            scalar maxPercError;
+            if(avgLen!=0)
+                maxPercError = maxError / avgLen;
+            else
+                maxPercError = maxError;
+            
+            Info<<"("<<currPara<<"): Err:"<<error<<" maxPercError:"<<maxPercError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+            if(maxPercError>2e-3 && maxError>1e-4)
+            {
+                Info<<"("<<currPara<<"): Err:"<<error<<" maxPercError:"<<maxPercError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+                FatalErrorInFunction<<"Comparison failed!"<<exit(FatalError);
+            }
+        }
+    };
+    
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        scalar domainStart = this->domainStart(rodNumber);
+        scalar domainEnd = this->domainEnd(rodNumber);
+        for(label curveCoeffs=0; curveCoeffs<numberCurveCoeffs(rodNumber); curveCoeffs++)
+        {
+            for(label coefDim=0; coefDim<3; coefDim++)
+            {
+                std::function<FixedList<scalar,4>(scalar)> derivQ = [&](scalar par)
+                {
+                    FixedList<scalar,4> deriv;
+                    return deriv;
+                };
+                std::function<FixedList<scalar,4>(scalar)> fdDerivQ = [&](scalar par)
+                {
+                    scalar epsilon=0.2;
+                    scalar coeffBasicValue = getCurveCoeff(rodNumber,curveCoeffs,coefDim);
+                    
+                    scalar lowerCoeffValue = coeffBasicValue-epsilon;
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,lowerCoeffValue);
+                    FixedList<scalar,4> lower_q = m_Rot_Eval(rodNumber,par);
+
+                    scalar upperCoeffValue = coeffBasicValue+epsilon;                    
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,upperCoeffValue);
+                    FixedList<scalar,4> upper_q = m_Rot_Eval(rodNumber,par);
+                    
+                    FixedList<scalar,4> diff = {upper_q[0]-lower_q[0],upper_q[1]-lower_q[1],upper_q[2]-lower_q[2],upper_q[3]-lower_q[3]};
+                    scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
+
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,coeffBasicValue);
+                    if(diffCoeff!=0)
+                    {
+                        diff[0] /= diffCoeff;
+                        diff[1] /= diffCoeff;
+                        diff[2] /= diffCoeff;
+                        diff[3] /= diffCoeff;
+                        return diff;
+                    }
+                    else
+                        FatalErrorInFunction<<"No delta in coeff values!"<<exit(FatalError);
+                };
+                qComparer(derivQ,fdDerivQ,domainStart,domainEnd,20);
+                
+                std::function<FixedList<vector,4>(scalar)> derivT = [&](scalar par)
+                {
+                    vector d1dC,d2dC,d3dC,rdC;
+                    rodEvalDerivCoeff(rodNumber,curveCoeffs,coefDim,par,d1dC,d2dC,d3dC,rdC);
+                    FixedList<vector,4> deriv = {d1dC,d2dC,d3dC,rdC};
+                    return deriv;
+                };
+                std::function<FixedList<vector,4>(scalar)> fdDerivT = [&](scalar par)
+                {
+                    scalar epsilon=0.2;
+                    scalar coeffBasicValue = getCurveCoeff(rodNumber,curveCoeffs,coefDim);
+                    vector d1,d2,d3,r;
+                    rodEval(Rods[rodNumber],par,d1,d2,d3,r);
+                    Info<<"d1:"<<d1<<Foam::endl;
+                    Info<<"d2:"<<d2<<Foam::endl;
+                    Info<<"d3:"<<d3<<Foam::endl;
+                    Info<<"r:"<<r<<Foam::endl<<Foam::endl;
+
+                    scalar lowerCoeffValue = coeffBasicValue-epsilon;
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,lowerCoeffValue);
+                    vector lower_d1,lower_d2,lower_d3,lower_r;
+                    rodEval(Rods[rodNumber],par,lower_d1,lower_d2,lower_d3,lower_r);
+
+                    scalar upperCoeffValue = coeffBasicValue+epsilon;                    
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,upperCoeffValue);
+                    vector upper_d1,upper_d2,upper_d3,upper_r;
+                    rodEval(Rods[rodNumber],par,upper_d1,upper_d2,upper_d3,upper_r);
+                    
+                    Info<<"lower_d1:"<<lower_d1<<Foam::endl;
+                    Info<<"lower_d2:"<<lower_d2<<Foam::endl;
+                    Info<<"lower_d3:"<<lower_d3<<Foam::endl;
+                    Info<<"lower_r:"<<lower_r<<Foam::endl<<Foam::endl;
+                    
+                    Info<<"upper_d1:"<<upper_d1<<Foam::endl;
+                    Info<<"upper_d2:"<<upper_d2<<Foam::endl;
+                    Info<<"upper_d3:"<<upper_d3<<Foam::endl;
+                    Info<<"upper_r:"<<upper_r<<Foam::endl<<Foam::endl;
+
+
+                    vector diff_d1 = upper_d1-lower_d1;
+                    vector diff_d2 = upper_d2-lower_d2;
+                    vector diff_d3 = upper_d3-lower_d3;
+                    vector diff_r = upper_r-lower_r;
+                    scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
+                    diff_d1 /= diffCoeff;
+                    diff_d2 /= diffCoeff;
+                    diff_d3 /= diffCoeff;
+                    diff_r /= diffCoeff;
+
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,coeffBasicValue);
+                    if(diffCoeff!=0)
+                    {
+                        FixedList<vector,4> fdderiv = {diff_d1,diff_d2,diff_d3,diff_r};
+                        return fdderiv;
+                    }
+                    else
+                        FatalErrorInFunction<<"No delta in coeff values!"<<exit(FatalError);
+                };
+                pointComparer(derivT,fdDerivT,domainStart,domainEnd,20);
+            }
+        }
+    }
+    
 }
 
 void Foam::Barrier(bool stop)

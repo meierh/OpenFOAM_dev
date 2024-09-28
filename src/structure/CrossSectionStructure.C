@@ -1665,6 +1665,8 @@ Foam::scalar Foam::CrossSectionStructure::distance
 
 void Foam::CrossSectionStructure::selfCheck()
 {
+    LineStructure::selfCheck();
+    
     Info<<"-----------Check cross Section derivatives-----------"<<Foam::endl;    
     std::function<void(std::function<scalar(scalar,scalar)>,
                        std::function<scalar(scalar,scalar)>,

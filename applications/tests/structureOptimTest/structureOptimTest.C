@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
     Info<<"Start testing"<<Foam::endl;
     
-    for(label run=0; run<100; run++)
+    for(label run=0; run<1; run++)
     {
         scalar a0 = RandomFloat(0,1);
         label k = RandomInt(0,10);
@@ -82,8 +82,22 @@ int main(int argc, char *argv[])
         std::cout<<std::endl;
         std::cout<<"phase:"<<phase<<std::endl;
         
+        List<List<vector>> curveCoeffs(1);
+        curveCoeffs[0] = List<vector>(4);
+        scalar eps;
+        eps = RandomFloat(-1,1);
+        curveCoeffs[0][0] = vector(0+eps,0+eps,0+eps);
+        eps = RandomFloat(-1,1);
+        curveCoeffs[0][1] = vector(10+eps,10+eps,-1+eps);
+        eps = RandomFloat(-1,1);
+        curveCoeffs[0][2] = vector(20+eps,0+eps,1+eps);
+        eps = RandomFloat(-1,1);
+        curveCoeffs[0][3] = vector(40+eps,-10+eps,0+eps);
+        Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
+        
         std::vector<CrossSection> crossSecList = {CrossSection(a0,ak,bk,phase)};
         CrossSectionStructure testStructure(mesh,crossSecList,true);
+        testStructure.setCurveCoeffs(curveCoeffs);
         testStructure.selfCheck();
     }
     

@@ -630,7 +630,7 @@ class LineStructure : public Structure
         
         //scalar initialSpacingFromMesh();
         
-        virtual void selfCheck();
+        void selfCheck() override;
 };
 //#include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"

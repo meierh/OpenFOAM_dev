@@ -220,6 +220,9 @@ class Structure
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, scalar parameter, vector& r);
+        
+        FixedList<scalar,4> m_Rot_Eval(label rodNumber, scalar parameter);
+        static FixedList<scalar,4> m_Rot_Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
     // ----------------- ---------------------- -----------------
         
     // ----------------- Rod coefficient derivation methods -----------------
@@ -250,6 +253,7 @@ class Structure
             vector& d3dC,
             vector& rdC
         );
+        FixedList<scalar,4> m_Rot_Eval_Deriv(label rodNumber, label derivCoeffNumber, label derivDimension, scalar parameter);
     // ----------------- ---------------------------------- -----------------
         
         const scalar initialMeshSpacing;
@@ -392,6 +396,8 @@ class Structure
         void collectMeshHaloData(label iterations=1);
     public:
         static scalar initialSpacingFromMesh(const fvMesh& mesh, label cellInd=0);
+        
+        virtual void selfCheck();
 };
 #include "Structure.T.H"
 void Barrier(bool stop);
