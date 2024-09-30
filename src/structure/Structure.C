@@ -273,19 +273,20 @@ void Foam::Structure::createNurbsStructure()
         BasisRef[i]->degreeElevate(p_sim - BasisRef[i]->degree());
         BasisRef[i]->uniformRefine(el_sim - BasisRef[i]->numElements());
 
+        /*
         std::cout<<"use_mixed:"<<use_mixed<<std::endl;
         std::cout<<"rodsList[0]:"<<std::endl<<rodsList[0]<<std::endl;
         std::cout<<"*BasisRef[0]:"<<std::endl<<*BasisRef[0]<<std::endl;
         //std::cout<<"*Geo[0]:"<<*Geo[0]<<std::endl;
         std::cout<<"*twist:"<<std::endl<<*twist<<std::endl;
+        */
 
         // Make rod
         if (use_mixed)
             Rods[i] = new ActiveRodMesh::rodCosseratMixed(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
         else
             Rods[i] = new ActiveRodMesh::rodCosserat(rodsList[i], *BasisRef[i], *Geo[i], twist, 2, 0);
-        
-        std::cout<<"rodsList[i].coeffs:"<<rodsList[i].coefs()<<std::endl;
+    
         //std::cout<<"Rods[i]->m_Curve.coeffs:"<<Rods[i]->m_Curve.coefs()<<std::endl;
         
         Rods[i]->m_Rot.setCoefs(Rods[i]->m_init_Rot.transpose());
@@ -965,107 +966,6 @@ void Foam::Structure::fitNurbsCoeffsToPoints
     linearLeastSquare(points,parameters,nurbs,fittedCoeffs);
 }
 
-/*
-void Foam::Structure::fitNurbsCoeffsToPoints
-(
-    const List<vector>& points,
-    const List<scalar>& parameters,
-    const gsNurbs<scalar>& nurbs,
-    gsMatrix<scalar>& fittedCoeffs,
-    scalar epsilon
-)
-{
-    if(points.size()!=parameters.size())
-        FatalErrorInFunction<<"Mismatch in points and parameter size"<<exit(FatalError);
-    
-    linearLeastSquare(points,parameters,nurbs,fittedCoeffs);
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
- 
-    gsMatrix<scalar> x(3,points.size());        
-    gsMatrix<scalar> s(1,points.size());
-    std::map<scalar,vector> pointsMap;
-    for(label pntInd=0; pntInd<points.size(); pntInd++)
-    {
-        x(0,pntInd) = points[pntInd][0];
-        x(1,pntInd) = points[pntInd][1];
-        x(2,pntInd) = points[pntInd][2];
-        s(0,pntInd) = parameters[pntInd];
-        pointsMap[parameters[pntInd]] = points[pntInd];
-    }
-    
-    gsMatrix<scalar> N_x;
-    List<gsMatrix<scalar>> dNdC;
-    gsMatrix<scalar> gradIntN_x;
-    gsNurbs<scalar> convNurbs = nurbs;
-    vector intNmX;
-    DynamicList<vector> path;
-    
-    for(label coeffI=0; coeffI<convNurbs.coefs().rows(); coeffI++)
-    {
-        scalar startU = convNurbs.knots()[coeffI];
-        scalar endU = convNurbs.knots()[coeffI+convNurbs.knots().degree()+1];
-        vector sum_point(0,0,0);
-        label sumIndex=0;
-        for(auto iter=pointsMap.lower_bound(startU); iter!=pointsMap.upper_bound(endU); iter++)
-        {
-            sum_point += iter->second;
-            sumIndex++;
-        }
-        sum_point /= sumIndex;
-        convNurbs.coefs()(coeffI,0) = sum_point[0];
-        convNurbs.coefs()(coeffI,1) = sum_point[1];
-        convNurbs.coefs()(coeffI,2) = sum_point[2];
-    }
-
-    vector stepsize(1,1,1);    
-    for(label iterationCount=0; iterationCount<100; iterationCount++)
-    {        
-        // Evaluate gradient and target function
-        intNurbsMinusX(x,s,convNurbs,intNmX);
-        path.append(intNmX);
-        gradIntNurbsMinX(x,s,convNurbs,N_x,dNdC,gradIntN_x);
-        
-        while(true)
-        {
-            gsNurbs<scalar> tempNurbs = convNurbs;
-            minGradStep(tempNurbs,gradIntN_x,stepsize);
-            vector newIntNmX;
-            intNurbsMinusX(x,s,tempNurbs,newIntNmX);
-            bool allBetter = true;
-            for(label dim=0; dim<3; dim++)
-            {
-                if(newIntNmX[dim] > path.last()[dim])
-                    allBetter = false;
-            }
-            
-            if(!allBetter)
-            {
-                for(label dim=0; dim<3; dim++)
-                {
-                    if(newIntNmX[dim] > path.last()[dim])
-                        stepsize[dim]/=2;
-                }
-            }
-            else
-            {
-                convNurbs.coefs() = tempNurbs.coefs();
-                break;
-            }
-        }
-        for(label dim=0; dim<3; dim++)
-            if(intNmX[dim]<epsilon)
-                stepsize[dim] = 0;
-        
-        if(intNmX[0]<epsilon && intNmX[1]<epsilon && intNmX[2]<epsilon)
-            break;
-        if(stepsize[0]<epsilon && stepsize[1]<epsilon && stepsize[2]<epsilon)
-            break;
-    }
-    
-    fittedCoeffs = convNurbs.coefs();
-}
-*/
-
 const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRodDeformation
 (
     label rodNumber
@@ -1561,7 +1461,12 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval_Deriv
     
     gsMatrix<scalar> deformationQuaternionEval = quaternionMultiply(totalQuaternionEval,
                                                                     quaternionInvert(initialQuaternionEval));
-    gsMatrix<scalar> defQuat_inidQuatdCoeff = quaternionMultiply(deformationQuaternionEval,coeffDerivQuaternionEval);
+    
+    std::cout<<"deformationQuaternionEval:"<<deformationQuaternionEval<<std::endl;
+    
+    //gsMatrix<scalar> defQuat_inidQuatdCoeff = quaternionMultiply(deformationQuaternionEval,coeffDerivQuaternionEval);
+    
+    gsMatrix<scalar> defQuat_inidQuatdCoeff = coeffDerivQuaternionEval;
     
     if(defQuat_inidQuatdCoeff.rows()!=4 || defQuat_inidQuatdCoeff.cols()!=1)
         FatalErrorInFunction<<"Invalid dimension for q"<<exit(FatalError);
@@ -1637,18 +1542,17 @@ void Foam::Structure::setCurveCoeff
     label dimension,
     scalar value
 )
-{   
+{
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber"<<exit(FatalError);
-    ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
-    gsNurbs<scalar>& curve = rod->m_Curve;
-    gsMatrix<scalar>& coeffs = curve.coefs();
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffs.rows())
+    List<List<vector>> rodCoefs;
+    getCurveCoeffs(rodCoefs);
+    if(derivCoeffNumber<0 || derivCoeffNumber>=rodCoefs[rodNumber].size())
         FatalErrorInFunction<<"Invalid derivCoeffNumber"<<exit(FatalError);
     if(dimension<0 || dimension>=3)
         FatalErrorInFunction<<"Invalid dimension"<<exit(FatalError);
-    coeffs(derivCoeffNumber,dimension) = value;
-    constructCoeffDerivedData();    
+    rodCoefs[rodNumber][derivCoeffNumber][dimension] = value;
+    setCurveCoeffs(rodCoefs);  
 }
 
 Foam::BoundingBox Foam::Structure::computeBox
@@ -2217,7 +2121,7 @@ void Foam::Structure::selfCheck()
     Info<<"-----------Structure derivatives-----------"<<Foam::endl;    
     std::function<void(std::function<FixedList<vector,4>(scalar)>,
                        std::function<FixedList<vector,4>(scalar)>,
-                       scalar,scalar,uint)> pointComparer =
+                       scalar,scalar,uint)> tComparer =
     [](auto deriv, auto fdDeriv, scalar minPar, scalar maxPar, uint steps)
     {
         scalar deltaPar = maxPar-minPar;
@@ -2251,10 +2155,12 @@ void Foam::Structure::selfCheck()
             }
 
             Info<<"("<<currPara<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+            
+            FatalErrorInFunction<<"Temp stop!"<<exit(FatalError);
             if(maxPercError>2e-3 && maxError>1e-4)
             {
                 Info<<"("<<currPara<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
-                FatalErrorInFunction<<"Comparison failed!"<<exit(FatalError);
+                FatalErrorInFunction<<"t Comparison failed!"<<exit(FatalError);
             }
         }
     };
@@ -2290,18 +2196,21 @@ void Foam::Structure::selfCheck()
             else
                 maxPercError = maxError;
             
-            Info<<"("<<currPara<<"): Err:"<<error<<" maxPercError:"<<maxPercError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+            Info<<"("<<currPara<<"): Err:"<<error<<" maxPercError:"<<maxPercError<<" maxError:"<<maxError<<" avgLen:"<<avgLen<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+            
+            FatalErrorInFunction<<"Temp stop!"<<exit(FatalError);
+            
             if(maxPercError>2e-3 && maxError>1e-4)
             {
                 Info<<"("<<currPara<<"): Err:"<<error<<" maxPercError:"<<maxPercError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
-                FatalErrorInFunction<<"Comparison failed!"<<exit(FatalError);
+                FatalErrorInFunction<<"q Comparison failed!"<<exit(FatalError);
             }
         }
     };
     
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
-        scalar domainStart = this->domainStart(rodNumber);
+        scalar domainStart = this->domainStart(rodNumber)+0.5;
         scalar domainEnd = this->domainEnd(rodNumber);
         for(label curveCoeffs=0; curveCoeffs<numberCurveCoeffs(rodNumber); curveCoeffs++)
         {
@@ -2309,12 +2218,12 @@ void Foam::Structure::selfCheck()
             {
                 std::function<FixedList<scalar,4>(scalar)> derivQ = [&](scalar par)
                 {
-                    FixedList<scalar,4> deriv;
+                    FixedList<scalar,4> deriv = m_Rot_Eval_Deriv(rodNumber,curveCoeffs,coefDim,par);
                     return deriv;
                 };
                 std::function<FixedList<scalar,4>(scalar)> fdDerivQ = [&](scalar par)
                 {
-                    scalar epsilon=0.2;
+                    scalar epsilon=1e-3;
                     scalar coeffBasicValue = getCurveCoeff(rodNumber,curveCoeffs,coefDim);
                     
                     scalar lowerCoeffValue = coeffBasicValue-epsilon;
@@ -2342,6 +2251,7 @@ void Foam::Structure::selfCheck()
                 };
                 qComparer(derivQ,fdDerivQ,domainStart,domainEnd,20);
                 
+                /*
                 std::function<FixedList<vector,4>(scalar)> derivT = [&](scalar par)
                 {
                     vector d1dC,d2dC,d3dC,rdC;
@@ -2400,7 +2310,8 @@ void Foam::Structure::selfCheck()
                     else
                         FatalErrorInFunction<<"No delta in coeff values!"<<exit(FatalError);
                 };
-                pointComparer(derivT,fdDerivT,domainStart,domainEnd,20);
+                tComparer(derivT,fdDerivT,domainStart,domainEnd,20);
+                */
             }
         }
     }

@@ -96,8 +96,56 @@ int main(int argc, char *argv[])
         Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
         
         std::vector<CrossSection> crossSecList = {CrossSection(a0,ak,bk,phase)};
-        CrossSectionStructure testStructure(mesh,crossSecList,true);
+        CrossSectionStructure testStructure(mesh,crossSecList,true);       
         testStructure.setCurveCoeffs(curveCoeffs);
+        testStructure.selfCheck();
+        
+        /*
+        testStructure.printCurves();
+        
+        curveCoeffs[0][0] = vector(0,0,0);
+        curveCoeffs[0][1] = vector(-10,10,-1);
+        curveCoeffs[0][2] = vector(-20,0,1);
+        curveCoeffs[0][3] = vector(-40,-10,0);
+        testStructure.setCurveCoeffs(curveCoeffs);
+        testStructure.printCurves();
+        
+        
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+
+        scalar epsilon=1;
+        scalar coeffBasicValue = testStructure.getCurveCoeff(0,1,0);
+        Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
+        
+        scalar lowerCoeffValue = coeffBasicValue-epsilon;
+        Info<<"lowerCoeffValue:"<<lowerCoeffValue<<Foam::endl;
+        testStructure.setCurveCoeff(0,1,0,lowerCoeffValue);
+        FixedList<scalar,4> lower_q = testStructure.m_Rot_Eval(0,0.3);
+        Info<<"lower_q:"<<lower_q<<Foam::endl;
+
+        scalar upperCoeffValue = coeffBasicValue+epsilon;
+        Info<<"upperCoeffValue:"<<upperCoeffValue<<Foam::endl;
+        testStructure.setCurveCoeff(0,1,0,upperCoeffValue);
+        FixedList<scalar,4> upper_q = testStructure.m_Rot_Eval(0,0.3);
+        Info<<"upper_q:"<<upper_q<<Foam::endl;
+                   
+        FixedList<scalar,4> diff = {upper_q[0]-lower_q[0],upper_q[1]-lower_q[1],upper_q[2]-lower_q[2],upper_q[3]-lower_q[3]};
+        scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
+        
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+        
+        
+        testStructure.setCurveCoeff(0,1,0,-7);
+        testStructure.printCurves();
+        testStructure.setCurveCoeff(0,1,0,-13);
+        testStructure.printCurves();
+        */
+        
+        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         testStructure.selfCheck();
     }
     

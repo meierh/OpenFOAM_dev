@@ -256,6 +256,20 @@ class Structure
         FixedList<scalar,4> m_Rot_Eval_Deriv(label rodNumber, label derivCoeffNumber, label derivDimension, scalar parameter);
     // ----------------- ---------------------------------- -----------------
         
+        void printCurves()
+        {
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"Rods[0]->m_Curve:"<<Rods[0]->m_Curve<<std::endl;
+            std::cout<<"Rods[0]->m_Rot:"<<Rods[0]->m_Rot<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+            std::cout<<"--------------------------------------------------------------------------------------"<<std::endl;
+        }
+        
         const scalar initialMeshSpacing;
         const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourhoodProcesses;}
         const List<List<Pair<label>>>& getMeshGraph() const {return meshGraph;}
