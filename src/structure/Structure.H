@@ -100,6 +100,8 @@ class Structure
         
         void solveOneStep();
         
+        static FixedList<vector,3> quaternionsToRotation(FixedList<scalar,4> quaternions);
+        
         static gsNurbs<scalar> createNurbs
         (
             std::vector<scalar> knots,
@@ -223,6 +225,8 @@ class Structure
         
         FixedList<scalar,4> m_Rot_Eval(label rodNumber, scalar parameter);
         static FixedList<scalar,4> m_Rot_Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
+        const gsNurbs<scalar>& getQuaternions(label rodNumber) const;
+        List<FixedList<vector,3>> getRotationCurveCoefs(label rodNumber) const;
     // ----------------- ---------------------- -----------------
         
     // ----------------- Rod coefficient derivation methods -----------------
@@ -230,9 +234,9 @@ class Structure
         bool constructedCoeffDerivedData = false;
         void constructCoeffDerivedData();
     private:
-        FixedList<gsMatrix<scalar>,3> compute_dRdq(const gsMatrix<scalar>& q);
-        gsMatrix<scalar> quaternionMultiply(const gsMatrix<scalar>& q1,const gsMatrix<scalar>& q2);
-        gsMatrix<scalar> quaternionInvert(const gsMatrix<scalar>& q);
+        FixedList<FixedList<vector,4>,3> compute_dRdq(const FixedList<scalar,4> dqdC);
+        FixedList<scalar,4> quaternionMultiply(const FixedList<scalar,4> q1,const FixedList<scalar,4> q2);
+        FixedList<scalar,4> quaternionInvert(const FixedList<scalar,4> q);
         //[rodNumber] -> [coeffNumber] -> [dims] -> nurbs
         std::vector<std::vector<std::vector<gsNurbs<scalar>>>> coeffDerivedCenterline;
         //[rodNumber] -> nurbs
@@ -242,6 +246,22 @@ class Structure
     public:
         label numberCurveCoeffs(label rodNumber) const;
         label numberDeformationCoeffs(label rodNumber) const;
+        vector get_drdC(label rodNumber, label derivCoeffNumber, label derivDimension, scalar parameter) const;
+        FixedList<scalar,4> get_iniQuaternions(label rodNumber, scalar parameter) const;
+        FixedList<scalar,4> get_Quaternions(label rodNumber, scalar parameter) const;
+        FixedList<scalar,4> get_coeffDerivQuaternions
+        (
+            label rodNumber,
+            label derivCoeffNumber,
+            label derivDimension,
+            scalar parameter
+        ) const;
+        const gsNurbs<scalar>& getCoeffDerivedQuaternions
+        (
+            label rodNumber,
+            label derivCoeffNumber,
+            label derivDimension
+        ) const;
         void rodEvalDerivCoeff
         (
             label rodNumber,

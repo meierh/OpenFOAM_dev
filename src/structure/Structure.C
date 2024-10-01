@@ -606,6 +606,33 @@ Foam::label Foam::Structure::getMaxDegree
     return std::max<label>(baseDegreeX,defDegreeX);
 }
 
+Foam::FixedList<Foam::vector,3> Foam::Structure::quaternionsToRotation
+(
+    FixedList<scalar,4> quaternions
+)
+{
+    const FixedList<scalar,4>& q = quaternions;
+    vector d1 = vector
+    (
+        q[0]*q[0] + q[1]*q[1] - q[2]*q[2] - q[3]*q[3],
+         2*q[0]*q[3] + 2*q[1]*q[2],
+        -2*q[0]*q[2] + 2*q[1]*q[3]
+    );
+    vector d2 = vector
+    (
+        -2*q[0]*q[3] + 2*q[1]*q[2],
+        q[0]*q[0] - q[1]*q[1] + q[2]*q[2] - q[3]*q[3],
+         2*q[0]*q[1] + 2*q[2]*q[3]
+    );
+    vector d3 = vector
+    (
+         2*q[0]*q[2] + 2*q[1]*q[3],
+        -2*q[0]*q[1] + 2*q[2]*q[3],
+        q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3]
+    );
+    return {d1,d2,d3};
+}
+
 gsNurbs<Foam::scalar> Foam::Structure::createNurbs
 (
     std::vector<scalar> knots,
@@ -1227,6 +1254,37 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
     return quaternion;
 }
 
+const gsNurbs<Foam::scalar>& Foam::Structure::getQuaternions
+(
+    label rodNumber
+) const
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    return Rods[rodNumber]->m_Rot;    
+}
+
+Foam::List<Foam::FixedList<Foam::vector,3>> Foam::Structure::getRotationCurveCoefs
+(
+    label rodNumber
+) const
+{
+    Info<<"-------------------------------getRotationCurveCoefs---------------------------------------"<<Foam::endl;
+    gsNurbs<scalar> quaternions = getQuaternions(rodNumber);
+    gsMatrix<scalar> quaternionCoef = quaternions.coefs();
+    std::cout<<quaternionCoef<<std::endl;
+    List<FixedList<vector,3>> rotations(quaternionCoef.rows());
+    for(label coefNbr=0; coefNbr<quaternionCoef.rows(); coefNbr++)
+    {
+        FixedList<scalar,4> quaternion;
+        for(label qdim=0; qdim<4; qdim++)
+            quaternion[qdim] = quaternionCoef(coefNbr,qdim);
+        FixedList<vector,3> R = quaternionsToRotation(quaternion);
+        rotations[coefNbr] = R;
+    }
+    return rotations;
+}
+
 void Foam::Structure::constructCoeffDerivedData()
 {
     coeffDerivedCenterline.resize(nR);
@@ -1300,65 +1358,56 @@ void Foam::Structure::constructCoeffDerivedData()
     constructedCoeffDerivedData = true;    
 }
 
-Foam::FixedList<gsMatrix<Foam::scalar>,3> Foam::Structure::compute_dRdq
+Foam::FixedList<Foam::FixedList<Foam::vector,4>,3> Foam::Structure::compute_dRdq
 (
-    const gsMatrix<scalar>& q
+    const FixedList<scalar,4> dqdC
 )
 {
-    if(q.rows()!=4 || q.cols()!=1)
-        FatalErrorInFunction<<"Invalid dimension for q"<<exit(FatalError);
+    FixedList<vector,4> dd1dq;
+        dd1dq[0][0]= 0;         dd1dq[1][0]= 0;         dd1dq[2][0]=-4*dqdC[2];   dd1dq[3][0]=-4*dqdC[3];
+        dd1dq[0][1]= 2*dqdC[3]; dd1dq[1][1]= 2*dqdC[2]; dd1dq[2][1]= 2*dqdC[1];   dd1dq[3][1]= 2*dqdC[0];
+        dd1dq[0][2]=-2*dqdC[2]; dd1dq[1][2]= 2*dqdC[3]; dd1dq[2][2]=-2*dqdC[0];   dd1dq[3][2]= 2*dqdC[1];
     
-    gsMatrix<scalar> dd1dq(3,4);
-        dd1dq(0,0)= 0;        dd1dq(0,1)= 0;        dd1dq(0,2)=-4*q(2,0);   dd1dq(0,3)=-4*q(3,0);
-        dd1dq(1,0)= 2*q(3,0); dd1dq(1,1)= 2*q(2,0); dd1dq(1,2)= 2*q(1,0);   dd1dq(1,3)= 2*q(0,0);
-        dd1dq(2,0)=-2*q(2,0); dd1dq(2,1)= 2*q(3,0); dd1dq(2,2)=-2*q(0,0);   dd1dq(2,3)= 2*q(1,0);
-    
-    gsMatrix<scalar> dd2dq(3,4);
-        dd2dq(0,0)=-2*q(3,0); dd2dq(0,1)= 2*q(2,0); dd2dq(0,2)= 2*q(1,0);   dd2dq(0,3)=-2*q(0,0);
-        dd2dq(1,0)= 0;        dd2dq(1,1)=-4*q(1,0); dd2dq(1,2)= 0;          dd2dq(1,3)=-4*q(3,0);
-        dd2dq(2,0)= 2*q(1,0); dd2dq(2,1)= 2*q(0,0); dd2dq(2,2)=-2*q(3,0);   dd2dq(2,3)= 2*q(2,0);  
-    
-    gsMatrix<scalar> dd3dq(3,4);
-        dd3dq(0,0)= 2*q(2,0); dd3dq(0,1)= 2*q(3,0); dd3dq(0,2)= 2*q(0,0);   dd3dq(0,3)= 2*q(1,0);
-        dd3dq(1,0)=-2*q(1,0); dd3dq(1,1)=-2*q(0,0); dd3dq(1,2)= 2*q(3,0);   dd3dq(1,3)= 2*q(2,0);
-        dd3dq(2,0)= 0;        dd3dq(2,1)=-4*q(1,0); dd3dq(2,2)=-4*q(2,0);   dd3dq(2,3)= 0;
+    FixedList<vector,4> dd2dq;
+        dd2dq[0][0]=-2*dqdC[3];  dd2dq[1][0]= 2*dqdC[2]; dd2dq[2][0]= 2*dqdC[1];   dd2dq[3][0]=-2*dqdC[0];
+        dd2dq[0][1]= 0;          dd2dq[1][1]=-4*dqdC[1]; dd2dq[2][1]= 0;           dd2dq[3][1]=-4*dqdC[3];
+        dd2dq[0][2]= 2*dqdC[1];  dd2dq[1][2]= 2*dqdC[0]; dd2dq[2][2]= 2*dqdC[3];   dd2dq[3][2]= 2*dqdC[2];
+        
+    FixedList<vector,4> dd3dq;
+        dd3dq[0][0]= 2*dqdC[2]; dd3dq[1][0]= 2*dqdC[3]; dd3dq[2][0]= 2*dqdC[0];   dd3dq[3][0]= 2*dqdC[1];
+        dd3dq[0][1]=-2*dqdC[1]; dd3dq[1][1]=-2*dqdC[0]; dd3dq[2][1]= 2*dqdC[3];   dd3dq[3][1]= 2*dqdC[2];
+        dd3dq[0][2]= 0;         dd3dq[1][2]=-4*dqdC[1]; dd3dq[2][2]=-4*dqdC[2];   dd3dq[3][2]= 0;
         
     return {dd1dq,dd2dq,dd3dq};
 }
 
-gsMatrix<Foam::scalar> Foam::Structure::quaternionMultiply
+Foam::FixedList<Foam::scalar,4> Foam::Structure::quaternionMultiply
 (
-    const gsMatrix<scalar>& q1,
-    const gsMatrix<scalar>& q2
+    const FixedList<scalar,4> q1,
+    const FixedList<scalar,4> q2
 )
 {
-    if(q1.rows()!=4 || q1.cols()!=1)
-        FatalErrorInFunction<<"Invalid dimension for q1"<<exit(FatalError);
-    if(q2.rows()!=4 || q2.cols()!=1)
-        FatalErrorInFunction<<"Invalid dimension for q2"<<exit(FatalError);
-    gsMatrix<scalar> result = q1;
-    result(0,0) = q1(0,0)*q2(0,0) - q1(1,0)*q2(1,0) - q1(2,0)*q2(2,0) - q1(3,0)*q2(3,0);
-    result(1,0) = q1(0,0)*q2(1,0) + q1(1,0)*q2(0,0) + q1(2,0)*q2(3,0) - q1(3,0)*q2(2,0);
-    result(2,0) = q1(0,0)*q2(2,0) - q1(1,0)*q2(3,0) + q1(2,0)*q2(0,0) + q1(3,0)*q2(1,0);
-    result(3,0) = q1(0,0)*q2(3,0) + q1(1,0)*q2(2,0) - q1(2,0)*q2(1,0) + q1(3,0)*q2(0,0);
+    FixedList<scalar,4> result;
+    result[0] = q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3];
+    result[1] = q1[0]*q2[1] + q1[1]*q2[0] + q1[2]*q2[3] - q1[3]*q2[2];
+    result[2] = q1[0]*q2[2] - q1[1]*q2[3] + q1[2]*q2[0] + q1[3]*q2[1];
+    result[3] = q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1] + q1[3]*q2[0];
     return result;
 }
 
-gsMatrix<Foam::scalar> Foam::Structure::quaternionInvert
+Foam::FixedList<Foam::scalar,4> Foam::Structure::quaternionInvert
 (
-    const gsMatrix<scalar>& q
+    const FixedList<scalar,4> q
 )
 {
-    if(q.rows()!=4 || q.cols()!=1)
-        FatalErrorInFunction<<"Invalid dimension for q"<<exit(FatalError);
-    scalar normVal = q(0,0)*q(0,0)+q(1,0)*q(1,0)+q(2,0)*q(2,0)+q(3,0)*q(3,0);
+    scalar normVal = q[0]*q[0]+q[1]*q[1]+q[2]*q[2]+q[3]*q[3];
     if(std::abs(normVal)<1e-10)
         FatalErrorInFunction<<"Invalid quaternion length"<<exit(FatalError);
-    gsMatrix<scalar> result = q;
-    result(0,0) /=  normVal;
-    result(1,0) /= -normVal;
-    result(2,0) /= -normVal;
-    result(3,0) /= -normVal;
+    FixedList<scalar,4> result = q;
+    result[0] /=  normVal;
+    result[1] /= -normVal;
+    result[2] /= -normVal;
+    result[3] /= -normVal;
     return result;
 }
 
@@ -1377,6 +1426,116 @@ Foam::label Foam::Structure::numberCurveCoeffs
     return rodsList[rodNumber].coefs().rows();
 }
 
+Foam::vector Foam::Structure::get_drdC
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label derivDimension,
+    scalar parameter
+) const
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffDerivedCenterline[rodNumber].size())
+        FatalErrorInFunction<<"Invalid derivCoeffNumber!"<<exit(FatalError);
+    if(derivDimension<0 || derivDimension>=3)
+        FatalErrorInFunction<<"Invalid derivDimension!"<<exit(FatalError);
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    // Derivative of rod center line in respect to coefficient
+    const gsNurbs<scalar>& oneCoeffDerivCenterline = coeffDerivedCenterline[rodNumber][derivCoeffNumber][derivDimension];
+    gsMatrix<scalar> coeffDerivCenterEval;
+    oneCoeffDerivCenterline.eval_into(parMat,coeffDerivCenterEval);    
+    return vector(coeffDerivCenterEval(0,0),coeffDerivCenterEval(1,0),coeffDerivCenterEval(2,0));
+}
+
+Foam::FixedList<Foam::scalar,4> Foam::Structure::get_iniQuaternions
+(
+    label rodNumber,
+    scalar parameter
+) const
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    const gsNurbs<scalar>& iniQuaternions = initialRotation[rodNumber];
+    gsMatrix<scalar> iniQuaternionEval;
+    iniQuaternions.eval_into(parMat,iniQuaternionEval);
+    
+    return {iniQuaternionEval(0,0),iniQuaternionEval(1,0),iniQuaternionEval(2,0),iniQuaternionEval(3,0)};
+}
+
+Foam::FixedList<Foam::scalar,4> Foam::Structure::get_Quaternions
+(
+    label rodNumber,
+    scalar parameter
+) const
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    const gsNurbs<scalar>& totalQuaternions = Rods[rodNumber]->m_Rot;
+    gsMatrix<scalar> totalQuaternionEval;
+    totalQuaternions.eval_into(parMat,totalQuaternionEval);
+    
+    return {totalQuaternionEval(0,0),totalQuaternionEval(1,0),totalQuaternionEval(2,0),totalQuaternionEval(3,0)};
+}
+
+Foam::FixedList<Foam::scalar,4> Foam::Structure::get_coeffDerivQuaternions
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label derivDimension,
+    scalar parameter
+) const
+{
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffDerivedCenterline[rodNumber].size())
+        FatalErrorInFunction<<"Invalid derivCoeffNumber!"<<exit(FatalError);
+    if(derivDimension<0 || derivDimension>=3)
+        FatalErrorInFunction<<"Invalid derivDimension!"<<exit(FatalError);
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    const gsNurbs<scalar>& oneCoeffDerivQuaternions = coeffDerivedQuaternions[rodNumber][derivCoeffNumber][derivDimension];
+    gsMatrix<scalar> coeffDerivQuaternionEval;
+    oneCoeffDerivQuaternions.eval_into(parMat,coeffDerivQuaternionEval);
+
+    return {coeffDerivQuaternionEval(0,0),coeffDerivQuaternionEval(1,0),
+            coeffDerivQuaternionEval(2,0),coeffDerivQuaternionEval(3,0)};
+}
+
+const gsNurbs<Foam::scalar>& Foam::Structure::getCoeffDerivedQuaternions
+(
+    label rodNumber,
+    label derivCoeffNumber,
+    label derivDimension
+) const
+{
+    if(!constructedCoeffDerivedData)
+        FatalErrorInFunction<<"Data for deriv coeff data not given!"<<exit(FatalError);
+        
+    if(rodNumber<0 || rodNumber>=nR)
+        FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
+    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffDerivedQuaternions[rodNumber].size())
+        FatalErrorInFunction<<"Invalid derivCoeffNumber!"<<exit(FatalError);
+    if(derivDimension<0 || derivDimension>=3)
+        FatalErrorInFunction<<"Invalid derivDimension!"<<exit(FatalError);
+    
+    // Derivative of rod center line in respect to coefficient
+    return coeffDerivedQuaternions[rodNumber][derivCoeffNumber][derivDimension];
+}
+
 void Foam::Structure::rodEvalDerivCoeff
 (
     label rodNumber,
@@ -1391,44 +1550,34 @@ void Foam::Structure::rodEvalDerivCoeff
 {
     if(!constructedCoeffDerivedData)
         FatalErrorInFunction<<"Data for deriv coeff data not given!"<<exit(FatalError);
-        
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
     
-    // Derivative of rod center line in respect to coefficient
-    const gsNurbs<scalar>& oneCoeffDerivCenterline = coeffDerivedCenterline[rodNumber][derivCoeffNumber][derivDimension];
-    gsMatrix<scalar> coeffDerivCenterEval;
-    oneCoeffDerivCenterline.eval_into(parMat,coeffDerivCenterEval);    
-    rdC = vector(coeffDerivCenterEval(0,0),coeffDerivCenterEval(1,0),coeffDerivCenterEval(2,0));
+    // Derivative of rod center line in respect to coefficient    
+    rdC = get_drdC(rodNumber,derivCoeffNumber,derivDimension,parameter);
     
-    //Derivative of rod coordinate axis in respect to coefficient
-    const gsNurbs<scalar>& oneCoeffDerivQuaternions = coeffDerivedQuaternions[rodNumber][derivCoeffNumber][derivDimension];
-    gsMatrix<scalar> coeffDerivQuaternionEval;
-    oneCoeffDerivQuaternions.eval_into(parMat,coeffDerivQuaternionEval);
+    //Derivative of rod coordinate axis in respect to coefficien
+    const FixedList<scalar,4> dQdC = get_coeffDerivQuaternions(rodNumber,derivCoeffNumber,derivDimension,parameter);
     
-    const gsNurbs<scalar>& totalQuaternions = Rods[rodNumber]->m_Rot;
-    gsMatrix<scalar> totalQuaternionEval;
-    totalQuaternions.eval_into(parMat,totalQuaternionEval);
+    const  FixedList<scalar,4> totalQ = get_Quaternions(rodNumber,parameter);
+    const FixedList<scalar,4> iniQ = get_iniQuaternions(rodNumber,parameter);
     
-    const gsNurbs<scalar>& initialQuaternions = initialRotation[rodNumber];
-    gsMatrix<scalar> initialQuaternionEval;
-    initialQuaternions.eval_into(parMat,initialQuaternionEval);
+    const FixedList<scalar,4> defQ = quaternionMultiply(totalQ,iniQ);
+
+    const FixedList<scalar,4> defQ_inidQdC = quaternionMultiply(defQ,dQdC);
+    const FixedList<FixedList<vector,4>,3> dRdq = compute_dRdq(defQ_inidQdC);
     
-    gsMatrix<scalar> deformationQuaternionEval = quaternionMultiply(totalQuaternionEval,
-                                                                    quaternionInvert(initialQuaternionEval));
-    gsMatrix<scalar> defQuat_inidQuatdCoeff = quaternionMultiply(deformationQuaternionEval,coeffDerivQuaternionEval);
-    FixedList<gsMatrix<Foam::scalar>,3> dRdq = compute_dRdq(totalQuaternionEval);
-    for(label n=0; n<dRdq.size(); n++)
+    std::vector<vector*> dkdCPtr = {&d1dC,&d2dC,&d3dC};
+    for(label dk=0; dk<3; dk++)
     {
-        dRdq[n] = dRdq[n]*defQuat_inidQuatdCoeff;
-        if(dRdq[n].cols()!=1 || dRdq[n].rows()!=3)
-            FatalErrorInFunction<<"Invalid d dimension"<<exit(FatalError);
-    }
-    for(label dim=0; dim<3; dim++)
-    {
-        d1dC[dim] = dRdq[0](dim,0);
-        d2dC[dim] = dRdq[1](dim,0);
-        d3dC[dim] = dRdq[2](dim,0);
+        const FixedList<vector,4>& dRkdq = dRdq[dk];
+        vector& dkdC = *(dkdCPtr[dk]);
+        for(label dim=0; dim<3; dim++)
+        {
+            dkdC[dim] = 0;
+            for(label qDim=0; qDim<4; qDim++)
+            {
+                dkdC[dim] += dRkdq[qDim][dim]*defQ_inidQdC[qDim];
+            }
+        }
     }
 }
 
@@ -1443,36 +1592,16 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval_Deriv
     if(!constructedCoeffDerivedData)
         FatalErrorInFunction<<"Data for deriv coeff data not given!"<<exit(FatalError);
         
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
+    const FixedList<scalar,4> dQdC = get_coeffDerivQuaternions(rodNumber,derivCoeffNumber,derivDimension,parameter);
     
-    //Derivative of rod coordinate axis in respect to coefficient
-    const gsNurbs<scalar>& oneCoeffDerivQuaternions = coeffDerivedQuaternions[rodNumber][derivCoeffNumber][derivDimension];
-    gsMatrix<scalar> coeffDerivQuaternionEval;
-    oneCoeffDerivQuaternions.eval_into(parMat,coeffDerivQuaternionEval);
+    const  FixedList<scalar,4> totalQ = get_Quaternions(rodNumber,parameter);
+    const FixedList<scalar,4> iniQ = get_iniQuaternions(rodNumber,parameter);
     
-    const gsNurbs<scalar>& totalQuaternions = Rods[rodNumber]->m_Rot;
-    gsMatrix<scalar> totalQuaternionEval;
-    totalQuaternions.eval_into(parMat,totalQuaternionEval);
+    const FixedList<scalar,4> defQ = quaternionMultiply(totalQ,iniQ);
+
+    const FixedList<scalar,4> defQ_inidQdC = quaternionMultiply(defQ,dQdC);
     
-    const gsNurbs<scalar>& initialQuaternions = initialRotation[rodNumber];
-    gsMatrix<scalar> initialQuaternionEval;
-    initialQuaternions.eval_into(parMat,initialQuaternionEval);
-    
-    gsMatrix<scalar> deformationQuaternionEval = quaternionMultiply(totalQuaternionEval,
-                                                                    quaternionInvert(initialQuaternionEval));
-    
-    std::cout<<"deformationQuaternionEval:"<<deformationQuaternionEval<<std::endl;
-    
-    //gsMatrix<scalar> defQuat_inidQuatdCoeff = quaternionMultiply(deformationQuaternionEval,coeffDerivQuaternionEval);
-    
-    gsMatrix<scalar> defQuat_inidQuatdCoeff = coeffDerivQuaternionEval;
-    
-    if(defQuat_inidQuatdCoeff.rows()!=4 || defQuat_inidQuatdCoeff.cols()!=1)
-        FatalErrorInFunction<<"Invalid dimension for q"<<exit(FatalError);
-    FixedList<scalar,4> derivQ = {defQuat_inidQuatdCoeff(0,0),defQuat_inidQuatdCoeff(1,0),defQuat_inidQuatdCoeff(2,0),defQuat_inidQuatdCoeff(3,0)};
-    
-    return derivQ;
+    return defQ_inidQdC;
 }
 
 void Foam::Structure::getCurveCoeffs

@@ -57,6 +57,12 @@ int main(int argc, char *argv[])
 
     Info<<"Start testing"<<Foam::endl;
     
+    FixedList<scalar,4> quaternions = {0.000234,-0.000234,-0.707,0.707};
+    Info<<Structure::quaternionsToRotation(quaternions)<<Foam::endl;
+    
+    
+    //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    
     for(label run=0; run<1; run++)
     {
         scalar a0 = RandomFloat(0,1);
@@ -96,9 +102,34 @@ int main(int argc, char *argv[])
         Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
         
         std::vector<CrossSection> crossSecList = {CrossSection(a0,ak,bk,phase)};
-        CrossSectionStructure testStructure(mesh,crossSecList,true);       
-        testStructure.setCurveCoeffs(curveCoeffs);
-        testStructure.selfCheck();
+        CrossSectionStructure testStructure(mesh,crossSecList,true);
+
+        gsNurbs<scalar> derivRotation = testStructure.getCoeffDerivedQuaternions(0,1,0);
+        List<FixedList<vector,3>> rotationCurveCoefs = testStructure.getRotationCurveCoefs(0);
+        Info<<"rotationCurveCoefs:"<<rotationCurveCoefs<<Foam::endl;
+                
+        scalar epsilon=1e-1;
+        scalar coeffBasicValue = testStructure.getCurveCoeff(0,1,0);
+                    
+        scalar lowerCoeffValue = coeffBasicValue-epsilon;
+        testStructure.setCurveCoeff(0,1,0,lowerCoeffValue);
+        rotationCurveCoefs = testStructure.getRotationCurveCoefs(0);
+        Info<<"rotationCurveCoefs:"<<rotationCurveCoefs<<Foam::endl;
+        gsNurbs<scalar> lowerQuaternions = testStructure.getQuaternions(0);
+        //std::cout<<lowerQuaternions.coefs()<<std::endl;
+        
+        scalar upperCoeffValue = coeffBasicValue+epsilon;                    
+        testStructure.setCurveCoeff(0,1,0,upperCoeffValue);
+        rotationCurveCoefs = testStructure.getRotationCurveCoefs(0);
+        Info<<"rotationCurveCoefs:"<<rotationCurveCoefs<<Foam::endl;
+        gsNurbs<scalar> upperQuaternions = testStructure.getQuaternions(0);
+        //std::cout<<upperQuaternions.coefs()<<std::endl;
+
+        Info<<Foam::endl;
+        gsMatrix<scalar> dQuatdeps = (upperQuaternions.coefs()-lowerQuaternions.coefs())/2*epsilon;
+        //std::cout<<dQuatdeps<<std::endl;
+    
+        //testStructure.selfCheck();
         
         /*
         testStructure.printCurves();
@@ -146,7 +177,6 @@ int main(int argc, char *argv[])
         */
         
         FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
-        testStructure.selfCheck();
     }
     
     Info<<"Done testing"<<Foam::endl;    
