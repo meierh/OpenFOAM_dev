@@ -1628,27 +1628,27 @@ with
 \end{align*}
 $\left(\vec{d}_1, \vec{d}_2, \vec{d}_3\right)(\vec{q}) =
 \begin{pmatrix}
-	1-2(q_2 ^2 + q_3 ^2)   &  -2q_0 q_3 + 2 q_1 q_2  &  2q_0 q_2 + 2q_1 q_3 \\
-	  2q_0 q_3 + 2 q_1 q_2 & 1-2(q_1 ^2 + q_3 ^2)    & -2q_0 q_1 + 2 q_2 q_3 \\
-	 -2q_0 q_2 + 2 q_1 q_3 &   2q_0 q_1 + 2 q_2 q_3  & 1-2(q_1 ^2 + q_2 ^2) \\
+	  q_0 ^2 + q_1 ^2 - q_2 ^2 - q_3 ^2 & -2q_0 q_3 + 2 q_1 q_2  &  2q_0 q_2 + 2q_1 q_3 \\
+	  2q_0 q_3 + 2 q_1 q_2 & q_0 ^2 - q_1 ^2 + q_2 ^2 - q_3 ^2 & -2q_0 q_1 + 2 q_2 q_3 \\
+	 -2q_0 q_2 + 2 q_1 q_3 &   2q_0 q_1 + 2 q_2 q_3  & q_0 ^2 - q_1 ^2 - q_2 ^2 + q_3 ^2 \\
 \end{pmatrix}$\\
 $\frac{\partial \vec{d}_1}{\partial \vec{q}} = ´
 	\begin{pmatrix}
-		0      &  0   &  -4q_2  & -4q_3 \\
+		2q_0   & 2q_1 & -2q_2  & -2q_3 \\
 		2 q_3  & 2q_2 & 2 q_1   & 2q_0  \\
 		-2 q_2 & 2q_3 & -2q_0   & 2q_1  \\
 	\end{pmatrix}$\\
 $\frac{\partial \vec{d}_2}{\partial \vec{q}} = ´
 	\begin{pmatrix}
 		-2q_3  & 2q_2 &  2q_1   & -2q_0 \\
-		 0     & -4q_1&   0     & -4q_3  \\
+		 2q_0  & -2q_1&  2q_2  & -2q_3 \\
 		 2q_1  & 2q_0 &  2q_3   & 2q_2  \\
 	\end{pmatrix}$\\
 $\frac{\partial \vec{d}_3}{\partial \vec{q}} = ´
 	\begin{pmatrix}
 		2q_2 & 2q_3 & 2q_0 & 2q_1 \\
 		-2q_1&-2q_0 & 2q_3 & 2q_2 \\
-		 0   &-4q_1 &-4q_2 & 0 \\
+		2q_0 &-2q_1&  -2q_2  & 2q_3 \\
 	\end{pmatrix}$\\
 $\vec{q}_{\text{def}} \cdot \vec{q}_{\text{ini}} = 
 	\begin{pmatrix}

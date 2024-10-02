@@ -57,8 +57,9 @@ int main(int argc, char *argv[])
 
     Info<<"Start testing"<<Foam::endl;
     
-    FixedList<scalar,4> quaternions = {0.000234,-0.000234,-0.707,0.707};
-    Info<<Structure::quaternionsToRotation(quaternions)<<Foam::endl;
+    Quaternion quaternions = {0.000234,-0.000234,-0.707,0.707};
+    Rotation R(quaternions);
+    Info<<R<<Foam::endl;
     
     
     //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
@@ -103,9 +104,10 @@ int main(int argc, char *argv[])
         
         std::vector<CrossSection> crossSecList = {CrossSection(a0,ak,bk,phase)};
         CrossSectionStructure testStructure(mesh,crossSecList,true);
+        testStructure.selfCheck();
 
         gsNurbs<scalar> derivRotation = testStructure.getCoeffDerivedQuaternions(0,1,0);
-        List<FixedList<vector,3>> rotationCurveCoefs = testStructure.getRotationCurveCoefs(0);
+        List<Rotation> rotationCurveCoefs = testStructure.getRotationCurveCoefs(0);
         Info<<"rotationCurveCoefs:"<<rotationCurveCoefs<<Foam::endl;
                 
         scalar epsilon=1e-1;

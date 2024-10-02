@@ -1,5 +1,312 @@
 #include "Structure.H"
 
+Foam::Quaternion::Quaternion
+(
+    scalar x,
+    scalar y,
+    scalar z,
+    scalar w
+):
+x(x),
+y(y),
+z(z),
+w(w)
+{
+}
+
+Foam::Quaternion::Quaternion
+(
+    const gsMatrix<scalar>& gsQuaternion
+)
+{
+    if(gsQuaternion.rows()!=4 || gsQuaternion.cols()!=1)
+        FatalErrorInFunction<<"Invalid size of gsQuaternion"<<exit(FatalError);
+    
+    x = gsQuaternion(0,0);
+    y = gsQuaternion(1,0);
+    z = gsQuaternion(2,0);
+    w = gsQuaternion(3,0);
+}
+        
+Foam::Quaternion Foam::Quaternion::operator*
+(
+    Quaternion const& q
+) const 
+{
+    Quaternion result;
+    result.x = w*q.x - x*q.w - y*q.z - z*q.y;
+    result.y = w*q.y - x*q.z - y*q.w - z*q.x;
+    result.z = w*q.z - x*q.y - y*q.x - z*q.w;
+    result.w = w*q.w - x*q.x - y*q.y - z*q.z;
+    return result;
+}
+
+Foam::Quaternion Foam::Quaternion::operator/
+(
+    Quaternion const& q
+) const
+{
+    Quaternion invQ = q.invert();
+    return (*this)*invQ;
+}
+
+Foam::Quaternion Foam::Quaternion::operator-
+(
+    Quaternion const& q
+) const
+{
+    Quaternion result;
+    for(label i=0; i<4; i++)
+        result[i] = (*this)[i]-q[i];
+    return result;
+}
+
+Foam::Quaternion Foam::Quaternion::invert() const
+{
+    Quaternion invQ = *this;
+    scalar absInvQ = invQ.len();
+    absInvQ *= absInvQ;
+    if(absInvQ<1e-10)
+        FatalErrorInFunction<<"Invalid quaternion length"<<exit(FatalError);
+    invQ.w /=  absInvQ;
+    invQ.x /= -absInvQ;
+    invQ.y /= -absInvQ;
+    invQ.z /= -absInvQ;
+    return invQ;
+}
+
+Foam::scalar Foam::Quaternion::len() const
+{
+    return std::sqrt(x*x + y*y + z*z + w*w);
+}
+
+Foam::scalar Foam::Quaternion::distanceNorm2
+(
+    Quaternion const& q
+) const
+{
+    Quaternion dq;
+    dq.w = w-q.w;
+    dq.x = x-q.x;
+    dq.y = y-q.y;
+    dq.z = z-q.z;
+    return dq.len();
+}
+
+void Foam::Quaternion::normalize()
+{
+    scalar len = this->len();
+    if(len==0)
+    {
+        x = 1;
+    }
+    else
+    {
+        w /= len;
+        x /= len;
+        y /= len;
+        z /= len;
+    }
+}
+
+Foam::scalar& Foam::Quaternion::operator[]
+(
+    uint index
+)
+{
+    switch(index)
+    {
+        case 0:
+            return w;
+        case 1:
+            return x;
+        case 2:
+            return y;
+        case 3:
+            return z;
+        default:
+            FatalErrorInFunction<<"Invalid index in quaternion"<<exit(FatalError);
+    }
+}
+
+Foam::scalar Foam::Quaternion::operator[]
+(
+    uint index
+) const
+{
+    switch(index)
+    {
+        case 0:
+            return w;
+        case 1:
+            return x;
+        case 2:
+            return y;
+        case 3:
+            return z;
+        default:
+            FatalErrorInFunction<<"Invalid index in quaternion"<<exit(FatalError);
+    }
+}
+
+Foam::Ostream& Foam::operator<<
+(
+    Ostream& os,
+    Quaternion const& q
+)
+{
+    return os << "[("<<q.x<<","<<q.y<<","<<q.z<<")("<<q.w<<")]";
+}
+
+
+Foam::Rotation::Rotation
+(
+    vector d1,
+    vector d2,
+    vector d3
+)
+{
+    T[0] = d1;
+    T[1] = d2;
+    T[2] = d3;
+}
+
+Foam::Rotation::Rotation
+(
+    const Quaternion& q
+)
+{
+    vector d1 = vector
+    (
+        q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z,
+         2*q.w*q.z + 2*q.x*q.y,
+        -2*q.w*q.y + 2*q.x*q.z
+    );
+    vector d2 = vector
+    (
+        -2*q.w*q.z + 2*q.x*q.y,
+        q.w*q.w - q.x*q.x + q.y*q.y - q.z*q.z,
+         2*q.w*q.x + 2*q.y*q.z
+    );
+    vector d3 = vector
+    (
+         2*q.w*q.y + 2*q.x*q.z,
+        -2*q.w*q.x + 2*q.y*q.z,
+        q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z
+    );
+    T = {d1,d2,d3};
+}
+
+Foam::Rotation Foam::Rotation::operator-
+(
+    Rotation const& R
+) const
+{
+    Rotation result;
+    for(label d=0; d<3; d++)
+    {
+        result.T[d] = (T[d]-R.T[d]); 
+    }
+    return result;
+}
+
+bool Foam::Rotation::operator!=
+(
+    Rotation const& R
+) const
+{
+    return this->T!=R.T;
+}
+
+Foam::Rotation Foam::Rotation::operator/
+(
+    scalar alpha
+) const
+{
+    Rotation result = *this;
+    for(label d=0; d<3; d++)
+    {
+        result.T[d] /= alpha; 
+    }
+    return result;
+}
+
+Foam::scalar Foam::Rotation::distanceNorm2
+(
+    Rotation const& R
+) const
+{
+    Rotation diff = *this - R;
+    return diff.norm2();
+}
+
+Foam::scalar Foam::Rotation::norm2() const
+{
+    scalar sum = 0;
+    for(label i=0; i<3; i++)
+        for(label j=0; j<3; j++)
+            sum += T[i][j]*T[i][j];
+    return std::sqrt(sum);
+}
+
+Foam::Ostream& Foam::operator<<
+(
+    Ostream& os,
+    Rotation const& m
+)
+{
+    return os << m.T;
+}
+
+Foam::Rotation Foam::Rotation::compute_dRdC
+(
+    const Quaternion& dqdC,
+    const Quaternion& q
+)
+{   
+    const FixedList<FixedList<vector,4>,3> dRdq = compute_dRdq(q);
+ 
+    Rotation dRdC;
+    std::vector<vector*> ddkdCPtr = {&(dRdC.T[0]),&(dRdC.T[1]),&(dRdC.T[2])};
+    for(label dk=0; dk<3; dk++)
+    {
+        const FixedList<vector,4>& dRkdq = dRdq[dk];
+        vector& ddkdC = *(ddkdCPtr[dk]);
+        for(label dim=0; dim<3; dim++)
+        {
+            ddkdC[dim] = 0;
+            ddkdC[dim] += dRkdq[0][dim] * dqdC.qw();
+            ddkdC[dim] += dRkdq[1][dim] * dqdC.qx();
+            ddkdC[dim] += dRkdq[2][dim] * dqdC.qy();
+            ddkdC[dim] += dRkdq[3][dim] * dqdC.qz();
+        }
+    }
+    return dRdC;
+}
+
+Foam::FixedList<Foam::FixedList<Foam::vector,4>,3> Foam::Rotation::compute_dRdq
+(
+    const Quaternion& q
+)
+{
+    FixedList<vector,4> dd1dq;
+        dd1dq[0][0]= 2*q.qw(); dd1dq[1][0]= 2*q.qx(); dd1dq[2][0]=-2*q.qy(); dd1dq[3][0]=-2*q.qz();
+        dd1dq[0][1]= 2*q.qz(); dd1dq[1][1]= 2*q.qy(); dd1dq[2][1]= 2*q.qx(); dd1dq[3][1]= 2*q.qw();
+        dd1dq[0][2]=-2*q.qy(); dd1dq[1][2]= 2*q.qz(); dd1dq[2][2]=-2*q.qw(); dd1dq[3][2]= 2*q.qx();
+    
+    FixedList<vector,4> dd2dq;
+        dd2dq[0][0]=-2*q.qz(); dd2dq[1][0]= 2*q.qy(); dd2dq[2][0]= 2*q.qx(); dd2dq[3][0]=-2*q.qw();
+        dd2dq[0][1]= 2*q.qw(); dd2dq[1][1]=-2*q.qx(); dd2dq[2][1]= 2*q.qy(); dd2dq[3][1]=-2*q.qz();
+        dd2dq[0][2]= 2*q.qx(); dd2dq[1][2]= 2*q.qw(); dd2dq[2][2]= 2*q.qz(); dd2dq[3][2]= 2*q.qy();
+        
+    FixedList<vector,4> dd3dq;
+        dd3dq[0][0]= 2*q.qy(); dd3dq[1][0]= 2*q.qz(); dd3dq[2][0]= 2*q.qw(); dd3dq[3][0]= 2*q.qx();
+        dd3dq[0][1]=-2*q.qx(); dd3dq[1][1]=-2*q.qw(); dd3dq[2][1]= 2*q.qz(); dd3dq[3][1]= 2*q.qy();
+        dd3dq[0][2]= 2*q.qw(); dd3dq[1][2]=-2*q.qx(); dd3dq[2][2]=-2*q.qy(); dd3dq[3][2]= 2*q.qz();
+        
+    return {dd1dq,dd2dq,dd3dq};
+}
+
 Foam::Structure::Structure
 (
     const fvMesh& mesh,
@@ -606,6 +913,7 @@ Foam::label Foam::Structure::getMaxDegree
     return std::max<label>(baseDegreeX,defDegreeX);
 }
 
+/*
 Foam::FixedList<Foam::vector,3> Foam::Structure::quaternionsToRotation
 (
     FixedList<scalar,4> quaternions
@@ -631,6 +939,40 @@ Foam::FixedList<Foam::vector,3> Foam::Structure::quaternionsToRotation
         q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3]
     );
     return {d1,d2,d3};
+}
+*/
+
+Foam::scalar Foam::Structure::matrixDistance
+(
+    const FixedList<vector,3>& m1,
+    const FixedList<vector,3>& m2
+)
+{
+    scalar dist=0;
+    for(label j=0; j<3; j++)
+    {
+        for(label i=0; i<3; i++)
+        {
+            scalar diff = m1[j][i]-m2[j][i];
+            dist += diff*diff;
+        }
+    }
+    return std::sqrt(dist);
+}
+
+Foam::scalar Foam::Structure::vectorDistance
+(
+    const vector& v1,
+    const vector& v2
+)
+{
+    scalar dist=0;
+    for(label i=0; i<3; i++)
+    {
+        scalar diff = v1[i]-v2[i];
+        dist += diff*diff;
+    }
+    return std::sqrt(dist);
 }
 
 gsNurbs<Foam::scalar> Foam::Structure::createNurbs
@@ -1202,6 +1544,11 @@ void Foam::Structure::rodEval
     rot.eval_into(parMat,rotQuat);
     gsMatrix<scalar,3,3> R;
     ActiveRodMesh::quat_R(rotQuat,R);
+    Info<<"--------------------------R---------------------"<<Foam::endl;
+    std::cout<<rotQuat<<std::endl;
+    Info<<"---------"<<Foam::endl;
+    std::cout<<R<<std::endl;
+    Info<<"------------------------------------------------"<<Foam::endl;
     
     d1 = vector(R(0,0),R(1,0),R(2,0));
     d2 = vector(R(0,1),R(1,1),R(2,1));
@@ -1229,7 +1576,7 @@ void Foam::Structure::rodEval
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
 
-Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
+Foam::Quaternion Foam::Structure::m_Rot_Eval
 (
     label rodNumber,
     scalar parameter
@@ -1238,7 +1585,7 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
     return m_Rot_Eval(Rods[rodNumber],parameter);
 }
 
-Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
+Foam::Quaternion Foam::Structure::m_Rot_Eval
 (
     const ActiveRodMesh::rodCosserat* rod,
     scalar parameter
@@ -1250,8 +1597,7 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval
     gsMatrix<scalar> rotPnt;
     rod->m_Rot.eval_into(parMat,rotPnt);
     
-    FixedList<scalar,4> quaternion = {rotPnt(0,0),rotPnt(1,0),rotPnt(2,0),rotPnt(3,0)};
-    return quaternion;
+    return Quaternion(rotPnt);
 }
 
 const gsNurbs<Foam::scalar>& Foam::Structure::getQuaternions
@@ -1264,7 +1610,7 @@ const gsNurbs<Foam::scalar>& Foam::Structure::getQuaternions
     return Rods[rodNumber]->m_Rot;    
 }
 
-Foam::List<Foam::FixedList<Foam::vector,3>> Foam::Structure::getRotationCurveCoefs
+Foam::List<Foam::Rotation> Foam::Structure::getRotationCurveCoefs
 (
     label rodNumber
 ) const
@@ -1273,14 +1619,13 @@ Foam::List<Foam::FixedList<Foam::vector,3>> Foam::Structure::getRotationCurveCoe
     gsNurbs<scalar> quaternions = getQuaternions(rodNumber);
     gsMatrix<scalar> quaternionCoef = quaternions.coefs();
     std::cout<<quaternionCoef<<std::endl;
-    List<FixedList<vector,3>> rotations(quaternionCoef.rows());
+    List<Rotation> rotations(quaternionCoef.rows());
     for(label coefNbr=0; coefNbr<quaternionCoef.rows(); coefNbr++)
     {
-        FixedList<scalar,4> quaternion;
+        gsMatrix<scalar> gsQ(1,4);
         for(label qdim=0; qdim<4; qdim++)
-            quaternion[qdim] = quaternionCoef(coefNbr,qdim);
-        FixedList<vector,3> R = quaternionsToRotation(quaternion);
-        rotations[coefNbr] = R;
+            gsQ(0,qdim) = quaternionCoef(coefNbr,qdim);
+        rotations[coefNbr] = Rotation(Quaternion(gsQ));
     }
     return rotations;
 }
@@ -1358,59 +1703,6 @@ void Foam::Structure::constructCoeffDerivedData()
     constructedCoeffDerivedData = true;    
 }
 
-Foam::FixedList<Foam::FixedList<Foam::vector,4>,3> Foam::Structure::compute_dRdq
-(
-    const FixedList<scalar,4> dqdC
-)
-{
-    FixedList<vector,4> dd1dq;
-        dd1dq[0][0]= 0;         dd1dq[1][0]= 0;         dd1dq[2][0]=-4*dqdC[2];   dd1dq[3][0]=-4*dqdC[3];
-        dd1dq[0][1]= 2*dqdC[3]; dd1dq[1][1]= 2*dqdC[2]; dd1dq[2][1]= 2*dqdC[1];   dd1dq[3][1]= 2*dqdC[0];
-        dd1dq[0][2]=-2*dqdC[2]; dd1dq[1][2]= 2*dqdC[3]; dd1dq[2][2]=-2*dqdC[0];   dd1dq[3][2]= 2*dqdC[1];
-    
-    FixedList<vector,4> dd2dq;
-        dd2dq[0][0]=-2*dqdC[3];  dd2dq[1][0]= 2*dqdC[2]; dd2dq[2][0]= 2*dqdC[1];   dd2dq[3][0]=-2*dqdC[0];
-        dd2dq[0][1]= 0;          dd2dq[1][1]=-4*dqdC[1]; dd2dq[2][1]= 0;           dd2dq[3][1]=-4*dqdC[3];
-        dd2dq[0][2]= 2*dqdC[1];  dd2dq[1][2]= 2*dqdC[0]; dd2dq[2][2]= 2*dqdC[3];   dd2dq[3][2]= 2*dqdC[2];
-        
-    FixedList<vector,4> dd3dq;
-        dd3dq[0][0]= 2*dqdC[2]; dd3dq[1][0]= 2*dqdC[3]; dd3dq[2][0]= 2*dqdC[0];   dd3dq[3][0]= 2*dqdC[1];
-        dd3dq[0][1]=-2*dqdC[1]; dd3dq[1][1]=-2*dqdC[0]; dd3dq[2][1]= 2*dqdC[3];   dd3dq[3][1]= 2*dqdC[2];
-        dd3dq[0][2]= 0;         dd3dq[1][2]=-4*dqdC[1]; dd3dq[2][2]=-4*dqdC[2];   dd3dq[3][2]= 0;
-        
-    return {dd1dq,dd2dq,dd3dq};
-}
-
-Foam::FixedList<Foam::scalar,4> Foam::Structure::quaternionMultiply
-(
-    const FixedList<scalar,4> q1,
-    const FixedList<scalar,4> q2
-)
-{
-    FixedList<scalar,4> result;
-    result[0] = q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3];
-    result[1] = q1[0]*q2[1] + q1[1]*q2[0] + q1[2]*q2[3] - q1[3]*q2[2];
-    result[2] = q1[0]*q2[2] - q1[1]*q2[3] + q1[2]*q2[0] + q1[3]*q2[1];
-    result[3] = q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1] + q1[3]*q2[0];
-    return result;
-}
-
-Foam::FixedList<Foam::scalar,4> Foam::Structure::quaternionInvert
-(
-    const FixedList<scalar,4> q
-)
-{
-    scalar normVal = q[0]*q[0]+q[1]*q[1]+q[2]*q[2]+q[3]*q[3];
-    if(std::abs(normVal)<1e-10)
-        FatalErrorInFunction<<"Invalid quaternion length"<<exit(FatalError);
-    FixedList<scalar,4> result = q;
-    result[0] /=  normVal;
-    result[1] /= -normVal;
-    result[2] /= -normVal;
-    result[3] /= -normVal;
-    return result;
-}
-
 Foam::label Foam::Structure::numberCurveCoeffs
 (
     label rodNumber
@@ -1451,7 +1743,7 @@ Foam::vector Foam::Structure::get_drdC
     return vector(coeffDerivCenterEval(0,0),coeffDerivCenterEval(1,0),coeffDerivCenterEval(2,0));
 }
 
-Foam::FixedList<Foam::scalar,4> Foam::Structure::get_iniQuaternions
+Foam::Quaternion Foam::Structure::get_iniQuaternions
 (
     label rodNumber,
     scalar parameter
@@ -1467,10 +1759,10 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::get_iniQuaternions
     gsMatrix<scalar> iniQuaternionEval;
     iniQuaternions.eval_into(parMat,iniQuaternionEval);
     
-    return {iniQuaternionEval(0,0),iniQuaternionEval(1,0),iniQuaternionEval(2,0),iniQuaternionEval(3,0)};
+    return Quaternion(iniQuaternionEval);
 }
 
-Foam::FixedList<Foam::scalar,4> Foam::Structure::get_Quaternions
+Foam::Quaternion Foam::Structure::get_Quaternions
 (
     label rodNumber,
     scalar parameter
@@ -1486,10 +1778,10 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::get_Quaternions
     gsMatrix<scalar> totalQuaternionEval;
     totalQuaternions.eval_into(parMat,totalQuaternionEval);
     
-    return {totalQuaternionEval(0,0),totalQuaternionEval(1,0),totalQuaternionEval(2,0),totalQuaternionEval(3,0)};
+    return Quaternion(totalQuaternionEval);
 }
 
-Foam::FixedList<Foam::scalar,4> Foam::Structure::get_coeffDerivQuaternions
+Foam::Quaternion Foam::Structure::get_coeffDerivQuaternions
 (
     label rodNumber,
     label derivCoeffNumber,
@@ -1511,8 +1803,7 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::get_coeffDerivQuaternions
     gsMatrix<scalar> coeffDerivQuaternionEval;
     oneCoeffDerivQuaternions.eval_into(parMat,coeffDerivQuaternionEval);
 
-    return {coeffDerivQuaternionEval(0,0),coeffDerivQuaternionEval(1,0),
-            coeffDerivQuaternionEval(2,0),coeffDerivQuaternionEval(3,0)};
+    return Quaternion(coeffDerivQuaternionEval);
 }
 
 const gsNurbs<Foam::scalar>& Foam::Structure::getCoeffDerivedQuaternions
@@ -1555,33 +1846,23 @@ void Foam::Structure::rodEvalDerivCoeff
     rdC = get_drdC(rodNumber,derivCoeffNumber,derivDimension,parameter);
     
     //Derivative of rod coordinate axis in respect to coefficien
-    const FixedList<scalar,4> dQdC = get_coeffDerivQuaternions(rodNumber,derivCoeffNumber,derivDimension,parameter);
+    const Quaternion dQdC = get_coeffDerivQuaternions(rodNumber,derivCoeffNumber,derivDimension,parameter);
     
-    const  FixedList<scalar,4> totalQ = get_Quaternions(rodNumber,parameter);
-    const FixedList<scalar,4> iniQ = get_iniQuaternions(rodNumber,parameter);
+    const Quaternion totalQ = get_Quaternions(rodNumber,parameter);
+    const Quaternion iniQ = get_iniQuaternions(rodNumber,parameter);
     
-    const FixedList<scalar,4> defQ = quaternionMultiply(totalQ,iniQ);
+    const Quaternion defQ = totalQ/iniQ;
 
-    const FixedList<scalar,4> defQ_inidQdC = quaternionMultiply(defQ,dQdC);
-    const FixedList<FixedList<vector,4>,3> dRdq = compute_dRdq(defQ_inidQdC);
+    const Quaternion defQ_inidQdC = defQ*dQdC;
     
-    std::vector<vector*> dkdCPtr = {&d1dC,&d2dC,&d3dC};
-    for(label dk=0; dk<3; dk++)
-    {
-        const FixedList<vector,4>& dRkdq = dRdq[dk];
-        vector& dkdC = *(dkdCPtr[dk]);
-        for(label dim=0; dim<3; dim++)
-        {
-            dkdC[dim] = 0;
-            for(label qDim=0; qDim<4; qDim++)
-            {
-                dkdC[dim] += dRkdq[qDim][dim]*defQ_inidQdC[qDim];
-            }
-        }
-    }
+    const Rotation dRdC = Rotation::compute_dRdC(defQ_inidQdC,totalQ);
+    
+    d1dC = dRdC.get_d1();
+    d2dC = dRdC.get_d2();
+    d3dC = dRdC.get_d3();    
 }
 
-Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval_Deriv
+Foam::Quaternion Foam::Structure::m_Rot_Eval_Deriv
 (
     label rodNumber,
     label derivCoeffNumber,
@@ -1592,14 +1873,14 @@ Foam::FixedList<Foam::scalar,4> Foam::Structure::m_Rot_Eval_Deriv
     if(!constructedCoeffDerivedData)
         FatalErrorInFunction<<"Data for deriv coeff data not given!"<<exit(FatalError);
         
-    const FixedList<scalar,4> dQdC = get_coeffDerivQuaternions(rodNumber,derivCoeffNumber,derivDimension,parameter);
+    const Quaternion dQdC = get_coeffDerivQuaternions(rodNumber,derivCoeffNumber,derivDimension,parameter);
     
-    const  FixedList<scalar,4> totalQ = get_Quaternions(rodNumber,parameter);
-    const FixedList<scalar,4> iniQ = get_iniQuaternions(rodNumber,parameter);
+    const  Quaternion totalQ = get_Quaternions(rodNumber,parameter);
+    const Quaternion iniQ = get_iniQuaternions(rodNumber,parameter);
     
-    const FixedList<scalar,4> defQ = quaternionMultiply(totalQ,iniQ);
+    const Quaternion defQ = totalQ*iniQ;
 
-    const FixedList<scalar,4> defQ_inidQdC = quaternionMultiply(defQ,dQdC);
+    const Quaternion defQ_inidQdC = defQ*dQdC;
     
     return defQ_inidQdC;
 }
@@ -2245,32 +2526,209 @@ Foam::scalar Foam::Structure::initialSpacingFromMesh
     return 2*minHalfDist;
 }
 
+void Foam::Structure::quaternionCheck()
+{
+    Quaternion q;
+    scalar epsilon = 1e-4;
+    scalar step = 0.1;
+    for(scalar qw=0; qw<=1; qw+=step)
+    {
+        for(scalar qx=0; qx<=1; qx+=step)
+        {
+            for(scalar qy=0; qy<=1; qy+=step)
+            {
+                for(scalar qz=0; qz<=1; qz+=step)
+                {
+                    q = {qw,qx,qy,qz};
+                    q.normalize();
+                    Quaternion invQuaternion = q.invert();
+                    Quaternion oneQuaternion1 = invQuaternion*q;
+                    if(std::abs(oneQuaternion1.qw()-1)>epsilon && std::abs(oneQuaternion1.len()-1)>epsilon)
+                    {
+                        Info<<"oneQuaternion1:"<<oneQuaternion1<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                    Quaternion oneQuaternion2 = q*invQuaternion;
+                    if(std::abs(oneQuaternion2.qw()-1)>epsilon && std::abs(oneQuaternion2.len()-1)>epsilon)
+                    {
+                        Info<<"oneQuaternion2:"<<oneQuaternion2<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                                        
+                    FixedList<FixedList<vector,4>,3> dRdq = Rotation::compute_dRdq(q);
+                    for(label pertubeDim=0; pertubeDim<4; pertubeDim++)
+                    {
+                        Rotation pert_dRdq = {dRdq[0][pertubeDim],dRdq[1][pertubeDim],dRdq[2][pertubeDim]};
+                        
+                        Quaternion pertLowerQuaternion = q;
+                        pertLowerQuaternion[pertubeDim]-=epsilon;
+                        Rotation lowerR(pertLowerQuaternion);
+                        
+                        Quaternion pertUpperQuaternion = q;
+                        pertUpperQuaternion[pertubeDim]+=epsilon;
+                        Rotation upperR(pertUpperQuaternion);
+                        
+                        Rotation fd_dRdq = (upperR-lowerR)/(2*epsilon);
+                        
+                        scalar dist = pert_dRdq.distanceNorm2(fd_dRdq);
+                        
+                        if(dist>epsilon)
+                        {
+                            Info<<"---------------------------"<<Foam::endl;
+                            Info<<"quaternion:"<<q<<Foam::endl;
+                            Rotation R(q);
+                            Info<<"R:"<<R<<Foam::endl;
+                            Info<<"dRdq:"<<dRdq<<Foam::endl;
+                            Info<<"\tpertubeDim:"<<pertubeDim<<Foam::endl;
+                            Info<<"\tpertLowerQuaternion:"<<pertLowerQuaternion<<Foam::endl;
+                            Info<<"\tlowerR:"<<lowerR<<Foam::endl;
+                            Info<<"\tpertUpperQuaternion:"<<pertUpperQuaternion<<Foam::endl;
+                            Info<<"\tupperR:"<<upperR<<Foam::endl;
+                            Info<<"\tfd_dRdq:"<<fd_dRdq<<Foam::endl;
+                            Info<<"\tpert_dRdq:"<<pert_dRdq<<Foam::endl;
+                            FatalErrorInFunction<<"Error"<<exit(FatalError);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void Foam::Structure::rotationCheck()
+{
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        scalar domainStart = this->domainStart(rodNumber);
+        scalar domainEnd = this->domainEnd(rodNumber);
+        for(label curveCoeffs=0; curveCoeffs<numberCurveCoeffs(rodNumber); curveCoeffs++)
+        {
+            for(label coefDim=0; coefDim<3; coefDim++)
+            {
+            }
+        }
+    }
+}
+
+void Foam::Structure::transformationCheck()
+{
+    scalar nbrSteps = 20;
+    scalar epsilon = 1e-6;
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        scalar domainStart = this->domainStart(rodNumber)+0.5;
+        scalar domainEnd = this->domainEnd(rodNumber);
+        scalar delta = domainEnd-domainStart;
+        scalar stepsize = delta/nbrSteps;
+        for(label curveCoeffs=0; curveCoeffs<numberCurveCoeffs(rodNumber); curveCoeffs++)
+        {
+            for(label coefDim=0; coefDim<3; coefDim++)
+            {
+                for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
+                {
+                    // Compute gradients
+                    vector drdC = get_drdC(rodNumber,curveCoeffs,coefDim,parameter);
+                    Quaternion dqdC = get_coeffDerivQuaternions(rodNumber,curveCoeffs,coefDim,parameter);
+                    Rotation dRdC = Rotation::compute_dRdC(dqdC,get_Quaternions(rodNumber,parameter));
+                    
+                    // Get basic value of coefficient
+                    scalar coeffBasicValue = getCurveCoeff(rodNumber,curveCoeffs,coefDim);
+                    
+                    // Lower value
+                    vector lower_r,lower_d1,lower_d2,lower_d3;
+                    scalar lowerCoeffValue = coeffBasicValue-epsilon;
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,lowerCoeffValue);
+                    vector lower_p = rodEval(Rods[rodNumber],parameter);
+                    Quaternion lower_Q = m_Rot_Eval(rodNumber,parameter);
+                    Rotation lower_R(lower_Q);
+                    vector lower_para = rodEval(Rods[rodNumber],parameter-epsilon);
+                    vector upper_para = rodEval(Rods[rodNumber],parameter+epsilon);
+                    vector lower_dPara = (upper_para-lower_para)/(2*epsilon);
+                    rodEval(Rods[rodNumber],parameter,lower_d1,lower_d2,lower_d3,lower_r);
+                    
+                    // Upper value
+                    vector upper_r,upper_d1,upper_d2,upper_d3;
+                    scalar upperCoeffValue = coeffBasicValue+epsilon;
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,upperCoeffValue);
+                    vector upper_p = rodEval(Rods[rodNumber],parameter);
+                    Quaternion upper_Q = m_Rot_Eval(rodNumber,parameter);
+                    Rotation upper_R(upper_Q);
+                    lower_para = rodEval(Rods[rodNumber],parameter-epsilon);
+                    upper_para = rodEval(Rods[rodNumber],parameter+epsilon);
+                    vector upper_dPara = (upper_para-lower_para)/(2*epsilon);
+                    rodEval(Rods[rodNumber],parameter,upper_d1,upper_d2,upper_d3,upper_r);
+
+                    vector fd_drdC = (upper_r-lower_r)/(2*epsilon);
+                    Rotation fd_dRdC = (upper_R-lower_R)/(2*epsilon);
+                        
+                    if(fd_dRdC.distanceNorm2(dRdC)>epsilon)
+                    {
+                        Info<<"parameter:"<<parameter<<Foam::endl;
+                        Info<<"dRdC:"<<dRdC<<Foam::endl;
+                        Info<<"fd_dRdC:"<<fd_dRdC<<Foam::endl;
+
+                        Info<<"--"<<Foam::endl;
+                        Info<<"lower_Q:"<<lower_Q<<Foam::endl;
+                        Info<<"lower_R:"<<lower_R<<Foam::endl;
+                        Info<<"lower_dPara:"<<lower_dPara<<Foam::endl;                        Info<<"lower_r:"<<lower_r<<Foam::endl;
+                        Info<<"lower_d1:"<<lower_d1<<Foam::endl;                        Info<<"lower_d2:"<<lower_d2<<Foam::endl;
+                        Info<<"lower_d3:"<<lower_d3<<Foam::endl; 
+                        Info<<"--"<<Foam::endl;
+                        Info<<"upper_Q:"<<upper_Q<<Foam::endl;
+                        Info<<"upper_R:"<<upper_R<<Foam::endl;
+                        Info<<"upper_dPara:"<<upper_dPara<<Foam::endl;
+                        Info<<"upper_r:"<<upper_r<<Foam::endl;
+                        Info<<"upper_d1:"<<upper_d1<<Foam::endl;
+                        Info<<"upper_d2:"<<upper_d2<<Foam::endl;
+                        Info<<"upper_d3:"<<upper_d3<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                    if(vectorDistance(fd_drdC,drdC)>epsilon)
+                    {
+                        Info<<"parameter:"<<parameter<<Foam::endl;
+                        Info<<"drdC:"<<drdC<<Foam::endl;
+                        Info<<"lower_r:"<<lower_r<<Foam::endl;
+                        Info<<"upper_r:"<<upper_r<<Foam::endl;
+                        Info<<"fd_drdC:"<<fd_drdC<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                    setCurveCoeff(rodNumber,curveCoeffs,coefDim,coeffBasicValue);
+                    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+                }
+            }
+        }
+    }
+}
+
 void Foam::Structure::selfCheck()
 {
+    quaternionCheck();
+    transformationCheck();
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    
     Info<<"-----------Structure derivatives-----------"<<Foam::endl;    
-    std::function<void(std::function<FixedList<vector,4>(scalar)>,
-                       std::function<FixedList<vector,4>(scalar)>,
+    std::function<void(std::function<Quaternion(scalar)>,
+                       std::function<Quaternion(scalar)>,
                        scalar,scalar,uint)> tComparer =
     [](auto deriv, auto fdDeriv, scalar minPar, scalar maxPar, uint steps)
     {
         scalar deltaPar = maxPar-minPar;
         scalar stepsizePar = deltaPar/steps;
-        
+        /*
         for(scalar currPara=minPar; currPara<=maxPar; currPara+=stepsizePar)
         {
-            FixedList<vector,4> derivValue = deriv(currPara);
-            FixedList<vector,4> fderivValue = fdDeriv(currPara);
-            FixedList<vector,4> errorVec;
-            FixedList<scalar,4> error;
-            FixedList<scalar,4> derivValueLen;
-            FixedList<scalar,4> fderivValueLen;
-            FixedList<scalar,4> avgLen;
-            FixedList<scalar,4> percError;
-            scalar maxError = std::numeric_limits<scalar>::min();;
-            scalar maxPercError = std::numeric_limits<scalar>::min();;
+            Quaternion derivValue = deriv(currPara);
+            Quaternion fderivValue = fdDeriv(currPara);
+            Quaternion errorVec = derivValue-fderivValue;
+            Quaternion error;
+            Quaternion derivValueLen;
+            Quaternion fderivValueLen;
+            Quaternion avgLen;
+            Quaternion percError;
+            scalar maxError = std::numeric_limits<scalar>::min();
+            scalar maxPercError = std::numeric_limits<scalar>::min();
             for(label i=0; i<4; i++)
             {
-                errorVec[i]= derivValue[i]-fderivValue[i];
                 error[i] = std::sqrt(errorVec[i]&errorVec[i]);
                 derivValueLen[i] = std::sqrt(derivValue[i]&derivValue[i]);
                 fderivValueLen[i] = std::sqrt(fderivValue[i]&fderivValue[i]);
@@ -2292,10 +2750,11 @@ void Foam::Structure::selfCheck()
                 FatalErrorInFunction<<"t Comparison failed!"<<exit(FatalError);
             }
         }
+        */
     };
     
-    std::function<void(std::function<FixedList<scalar,4>(scalar)>,
-                       std::function<FixedList<scalar,4>(scalar)>,
+    std::function<void(std::function<Quaternion(scalar)>,
+                       std::function<Quaternion(scalar)>,
                        scalar,scalar,uint)> qComparer =
     [](auto deriv, auto fdDeriv, scalar minPar, scalar maxPar, uint steps)
     {
@@ -2304,9 +2763,9 @@ void Foam::Structure::selfCheck()
         
         for(scalar currPara=minPar; currPara<=maxPar; currPara+=stepsizePar)
         {
-            FixedList<scalar,4> derivValue = deriv(currPara);
-            FixedList<scalar,4> fderivValue = fdDeriv(currPara);
-            FixedList<scalar,4> error;
+            Quaternion derivValue = deriv(currPara);
+            Quaternion fderivValue = fdDeriv(currPara);
+            Quaternion error;
             scalar derivValueLen = std::sqrt(derivValue[0]*derivValue[0]+derivValue[1]*derivValue[1]
                                             +derivValue[2]*derivValue[2]+derivValue[3]*derivValue[3]);
             scalar fderivValueLen = std::sqrt(fderivValue[0]*fderivValue[0]+fderivValue[1]*fderivValue[1]
@@ -2345,25 +2804,25 @@ void Foam::Structure::selfCheck()
         {
             for(label coefDim=0; coefDim<3; coefDim++)
             {
-                std::function<FixedList<scalar,4>(scalar)> derivQ = [&](scalar par)
+                std::function<Quaternion(scalar)> derivQ = [&](scalar par)
                 {
-                    FixedList<scalar,4> deriv = m_Rot_Eval_Deriv(rodNumber,curveCoeffs,coefDim,par);
+                    Quaternion deriv = m_Rot_Eval_Deriv(rodNumber,curveCoeffs,coefDim,par);
                     return deriv;
                 };
-                std::function<FixedList<scalar,4>(scalar)> fdDerivQ = [&](scalar par)
+                std::function<Quaternion(scalar)> fdDerivQ = [&](scalar par)
                 {
                     scalar epsilon=1e-3;
                     scalar coeffBasicValue = getCurveCoeff(rodNumber,curveCoeffs,coefDim);
                     
                     scalar lowerCoeffValue = coeffBasicValue-epsilon;
                     setCurveCoeff(rodNumber,curveCoeffs,coefDim,lowerCoeffValue);
-                    FixedList<scalar,4> lower_q = m_Rot_Eval(rodNumber,par);
+                    Quaternion lower_q = m_Rot_Eval(rodNumber,par);
 
                     scalar upperCoeffValue = coeffBasicValue+epsilon;                    
                     setCurveCoeff(rodNumber,curveCoeffs,coefDim,upperCoeffValue);
-                    FixedList<scalar,4> upper_q = m_Rot_Eval(rodNumber,par);
+                    Quaternion upper_q = m_Rot_Eval(rodNumber,par);
                     
-                    FixedList<scalar,4> diff = {upper_q[0]-lower_q[0],upper_q[1]-lower_q[1],upper_q[2]-lower_q[2],upper_q[3]-lower_q[3]};
+                    Quaternion diff = upper_q-lower_q;
                     scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
 
                     setCurveCoeff(rodNumber,curveCoeffs,coefDim,coeffBasicValue);

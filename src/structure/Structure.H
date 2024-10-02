@@ -74,7 +74,68 @@ struct foamPairHash
         return std::hash<A>{}(p.first())^std::hash<A>{}(p.second());
     }
 };
-    
+
+class Rotation;
+class Quaternion
+{
+    public:
+        Quaternion(){};
+        Quaternion(scalar x,scalar y,scalar z,scalar w);
+        Quaternion(const gsMatrix<scalar>& gsQuaternion);
+        
+        Quaternion operator*(Quaternion const& q) const;
+        Quaternion operator/(Quaternion const& q) const;
+        Quaternion operator-(Quaternion const& q) const;
+        Quaternion invert() const;
+        scalar len() const;
+        scalar distanceNorm2(Quaternion const& q) const;
+        void normalize();
+
+        inline scalar qx() const {return x;}
+        inline scalar qy() const {return y;}
+        inline scalar qz() const {return z;}
+        inline scalar qw() const {return w;}
+        
+        scalar operator[](uint index) const;
+        scalar& operator[](uint index);
+        
+    private:
+        scalar x;
+        scalar y;
+        scalar z;
+        scalar w;
+        
+    friend Ostream& operator<<(Ostream& os, Quaternion const& m);
+    friend Rotation;
+};
+Ostream& operator<<(Ostream& os, Quaternion const& q);
+
+class Rotation
+{
+    public:
+        Rotation(){};
+        Rotation(vector d1, vector d2, vector d3);
+        Rotation(const Quaternion& q);
+        Rotation operator-(Rotation const& R) const;
+        bool operator!=(Rotation const& R) const;
+        Rotation operator/(scalar alpha) const;
+        scalar distanceNorm2(Rotation const& R) const;
+        scalar norm2() const;
+        inline const vector& get_d1() const {return T[0];}
+        inline const vector& get_d2() const {return T[1];}
+        inline const vector& get_d3() const {return T[2];}
+        
+        static Rotation compute_dRdC(const Quaternion& dqdC, const Quaternion& q);
+        static FixedList<FixedList<vector,4>,3> compute_dRdq(const Quaternion& q);
+        
+    private:
+        FixedList<vector,3> T;
+        
+    friend Ostream& operator<<(Ostream& os, Rotation const& m);
+};
+Ostream& operator<<(Ostream& os, Rotation const& m);
+
+
 class Structure
 {
     public:
@@ -100,7 +161,8 @@ class Structure
         
         void solveOneStep();
         
-        static FixedList<vector,3> quaternionsToRotation(FixedList<scalar,4> quaternions);
+        static scalar matrixDistance(const FixedList<vector,3>& m1, const FixedList<vector,3>& m2);
+        static scalar vectorDistance(const vector& v1, const vector& v2);
         
         static gsNurbs<scalar> createNurbs
         (
@@ -223,10 +285,10 @@ class Structure
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, scalar parameter, vector& r);
         
-        FixedList<scalar,4> m_Rot_Eval(label rodNumber, scalar parameter);
-        static FixedList<scalar,4> m_Rot_Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
+        Quaternion m_Rot_Eval(label rodNumber, scalar parameter);
+        static Quaternion m_Rot_Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         const gsNurbs<scalar>& getQuaternions(label rodNumber) const;
-        List<FixedList<vector,3>> getRotationCurveCoefs(label rodNumber) const;
+        List<Rotation> getRotationCurveCoefs(label rodNumber) const;
     // ----------------- ---------------------- -----------------
         
     // ----------------- Rod coefficient derivation methods -----------------
@@ -234,9 +296,6 @@ class Structure
         bool constructedCoeffDerivedData = false;
         void constructCoeffDerivedData();
     private:
-        FixedList<FixedList<vector,4>,3> compute_dRdq(const FixedList<scalar,4> dqdC);
-        FixedList<scalar,4> quaternionMultiply(const FixedList<scalar,4> q1,const FixedList<scalar,4> q2);
-        FixedList<scalar,4> quaternionInvert(const FixedList<scalar,4> q);
         //[rodNumber] -> [coeffNumber] -> [dims] -> nurbs
         std::vector<std::vector<std::vector<gsNurbs<scalar>>>> coeffDerivedCenterline;
         //[rodNumber] -> nurbs
@@ -247,9 +306,9 @@ class Structure
         label numberCurveCoeffs(label rodNumber) const;
         label numberDeformationCoeffs(label rodNumber) const;
         vector get_drdC(label rodNumber, label derivCoeffNumber, label derivDimension, scalar parameter) const;
-        FixedList<scalar,4> get_iniQuaternions(label rodNumber, scalar parameter) const;
-        FixedList<scalar,4> get_Quaternions(label rodNumber, scalar parameter) const;
-        FixedList<scalar,4> get_coeffDerivQuaternions
+        Quaternion get_iniQuaternions(label rodNumber, scalar parameter) const;
+        Quaternion get_Quaternions(label rodNumber, scalar parameter) const;
+        Quaternion get_coeffDerivQuaternions
         (
             label rodNumber,
             label derivCoeffNumber,
@@ -273,7 +332,7 @@ class Structure
             vector& d3dC,
             vector& rdC
         );
-        FixedList<scalar,4> m_Rot_Eval_Deriv(label rodNumber, label derivCoeffNumber, label derivDimension, scalar parameter);
+        Quaternion m_Rot_Eval_Deriv(label rodNumber, label derivCoeffNumber, label derivDimension, scalar parameter);
     // ----------------- ---------------------------------- -----------------
         
         void printCurves()
@@ -431,6 +490,9 @@ class Structure
     public:
         static scalar initialSpacingFromMesh(const fvMesh& mesh, label cellInd=0);
         
+        void quaternionCheck();
+        void rotationCheck();
+        void transformationCheck();
         virtual void selfCheck();
 };
 #include "Structure.T.H"
