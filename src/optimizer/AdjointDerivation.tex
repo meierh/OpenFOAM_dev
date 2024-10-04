@@ -597,7 +597,7 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 	
 	\newpage
 	
-	$\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \delta U_M J +
+	$\delta_\phi L = \delta \vec{u} J + \delta p  J + \delta f_u J + \delta F_u J + \delta U_M J +
 	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_{\text{fluid}_M} J +$\\
 	$\int_{\Omega \cup X}
 	\begin{pmatrix}
@@ -1328,34 +1328,88 @@ $=0$\\
 \end{align*}
 \noindent\rule[1ex]{\textwidth}{1pt}
 \newpage
+\begin{flushleft}
+	Cost function adjoint derivation
+\end{flushleft}
+	$\delta_\phi L = \delta \vec{u} J + \delta p  J + \delta f_u J + \delta F_u J + \delta U_M J +
+	\delta T_{\text{fluid}} J + \delta f_{T_{\text{fluid}}} J + \delta F_{T_{\text{fluid}}} J + \delta T_{\text{fluid}_M} J + \int_{\Omega} \vec{\lambda} \cdot \text{NS}(\phi) d\Omega $\\
+	
+\begin{flushleft}
+	Cost function: Dissipated energy
+\end{flushleft}
+	$J = - \left(p + \frac{1}{2}u^2\right)\vec{u}\cdot \vec{n}$\\
+	$\delta \vec{u} J  = - \left(p + \frac{1}{2}u^2\right)\vec{n} - \left(\vec{u}\cdot \vec{n}\right)\vec{u}$\\
+	$\delta p  J =- \vec{u}\cdot \vec{n} $\\
+	$\delta f_u J = 0$\\
+	$\delta F_u J = 0$\\
+	$\delta U_M J = 0$\\
+	$\delta T_{\text{fluid}} J = 0$\\
+	$\delta f_{T_{\text{fluid}}} J = 0$\\
+	$\delta F_{T_{\text{fluid}}} J = 0$\\
+	$\delta T_{\text{fluid}_M} J = 0$
+\newpage
 \fontsize{10}{8}
 \begin{flushleft}
 	Adjoint Immersed Boundary Navier Stokes system
 \end{flushleft}
-	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$ \quad on $\Omega,X$\\
-	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
-	$-\lambda_{\vec{u}} + \lambda_{f_u} = 0$ \quad on $\Omega$\\
-	$\lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega + ... = 0$ \quad on $\Omega,X$\\
-	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
-	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) = 0$ \quad on $\Omega,X$\\
-	$- \lambda_{T_{\text{fluid}}} +\lambda_{f_{T_{\text{fluid}}}} = 0$ \quad on $\Omega$\\
-	$-\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
-	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+Volume terms:\\
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) + \frac{\partial J_{\Omega}}{\partial \vec{u}} = 0$ \quad on $\Omega,X$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} + \frac{\partial J_{\Omega}}{\partial p} = 0$ \quad on $\Omega$\\
+	$-\lambda_{\vec{u}} + \lambda_{f_u} + \frac{\partial J_{\Omega}}{\partial f_u} = 0$ \quad on $\Omega$\\
+	$\lambda_{F_u} - \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega + ... + \frac{\partial J_{\Omega}}{\partial F_u} = 0$ \quad on $\Omega,X$\\
+	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t} + \frac{\partial J_{\Omega}}{\partial U_M} = 0$ \quad on $X$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) + \frac{\partial J_{\Omega}}{\partial T_{\text{fluid}}} = 0$ \quad on $\Omega,X$\\
+	$- \lambda_{T_{\text{fluid}}} +\lambda_{f_{T_{\text{fluid}}}} + \frac{\partial J_{\Omega}}{\partial f_{T_{\text{fluid}}}} = 0$ \quad on $\Omega$\\
+	$-\int_{\Omega} \lambda_{f_{T_{\text{fluid}}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... + \frac{\partial J_{\Omega}}{\partial F_{T_{\text{fluid}}}}= 0$ \quad on $\Omega, X$\\
+	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} + \frac{\partial J_{\Omega}}{\partial T_{\text{fluid}_M}} = 0$ \quad on $X$\\
+	$ $\\
+Boundary terms:\\
+	$\int_{S} \delta \vec{u} \cdot \left[ \left(\vec{u}\cdot \vec{n}\right) \lambda_{\vec{u}} + \left(\vec{u}\cdot \lambda_{\vec{u}}\right)\vec{n} + \frac{\mu}{\rho} \left(\nabla \lambda_{\vec{u}} \cdot \vec{n}\right) -\lambda_p \vec{n} + T_{\text{fluid}} \lambda_{T_{\text{fluid}}} \vec{n} + \frac{\partial J_{\Gamma}}{\partial \vec{u}}\right] - \frac{\mu}{\rho} \lambda_{\vec{u}} \cdot \left(\nabla \delta \vec{u} \cdot \vec{n}\right) dS = 0 $\\
+	$\int_{S} \delta p \left(\lambda_{\vec{u}} \cdot \vec{n} + \frac{\partial J_{\Gamma}}{\partial p} \right)dS=0$\\
+	$\int_{S} \delta T_{\text{fluid}} \cdot \left[\left(\vec{u}\cdot \vec{n}\right) \lambda_{T_{\text{fluid}}}  + \frac{\kappa}{\rho c_p} \left(\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{n}\right) + \frac{\partial J_{\Gamma}}{\partial T_{\text{fluid}}} \right]- \frac{\kappa}{\rho c_p} \lambda_{T_{\text{fluid}}} \cdot \left(\nabla \delta T_{\text{fluid}} \cdot \vec{n}\right) dS=0$
 \begin{flushleft}
-	Adjoint Immersed Boundary Navier Stokes system simplified
+	Adjoint Immersed Boundary Navier Stokes system simplified (combine terms and remove derivatives of cost function for non physical variables)
 \end{flushleft}
-	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega,X$\\
+Volume terms:\\
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} + \frac{\partial J_{\Omega}}{\partial \vec{u}} = 0$ \quad on $\Omega,X$\\
 	$f_{\lambda_{U_M}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$\\
 	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
 	$-\lambda_{\vec{u}} + \lambda_{f_u} = 0$ \quad on $\Omega$\\
 	$\lambda_{F_u} - \int_{\Omega} \lambda_{\vec{u}} \delta (\vec{x}-\vec{X}) d\Omega + ... = 0$ \quad on $\Omega,X$\\
 	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
-	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} = 0$ \quad on $\Omega,X$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} - f_{\lambda_{T_{\text{fluid}_M}}} + \frac{\partial J_{\Omega}}{\partial T_{\text{fluid}}} = 0$ \quad on $\Omega,X$\\
 	$f_{\lambda_{T_{\text{fluid}_M}}} - \sum_{X} \lambda_{T_{\text{fluid}_M}} \delta (\vec{x}-\vec{X}) = 0$\\
 	$- \lambda_{T_{\text{fluid}}} +\lambda_{f_{T_{\text{fluid}}}} = 0$ \quad on $\Omega$\\
 	$-\int_{\Omega} \lambda_{T_{\text{fluid}}} \delta (\vec{x}-\vec{X}) d\Omega + \lambda_{F_{T_{\text{fluid}}}} + ... = 0$ \quad on $\Omega, X$\\
-	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$
+	$\lambda_{T_{\text{fluid}_M}} + \frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} =0$ \quad on $X$\\
+	$ $\\
+Boundary terms:\\
 \begin{flushleft}
+	Wall and Inlet: $\vec{u}$ fixed $\rightarrow \delta \vec{u}=0$,$T_{\text{fluid}}$ fixed $\rightarrow \delta T_{\text{fluid}}=0$\\
+	$\quad \quad \nabla \cdot \delta \vec{u} = \left(\vec{n} \cdot \nabla\right) \delta u_n + \nabla_{t} \cdot \delta u_t = 0$\\
+	$\quad \quad \left(\vec{n} \cdot \nabla\right) \delta u_n = 0$\\
+	$\quad \quad \rightarrow \left(\vec{n} \cdot \nabla\right) \delta \vec{u} = \left(\vec{n} \cdot \nabla\right) \delta u_t $\\
+\end{flushleft}
+	$ -\frac{\mu}{\rho} \lambda_{\vec{u}} \cdot \left(\nabla \delta \vec{u} \cdot \vec{n}\right) = -\frac{\mu}{\rho}\left(\vec{n} \cdot \nabla\right) \delta u_t  \cdot  \lambda_{u_t} = 0 \Rightarrow \lambda_{u_t} = 0$\\
+	$\delta p \left(\lambda_{\vec{u}} \cdot \vec{n} + \frac{\partial J_{\Gamma}}{\partial p} \right)= \delta p \left(\lambda_{u_n} + \frac{\partial J_{\Gamma}}{\partial p} \right)=0  \Rightarrow \lambda_{u_n} = -\frac{\partial J_{\Gamma}}{\partial p}$\\
+	$ -\frac{\kappa}{\rho c_p} \lambda_{T_{\text{fluid}}} \cdot \left(\nabla \delta T_{\text{fluid}} \cdot \vec{n}\right) = -\frac{\kappa}{\rho c_p}  \left(\vec{n} \cdot \nabla\right) \delta T_{\text{fluid}} \cdot \lambda_{T_{\text{fluid}}} = 0  \Rightarrow \lambda_{T_{\text{fluid}}} = 0$\\
+\begin{flushleft}
+	Outlet: $\left(\vec{n}\cdot \nabla \right)\delta \vec{u} = 0$,$p=0$,$\nabla \delta T_{\text{fluid}} = 0$ $\rightarrow \delta p=0$\\
+\end{flushleft}
+\begin{flushleft}
+	\quad \quad Normal adjoint velocity boundary
+\end{flushleft}
+	$u_n \lambda_{u_n} + \vec{u}\cdot \lambda_{\vec{u}} + \frac{\mu}{\rho} \left(\vec{n} \cdot \nabla\right) \lambda_{u_n} -\lambda_p + T_{\text{fluid}} \lambda_{T_{\text{fluid}}} + \frac{\partial J_{\Gamma}}{\partial u_n} = 0$\\
+\begin{flushleft}
+	\quad \quad Tangential adjoint velocity boundary
+\end{flushleft}	
+	$\left(u_n\right) \lambda_{u_t} + \frac{\mu}{\rho} \left(\vec{n} \cdot \nabla\right) \lambda_{u_t} + \frac{\partial J_{\Gamma}}{\partial u_t} = 0$\\
+\begin{flushleft}
+	\quad \quad Adjoint temperature boundary
+\end{flushleft}
+	$\left(\vec{u}\cdot \vec{n}\right) \lambda_{T_{\text{fluid}}}  + \frac{\kappa}{\rho c_p} \left(\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{n}\right) + \frac{\partial J_{\Gamma}}{\partial T_{\text{fluid}}}=0 $\\
+\begin{flushleft}
+	\newpage
 	Adjoint Immersed Boundary Navier Stokes system simplified 2
 \end{flushleft}
 	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega,X$\\
@@ -1531,7 +1585,7 @@ $=0$\\
 \begin{flushleft}
 	Immersed Boundary Navier Stokes system sensitivities
 \end{flushleft}
-$L = J + \int_{\Omega} \vec{\lambda} \cdot \text{NS}(\phi)  d\Omega$\\
+$L = J + \int_{\Omega} \vec{\lambda} \cdot  \text{NS}(\phi)  d\Omega$\\
 $\delta L = \delta_\Gamma L + \delta_\phi L$\\
 \begin{flushleft}
 	Sensitivities Immersed Boundary Navier Stokes

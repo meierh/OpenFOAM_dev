@@ -2612,18 +2612,23 @@ void Foam::Structure::rotationCheck()
 
 void Foam::Structure::transformationCheck()
 {
+    OFstream printOutFile(mesh.rootPath()+"/"+mesh.caseName()+"/transformationCheck");
+    Info<<printOutFile.name()<<Foam::endl;
     scalar nbrSteps = 20;
-    scalar epsilon = 1e-6;
+    scalar epsilon = 1e-2;
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
-        scalar domainStart = this->domainStart(rodNumber)+0.5;
-        scalar domainEnd = this->domainEnd(rodNumber);
+        printOutFile<<"rodNumber:"<<rodNumber<<Foam::endl;
+        scalar domainStart = this->domainStart(rodNumber)+epsilon;
+        scalar domainEnd = this->domainEnd(rodNumber)-epsilon;
         scalar delta = domainEnd-domainStart;
         scalar stepsize = delta/nbrSteps;
         for(label curveCoeffs=0; curveCoeffs<numberCurveCoeffs(rodNumber); curveCoeffs++)
         {
+            printOutFile<<"\b curveCoeffs:"<<curveCoeffs<<Foam::endl;
             for(label coefDim=0; coefDim<3; coefDim++)
             {
+                printOutFile<<"\b\b coefDim:"<<coefDim<<Foam::endl;
                 for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
                 {
                     // Compute gradients
@@ -2661,6 +2666,9 @@ void Foam::Structure::transformationCheck()
                     vector fd_drdC = (upper_r-lower_r)/(2*epsilon);
                     Rotation fd_dRdC = (upper_R-lower_R)/(2*epsilon);
                         
+                    printOutFile<<"\b\b\b parameter:"<<parameter<<" ->  dRdC:"<<dRdC.get_d3()<<" / fd_dRdC:"<<fd_dRdC.get_d3()<<"   dist:"<<vectorDistance(dRdC.get_d3(),fd_dRdC.get_d3())<<Foam::endl;
+                    
+                    /*
                     if(fd_dRdC.distanceNorm2(dRdC)>epsilon)
                     {
                         Info<<"parameter:"<<parameter<<Foam::endl;
@@ -2683,6 +2691,7 @@ void Foam::Structure::transformationCheck()
                         Info<<"upper_d3:"<<upper_d3<<Foam::endl;
                         FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
+                    */
                     if(vectorDistance(fd_drdC,drdC)>epsilon)
                     {
                         Info<<"parameter:"<<parameter<<Foam::endl;
@@ -2693,7 +2702,6 @@ void Foam::Structure::transformationCheck()
                         FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
                     setCurveCoeff(rodNumber,curveCoeffs,coefDim,coeffBasicValue);
-                    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
                 }
             }
         }

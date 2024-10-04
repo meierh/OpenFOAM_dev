@@ -53,6 +53,7 @@
 #include <array>
 #include "BoundingBox.H"
 #include "LinearSystem.H"
+#include "OFstream.H"
 
 namespace Foam
 {
