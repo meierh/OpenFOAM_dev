@@ -2,9 +2,13 @@
 
 Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
 (
-    fvMesh& mesh
+    fvMesh& mesh,
+    Time& time
 ):
 icoImmersedBoundary(mesh),
+time(time),
+pimpleCtlr(incompressibleFluid::pimple),
+adjPimpleCtlr(incompressibleFluid::pimple),
 adj_U_
 (
     IOobject
@@ -17,58 +21,88 @@ adj_p_
 (
     IOobject
     (
-        "adj_p_",runTime.name(),mesh,IOobject::MUST_READ,IOobject::AUTO_WRITE
+        "adj_p",runTime.name(),mesh,IOobject::MUST_READ,IOobject::AUTO_WRITE
     ),
     mesh
 )
 {
     create_AdjointVelocityForcing();
     create_AdjointTemperature();
-    create_AdjointTemperatureForcing(); 
+    create_AdjointTemperatureForcing();
+    
+    // Set the initial time-step
+    setDeltaT(time,*this);
+    
+    Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
+    Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
+    Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
+    Info<<"useAdjointTemperatureForcing:"<<useAdjointTemperatureForcing<<Foam::endl;
+    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
 {
-    IOobject adj_fU_IOobj
-    (
-        "adj_fU",
-        runTime.name(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::AUTO_WRITE
-    );
-    if(adj_fU_IOobj.filePath("",true).empty())
-        adj_fU_ = std::make_unique<volVectorField>(adj_fU_IOobj,mesh);
+    if(useVelocityForcing)
+    {
+        Info<<"create_AdjointVelocityForcing"<<Foam::endl;
+        useAdjointVelocityForcing = true;
+        IOobject adj_fU_IOobj
+        (
+            "adj_fU",
+            runTime.name(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        );
+        if(adj_fU_IOobj.filePath("",true).empty())
+            adj_fU_ = std::make_unique<volVectorField>(adj_fU_IOobj,mesh);
+    }
+    else
+        useAdjointVelocityForcing = false;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperature()
 {
-    IOobject adj_T_IOobj
-    (
-        "adj_T",
-        runTime.name(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::AUTO_WRITE
-    );
-    if(adj_T_IOobj.filePath("",true).empty())
+    if(useTemperature)
     {
-        adj_T_ = std::make_unique<volScalarField>(adj_T_IOobj,mesh);
+        Info<<"create_AdjointTemperature"<<Foam::endl;
+        useAdjointTemperature = true;
+        IOobject adj_T_IOobj
+        (
+            "adj_T",
+            runTime.name(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        );
+        if(adj_T_IOobj.filePath("",true).empty())
+        {
+            adj_T_ = std::make_unique<volScalarField>(adj_T_IOobj,mesh);
+        }
     }
+    else
+        useAdjointTemperature = false;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing()
 {
-    IOobject adj_fT_IOobj
-    (
-        "adj_fT",
-        runTime.name(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::AUTO_WRITE
-    );
-    if(adj_fT_IOobj.filePath("",true).empty() && useTemperature)
-        adj_fT_ = std::make_unique<volScalarField>(adj_fT_IOobj,mesh);
+    if(useTemperatureForcing)
+    {
+        Info<<"create_AdjointTemperatureForcing"<<Foam::endl;
+        useAdjointTemperatureForcing = true;        
+        IOobject adj_fT_IOobj
+        (
+            "adj_fT",
+            runTime.name(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        );
+        if(adj_fT_IOobj.filePath("",true).empty())
+            adj_fT_ = std::make_unique<volScalarField>(adj_fT_IOobj,mesh);
+    }
+    else
+        useAdjointTemperatureForcing = false;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve()
@@ -337,5 +371,83 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve()
             singleParameter.second += interaction_adj_fU->computeSensitivity(singleParameter.first);
         if(interaction_ajd_fT)
             singleParameter.second += interaction_ajd_fT->computeSensitivity(singleParameter.first);
+    }
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::solvePrimal()
+{
+    while (pimpleCtlr.run(time))
+    {
+        // Update PIMPLE outer-loop parameters if changed
+        pimpleCtlr.read();
+
+        preSolve();
+
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+
+        time++;
+
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
+
+        // PIMPLE corrector loop
+        while (pimpleCtlr.loop())
+        {
+            moveMesh();
+            motionCorrector();
+            fvModels().correct();
+            prePredictor();
+            momentumPredictor();
+            thermophysicalPredictor();
+            pressureCorrector();
+            postCorrector();
+        }
+
+        postSolve();
+
+        runTime.write();
+
+        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
+            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
+            << Foam::nl << endl;
+    }
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::solveAdjoint()
+{
+    while (adjPimpleCtlr.run(time))
+    {
+        // Update PIMPLE outer-loop parameters if changed
+        adjPimpleCtlr.read();
+
+        adj_preSolve();
+
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+
+        time++;
+
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
+
+        // PIMPLE corrector loop
+        while (adjPimpleCtlr.loop())
+        {
+            adj_moveMesh();
+            adj_motionCorrector();
+            //adj_fvModels().correct();
+            adj_prePredictor();
+            adj_momentumPredictor();
+            adj_thermophysicalPredictor();
+            adj_pressureCorrector();
+            adj_postCorrector();
+        }
+
+        adj_postSolve();
+
+        runTime.write();
+
+        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
+            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
+            << Foam::nl << endl;
     }
 }

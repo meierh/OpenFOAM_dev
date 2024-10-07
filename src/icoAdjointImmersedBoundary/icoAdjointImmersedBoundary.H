@@ -58,7 +58,6 @@ See also
 #include "SensitivityVelocityPressureForceMarkerInteraction.H"
 #include "SensitivityTemperatureInteraction.H"
 
-
 #include "fvmDiv.H"
 #include "fvmLaplacian.H"
 #include "constrainHbyA.H"
@@ -71,6 +70,8 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
+#include "pimpleSingleRegionControl.H"
+#include "setDeltaT.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -86,6 +87,9 @@ namespace solvers
 class icoAdjointImmersedBoundary : public icoImmersedBoundary
 {
 protected:
+    Time& time;
+    pimpleSingleRegionControl pimpleCtlr;
+    pimpleSingleRegionControl adjPimpleCtlr;
     
     // Adjoint Veclocity
     volVectorField adj_U_;
@@ -126,7 +130,7 @@ public:
     // Constructors
 
         //- Construct from region mesh
-        icoAdjointImmersedBoundary(fvMesh& mesh);
+        icoAdjointImmersedBoundary(fvMesh& mesh, Time& time);
 
         //- Disallow default bitwise copy construction
         icoAdjointImmersedBoundary(const icoImmersedBoundary&) = delete;
@@ -162,7 +166,7 @@ public:
         void adj_pressureCorrector();
 
         //- Correct the momentum and thermophysical transport modelling
-        void adj_postCorrector();
+        void adj_postCorrector(){};
         
         void adj_correctPressure();
         
@@ -173,6 +177,11 @@ public:
 
         //- Disallow default bitwise assignment
         void operator=(const icoAdjointImmersedBoundary&) = delete;
+        
+    // High level functions
+        
+        void solvePrimal();
+        void solveAdjoint();
 };
 
 

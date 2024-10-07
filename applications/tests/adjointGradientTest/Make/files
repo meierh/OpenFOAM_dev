@@ -1,3 +1,3 @@
 adjointGradientTest.C
 
-EXE = $(FOAM_APPBIN)/structureOptimTest
+EXE = $(FOAM_APPBIN)/adjointGradientTest

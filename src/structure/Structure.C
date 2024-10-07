@@ -1544,11 +1544,6 @@ void Foam::Structure::rodEval
     rot.eval_into(parMat,rotQuat);
     gsMatrix<scalar,3,3> R;
     ActiveRodMesh::quat_R(rotQuat,R);
-    Info<<"--------------------------R---------------------"<<Foam::endl;
-    std::cout<<rotQuat<<std::endl;
-    Info<<"---------"<<Foam::endl;
-    std::cout<<R<<std::endl;
-    Info<<"------------------------------------------------"<<Foam::endl;
     
     d1 = vector(R(0,0),R(1,0),R(2,0));
     d2 = vector(R(0,1),R(1,1),R(2,1));

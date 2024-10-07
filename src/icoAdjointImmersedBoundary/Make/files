@@ -1,3 +1,4 @@
 icoAdjointImmersedBoundary.C
+setDeltaT.C
 
 LIB = $(FOAM_USER_LIBBIN)/libicoAdjointImmersedBoundary

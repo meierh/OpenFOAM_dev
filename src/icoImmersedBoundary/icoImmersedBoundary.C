@@ -16,6 +16,7 @@ nu("nu",dimensionSet(0,2,-1,0,0,0,0),transportProperties.lookup("nu")),
 alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {   
     IOobject structureIO("structureDict","structure",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    Info<<"structureIO:"<<structureIO.name()<<Foam::endl;
     if(!structureIO.filePath("",true).empty())
     {
         structureDict = std::make_unique<IOdictionary>(structureIO);
@@ -192,6 +193,7 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
         IOdictionary dynamicMeshDict(dynamicMeshDictIO);
         if(dynamicMeshDict.found("topoChanger"))
         {
+            /*
             dictionary& topoChangerDict = dynamicMeshDict.subDict("topoChanger");
             ITstream topoChangerTypeStream = topoChangerDict.lookup("type");
             token topoChangerTypeToken;
@@ -241,6 +243,7 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
             }
             else
                 FatalErrorInFunction<<"Invalid dynamicMeshDict configuration: Missing meshRefiner entry"<<exit(FatalError);
+            */
         }
         else
             useRefinement = false;
