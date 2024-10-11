@@ -1437,6 +1437,75 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     return (r+tangentialDev)+coordXDir+coordYDir;
 }
 
+Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* oneCrossSec,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    vector d1,d2,d3,r;
+    rodEval(oneRod,parameter,d1,d2,d3,r);
+    
+    vector dd1dp,dd2dp,dd3dp,drdp;
+    rodDerivEval(oneRod,parameter,dd1dp,dd2dp,dd3dp,drdp);
+    
+    scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
+    scalar dradiusdangle = oneCrossSec->deriv_angle(parameter,angle)*radiusFrac;
+    scalar dradiusdp =  oneCrossSec->deriv_para(parameter,angle)*radiusFrac;
+    
+    vector radVec = std::cos(angle)*d1+std::sin(angle)*d2;
+    
+    vector dRCPdp = drdp + 
+                    dradiusdp*radVec +
+                    radius*(std::cos(angle)*dd1dp+std::sin(angle)*dd2dp);
+                    
+    vector dRCPdangle = dradiusdangle*radVec +
+                        radius*(-std::sin(angle)*d1+std::cos(angle)*d2);
+    
+    return {dRCPdp,dRCPdangle};
+}
+
+Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    const CrossSection* oneCrossSec,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    vector d1,d2,d3,r;
+    rodEval(oneRod,parameter,d1,d2,d3,r);
+    
+    vector dd1dp,dd2dp,dd3dp,drdp;
+    rodDerivEval(oneRod,parameter,dd1dp,dd2dp,dd3dp,drdp);
+    
+    vector d2d1dp,d2d2dp,d2d3dp,d2rdp;
+    rodDeriv2Eval(oneRod,parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+    
+    scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
+    scalar dradiusdangle = oneCrossSec->deriv_angle(parameter,angle)*radiusFrac;
+    scalar d2radiusdangle = oneCrossSec->deriv2_angle(parameter,angle)*radiusFrac;
+    scalar dradiusdp =  oneCrossSec->deriv_para(parameter,angle)*radiusFrac;
+    scalar d2radiusdp =  oneCrossSec->deriv2_para(parameter,angle)*radiusFrac;
+    
+    vector radVec = std::cos(angle)*d1+std::sin(angle)*d2;
+    
+    vector d2RCPdp = d2rdp + 
+                     d2radiusdp*radVec +
+                     2*dradiusdp*(std::cos(angle)*dd1dp+std::sin(angle)*dd2dp) +
+                     radius*(std::cos(angle)*d2d1dp+std::sin(angle)*d2d2dp);
+                    
+    vector d2RCPdangle = d2radiusdangle*radVec +
+                         2*dradiusdangle*(-std::sin(angle)*d1+std::cos(angle)*d2) + 
+                         radius*(-std::cos(angle)*d1+std::sin(angle)*d2);
+    
+    return {d2RCPdp,d2RCPdangle};
+}
+
 Foam::vector Foam::CrossSectionStructure::evalRodDerivCoeff
 (
     label rodNumber,
@@ -1661,6 +1730,218 @@ Foam::scalar Foam::CrossSectionStructure::distance
             errorSufficient=true;
     }
     return distance;
+}
+
+void Foam::CrossSectionStructure::parameterGradientCheck() const
+{
+    LineStructure::parameterGradientCheck();
+    Info<<"CrossSectionStructure::parameterGradientCheck"<<Foam::endl;
+    
+    scalar nbrSteps = 20;
+    scalar epsilon = 1e-3;
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        const CrossSection* oCS = &(rodCrossSection[rodNumber]);
+        
+        scalar domainStart = this->domainStart(rodNumber)+5*epsilon;
+        scalar domainEnd = this->domainEnd(rodNumber)-5*epsilon;
+        scalar delta = domainEnd-domainStart;
+        scalar stepsize = delta/nbrSteps;
+        for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
+        {
+            scalar angleStart = 0;
+            scalar angleEnd = 2*Foam::constant::mathematical::pi;
+            scalar angleDelta = angleEnd-angleStart;
+            scalar angleStepsize = angleDelta/nbrSteps;
+            for(scalar angle=angleStart; angle<angleEnd; angle+=angleStepsize)
+            {
+                // Compute gradients
+                scalar drdp = oCS->deriv_para(parameter,angle);
+                scalar d2rdp = oCS->deriv2_para(parameter,angle);
+                scalar drdangle = oCS->deriv_angle(parameter,angle);
+                scalar d2rdangle = oCS->deriv2_angle(parameter,angle);
+                
+                scalar l_para = parameter-epsilon;
+                scalar u_para = parameter+epsilon;
+                scalar l_angle = angle-epsilon;
+                scalar u_angle = angle+epsilon;
+
+                scalar lp_r = (*oCS)(l_para,   angle);
+                scalar up_r = (*oCS)(u_para,   angle);
+                scalar la_r = (*oCS)(parameter,l_angle);
+                scalar ua_r = (*oCS)(parameter,u_angle);
+                
+                scalar lp_drdp =     oCS->deriv_para(l_para,   angle);
+                scalar up_drdp =     oCS->deriv_para(u_para,   angle);
+                scalar la_drdangle = oCS->deriv_angle(parameter,l_angle);
+                scalar ua_drdangle = oCS->deriv_angle(parameter,u_angle);
+
+                scalar fd_drdp = (up_r-lp_r)/(2*epsilon);
+                scalar fd_d2rdp = (up_drdp-lp_drdp)/(2*epsilon);
+                scalar fd_drdangle = (ua_r-la_r)/(2*epsilon);
+                scalar fd_d2rdangle = (ua_drdangle-la_drdangle)/(2*epsilon);
+                
+                
+                Info<<"--------------------------"<<Foam::endl;
+                Info<<"parameter:"<<parameter<<Foam::endl;
+                Info<<"angle:"<<angle<<Foam::endl;
+                Info<<"---"<<Foam::endl;
+                Info<<"lp_r:"<<lp_r<<Foam::endl;
+                Info<<"up_r:"<<up_r<<Foam::endl;
+                Info<<"la_r:"<<la_r<<Foam::endl;
+                Info<<"ua_r:"<<ua_r<<Foam::endl;
+                Info<<"---"<<Foam::endl;
+                Info<<"lp_drdp:"<<lp_drdp<<Foam::endl;
+                Info<<"up_drdp:"<<up_drdp<<Foam::endl;
+                Info<<"la_drdangle:"<<la_drdangle<<Foam::endl;
+                Info<<"ua_drdangle:"<<ua_drdangle<<Foam::endl;
+                Info<<"---"<<Foam::endl;
+                Info<<"drdp:"<<drdp<<Foam::endl;
+                Info<<"d2rdp:"<<d2rdp<<Foam::endl;
+                Info<<"drdangle:"<<drdangle<<Foam::endl;
+                Info<<"d2rdangle:"<<d2rdangle<<Foam::endl;
+                Info<<"---"<<Foam::endl;
+                Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
+                Info<<"fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
+                Info<<"fd_drdangle:"<<fd_drdangle<<Foam::endl;
+                Info<<"fd_d2rdangle:"<<fd_d2rdangle<<Foam::endl;
+                Info<<"--------------------------"<<Foam::endl;
+                
+                scalar err_drdp = std::abs(fd_drdp-drdp);
+                scalar denom_drdp = 0.5*(std::abs(fd_drdp)+std::abs(drdp));
+                scalar percErr_drdp = (denom_drdp==0)?0:err_drdp/denom_drdp;
+                if(percErr_drdp>0.04)
+                {
+                    Info<<"parameter:"<<parameter<<Foam::endl;
+                    Info<<"drdp:"<<drdp<<Foam::endl;
+                    Info<<"lp_r:"<<lp_r<<Foam::endl;
+                    Info<<"up_r:"<<up_r<<Foam::endl;
+                    Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
+                    Info<<"err_drdp:"<<err_drdp<<Foam::endl;
+                    Info<<"percErr_drdp:"<<percErr_drdp<<Foam::endl;
+                    FatalErrorInFunction<<"Error"<<exit(FatalError);
+                }
+                scalar err_d2rdp = std::abs(fd_d2rdp-d2rdp);
+                scalar denom_d2rdp = 0.5*(std::abs(fd_d2rdp)+std::abs(d2rdp));
+                scalar percErr_d2rdp = (denom_d2rdp==0)?0:err_d2rdp/denom_d2rdp;
+                if(percErr_d2rdp>0.04)                
+                {
+                    Info<<"parameter:"<<parameter<<Foam::endl;
+                    Info<<"d2rdp:"<<d2rdp<<Foam::endl;
+                    Info<<"lp_drdp:"<<lp_drdp<<Foam::endl;
+                    Info<<"up_drdp:"<<up_drdp<<Foam::endl;
+                    Info<<"fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
+                    Info<<"err_d2rdp:"<<err_d2rdp<<Foam::endl;
+                    Info<<"percErr_d2rdp:"<<percErr_d2rdp<<Foam::endl;
+                    FatalErrorInFunction<<"Error"<<exit(FatalError);
+                }
+                scalar err_drdangle = std::abs(fd_drdangle-drdangle);
+                scalar denom_drdangle = 0.5*(std::abs(fd_drdangle)+std::abs(drdangle));
+                scalar percErr_drdangle = (denom_drdangle==0)?0:err_drdangle/denom_drdangle;
+                if(percErr_drdangle>0.04)
+                {
+                    Info<<"angle:"<<angle<<Foam::endl;
+                    Info<<"drdangle:"<<drdangle<<Foam::endl;
+                    Info<<"la_r:"<<la_r<<Foam::endl;
+                    Info<<"ua_r:"<<ua_r<<Foam::endl;
+                    Info<<"fd_drdangle:"<<fd_drdangle<<Foam::endl;
+                    Info<<"err_drdangle:"<<err_drdangle<<Foam::endl;
+                    Info<<"percErr_drdangle:"<<percErr_drdangle<<Foam::endl;
+                    FatalErrorInFunction<<"Error"<<exit(FatalError);
+                }
+                scalar err_d2rdangle = std::abs(fd_d2rdangle-d2rdangle);
+                scalar denom_d2rdangle = 0.5*(std::abs(fd_d2rdangle)+std::abs(d2rdangle));
+                scalar percErr_d2rdangle = (denom_d2rdangle==0)?0:err_d2rdangle/denom_d2rdangle;
+                if(percErr_d2rdangle>0.04)
+                {
+                    Info<<"angle:"<<angle<<Foam::endl;
+                    Info<<"d2rdangle:"<<d2rdangle<<Foam::endl;
+                    Info<<"la_drdangle:"<<la_drdangle<<Foam::endl;
+                    Info<<"ua_drdangle:"<<ua_drdangle<<Foam::endl;
+                    Info<<"fd_d2rdangle:"<<fd_d2rdangle<<Foam::endl;
+                    Info<<"err_d2rdangle:"<<err_d2rdangle<<Foam::endl;
+                    Info<<"percErr_d2rdangle:"<<percErr_d2rdangle<<Foam::endl;
+                    FatalErrorInFunction<<"Error"<<exit(FatalError);
+                }
+            }
+        }
+        
+        for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
+        {
+            scalar angleStart = 0;
+            scalar angleEnd = 2*Foam::constant::mathematical::pi;
+            scalar angleDelta = angleEnd-angleStart;
+            scalar angleStepsize = angleDelta/nbrSteps;
+            for(scalar angle=angleStart; angle<angleEnd; angle+=angleStepsize)
+            {
+                scalar radiusStart = 0;
+                scalar radiusEnd = 1;
+                scalar radiusDelta = radiusEnd-radiusStart;
+                scalar radiusStepsize = radiusDelta/nbrSteps;
+                for(scalar radFrac=radiusStart; radFrac<radiusEnd; radFrac+=radiusStepsize)
+                {
+                    // Compute gradients
+                    Pair<vector> drd_ = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,angle,radFrac);
+                    Pair<vector> d2rd_ = derivate2RodCircumPos(Rods[rodNumber],parameter,oCS,angle,radFrac);
+                    
+                    scalar l_para = parameter-epsilon;
+                    scalar l_angle = angle-epsilon;
+                    scalar u_para = parameter+epsilon;
+                    scalar u_angle = angle+epsilon;
+
+                    vector lp_r = evaluateRodCircumPos(Rods[rodNumber],l_para,oCS,angle,radFrac);
+                    vector la_r = evaluateRodCircumPos(Rods[rodNumber],parameter,oCS,l_angle,radFrac);
+                    vector up_r = evaluateRodCircumPos(Rods[rodNumber],u_para,oCS,angle,radFrac);
+                    vector ua_r = evaluateRodCircumPos(Rods[rodNumber],parameter,oCS,u_angle,radFrac);
+                    
+                    vector lp_drdp = derivateRodCircumPos(Rods[rodNumber],l_para,oCS,angle,radFrac).first();
+                    vector la_drdangle = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,l_angle,radFrac).second();
+                    vector up_drdp = derivateRodCircumPos(Rods[rodNumber],u_para,oCS,angle,radFrac).first();
+                    vector ua_drdangle = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,u_angle,radFrac).second();
+
+                    Pair<vector> fd_drd_((up_r-lp_r)/(2*epsilon),(ua_r-la_r)/(2*epsilon));
+                    Pair<vector> fd_d2rd_((up_drdp-lp_drdp)/(2*epsilon),(ua_drdangle-la_drdangle)/(2*epsilon));
+                                
+                    if(vectorDistance(fd_drd_.first(),drd_.first())>epsilon)
+                    {
+                        Info<<"parameter:"<<parameter<<Foam::endl;
+                        Info<<"drd_.first():"<<drd_.first()<<Foam::endl;
+                        Info<<"lp_r:"<<lp_r<<Foam::endl;
+                        Info<<"up_r:"<<up_r<<Foam::endl;
+                        Info<<"fd_drd_.first():"<<fd_drd_.first()<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                    if(vectorDistance(fd_drd_.second(),drd_.second())>epsilon)
+                    {
+                        Info<<"parameter:"<<parameter<<Foam::endl;
+                        Info<<"drd_.second():"<<drd_.second()<<Foam::endl;
+                        Info<<"la_r:"<<la_r<<Foam::endl;
+                        Info<<"ua_r:"<<ua_r<<Foam::endl;
+                        Info<<"fd_drd_.second():"<<fd_drd_.second()<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                    if(vectorDistance(fd_d2rd_.first(),d2rd_.first())>epsilon)
+                    {
+                        Info<<"parameter:"<<parameter<<Foam::endl;
+                        Info<<"d2rd_.first():"<<fd_d2rd_.first()<<Foam::endl;
+                        Info<<"lp_drdp:"<<lp_drdp<<Foam::endl;
+                        Info<<"up_drdp:"<<up_drdp<<Foam::endl;
+                        Info<<"fd_d2rd_.first():"<<fd_drd_.first()<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                    if(vectorDistance(fd_d2rd_.second(),d2rd_.second())>epsilon)
+                    {
+                        Info<<"parameter:"<<parameter<<Foam::endl;
+                        Info<<"d2rd_.second():"<<d2rd_.second()<<Foam::endl;
+                        Info<<"la_drdangle:"<<la_drdangle<<Foam::endl;
+                        Info<<"ua_drdangle:"<<ua_drdangle<<Foam::endl;
+                        Info<<"fd_d2rd_.second():"<<fd_d2rd_.second()<<Foam::endl;
+                        FatalErrorInFunction<<"Error"<<exit(FatalError);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void Foam::CrossSectionStructure::selfCheck()

@@ -193,22 +193,34 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
         IOdictionary dynamicMeshDict(dynamicMeshDictIO);
         if(dynamicMeshDict.found("topoChanger"))
         {
-            /*
             dictionary& topoChangerDict = dynamicMeshDict.subDict("topoChanger");
             ITstream topoChangerTypeStream = topoChangerDict.lookup("type");
             token topoChangerTypeToken;
             topoChangerTypeStream.read(topoChangerTypeToken);
-            if(!topoChangerTypeToken.isString())
-                FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodType -- must be string"<<exit(FatalError);
-            word topoChangerTypeWord = topoChangerTypeToken.stringToken();
+            if(!topoChangerTypeToken.isWord())
+            {
+                Info<<"topoChangerTypeToken:"<<topoChangerTypeToken<<Foam::endl;
+                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/rodType -- must be string"<<exit(FatalError);
+            }
+            word topoChangerTypeWord = topoChangerTypeToken.wordToken();
             if(topoChangerTypeWord!="refiner")
                 FatalErrorInFunction<<"Invalid topoChanger/type -- valid {refiner}"<<exit(FatalError);
             
-            refine_ = std::make_unique<volScalarField>
+            word refineFieldName = "refineField";
+            IOobject refineIO
             (
-                IOobject(topoChangerTypeWord,runTime.name(),mesh,Foam::IOobject::MUST_READ,Foam::IOobject::AUTO_WRITE),
-                mesh
+                refineFieldName,
+                runTime.name(),
+                mesh,
+                IOobject::MUST_READ,
+                IOobject::AUTO_WRITE
             );
+            if(!refineIO.filePath("",true).empty())
+                refine_ = std::make_unique<volScalarField>(refineIO,mesh);
+            else
+                refine_ = std::make_unique<volScalarField>("refineFieldName",p_);
+            if(topoChangerDict.found("field")) topoChangerDict.set("upperRefineLevel",refineFieldName);
+            else topoChangerDict.add("field",refineFieldName);
             
             //Set refine/stay/unrefine field values
             if(topoChangerDict.found("upperRefineLevel")) topoChangerDict.set("upperRefineLevel",1.5);
@@ -220,30 +232,23 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
             if(topoChangerDict.found("unrefineLevel")) topoChangerDict.set("unrefineLevel",-0.5);
             else topoChangerDict.add("unrefineLevel",-0.5);
             
-            if(dynamicMeshDict.found("meshRefiner"))
+            ITstream refinerTypeStream = topoChangerDict.lookup("refinerType");
+            token refinerTypeToken;
+            refinerTypeStream.read(refinerTypeToken);
+            if(!refinerTypeToken.isWord())
+                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/refinerType -- must be string"<<exit(FatalError);
+            word refinerTypeWord = refinerTypeToken.wordToken();
+            if(refinerTypeWord == "None")
             {
-                dictionary meshRefinerDict = dynamicMeshDict.subDict("meshRefiner");
-                ITstream refinerTypeStream = dynamicMeshDict.lookup("refinerType");
-                token refinerTypeToken;
-                refinerTypeStream.read(refinerTypeToken);
-                if(!refinerTypeToken.isString())
-                    FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodType -- must be string"<<exit(FatalError);
-                word refinerTypeWord = refinerTypeToken.stringToken();
-                if(refinerTypeWord == "None")
-                {
-                    useRefinement = false;
-                }
-                else if(refinerTypeWord == "MarkerOnly")
-                {
-                    refinement_ = std::make_unique<MeshRefiner>(mesh,*structure,*refine_,dynamicMeshDict);
-                    useRefinement = true;
-                }
-                else
-                    FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodType -- valid {None,MarkerOnly}"<<exit(FatalError);
+                useRefinement = false;
+            }
+            else if(refinerTypeWord == "MarkerOnly")
+            {
+                refinement_ = std::make_unique<MeshRefiner>(mesh,*structure,*refine_,dynamicMeshDict);
+                useRefinement = true;
             }
             else
-                FatalErrorInFunction<<"Invalid dynamicMeshDict configuration: Missing meshRefiner entry"<<exit(FatalError);
-            */
+                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/refinerType -- valid {None,MarkerOnly}"<<exit(FatalError);
         }
         else
             useRefinement = false;

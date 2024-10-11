@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2022-2023 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2022 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -21,49 +21,43 @@ License
     You should have received a copy of the GNU General Public License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
-Application
-    structureOptimTest
+Global
+    Foam::setDeltaT
 
 Description
-    Testing of derivative rod methods
+    Foam::setDeltaT sets the initial time-step according to the solver maxDeltaT
+    Foam::adjustDeltaT adjust the time-step according to the solver maxDeltaT
+
+SourceFiles
+    setDeltaT.C
 
 \*---------------------------------------------------------------------------*/
 
-#include "argList.H"
-#include "icoAdjointImmersedBoundary.H"
+#ifndef setDeltaT_H
+#define setDeltaT_H
 
-using namespace Foam;
+#include "solver.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-scalar RandomFloat(scalar lower, scalar upper)
+namespace Foam
 {
-    scalar random = static_cast<scalar>(rand()) / static_cast<scalar>(RAND_MAX);
-    scalar diff = upper - lower;
-    scalar delta = random * diff;
-    return lower + delta;
-}
 
-label RandomInt(label lower, label upper)
-{
-    return static_cast<label>(RandomFloat(lower,upper));
-}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-int main(int argc, char *argv[])
-{
-    #include "setRootCase.H"
-    #include "createTime.H"
-    #include "createMesh.H"
+//- Set the initial time-step according to the solver maxDeltaT
+void setDeltaT(Time& runTime, const solver& solver);
 
-    Info<<"Start testing"<<Foam::endl;
-
-    solvers::icoAdjointImmersedBoundary solver(mesh,runTime);
-    solver.solvePrimal();
-    
-    Info<<"Done testing"<<Foam::endl;    
-    return 0;
-}
+//- Adjust the time-step according to the solver maxDeltaT
+void adjustDeltaT(Time& runTime, const solver& solver);
 
 
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+} // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#endif
 
 // ************************************************************************* //

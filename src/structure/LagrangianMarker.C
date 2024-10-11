@@ -2,7 +2,7 @@
 
 Foam::LagrangianMarker::LagrangianMarker
 (
-    const Structure& structure,
+    const LineStructure& structure,
     const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod,
@@ -19,7 +19,7 @@ markerParameter(markerParameter)
 
 Foam::LagrangianMarker::LagrangianMarker
 (    
-    const Structure& structure,
+    const LineStructure& structure,
     const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod
@@ -133,6 +133,7 @@ void Foam::LagrangianMarker::evaluateMarker()
     dilation = dilationFactors(h);
     checkDirectSupport();
     reduceSupport();
+    computeCharacLength();
 }
 
 void Foam::LagrangianMarker::computeSupport
@@ -403,6 +404,13 @@ void Foam::LagrangianMarker::reduceSupport()
             fullSupport.append(cell);
     }
     this->fullSupport = fullSupport;
+}
+
+void Foam::LagrangianMarker::computeCharacLength()
+{
+    scalar crossSec = structure.getCrossSecArea()[rodNumber];
+    crossSec /= Foam::constant::mathematical::pi;
+    markerCharLen = std::sqrt(crossSec);
 }
 
 void Foam::LagrangianMarker::getCellData

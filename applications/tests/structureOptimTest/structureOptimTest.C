@@ -66,28 +66,36 @@ int main(int argc, char *argv[])
     
     for(label run=0; run<1; run++)
     {
-        scalar a0 = RandomFloat(0,1);
         label k = RandomInt(0,10);
         Info<<"----- Run:"<<run<<" -----:"<<k<<Foam::endl;
 
-        std::vector<scalar> ak(k);
-        std::vector<scalar> bk(k);
+        std::vector<scalar> a0(4);
+        for(scalar& val : a0)
+            val = RandomFloat(0,1);
+        std::vector<std::vector<scalar>> ak(k);
+        std::vector<std::vector<scalar>> bk(k);
         for(label i=0; i<k; i++)
         {
-            ak[i] = RandomFloat(0,1);
-            bk[i] = RandomFloat(0,1);
+            ak[i].resize(4);
+            for(scalar& val : ak[i])
+                val = RandomFloat(0,1);
+            bk[i].resize(4);
+            for(scalar& val : bk[i])
+                val = RandomFloat(0,1);
         }
-        scalar phase = RandomFloat(0,6.2);
-        std::cout<<"a0:"<<a0<<std::endl;
-        std::cout<<"ak: ";
-        for(scalar a: ak)
-            std::cout<<a<<" ";
-        std::cout<<std::endl;
-        std::cout<<"bk: ";
-        for(scalar b: bk)
-            std::cout<<b<<" ";
-        std::cout<<std::endl;
-        std::cout<<"phase:"<<phase<<std::endl;
+        std::vector<scalar> phase(4);
+        for(scalar& val : a0)
+            val = RandomFloat(0,6.2);
+        
+        gsNurbs<scalar> a_0 = Structure::createNurbs(0,1,2,a0);
+        std::vector<gsNurbs<scalar>> a_k(k);
+        std::vector<gsNurbs<scalar>> b_k(k);
+        for(label i=0; i<k; i++)
+        {
+            a_k[i] = Structure::createNurbs(0,1,2,ak[i]);
+            b_k[i] = Structure::createNurbs(0,1,2,bk[i]);
+        }
+        gsNurbs<scalar> phaseShift = Structure::createNurbs(0,1,2,phase);
         
         List<List<vector>> curveCoeffs(1);
         curveCoeffs[0] = List<vector>(4);
@@ -102,8 +110,11 @@ int main(int argc, char *argv[])
         curveCoeffs[0][3] = vector(40+eps,-10+eps,0+eps);
         Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
         
-        std::vector<CrossSection> crossSecList = {CrossSection(a0,ak,bk,phase)};
+        std::vector<CrossSection> crossSecList = {CrossSection(a_0,a_k,b_k,phaseShift)};
         CrossSectionStructure testStructure(mesh,crossSecList,true);
+        testStructure.parameterGradientCheck();
+        
+        /*
         testStructure.selfCheck();
 
         gsNurbs<scalar> derivRotation = testStructure.getCoeffDerivedQuaternions(0,1,0);
@@ -132,6 +143,7 @@ int main(int argc, char *argv[])
         //std::cout<<dQuatdeps<<std::endl;
     
         //testStructure.selfCheck();
+        */
         
         /*
         testStructure.printCurves();

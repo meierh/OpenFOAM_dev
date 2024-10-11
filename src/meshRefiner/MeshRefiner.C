@@ -13,7 +13,8 @@ doRefine(doRefine),
 dynamicMeshDict(dynamicMeshDict),
 fieldRefineDemands("fieldDemands",doRefine),
 markerRefineDemands("markerDemands",doRefine)
-{}
+{
+}
 
 void Foam::MeshRefiner::adaptMesh()
 {
@@ -51,6 +52,7 @@ void Foam::MeshRefiner::refineMeshAndMarkers()
     bool refined = true;
     while(refined)
     {
+        Info<<"Refine mesh and marker iteration"<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {

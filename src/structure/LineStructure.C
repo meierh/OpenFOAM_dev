@@ -986,6 +986,28 @@ Foam::vector Foam::LineStructure::evaluateRodPos
     return r;
 }
 
+Foam::vector Foam::LineStructure::derivateRodPos
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter
+)
+{
+    vector dd1dp,dd2dp,dd3dp,drdp;
+    rodDerivEval(oneRod,parameter,dd1dp,dd2dp,dd3dp,drdp);
+    return drdp;
+}
+
+Foam::vector Foam::LineStructure::derivate2RodPos
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter
+)
+{
+    vector d2d1dp,d2d2dp,d2d3dp,d2rdp;
+    rodDeriv2Eval(oneRod,parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+    return d2rdp;
+}
+
 Foam::scalar Foam::LineStructure::distance
 (
     const ActiveRodMesh::rodCosserat* oneRod,   
@@ -1047,6 +1069,7 @@ Foam::scalar Foam::LineStructure::bisectionBinary
     return 0.5*(startValue+endValue);
 }
 
+/*
 Foam::scalar Foam::LineStructure::characteristicSize
 (
     label rodNumber,
@@ -1055,6 +1078,7 @@ Foam::scalar Foam::LineStructure::characteristicSize
 {
     FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
 }
+*/
 
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 (
@@ -1498,6 +1522,62 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerAngle[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerRadiusFrac[process][haloCellInd].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac[process][haloCellInd] size error"<<exit(FatalError);
+}
+
+void Foam::LineStructure::parameterGradientCheck() const
+{
+    Structure::parameterGradientCheck();
+    Info<<"LineStructure::parameterGradientCheck"<<Foam::endl;
+    
+    scalar nbrSteps = 20;
+    scalar epsilon = 1e-4;
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        scalar domainStart = this->domainStart(rodNumber)+5*epsilon;
+        scalar domainEnd = this->domainEnd(rodNumber)-5*epsilon;
+        scalar delta = domainEnd-domainStart;
+        scalar stepsize = delta/nbrSteps;
+        for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
+        {
+            //Info<<"parameter:"<<parameter<<Foam::endl;
+            
+            // Compute gradients
+            vector drdp = derivateRodPos(Rods[rodNumber],parameter);
+            vector d2rdp = derivate2RodPos(Rods[rodNumber],parameter);
+            
+            // Lower value
+            scalar lower_parameter = parameter-epsilon;
+            vector lower_r = evaluateRodPos(Rods[rodNumber],lower_parameter);
+            vector lower_drdp = derivateRodPos(Rods[rodNumber],lower_parameter);
+            
+            // Upper value
+            scalar upper_parameter = parameter+epsilon;
+            vector upper_r = evaluateRodPos(Rods[rodNumber],upper_parameter);
+            vector upper_drdp = derivateRodPos(Rods[rodNumber],upper_parameter);
+            
+            vector fd_drdp = (upper_r-lower_r)/(2*epsilon);
+            vector fd_d2rdp = (upper_drdp-lower_drdp)/(2*epsilon);
+                        
+            if(vectorDistance(fd_drdp,drdp)>epsilon)
+            {
+                Info<<"parameter:"<<parameter<<Foam::endl;
+                Info<<"drdp:"<<drdp<<Foam::endl;
+                Info<<"lower_r:"<<lower_r<<Foam::endl;
+                Info<<"upper_r:"<<upper_r<<Foam::endl;
+                Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
+            }
+            if(vectorDistance(fd_d2rdp,d2rdp)>epsilon)
+            {
+                Info<<"parameter:"<<parameter;//<<Foam::endl;
+                Info<<" d2rdp:"<<d2rdp;//<<Foam::endl;
+                //Info<<"lower_drdp:"<<lower_drdp<<Foam::endl;
+                //Info<<"upper_drdp:"<<upper_drdp<<Foam::endl;
+                Info<<" fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
+                //FatalErrorInFunction<<"Error"<<exit(FatalError);
+            }      
+        }
+    }
 }
 
 void Foam::LineStructure::selfCheck()

@@ -210,6 +210,19 @@ Foam::Rotation Foam::Rotation::operator-
     return result;
 }
 
+Foam::Rotation Foam::Rotation::operator+
+(
+    Rotation const& R
+) const
+{
+    Rotation result;
+    for(label d=0; d<3; d++)
+    {
+        result.T[d] = (T[d]+R.T[d]); 
+    }
+    return result;
+}
+
 bool Foam::Rotation::operator!=
 (
     Rotation const& R
@@ -258,9 +271,9 @@ Foam::Ostream& Foam::operator<<
     return os << m.T;
 }
 
-Foam::Rotation Foam::Rotation::compute_dRdC
+Foam::Rotation Foam::Rotation::compute_dRdX
 (
-    const Quaternion& dqdC,
+    const Quaternion& dqdX,
     const Quaternion& q
 )
 {   
@@ -275,10 +288,10 @@ Foam::Rotation Foam::Rotation::compute_dRdC
         for(label dim=0; dim<3; dim++)
         {
             ddkdC[dim] = 0;
-            ddkdC[dim] += dRkdq[0][dim] * dqdC.qw();
-            ddkdC[dim] += dRkdq[1][dim] * dqdC.qx();
-            ddkdC[dim] += dRkdq[2][dim] * dqdC.qy();
-            ddkdC[dim] += dRkdq[3][dim] * dqdC.qz();
+            ddkdC[dim] += dRkdq[0][dim] * dqdX.qw();
+            ddkdC[dim] += dRkdq[1][dim] * dqdX.qx();
+            ddkdC[dim] += dRkdq[2][dim] * dqdX.qy();
+            ddkdC[dim] += dRkdq[3][dim] * dqdX.qz();
         }
     }
     return dRdC;
@@ -305,6 +318,58 @@ Foam::FixedList<Foam::FixedList<Foam::vector,4>,3> Foam::Rotation::compute_dRdq
         dd3dq[0][2]= 2*q.qw(); dd3dq[1][2]=-2*q.qx(); dd3dq[2][2]=-2*q.qy(); dd3dq[3][2]= 2*q.qz();
         
     return {dd1dq,dd2dq,dd3dq};
+}
+
+Foam::Rotation Foam::Rotation::compute_d2RdX
+(
+    const Quaternion& d2qdX,
+    const Quaternion& dqdX,
+    const Quaternion& q
+)
+{      
+    const FixedList<FixedList<vector,4>,3> d2Rdq = compute_d2Rdq(q);
+ 
+    Rotation d2RdX;
+    std::vector<vector*> d2dkdXPtr = {&(d2RdX.T[0]),&(d2RdX.T[1]),&(d2RdX.T[2])};
+    for(label dk=0; dk<3; dk++)
+    {
+        const FixedList<vector,4>& d2Rkdq = d2Rdq[dk];
+        vector& d2dkdX = *(d2dkdXPtr[dk]);
+        for(label dim=0; dim<3; dim++)
+        {
+            d2dkdX[dim] = 0;
+            d2dkdX[dim] += d2Rkdq[0][dim] * (dqdX.qw()*dqdX.qw());
+            d2dkdX[dim] += d2Rkdq[1][dim] * (dqdX.qx()*dqdX.qx());
+            d2dkdX[dim] += d2Rkdq[2][dim] * (dqdX.qy()*dqdX.qy());
+            d2dkdX[dim] += d2Rkdq[3][dim] * (dqdX.qz()*dqdX.qz());
+        }
+    }
+    
+    d2RdX = d2RdX + compute_dRdX(d2qdX,q);
+    return d2RdX;
+}
+
+Foam::FixedList<Foam::FixedList<Foam::vector,4>,3> Foam::Rotation::compute_d2Rdq
+(
+    const Quaternion& q
+)
+{
+    FixedList<vector,4> d2d1dq;
+        d2d1dq[0][0]= 2; d2d1dq[1][0]= 2; d2d1dq[2][0]=-2; d2d1dq[3][0]=-2;
+        d2d1dq[0][1]= 0; d2d1dq[1][1]= 0; d2d1dq[2][1]= 0; d2d1dq[3][1]= 0;
+        d2d1dq[0][2]= 0; d2d1dq[1][2]= 0; d2d1dq[2][2]= 0; d2d1dq[3][2]= 0;
+    
+    FixedList<vector,4> d2d2dq;
+        d2d2dq[0][0]= 0; d2d2dq[1][0]= 0; d2d2dq[2][0]= 0; d2d2dq[3][0]= 0;
+        d2d2dq[0][1]= 2; d2d2dq[1][1]=-2; d2d2dq[2][1]= 2; d2d2dq[3][1]=-2;
+        d2d2dq[0][2]= 0; d2d2dq[1][2]= 0; d2d2dq[2][2]= 0; d2d2dq[3][2]= 0;
+        
+    FixedList<vector,4> d2d3dq;
+        d2d3dq[0][0]= 0; d2d3dq[1][0]= 0; d2d3dq[2][0]= 0; d2d3dq[3][0]= 0;
+        d2d3dq[0][1]= 0; d2d3dq[1][1]= 0; d2d3dq[2][1]= 0; d2d3dq[3][1]= 0;
+        d2d3dq[0][2]= 2; d2d3dq[1][2]=-2; d2d3dq[2][2]=-2; d2d3dq[3][2]= 2;
+        
+    return {d2d1dq,d2d2dq,d2d3dq};
 }
 
 Foam::Structure::Structure
@@ -993,6 +1058,9 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
     for(uint i=0; i<coefficients.size(); i++)
         cCoeff.at(i) = coefficients[i];
     Info<<"Generated coefficients"<<Foam::endl;
+    std::cout<<"cKnots:"<<cKnots<<std::endl;
+    std::cout<<"cWeight:"<<cWeight<<std::endl;
+    std::cout<<"cCoeff:"<<cCoeff<<std::endl;
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
 }
 
@@ -1017,6 +1085,59 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
         }
     }            
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
+}
+
+gsNurbs<Foam::scalar> Foam::Structure::createNurbs
+(
+    scalar domainStart,
+    scalar domainEnd,
+    uint degree,
+    std::vector<scalar> coefficients
+)
+{
+    std::vector<scalar> knots = computeUniformKnots(degree,coefficients.size(),domainStart,domainEnd);
+    std::vector<scalar> weights(coefficients.size());
+    std::fill(weights.begin(),weights.end(),1);
+    return createNurbs(knots,degree,weights,coefficients);
+}
+
+gsNurbs<Foam::scalar> Foam::Structure::createNurbs
+(
+    scalar domainStart,
+    scalar domainEnd,
+    uint degree,
+    std::vector<vector> coefficients
+)
+{
+    std::vector<scalar> knots = computeUniformKnots(degree,coefficients.size(),domainStart,domainEnd);
+    std::vector<scalar> weights(coefficients.size());
+    std::fill(weights.begin(),weights.end(),1);
+    return createNurbs(knots,degree,weights,coefficients);
+}
+
+std::vector<Foam::scalar> Foam::Structure::computeUniformKnots
+(
+    uint degree,
+    uint nbrCoefficients,
+    scalar domainStart,
+    scalar domainEnd
+)
+{
+    std::vector<scalar> knots;
+    scalar deltaSpan = domainEnd-domainStart;
+    label centerCoeffs = nbrCoefficients-degree;
+    scalar stepsize = deltaSpan/(centerCoeffs);
+    
+    for(uint p=0; p<=degree; p++)
+        knots.push_back(domainStart);
+    
+    for(uint i=0; i<centerCoeffs-1; i++)
+        knots.push_back(knots.back()+stepsize);
+    
+    for(uint p=0; p<=degree; p++)
+        knots.push_back(domainEnd);
+
+    return gsKnotVector<Foam::scalar>(knots);
 }
 
 void Foam::Structure::fitNurbsCoeffsToPoints
@@ -1506,6 +1627,32 @@ void Foam::Structure::rodEval
     rodEval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,d1,d2,d3,r);
 }
 
+void Foam::Structure::rodDerivEval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter,
+    vector& dd1dp,
+    vector& dd2dp,
+    vector& dd3dp,
+    vector& drdp
+)
+{
+    rodDerivEval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,dd1dp,dd2dp,dd3dp,drdp);
+}
+
+void Foam::Structure::rodDeriv2Eval
+(
+    const ActiveRodMesh::rodCosserat* rod,
+    scalar parameter,
+    vector& d2d1dp,
+    vector& d2d2dp,
+    vector& d2d3dp,
+    vector& d2rdp
+)
+{
+    rodDeriv2Eval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+}
+
 void Foam::Structure::rodEval
 (
     const ActiveRodMesh::rodCosserat* rod,
@@ -1571,6 +1718,92 @@ void Foam::Structure::rodEval
     r = vector(pnt(0,0),pnt(1,0),pnt(2,0));
 }
 
+void Foam::Structure::rodDerivEval
+(
+    const gsNurbs<scalar>& curve,
+    const gsNurbs<scalar>& def,
+    const gsNurbs<scalar>& rot,
+    scalar parameter,
+    vector& dd1dp,
+    vector& dd2dp,
+    vector& dd3dp,
+    vector& drdp
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+        
+    gsMatrix<scalar> basePnt;
+    curve.deriv_into(parMat,basePnt);
+
+    gsMatrix<scalar> defPnt;
+    def.deriv_into(parMat,defPnt);
+    
+    gsMatrix<scalar> pnt = basePnt+defPnt;    
+    drdp = vector(pnt(0,0),pnt(1,0),pnt(2,0));
+
+    gsMatrix<scalar> rotQuat;
+    rot.eval_into(parMat,rotQuat);
+    Quaternion q(rotQuat);
+    
+    gsMatrix<scalar> drotQuatdp = evalNurbsDeriv(rot,parameter);
+    Quaternion dqdp(drotQuatdp);
+    
+    Rotation dRdp = Rotation::compute_dRdX(dqdp,q);
+    
+    dd1dp = dRdp.get_d1();
+    dd2dp = dRdp.get_d2();
+    dd3dp = dRdp.get_d3();
+}
+
+void Foam::Structure::rodDeriv2Eval
+(
+    const gsNurbs<scalar>& curve,
+    const gsNurbs<scalar>& def,
+    const gsNurbs<scalar>& rot,
+    scalar parameter,
+    vector& d2d1dp,
+    vector& d2d2dp,
+    vector& d2d3dp,
+    vector& d2rdp
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    //std::cout<<"-------------Start----------------------"<<parameter<<std::endl;
+    //std::cout<<"curve:"<<curve<<std::endl;
+    //std::cout<<"def:"<<def<<std::endl;
+    //std::cout<<"rot:"<<rot<<std::endl;
+        
+    gsMatrix<scalar> basePnt = evalNurbsDeriv2(curve,parameter);
+
+    gsMatrix<scalar> defPnt = evalNurbsDeriv2(def,parameter);
+    
+    //std::cout<<"basePnt:"<<basePnt<<std::endl;
+    //std::cout<<"defPnt:"<<defPnt<<std::endl;
+    
+    gsMatrix<scalar> pnt = basePnt+defPnt;    
+    d2rdp = vector(pnt(0,0),pnt(1,0),pnt(2,0));
+
+    gsMatrix<scalar> rotQuat;
+    rot.eval_into(parMat,rotQuat);
+    Quaternion q(rotQuat);
+    
+    gsMatrix<scalar> drotQuatdp = evalNurbsDeriv(rot,parameter);
+    Quaternion dqdp(drotQuatdp);
+    
+    gsMatrix<scalar> d2rotQuatdp = evalNurbsDeriv2(rot,parameter);
+    Quaternion d2qdp(d2rotQuatdp);
+    
+    Rotation d2Rdp = Rotation::compute_d2RdX(d2qdp,dqdp,q);
+    
+    d2d1dp = d2Rdp.get_d1();
+    d2d2dp = d2Rdp.get_d2();
+    d2d3dp = d2Rdp.get_d3();
+    //std::cout<<"--------------End---------------------"<<std::endl;
+}
+
 Foam::Quaternion Foam::Structure::m_Rot_Eval
 (
     label rodNumber,
@@ -1623,6 +1856,79 @@ Foam::List<Foam::Rotation> Foam::Structure::getRotationCurveCoefs
         rotations[coefNbr] = Rotation(Quaternion(gsQ));
     }
     return rotations;
+}
+
+gsMatrix<Foam::scalar> Foam::Structure::evalNurbsDeriv
+(
+    const gsNurbs<scalar>& nurbs,
+    scalar parameter
+)
+{
+    bool fdDiff=false;
+    if(nurbs.knots().has(parameter))
+    {
+        label p = nurbs.basis().minDegree();
+        label multKnot = nurbs.knots().multiplicity(parameter);
+        label differentiabilityTo = p-multKnot;
+        if(differentiabilityTo<1)
+            fdDiff=true;
+    }
+    
+    if(!fdDiff)
+    {
+        gsMatrix<scalar> parMat(1,1);
+        parMat.at(0) = parameter;        
+        gsMatrix<scalar> basePnt;
+        nurbs.deriv_into(parMat,basePnt);
+        return basePnt;
+    }
+    else
+    {
+        gsMatrix<scalar> parMat(1,1);
+        parMat.at(0) = parameter+0.00001;        
+        gsMatrix<scalar> upperPnt;
+        nurbs.eval_into(parMat,upperPnt);
+        parMat.at(0) = parameter-0.00001;        
+        gsMatrix<scalar> lowerPnt;
+        nurbs.eval_into(parMat,lowerPnt);
+        gsMatrix<scalar> basePnt = upperPnt-lowerPnt;
+        basePnt /= 0.00002;
+        return basePnt;
+    }
+}
+
+gsMatrix<Foam::scalar> Foam::Structure::evalNurbsDeriv2
+(
+    const gsNurbs<scalar>& nurbs,
+    scalar parameter
+)
+{
+    bool fdDiff=false;
+    if(nurbs.knots().has(parameter))
+    {
+        label p = nurbs.basis().minDegree();
+        label multKnot = nurbs.knots().multiplicity(parameter);
+        label differentiabilityTo = p-multKnot;
+        if(differentiabilityTo<1)
+            fdDiff=true;
+    }
+    
+    if(!fdDiff)
+    {
+        gsMatrix<scalar> parMat(1,1);
+        parMat.at(0) = parameter;        
+        gsMatrix<scalar> basePnt;
+        nurbs.deriv2_into(parMat,basePnt);
+        return basePnt;
+    }
+    else
+    {       
+        gsMatrix<scalar> upperPnt = evalNurbsDeriv(nurbs,parameter+0.00001);       
+        gsMatrix<scalar> lowerPnt = evalNurbsDeriv(nurbs,parameter-0.00001);
+        gsMatrix<scalar> basePnt = upperPnt-lowerPnt;
+        basePnt /= 0.00002;
+        return basePnt;
+    }
 }
 
 void Foam::Structure::constructCoeffDerivedData()
@@ -1850,7 +2156,7 @@ void Foam::Structure::rodEvalDerivCoeff
 
     const Quaternion defQ_inidQdC = defQ*dQdC;
     
-    const Rotation dRdC = Rotation::compute_dRdC(defQ_inidQdC,totalQ);
+    const Rotation dRdC = Rotation::compute_dRdX(defQ_inidQdC,totalQ);
     
     d1dC = dRdC.get_d1();
     d2dC = dRdC.get_d2();
@@ -2629,7 +2935,7 @@ void Foam::Structure::transformationCheck()
                     // Compute gradients
                     vector drdC = get_drdC(rodNumber,curveCoeffs,coefDim,parameter);
                     Quaternion dqdC = get_coeffDerivQuaternions(rodNumber,curveCoeffs,coefDim,parameter);
-                    Rotation dRdC = Rotation::compute_dRdC(dqdC,get_Quaternions(rodNumber,parameter));
+                    Rotation dRdC = Rotation::compute_dRdX(dqdC,get_Quaternions(rodNumber,parameter));
                     
                     // Get basic value of coefficient
                     scalar coeffBasicValue = getCurveCoeff(rodNumber,curveCoeffs,coefDim);
@@ -2703,10 +3009,103 @@ void Foam::Structure::transformationCheck()
     }
 }
 
+void Foam::Structure::parameterGradientCheck() const
+{
+    Info<<"Structure::parameterGradientCheck"<<Foam::endl;
+
+    scalar nbrSteps = 20;
+    scalar epsilon = 1e-4;
+    for(label rodNumber=0; rodNumber<nR; rodNumber++)
+    {
+        //printOutFile<<"rodNumber:"<<rodNumber<<Foam::endl;
+        scalar domainStart = this->domainStart(rodNumber)+5*epsilon;
+        scalar domainEnd = this->domainEnd(rodNumber)-5*epsilon;
+        scalar delta = domainEnd-domainStart;
+        scalar stepsize = delta/nbrSteps;
+        for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
+        {
+            //Info<<"parameter:"<<parameter<<Foam::endl;
+            // Compute gradients
+            vector dd1dp, dd2dp, dd3dp, drdp;
+            rodDerivEval(Rods[rodNumber],parameter,dd1dp,dd2dp,dd3dp,drdp);
+            Rotation dRdp(dd1dp,dd2dp,dd3dp);
+            vector d2d1dp, d2d2dp, d2d3dp, d2rdp;
+            rodDeriv2Eval(Rods[rodNumber],parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+            Rotation d2Rdp(dd1dp,dd2dp,dd3dp);
+            
+            // Lower value
+            scalar lower_parameter = parameter-epsilon;
+            vector lower_d1,lower_d2,lower_d3,lower_r;
+            rodEval(Rods[rodNumber],lower_parameter,lower_d1,lower_d2,lower_d3,lower_r);
+            Rotation lower_R(lower_d1,lower_d2,lower_d3);
+            vector lower_dd1dp, lower_dd2dp, lower_dd3dp, lower_drdp;
+            rodDerivEval(Rods[rodNumber],lower_parameter,lower_dd1dp,lower_dd2dp,lower_dd3dp,lower_drdp);
+            Rotation lower_dRdp(lower_dd1dp,lower_dd2dp,lower_dd3dp);
+            
+            // Upper value
+            scalar upper_parameter = parameter+epsilon;
+            vector upper_d1,upper_d2,upper_d3,upper_r;
+            rodEval(Rods[rodNumber],upper_parameter,upper_d1,upper_d2,upper_d3,upper_r);
+            Rotation upper_R(upper_d1,upper_d2,upper_d3);
+            vector upper_dd1dp, upper_dd2dp, upper_dd3dp, upper_drdp;
+            rodDerivEval(Rods[rodNumber],upper_parameter,upper_dd1dp,upper_dd2dp,upper_dd3dp,upper_drdp);
+            Rotation upper_dRdp(upper_dd1dp,upper_dd2dp,upper_dd3dp);
+            
+            vector fd_drdp = (upper_r-lower_r)/(2*epsilon);
+            Rotation fd_dRdp = (upper_R-lower_R)/(2*epsilon);
+            vector fd_d2rdp = (upper_drdp-lower_drdp)/(2*epsilon);
+            Rotation fd_d2Rdp = (upper_dRdp-lower_dRdp)/(2*epsilon);
+            
+            scalar error_dRdp = dRdp.distanceNorm2(fd_dRdp);
+            scalar error_d2Rdp = d2Rdp.distanceNorm2(fd_d2Rdp);
+                        
+            if(vectorDistance(fd_drdp,drdp)>epsilon)
+            {
+                Info<<"parameter:"<<parameter<<Foam::endl;
+                Info<<"drdp:"<<drdp<<Foam::endl;
+                Info<<"lower_r:"<<lower_r<<Foam::endl;
+                Info<<"upper_r:"<<upper_r<<Foam::endl;
+                Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
+            }
+            if(vectorDistance(fd_d2rdp,d2rdp)>epsilon)
+            {
+                Info<<"parameter:"<<parameter;//<<Foam::endl;
+                //Info<<"lower_parameter:"<<lower_parameter<<Foam::endl;
+                //Info<<"upper_parameter:"<<upper_parameter<<Foam::endl;
+                Info<<" d2rdp:"<<d2rdp;//<<Foam::endl;
+                //Info<<"lower_drdp:"<<lower_drdp<<Foam::endl;
+                //Info<<"upper_drdp:"<<upper_drdp<<Foam::endl;
+                Info<<" fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
+                //FatalErrorInFunction<<"Error"<<exit(FatalError);
+            }
+            if(error_dRdp>epsilon)
+            {
+                Info<<"parameter:"<<parameter<<Foam::endl;
+                Info<<"dRdp:"<<dRdp<<Foam::endl;
+                Info<<"lower_R:"<<lower_R<<Foam::endl;
+                Info<<"upper_R:"<<upper_R<<Foam::endl;
+                Info<<"fd_dRdp:"<<fd_dRdp<<Foam::endl;
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
+            }
+            if(error_d2Rdp>epsilon)
+            {
+                Info<<"parameter:"<<parameter<<Foam::endl;
+                Info<<"d2Rdp:"<<d2Rdp<<Foam::endl;
+                Info<<"lower_dRdp:"<<lower_dRdp<<Foam::endl;
+                Info<<"upper_dRdp:"<<upper_dRdp<<Foam::endl;
+                Info<<"fd_d2Rdp:"<<fd_d2Rdp<<Foam::endl;
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
+            }            
+        }
+    }
+}
+
 void Foam::Structure::selfCheck()
 {
     quaternionCheck();
     transformationCheck();
+    
     FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     
     Info<<"-----------Structure derivatives-----------"<<Foam::endl;    

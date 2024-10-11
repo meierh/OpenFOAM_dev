@@ -160,6 +160,24 @@ Foam::scalar Foam::CrossSection::computePhaseShift(scalar parameter) const
     return phaseShiftM.at(0);
 }
 
+Foam::scalar Foam::CrossSection::computePhaseShiftDeriv(scalar parameter) const
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    gsMatrix<scalar> phaseShiftM;
+    phaseShift.deriv_into(parMat,phaseShiftM);
+    return phaseShiftM.at(0);
+}
+
+Foam::scalar Foam::CrossSection::computePhaseShiftDeriv2(scalar parameter) const
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    gsMatrix<scalar> phaseShiftM;
+    phaseShift.deriv2_into(parMat,phaseShiftM);
+    return phaseShiftM.at(0);
+}
+
 Foam::scalar Foam::CrossSection::operator()(scalar parameter,scalar angle) const
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
@@ -172,14 +190,10 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getEvalOnPoint(sca
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
     
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-
     scalar a0Coeff;
     gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
     a0Coeff = a0CoeffI.at(0);
-    
-    //Info<<"a0Coeff:"<<a0Coeff<<Foam::endl;
-    
+        
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
     for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
     {
@@ -221,15 +235,7 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoi
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
-    
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-
-    scalar a0Coeff;
-    gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
-    a0Coeff = a0CoeffI.at(0);
-    
-    //Info<<"a0Coeff:"<<a0Coeff<<Foam::endl;
-    
+        
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
     for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
     {
@@ -244,12 +250,9 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoi
         bCoeffs->push_back(bCoeffI.at(0));
     }
     
-    scalar phShift;
-    gsMatrix<scalar> phaseShiftM = phaseShift.eval(parMat);
-    phShift = phaseShiftM.at(0);
+    scalar phShift = computePhaseShift(parameter);
     
-    //Info<<"parameter:"<<parameter<<Foam::endl;
-    return [num_Coeff=numberCoeffs,a_0=a0Coeff,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
+    return [num_Coeff=numberCoeffs,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
     {
         scalar value = 0;
         for(uint coeffI=0; coeffI<num_Coeff; coeffI++)
@@ -260,6 +263,299 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoi
         }
         return value;
     };
+}
+
+Foam::scalar Foam::CrossSection::deriv2_angle(scalar parameter,scalar angle) const
+{
+    //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
+    std::function<scalar(scalar)> deriv2OnPoint = getDeriv2AngleOnPoint(parameter);
+    return deriv2OnPoint(angle);
+}
+
+std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDeriv2AngleOnPoint(scalar parameter) const
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+        
+    auto aCoeffs = std::make_shared<std::vector<scalar>>();
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
+        aCoeffs->push_back(aCoeffI.at(0));
+    }
+    
+    auto bCoeffs = std::make_shared<std::vector<scalar>>();
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
+        bCoeffs->push_back(bCoeffI.at(0));
+    }
+    
+    scalar phShift = computePhaseShift(parameter);
+    
+    return [num_Coeff=numberCoeffs,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
+    {
+        scalar value = 0;
+        for(uint coeffI=0; coeffI<num_Coeff; coeffI++)
+        {
+            label k=coeffI+1;
+            value += -(*a_k)[coeffI]*std::cos(k*angle+pS)*(k*k);
+            value += -(*b_k)[coeffI]*std::sin(k*angle+pS)*(k*k);
+        }
+        return value;
+    };
+}
+
+Foam::scalar Foam::CrossSection::deriv_para(scalar parameter, scalar angle) const
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    gsMatrix<scalar> gs_da0dp = a_0.deriv(parMat);
+    scalar da0dp = gs_da0dp.at(0);
+    
+    std::vector<scalar> ak;
+    std::vector<scalar> dakdp;
+    std::vector<scalar> bk;
+    std::vector<scalar> dbkdp;
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        gsMatrix<scalar> gs_ak = a_k[coeffI].eval(parMat);
+        ak.push_back(gs_ak.at(0));
+        dakdp.push_back(Structure::evalNurbsDeriv(a_k[coeffI],parameter).at(0));
+        
+        gsMatrix<scalar> gs_bk = b_k[coeffI].eval(parMat);
+        bk.push_back(gs_bk.at(0));
+        dbkdp.push_back(Structure::evalNurbsDeriv(b_k[coeffI],parameter).at(0));
+    }
+
+    scalar ph = computePhaseShift(parameter);
+    scalar dphdp = computePhaseShiftDeriv(parameter);
+    
+    scalar value = 0;
+    
+    // value += d2a0dp/2
+    value += 0.5*da0dp;
+
+    // value += sum_k [ dakdp*cos(k*angle+ph) + dbkdp*sin(k*angle+ph) ]
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value +=              (dakdp[coeffI]*std::cos(k*angle+ph) + dbkdp[coeffI]*std::sin(k*angle+ph));
+    }
+    
+    // value += sum_k dphdp*[ -ak*sin(k*angle+ph) + bk*cos(k*angle+ph) ]
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += dphdp*     (-ak[coeffI]*std::sin(k*angle+ph) + bk[coeffI]*std::cos(k*angle+ph));
+    }
+    
+    /*
+    // value += da0dp/2 + sum_k [ dakdp*cos(k*angle+phase) + dbkdp*sin(k*angle+phase) ]
+    scalar da0Coeffdp;
+    gsMatrix<scalar> a0CoeffI;
+    a_0.deriv_into(parMat,a0CoeffI);
+    da0Coeffdp = a0CoeffI.at(0);
+    std::vector<scalar> daCoeffsdp;
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> aCoeffI;
+        a_k[coeffI].deriv_into(parMat,aCoeffI);
+        daCoeffsdp.push_back(aCoeffI.at(0));
+    }
+    std::vector<scalar> dbCoeffsdp;
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> bCoeffI;
+        b_k[coeffI].deriv_into(parMat,bCoeffI);
+        dbCoeffsdp.push_back(bCoeffI.at(0));
+    }
+    scalar phShift = computePhaseShift(parameter);
+    scalar value = da0Coeffdp/2;
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += daCoeffsdp[coeffI]*std::cos(k*angle+phShift);
+        value += dbCoeffsdp[coeffI]*std::sin(k*angle+phShift);
+    }
+    
+    // value += sum_k [ -ak*sin(k*angle+phase)*dphasedp + bk*cos(k*angle+phase)*dphasedp ]
+    std::vector<scalar> aCoeffs;
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> aCoeffI;
+        a_k[coeffI].deriv_into(parMat,aCoeffI);
+        aCoeffs.push_back(aCoeffI.at(0));
+    }    
+    std::vector<scalar> bCoeffs;
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> bCoeffI;
+        b_k[coeffI].deriv_into(parMat,bCoeffI);
+        bCoeffs.push_back(bCoeffI.at(0));
+    }    
+    scalar dphShiftdp = computePhaseShiftDeriv(parameter);
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += aCoeffs[coeffI]*(-1)*std::sin(k*angle+phShift)*dphShiftdp;
+        value += bCoeffs[coeffI]*std::cos(k*angle+phShift)*dphShiftdp;
+    }
+    */
+    
+    return value;
+}
+
+Foam::scalar Foam::CrossSection::deriv2_para(scalar parameter, scalar angle) const
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+    gsMatrix<scalar> gs_d2a0dp = a_0.deriv2(parMat);
+    scalar d2a0dp = gs_d2a0dp.at(0);
+    
+    std::vector<scalar> ak;
+    std::vector<scalar> dakdp;
+    std::vector<scalar> d2akdp;
+    std::vector<scalar> bk;
+    std::vector<scalar> dbkdp;
+    std::vector<scalar> d2bkdp;
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        gsMatrix<scalar> gs_ak = a_k[coeffI].eval(parMat);
+        ak.push_back(gs_ak.at(0));
+        dakdp.push_back(Structure::evalNurbsDeriv(a_k[coeffI],parameter).at(0));
+        d2akdp.push_back(Structure::evalNurbsDeriv2(a_k[coeffI],parameter).at(0));
+        
+        gsMatrix<scalar> gs_bk = b_k[coeffI].eval(parMat);
+        bk.push_back(gs_bk.at(0));
+        dbkdp.push_back(Structure::evalNurbsDeriv(b_k[coeffI],parameter).at(0));
+        d2bkdp.push_back(Structure::evalNurbsDeriv2(b_k[coeffI],parameter).at(0));
+    }
+
+    scalar ph = computePhaseShift(parameter);
+    scalar dphdp = computePhaseShiftDeriv(parameter);
+    scalar d2phdp = computePhaseShiftDeriv2(parameter);
+    
+    scalar value = 0;
+    
+    // value += d2a0dp/2
+    value += 0.5*d2a0dp;
+
+    // value += sum_k [ d2akdp*cos(k*angle+ph) + d2bkdp*sin(k*angle+ph) ]
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value +=              (d2akdp[coeffI]*std::cos(k*angle+ph) + d2bkdp[coeffI]*std::sin(k*angle+ph));
+    }
+    
+    // value += sum_k 2*dphdp*[ -dakdp*sin(k*angle+ph) + dbkdp*cos(k*angle+ph) ]
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += 2*dphdp*     (-dakdp[coeffI]*std::sin(k*angle+ph) + dbkdp[coeffI]*std::cos(k*angle+ph));
+    }
+    
+    // value += sum_k dphdp²*[ -ak*cos(k*angle+ph) - bk*sin(k*angle+ph) ]
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += dphdp*dphdp* (-ak[coeffI]*std::cos(k*angle+ph) - bk[coeffI]*std::sin(k*angle+ph));
+    }
+    
+    // value += sum_k d2phdp*[ ak*cos(k*angle+ph) + bk*sin(k*angle+ph) ]
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += d2phdp*      (-ak[coeffI]*std::sin(k*angle+ph) + bk[coeffI]*std::cos(k*angle+ph));
+    }
+    
+    /*
+    // value += d2a0dp/2 + sum_k [ d2akdp*cos(k*angle+phase) + d2bkdp*sin(k*angle+phase) ]
+    scalar d2a0Coeffdp;
+    gsMatrix<scalar> a0CoeffI;
+    a_0.deriv2_into(parMat,a0CoeffI);
+    d2a0Coeffdp = a0CoeffI.at(0);
+    std::vector<scalar> d2aCoeffsdp;
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> aCoeffI;
+        a_k[coeffI].deriv2_into(parMat,aCoeffI);
+        d2aCoeffsdp.push_back(aCoeffI.at(0));
+    }
+    std::vector<scalar> d2bCoeffsdp;
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> bCoeffI;
+        b_k[coeffI].deriv2_into(parMat,bCoeffI);
+        d2bCoeffsdp.push_back(bCoeffI.at(0));
+    }
+    scalar phShift = computePhaseShift(parameter);
+    scalar value = d2a0Coeffdp/2;
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += d2aCoeffsdp[coeffI]*std::cos(k*angle+phShift);
+        value += d2bCoeffsdp[coeffI]*std::sin(k*angle+phShift);
+    }
+
+    // value += 2* sum_k [ -dakdp*sin(k*angle+phase)*dphasedp + dbkdp*cos(k*angle+phase)*dphasedp ]
+    std::vector<scalar> daCoeffsdp;
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> aCoeffI;
+        a_k[coeffI].deriv_into(parMat,aCoeffI);
+        daCoeffsdp.push_back(aCoeffI.at(0));
+    }    
+    std::vector<scalar> dbCoeffsdp;
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> bCoeffI;
+        b_k[coeffI].deriv_into(parMat,bCoeffI);
+        dbCoeffsdp.push_back(bCoeffI.at(0));
+    }    
+    scalar dphShiftdp = computePhaseShiftDeriv(parameter);
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += 2*daCoeffsdp[coeffI]*(-1)*std::sin(k*angle+phShift)*dphShiftdp;
+        value += 2*dbCoeffsdp[coeffI]*std::cos(k*angle+phShift)*dphShiftdp;
+    }
+    
+    // value += sum_k [ -ak*cos(k*angle+phase)*dphasedp² - bk*sin(k*angle+phase)*dphasedp² ]
+    std::vector<scalar> aCoeffs;
+    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> aCoeffI;
+        a_k[coeffI].deriv_into(parMat,aCoeffI);
+        aCoeffs.push_back(aCoeffI.at(0));
+    }    
+    std::vector<scalar> bCoeffs;
+    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+    {
+        gsMatrix<scalar> bCoeffI;
+        b_k[coeffI].deriv_into(parMat,bCoeffI);
+        bCoeffs.push_back(bCoeffI.at(0));
+    }    
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += aCoeffs[coeffI]*(-1)*std::cos(k*angle+phShift)*dphShiftdp*dphShiftdp;
+        value += bCoeffs[coeffI]*(-1)*std::sin(k*angle+phShift)*dphShiftdp*dphShiftdp;
+    }
+    
+    // value += sum_k [ -ak*sin(k*angle+phase)*d2phasedp + bk*cos(k*angle+phase)*d2phasedp ]
+    scalar d2phShiftdp = computePhaseShiftDeriv2(parameter);
+    for(uint coeffI=0; coeffI<numberCoeffs; coeffI++)
+    {
+        label k=coeffI+1;
+        value += aCoeffs[coeffI]*(-1)*std::sin(k*angle+phShift)*d2phShiftdp;
+        value += bCoeffs[coeffI]*std::cos(k*angle+phShift)*d2phShiftdp;
+    }
+    */
+    
+    return value;
 }
 
 void Foam::CrossSection::print()

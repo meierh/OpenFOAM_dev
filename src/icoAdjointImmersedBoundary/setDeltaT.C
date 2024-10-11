@@ -21,49 +21,54 @@ License
     You should have received a copy of the GNU General Public License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
-Application
-    structureOptimTest
-
-Description
-    Testing of derivative rod methods
-
 \*---------------------------------------------------------------------------*/
 
-#include "argList.H"
-#include "icoAdjointImmersedBoundary.H"
-
-using namespace Foam;
+#include "setDeltaT.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-scalar RandomFloat(scalar lower, scalar upper)
+void Foam::setDeltaT(Time& runTime, const solver& solver)
 {
-    scalar random = static_cast<scalar>(rand()) / static_cast<scalar>(RAND_MAX);
-    scalar diff = upper - lower;
-    scalar delta = random * diff;
-    return lower + delta;
+    if
+    (
+        runTime.timeIndex() == 0
+     && runTime.controlDict().lookupOrDefault("adjustTimeStep", false)
+     && solver.transient()
+    )
+    {
+        const scalar deltaT =
+            min(solver.maxDeltaT(), runTime.functionObjects().maxDeltaT());
+
+        if (deltaT < rootVGreat)
+        {
+            runTime.setDeltaT(min(runTime.deltaTValue(), deltaT));
+        }
+    }
 }
 
-label RandomInt(label lower, label upper)
+
+void Foam::adjustDeltaT(Time& runTime, const solver& solver)
 {
-    return static_cast<label>(RandomFloat(lower,upper));
+    // Update the time-step limited by the solver maxDeltaT
+    if
+    (
+        runTime.controlDict().lookupOrDefault("adjustTimeStep", false)
+     && solver.transient()
+    )
+    {
+        const scalar deltaT =
+            min(solver.maxDeltaT(), runTime.functionObjects().maxDeltaT());
+
+        if (deltaT < rootVGreat)
+        {
+            runTime.setDeltaT
+            (
+                min(solver::deltaTFactor*runTime.deltaTValue(), deltaT)
+            );
+            Info<< "deltaT = " <<  runTime.deltaTValue() << endl;
+        }
+    }
 }
-
-int main(int argc, char *argv[])
-{
-    #include "setRootCase.H"
-    #include "createTime.H"
-    #include "createMesh.H"
-
-    Info<<"Start testing"<<Foam::endl;
-
-    solvers::icoAdjointImmersedBoundary solver(mesh,runTime);
-    solver.solvePrimal();
-    
-    Info<<"Done testing"<<Foam::endl;    
-    return 0;
-}
-
 
 
 // ************************************************************************* //

@@ -118,6 +118,7 @@ class Rotation
         Rotation(vector d1, vector d2, vector d3);
         Rotation(const Quaternion& q);
         Rotation operator-(Rotation const& R) const;
+        Rotation operator+(Rotation const& R) const;
         bool operator!=(Rotation const& R) const;
         Rotation operator/(scalar alpha) const;
         scalar distanceNorm2(Rotation const& R) const;
@@ -126,8 +127,10 @@ class Rotation
         inline const vector& get_d2() const {return T[1];}
         inline const vector& get_d3() const {return T[2];}
         
-        static Rotation compute_dRdC(const Quaternion& dqdC, const Quaternion& q);
+        static Rotation compute_dRdX(const Quaternion& dqdX, const Quaternion& q);
         static FixedList<FixedList<vector,4>,3> compute_dRdq(const Quaternion& q);
+        static Rotation compute_d2RdX(const Quaternion& d2qdX, const Quaternion& dqdX, const Quaternion& q);
+        static FixedList<FixedList<vector,4>,3> compute_d2Rdq(const Quaternion& q);
         
     private:
         FixedList<vector,3> T;
@@ -179,6 +182,30 @@ class Structure
             uint degree,
             std::vector<scalar> weights,
             std::vector<vector> coefficients
+        );
+        
+        static gsNurbs<scalar> createNurbs
+        (
+            scalar domainStart,
+            scalar domainEnd,
+            uint degree,
+            std::vector<scalar> coefficients
+        );
+        
+        static gsNurbs<scalar> createNurbs
+        (
+            scalar domainStart,
+            scalar domainEnd,
+            uint degree,
+            std::vector<vector> coefficients
+        );
+        
+        static std::vector<scalar> computeUniformKnots
+        (
+            uint degree,
+            uint nbrCoefficients,
+            scalar domainStart,
+            scalar domainEnd
         );
         
         static void nurbsMinusX
@@ -281,15 +308,24 @@ class Structure
         static vector rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
+        
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
+        static void rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& dd1dp, vector& dd2dp, vector& dd3dp, vector& drdp);
+        static void rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d2d1dp, vector& d2d2dp, vector& d2d3dp, vector& d2rdp);
+        
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
-        static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, scalar parameter, vector& r);
+        static void rodEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
+        static void rodDerivEval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& dd1dp, vector& dd2dp, vector& dd3dp, vector& drdp);
+        static void rodDeriv2Eval(const gsNurbs<scalar>& curve, const gsNurbs<scalar>& def, const gsNurbs<scalar>& rot, scalar parameter, vector& d2d1dp, vector& d2d2dp, vector& d2d3dp, vector& d2rdp);
         
         Quaternion m_Rot_Eval(label rodNumber, scalar parameter);
         static Quaternion m_Rot_Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         const gsNurbs<scalar>& getQuaternions(label rodNumber) const;
         List<Rotation> getRotationCurveCoefs(label rodNumber) const;
+        
+        static gsMatrix<scalar> evalNurbsDeriv(const gsNurbs<scalar>& nurbs,scalar parameter);
+        static gsMatrix<scalar> evalNurbsDeriv2(const gsNurbs<scalar>& nurbs,scalar parameter);
     // ----------------- ---------------------- -----------------
         
     // ----------------- Rod coefficient derivation methods -----------------
@@ -494,6 +530,7 @@ class Structure
         void quaternionCheck();
         void rotationCheck();
         void transformationCheck();
+        virtual void parameterGradientCheck() const;
         virtual void selfCheck();
 };
 #include "Structure.T.H"

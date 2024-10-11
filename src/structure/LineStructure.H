@@ -10,6 +10,7 @@ namespace Foam
 enum SystemSolve {Raw,RowAequilibration,ColAequilibration,GeoRescaled,Jacobi};   
 
 class Parameter;
+class LineStructure;
 
 class LagrangianMarker
 {
@@ -19,7 +20,7 @@ class LagrangianMarker
         
         explicit LagrangianMarker
         (
-            const Structure& structure,
+            const LineStructure& structure,
             const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
@@ -28,7 +29,7 @@ class LagrangianMarker
     protected:
         explicit LagrangianMarker
         (    
-            const Structure& structure,
+            const LineStructure& structure,
             const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod
@@ -53,7 +54,7 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
-        inline scalar getMarkerCharacLen() const {return markerCharLen;}
+        inline scalar getMarkerCharacLen() const {FatalErrorInFunction<<"NotImplemented"<<exit(FatalError);return markerCharLen;}
         virtual inline scalar getMarkerAngle() const {return 0;}
         virtual inline scalar getMarkerRadiusFrac() const {return 0;}
         inline const DynamicList<Pair<label>>& getSupportCells(SupportType type=SupportType::Direct) const
@@ -101,7 +102,7 @@ class LagrangianMarker
         void getCellData(const Pair<label>& cell, vector& cellCentre, scalar& volume) const;
         
     protected:        
-        const Structure& structure;
+        const LineStructure& structure;
         const fvMesh& mesh;
         label rodNumber;
         const ActiveRodMesh::rodCosserat* baseRod;
@@ -129,6 +130,8 @@ class LagrangianMarker
         
         void checkDirectSupport() const;
         void reduceSupport();
+        
+        virtual void computeCharacLength();
         
         FixedList<scalar,10> b;
         
@@ -310,11 +313,9 @@ class LineStructure : public Structure
 
         void reInitializeMarkers(bool keepMarkers=false,bool keepSeedPoints=false);
 
-        static vector evaluateRodPos
-        (
-            const ActiveRodMesh::rodCosserat* oneRod,
-            scalar parameter
-        );
+        static vector evaluateRodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
+        static vector derivateRodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
+        static vector derivate2RodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
         
     // ----------------- Finalize markers -----------------
         virtual void finalizeMarkers();
@@ -506,7 +507,7 @@ class LineStructure : public Structure
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
         
-        scalar characteristicSize(label rodNumber, scalar par) override;
+        //scalar characteristicSize(label rodNumber, scalar par) override;
                 
     private:
         const List<scalar> crossSecArea;
@@ -611,6 +612,8 @@ class LineStructure : public Structure
                 bool broadcasted;
                 bool broadcastedWeights;
         };
+        
+        const List<scalar>& getCrossSecArea() const {return crossSecArea;}
     protected:
         // [haloCells] -> [marker of cell] -> ptr        
         std::vector<std::vector<std::pair<LagrangianMarker*,label>>> haloCellsRodMarkersList;
@@ -629,7 +632,7 @@ class LineStructure : public Structure
         const std::vector<LagrangianMarker*>& getCollectedMarkers() const {return collectedMarkers;}
         
         //scalar initialSpacingFromMesh();
-        
+        void parameterGradientCheck() const override;
         void selfCheck() override;
 };
 //#include "FieldMarkerStructureInteraction.T.H"
