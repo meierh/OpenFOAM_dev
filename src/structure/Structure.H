@@ -323,7 +323,8 @@ class Structure
         static Quaternion m_Rot_Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         const gsNurbs<scalar>& getQuaternions(label rodNumber) const;
         List<Rotation> getRotationCurveCoefs(label rodNumber) const;
-        
+
+        static gsMatrix<scalar> evalNurbs(const gsNurbs<scalar>& nurbs,scalar parameter);
         static gsMatrix<scalar> evalNurbsDeriv(const gsNurbs<scalar>& nurbs,scalar parameter);
         static gsMatrix<scalar> evalNurbsDeriv2(const gsNurbs<scalar>& nurbs,scalar parameter);
     // ----------------- ---------------------- -----------------

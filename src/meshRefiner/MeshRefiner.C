@@ -5,7 +5,7 @@ Foam::MeshRefiner::MeshRefiner
     fvMesh& mesh,
     LineStructure& structure,
     volScalarField& doRefine,
-    const dictionary& dynamicMeshDict
+    dictionary& dynamicMeshDict
 ):
 mesh(mesh),
 structure(structure),
@@ -14,6 +14,34 @@ dynamicMeshDict(dynamicMeshDict),
 fieldRefineDemands("fieldDemands",doRefine),
 markerRefineDemands("markerDemands",doRefine)
 {
+    dictionary& topoChangerDict = dynamicMeshDict.subDict("topoChanger");
+    if(topoChangerDict.found("markerCellFactor"))
+    {
+        //Set refine/stay/unrefine field values
+        if(topoChangerDict.found("upperRefineLevel")) topoChangerDict.set("upperRefineLevel",1.5);
+        else topoChangerDict.add("upperRefineLevel",1.5);
+        
+        if(topoChangerDict.found("lowerRefineLevel")) topoChangerDict.set("lowerRefineLevel",0.5);
+        else topoChangerDict.add("lowerRefineLevel",0.5);
+        
+        if(topoChangerDict.found("unrefineLevel")) topoChangerDict.set("unrefineLevel",-0.5);
+        else topoChangerDict.add("unrefineLevel",-0.5);
+        
+        
+        ITstream topoChangerFactorStream = topoChangerDict.lookup("markerCellFactor");
+        token topoChangerFactorToken;
+        topoChangerFactorStream.read(topoChangerFactorToken);
+        if(!topoChangerFactorToken.isScalar())
+        {
+            Info<<"topoChangerFactorToken:"<<topoChangerFactorToken<<Foam::endl;
+            FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChanger/markerCellFactor -- must be scalar"<<exit(FatalError);
+        }
+        scalar topoChangerFactorScalar = topoChangerFactorToken.scalarToken();
+        if(topoChangerFactorScalar<=0)
+            FatalErrorInFunction<<"Invalid topoChanger/markerCellFactor is"<<topoChangerFactorScalar<<" -- valid {]0,inf[}"<<exit(FatalError);
+        markerCharLengthToCellSizeFactor = topoChangerFactorScalar;
+    }
+
 }
 
 void Foam::MeshRefiner::adaptMesh()
@@ -38,6 +66,7 @@ void Foam::MeshRefiner::refineMeshOnStaticMarkers()
     bool refined = true;
     while(refined)
     {
+        Info<<"------------Refine mesh iteration-------------"<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {
@@ -52,7 +81,7 @@ void Foam::MeshRefiner::refineMeshAndMarkers()
     bool refined = true;
     while(refined)
     {
-        Info<<"Refine mesh and marker iteration"<<Foam::endl;
+        Info<<"------------Refine mesh and marker iteration-------------"<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {

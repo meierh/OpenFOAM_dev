@@ -14,7 +14,7 @@ class VelocityRefiner : public MeshRefiner
             volScalarField& doRefine,
             LineStructure& structure,
             fvMesh& mesh,
-            const dictionary& dynamicMeshDict,
+            dictionary& dynamicMeshDict,
             volVectorField& velocity
         );
 

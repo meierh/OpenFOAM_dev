@@ -152,7 +152,10 @@ void Foam::CrossSection::init
     createPhaseNurbsCoeffDerivatives();
 }
 
-Foam::scalar Foam::CrossSection::computePhaseShift(scalar parameter) const
+Foam::scalar Foam::CrossSection::computePhaseShift
+(
+    scalar parameter
+) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -160,32 +163,37 @@ Foam::scalar Foam::CrossSection::computePhaseShift(scalar parameter) const
     return phaseShiftM.at(0);
 }
 
-Foam::scalar Foam::CrossSection::computePhaseShiftDeriv(scalar parameter) const
+Foam::scalar Foam::CrossSection::computePhaseShiftDeriv
+(
+    scalar parameter
+) const
 {
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-    gsMatrix<scalar> phaseShiftM;
-    phaseShift.deriv_into(parMat,phaseShiftM);
-    return phaseShiftM.at(0);
+    return Structure::evalNurbsDeriv(phaseShift,parameter).at(0);
 }
 
-Foam::scalar Foam::CrossSection::computePhaseShiftDeriv2(scalar parameter) const
+Foam::scalar Foam::CrossSection::computePhaseShiftDeriv2
+(
+    scalar parameter
+) const
 {
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-    gsMatrix<scalar> phaseShiftM;
-    phaseShift.deriv2_into(parMat,phaseShiftM);
-    return phaseShiftM.at(0);
+    return Structure::evalNurbsDeriv2(phaseShift,parameter).at(0);
 }
 
-Foam::scalar Foam::CrossSection::operator()(scalar parameter,scalar angle) const
+Foam::scalar Foam::CrossSection::operator()
+(
+    scalar parameter,
+    scalar angle
+) const
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> evalOnPoint = getEvalOnPoint(parameter);
     return evalOnPoint(angle);
 }
 
-std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getEvalOnPoint(scalar parameter) const
+std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getEvalOnPoint
+(
+    scalar parameter
+) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -224,14 +232,21 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getEvalOnPoint(sca
     };
 }
 
-Foam::scalar Foam::CrossSection::deriv_angle(scalar parameter,scalar angle) const
+Foam::scalar Foam::CrossSection::deriv_angle
+(
+    scalar parameter,
+    scalar angle
+) const
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> derivOnPoint = getDerivAngleOnPoint(parameter);
     return derivOnPoint(angle);
 }
 
-std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoint(scalar parameter) const
+std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoint
+(
+    scalar parameter
+) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -265,14 +280,21 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoi
     };
 }
 
-Foam::scalar Foam::CrossSection::deriv2_angle(scalar parameter,scalar angle) const
+Foam::scalar Foam::CrossSection::deriv2_angle
+(
+    scalar parameter,
+    scalar angle
+) const
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> deriv2OnPoint = getDeriv2AngleOnPoint(parameter);
     return deriv2OnPoint(angle);
 }
 
-std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDeriv2AngleOnPoint(scalar parameter) const
+std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDeriv2AngleOnPoint
+(
+    scalar parameter
+) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -306,7 +328,11 @@ std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDeriv2AngleOnPo
     };
 }
 
-Foam::scalar Foam::CrossSection::deriv_para(scalar parameter, scalar angle) const
+Foam::scalar Foam::CrossSection::deriv_para
+(
+    scalar parameter,
+    scalar angle
+) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
@@ -407,7 +433,11 @@ Foam::scalar Foam::CrossSection::deriv_para(scalar parameter, scalar angle) cons
     return value;
 }
 
-Foam::scalar Foam::CrossSection::deriv2_para(scalar parameter, scalar angle) const
+Foam::scalar Foam::CrossSection::deriv2_para
+(
+    scalar parameter,
+    scalar angle
+) const
 {
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;

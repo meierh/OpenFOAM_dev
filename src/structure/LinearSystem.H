@@ -245,6 +245,7 @@ namespace Foam
             
             virtual void addRow(List<scalar> row);
             virtual void addRow(List<std::pair<scalar,label>> row);
+            void addRow(const CSR_Matrix_par& matrix, label globalRowInd);
             virtual void addRows(List<List<scalar>> rows);
             
             Vector_par operator* (const Vector_par& vec) const;
@@ -262,13 +263,13 @@ namespace Foam
             bool getComplete() const {return complete;}
             bool getGlobal() const {return global;}
             
-            virtual CSR_Matrix_par diagonalMatrix() const;
+            virtual CSR_DiagMatrix_par diagonalMatrix() const;
             virtual CSR_Matrix_par offDiagonalMatrix() const;
             
-            std::string to_string() const;
+            virtual std::string to_string() const;
             std::string to_metaDataString() const;
             
-            void collectGlobal(CSR_Matrix_par& globalVector) const;
+            void collectGlobal(CSR_Matrix_par& globalMatrix) const;
             
             void checkCompatible(const Vector_par& vec) const;
             void checkCompatible(const CSR_Matrix_par& mat) const;
@@ -317,8 +318,10 @@ namespace Foam
             scalar evalOnDiagonal(const Vector_par& vec, label localRow) const {deleted(); return 0;};
             bool isSquare() const {return true;};
             
-            CSR_Matrix_par diagonalMatrix() const {deleted(); return CSR_Matrix_par();};
+            CSR_DiagMatrix_par diagonalMatrix() const {deleted(); return CSR_DiagMatrix_par();};
             CSR_Matrix_par offDiagonalMatrix() const {deleted(); return CSR_Matrix_par();};
+            
+            std::string to_string() const override;
             
         private:
             void deleted() const {FatalErrorInFunction<<"Deleted!"<<exit(FatalError);}
@@ -345,10 +348,13 @@ namespace Foam
             {}
             
             virtual ~LinearSolver_par() = default;
-
             
             Vector_par solve(const Vector_par& b);
             Vector_par solve(const Vector_par& b, const Vector_par& x);
+            virtual Vector_par solveFull(const CSR_Matrix_par& A, const Vector_par& b, const Vector_par& x) const = 0;
+            
+            Vector_par solve_balanced(const Vector_par& b);
+            Vector_par solve_balanced(const Vector_par& b, const Vector_par& x);
             
         protected:
             virtual void initIteration() = 0;
@@ -374,7 +380,8 @@ namespace Foam
                 label minIteration=0
             ):LinearSolver_par(A,tolerance,minIteration)
             {}
-                        
+            Vector_par solveFull(const CSR_Matrix_par& A, const Vector_par& b, const Vector_par& x) const override;
+                     
         protected:
             void initIteration() override;
             bool step() override;
@@ -392,7 +399,8 @@ namespace Foam
                 label minIteration=0
             ):LinearSolver_par(A,tolerance,minIteration)
             {}
-                        
+            Vector_par solveFull(const CSR_Matrix_par& A, const Vector_par& b, const Vector_par& x) const override;
+    
         protected:
             void initIteration() override;
             bool step() override;
@@ -409,6 +417,7 @@ namespace Foam
                 label minIteration=0
             ):ConjugateGradient(A,tolerance,minIteration)
             {}
+            Vector_par solveFull(const CSR_Matrix_par& A, const Vector_par& b, const Vector_par& x) const override;
                         
         protected:
             bool step() override;

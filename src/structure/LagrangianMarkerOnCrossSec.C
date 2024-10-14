@@ -18,6 +18,14 @@ baseCrossSec(baseCrossSec)
 {
     this->markerParameter = markerParameter;
     evaluateMarker();
+    if(markerRadiusFrac<1 && (markerParameter!=0 && markerParameter!=1))
+    {
+        Info<<"markerRadiusFrac:"<<markerRadiusFrac<<Foam::endl;
+        Info<<"markerParameter:"<<markerParameter<<Foam::endl;
+        Info<<"markerAngle:"<<markerAngle<<Foam::endl;
+        Info<<to_string()<<Foam::endl;
+        FatalErrorInFunction<<"Invalid marker"<<exit(FatalError);
+    }
 }
 
 void Foam::LagrangianMarkerOnCrossSec::evaluateMarker()

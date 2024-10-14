@@ -14,7 +14,7 @@ class MeshRefiner
             fvMesh& mesh,
             LineStructure& structure,
             volScalarField& doRefine,
-            const dictionary& dynamicMeshDict
+            dictionary& dynamicMeshDict
         );
         virtual ~MeshRefiner() = default;
 
@@ -35,7 +35,7 @@ class MeshRefiner
         fvMesh& mesh;
         LineStructure& structure;
         volScalarField& doRefine;
-        const dictionary& dynamicMeshDict;
+        dictionary& dynamicMeshDict;
 
         volScalarField fieldRefineDemands;
         virtual void fieldRefinement();
@@ -45,6 +45,7 @@ class MeshRefiner
 
     private:
         scalar refinementDemandMerge(scalar fieldDemand, scalar markerDemand);
+        scalar markerCharLengthToCellSizeFactor = 0.1;
 };
 
 }

@@ -11,6 +11,7 @@ Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
 ):
 VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,nullptr,modusFieldToMarker,modusMarkerToField)
 {
+    Info<<" Create StaticVelocityPressureAction "<<Foam::endl;
     if(refinement_)
     {
         refinement_->refineMeshOnStaticMarkers();

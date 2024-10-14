@@ -245,13 +245,13 @@ class CrossSectionStructure : public LineStructure
         );
         void refineRadial
         (
-            std::list<std::list<LagrangianMarkerOnCrossSec>>& radialMarkers,
+            std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>& radialMarkers,
             scalar initialSpacing,
             std::pair<bool,scalar> refineSpacing = {false,0}
         );
         void refineTangential
         (
-            std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>& tangMarkers,
+            std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& tangMarkers,
             scalar initialSpacing,
             std::pair<bool,scalar> refineSpacing = {false,0}
         );
@@ -397,7 +397,7 @@ class CrossSectionStructure : public LineStructure
     private:
         //[rod] -> {para , [] -> {rad , [] -> angle}}
         std::vector<std::unique_ptr<std::vector<std::pair<scalar,std::vector<std::pair<scalar,std::vector<scalar>>>>>>> initialRodPoints;
-        std::vector<std::unique_ptr<std::list<std::list<std::list<LagrangianMarkerOnCrossSec>>>>> rodMarkersList;
+        std::vector<std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>> rodMarkersList;
         
     public:
         void parameterGradientCheck() const override;

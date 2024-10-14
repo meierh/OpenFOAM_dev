@@ -1079,6 +1079,31 @@ void Foam::CSR_Matrix_par::addRow(List<std::pair<scalar,label>> row)
         setComplete();
 }
 
+void Foam::CSR_Matrix_par::addRow
+(
+    const CSR_Matrix_par& mat,
+    label globalRowInd
+)
+{
+    if(mat.getGlobal())
+        FatalErrorInFunction<<"Method must be called with a non-global matrix"<<exit(FatalError);
+    if(globalCols!=mat.globalRows)
+        FatalErrorInFunction<<"Matrix matrix mismatch"<<exit(FatalError);
+    if(globalRows!=mat.globalCols)
+        FatalErrorInFunction<<"Matrix matrix mismatch"<<exit(FatalError);
+    if(globalRowInd<0 || globalRowInd>=mat.globalRows)
+        FatalErrorInFunction<<"Out of range globalRowInd"<<exit(FatalError);    
+    
+    label rowOffsetV = mat.Row_Index[globalRowInd];
+    label rowNextOffsetV = (globalRowInd==mat.globalRows-1) ? mat.V.size() : mat.Row_Index[globalRowInd];
+    DynamicList<std::pair<scalar,label>> rowToAdd;
+    for(label dataInd=rowOffsetV; dataInd<rowNextOffsetV; dataInd++)
+    {
+        rowToAdd.append({mat.V[dataInd],mat.Col_Index[dataInd]});
+    }
+    addRow(rowToAdd);
+}
+
 void Foam::CSR_Matrix_par::addRows(List<List<scalar>> rows)
 {   
     if(rows.size()!=localRows)
@@ -1341,12 +1366,12 @@ Foam::CSR_Matrix_par Foam::CSR_Matrix_par::transpose() const
     return transposed;
 }
 
-Foam::CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
+Foam::CSR_DiagMatrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
 {
     if(!isSquare())
         FatalErrorInFunction<<"Must be square!"<<exit(FatalError);
     
-    CSR_Matrix_par result(localRows,localRowStart,globalRows,globalCols,global);
+    CSR_DiagMatrix_par result(localRows,localRowStart,globalCols,global);
     for(label localRow=0; localRow<localRows; localRow++)
     {
         label rowStartInd = Row_Index[localRow];
@@ -1365,7 +1390,9 @@ Foam::CSR_Matrix_par Foam::CSR_Matrix_par::diagonalMatrix() const
         }
         if(oneRow.size()>1)
             FatalErrorInFunction<<"Diagonal can not be larger than one"<<exit(FatalError);
-        result.addRow(oneRow);
+        if(oneRow[0].first==0)
+            Info<<"zero Diag:"<<localRow<<Foam::endl;
+        result.addRow(oneRow[0].first);
     }
     return result;
 }
@@ -1747,6 +1774,119 @@ Foam::scalar Foam::CSR_DiagMatrix_par::getDiagonal
     return V[localRow];
 }
 
+std::string Foam::CSR_DiagMatrix_par::to_string() const
+{
+    label processCount;
+    if(global)
+        processCount = Pstream::nProcs();
+    else
+        processCount = 1;
+    
+    List<DynamicList<scalar>> global_V(processCount);
+    List<DynamicList<label>> global_Col_Index(processCount);
+    List<DynamicList<label>> global_Row_Index(processCount);
+    
+    if(global)
+    {   
+        global_V[Pstream::myProcNo()] = V;
+        global_Col_Index[Pstream::myProcNo()] = Col_Index;
+        global_Row_Index[Pstream::myProcNo()] = Row_Index;
+    
+        Pstream::gatherList(global_V);
+        Pstream::gatherList(global_Col_Index);
+        Pstream::gatherList(global_Row_Index);
+
+        Pstream::scatterList(global_V);
+        Pstream::scatterList(global_Col_Index);
+        Pstream::scatterList(global_Row_Index);
+    }
+    else
+    {
+        global_V[0] = V;
+        global_Col_Index[0] = Col_Index;
+        global_Row_Index[0] = Row_Index;
+    }
+                
+    std::string matrix = to_metaDataString();
+
+    for(label proc=0; proc<processCount; proc++)
+    {
+        DynamicList<scalar>& procV = global_V[proc];
+        DynamicList<label>& procCol_Index = global_Col_Index[proc];
+        DynamicList<label>& procRow_Index = global_Row_Index[proc];
+        /*
+        if(Pstream::master())
+        {
+            Pout<<proc<<"  procV:"<<procV<<Foam::endl;
+            Pout<<proc<<"  procCol_Index:"<<procCol_Index<<Foam::endl;
+            Pout<<proc<<"  procRow_Index:"<<procRow_Index<<Foam::endl;
+        }
+        */
+        
+        for(label localRow=0; localRow<procRow_Index.size(); localRow++)
+        {
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    localRow:"<<localRow<<Foam::endl;
+                Pout<<proc<<"    localRows:"<<localRows<<Foam::endl;
+            }
+            */
+            
+            label rowStartInd = procRow_Index[localRow];
+            label rowEndInd;
+            if(localRow<procRow_Index.size()-1)
+                rowEndInd = procRow_Index[localRow+1];
+            else
+                rowEndInd = procV.size();
+            
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    rowStartInd:"<<rowStartInd<<Foam::endl;
+                Pout<<proc<<"    --rowEndInd:"<<rowEndInd<<Foam::endl;
+                Pout<<proc<<"    globalCols:"<<globalCols<<Foam::endl;
+            }
+            */
+            
+            List<scalar> fullRow(globalCols);
+            for(label c=0; c<globalCols; c++)
+                fullRow[c] = 0;
+            
+            for(label Vind=rowStartInd; Vind<rowEndInd; Vind++)
+            {
+                label col = procCol_Index[Vind];
+                fullRow[col] = procV[Vind];
+            }
+
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    fullRow:"<<fullRow<<Foam::endl;
+            }
+            */
+        
+            char numString[10];
+            std::sprintf(numString,"%3.2e",fullRow[localRow]);
+            matrix.append(numString);
+            matrix.append("\n");
+
+            /*
+            if(Pstream::master())
+            {
+                Pout<<proc<<"    matrix:"<<matrix<<Foam::endl;
+            }
+            */
+        }
+        /*
+        if(Pstream::master())
+            Pout<<"DONE ------------"<<proc<<Foam::endl;
+        */
+    }    
+    //Pout<<"------------ DONE ------------"<<Foam::endl;
+    return matrix;
+}
+
 Foam::Vector_par Foam::LinearSolver_par::solve
 (
     const Vector_par& b
@@ -1786,6 +1926,94 @@ Foam::Vector_par Foam::LinearSolver_par::solve
     return this->x;
 }
 
+Foam::Vector_par Foam::LinearSolver_par::solve_balanced
+(
+    const Vector_par& b
+)
+{
+    A.checkCompatible(b);
+    
+    Vector_par x(b);
+    x.fill(0);
+    return solve_balanced(b,x);
+}
+
+Foam::Vector_par Foam::LinearSolver_par::solve_balanced
+(
+    const Vector_par& b,
+    const Vector_par& x
+)
+{
+    A.checkCompatible(b);
+    A.checkCompatible(x);
+    b.checkCompatible(x);
+       
+    if(A.getGlobal() && A.getGlobalRows()>10000)
+    {
+        label balancedRowsPerProcess = A.getGlobalRows() / Pstream::nProcs();
+        bool processNotBalanced = false;
+        if(A.getLocalRows() > 2*balancedRowsPerProcess)
+            processNotBalanced = true;
+        Pstream::gather<bool>(processNotBalanced,std::logical_or<bool>());
+        Pstream::scatter<bool>(processNotBalanced);
+        
+        if(processNotBalanced)
+        {
+            this->b = b;
+            this->x = x;
+    
+            if(x.getGlobalSize()==0)
+                return this->x;
+            
+            label myProcLocalRows = (Pstream::myProcNo()<Pstream::nProcs()-1)?
+                                    balancedRowsPerProcess:
+                                    A.getGlobalRows()-Pstream::myProcNo()*balancedRowsPerProcess;
+            label myProcLocalRowStart = Pstream::myProcNo()*balancedRowsPerProcess;
+            
+            CSR_Matrix_par A_balanced(myProcLocalRows,myProcLocalRowStart,A.getGlobalRows(),A.getGlobalCols());
+            Vector_par x_balanced(myProcLocalRows,myProcLocalRowStart,A.getGlobalRows());
+            Vector_par b_balanced(myProcLocalRows,myProcLocalRowStart,A.getGlobalRows());
+            
+            CSR_Matrix_par local_A;
+            A.collectGlobal(local_A);
+            List<scalar> local_x,local_b;
+            x.collectGlobal(local_x);
+            b.collectGlobal(local_b);
+            label local_Offset = 0;
+            for(label globalRowInd=myProcLocalRowStart; globalRowInd<myProcLocalRows; globalRowInd++,local_Offset++)
+            {
+                A_balanced.addRow(local_A,globalRowInd);
+                x_balanced[local_Offset] = local_x[globalRowInd];
+                b_balanced[local_Offset] = local_b[globalRowInd];
+            }
+            
+            x_balanced = solveFull(A_balanced,b_balanced,x_balanced);
+            x_balanced.collectGlobal(local_x);
+            local_Offset = 0;
+            for(label localRow=this->x.getLocalSize().first; localRow<this->x.getLocalSize().second; localRow++)
+            {
+                this->x[local_Offset] = local_x[localRow];
+            }
+            return this->x;
+        }
+        else
+            return solve(b,x);
+    }
+    else
+        return solve(b,x);    
+}
+
+Foam::Vector_par Foam::Jacobi::solveFull
+(
+    const CSR_Matrix_par& A,
+    const Vector_par& b,
+    const Vector_par& x
+) const
+{
+    Jacobi solver(A);
+    return solver.solve(b,x);
+}
+
 void Foam::Jacobi::initIteration()
 {
     OffDiagonal = A.offDiagonalMatrix();
@@ -1813,6 +2041,17 @@ bool Foam::Jacobi::step()
     return false;
 }
 
+Foam::Vector_par Foam::ConjugateGradient::solveFull
+(
+    const CSR_Matrix_par& A,
+    const Vector_par& b,
+    const Vector_par& x
+) const
+{
+    ConjugateGradient solver(A);
+    return solver.solve(b,x);
+}
+
 void Foam::ConjugateGradient::initIteration()
 {
     r = b - A*x;
@@ -1836,6 +2075,17 @@ bool Foam::ConjugateGradient::step()
     scalar beta = (r&r)/(r_prev&r_prev);
     d = r + d*beta;
     return false;
+}
+
+Foam::Vector_par Foam::BiCGSTAB::solveFull
+(
+    const CSR_Matrix_par& A,
+    const Vector_par& b,
+    const Vector_par& x
+) const
+{
+    BiCGSTAB solver(A);
+    return solver.solve(b,x);
 }
 
 bool Foam::BiCGSTAB::step()

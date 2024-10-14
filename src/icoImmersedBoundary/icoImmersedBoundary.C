@@ -200,7 +200,7 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
             if(!topoChangerTypeToken.isWord())
             {
                 Info<<"topoChangerTypeToken:"<<topoChangerTypeToken<<Foam::endl;
-                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/rodType -- must be string"<<exit(FatalError);
+                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChanger/type -- must be string"<<exit(FatalError);
             }
             word topoChangerTypeWord = topoChangerTypeToken.wordToken();
             if(topoChangerTypeWord!="refiner")
@@ -221,17 +221,7 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
                 refine_ = std::make_unique<volScalarField>("refineFieldName",p_);
             if(topoChangerDict.found("field")) topoChangerDict.set("upperRefineLevel",refineFieldName);
             else topoChangerDict.add("field",refineFieldName);
-            
-            //Set refine/stay/unrefine field values
-            if(topoChangerDict.found("upperRefineLevel")) topoChangerDict.set("upperRefineLevel",1.5);
-            else topoChangerDict.add("upperRefineLevel",1.5);
-            
-            if(topoChangerDict.found("lowerRefineLevel")) topoChangerDict.set("lowerRefineLevel",0.5);
-            else topoChangerDict.add("lowerRefineLevel",0.5);
-            
-            if(topoChangerDict.found("unrefineLevel")) topoChangerDict.set("unrefineLevel",-0.5);
-            else topoChangerDict.add("unrefineLevel",-0.5);
-            
+                        
             ITstream refinerTypeStream = topoChangerDict.lookup("refinerType");
             token refinerTypeToken;
             refinerTypeStream.read(refinerTypeToken);

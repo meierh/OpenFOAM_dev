@@ -1858,43 +1858,30 @@ Foam::List<Foam::Rotation> Foam::Structure::getRotationCurveCoefs
     return rotations;
 }
 
+gsMatrix<Foam::scalar> Foam::Structure::evalNurbs
+(
+    const gsNurbs<scalar>& nurbs,
+    scalar parameter
+)
+{
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;        
+    gsMatrix<scalar> basePnt;
+    nurbs.eval_into(parMat,basePnt);
+    return basePnt;
+}
+
 gsMatrix<Foam::scalar> Foam::Structure::evalNurbsDeriv
 (
     const gsNurbs<scalar>& nurbs,
     scalar parameter
 )
 {
-    bool fdDiff=false;
-    if(nurbs.knots().has(parameter))
-    {
-        label p = nurbs.basis().minDegree();
-        label multKnot = nurbs.knots().multiplicity(parameter);
-        label differentiabilityTo = p-multKnot;
-        if(differentiabilityTo<1)
-            fdDiff=true;
-    }
-    
-    if(!fdDiff)
-    {
-        gsMatrix<scalar> parMat(1,1);
-        parMat.at(0) = parameter;        
-        gsMatrix<scalar> basePnt;
-        nurbs.deriv_into(parMat,basePnt);
-        return basePnt;
-    }
-    else
-    {
-        gsMatrix<scalar> parMat(1,1);
-        parMat.at(0) = parameter+0.00001;        
-        gsMatrix<scalar> upperPnt;
-        nurbs.eval_into(parMat,upperPnt);
-        parMat.at(0) = parameter-0.00001;        
-        gsMatrix<scalar> lowerPnt;
-        nurbs.eval_into(parMat,lowerPnt);
-        gsMatrix<scalar> basePnt = upperPnt-lowerPnt;
-        basePnt /= 0.00002;
-        return basePnt;
-    }
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;        
+    gsMatrix<scalar> basePnt;
+    nurbs.deriv_into(parMat,basePnt);
+    return basePnt;
 }
 
 gsMatrix<Foam::scalar> Foam::Structure::evalNurbsDeriv2
@@ -1903,32 +1890,11 @@ gsMatrix<Foam::scalar> Foam::Structure::evalNurbsDeriv2
     scalar parameter
 )
 {
-    bool fdDiff=false;
-    if(nurbs.knots().has(parameter))
-    {
-        label p = nurbs.basis().minDegree();
-        label multKnot = nurbs.knots().multiplicity(parameter);
-        label differentiabilityTo = p-multKnot;
-        if(differentiabilityTo<1)
-            fdDiff=true;
-    }
-    
-    if(!fdDiff)
-    {
-        gsMatrix<scalar> parMat(1,1);
-        parMat.at(0) = parameter;        
-        gsMatrix<scalar> basePnt;
-        nurbs.deriv2_into(parMat,basePnt);
-        return basePnt;
-    }
-    else
-    {       
-        gsMatrix<scalar> upperPnt = evalNurbsDeriv(nurbs,parameter+0.00001);       
-        gsMatrix<scalar> lowerPnt = evalNurbsDeriv(nurbs,parameter-0.00001);
-        gsMatrix<scalar> basePnt = upperPnt-lowerPnt;
-        basePnt /= 0.00002;
-        return basePnt;
-    }
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;        
+    gsMatrix<scalar> basePnt;
+    nurbs.deriv2_into(parMat,basePnt);
+    return basePnt;
 }
 
 void Foam::Structure::constructCoeffDerivedData()
@@ -3011,7 +2977,7 @@ void Foam::Structure::transformationCheck()
 
 void Foam::Structure::parameterGradientCheck() const
 {
-    Info<<"Structure::parameterGradientCheck"<<Foam::endl;
+    Info<<"Structure::parameterGradientCheck (rodDerivEval,rodDerivEval2)"<<Foam::endl;
 
     scalar nbrSteps = 20;
     scalar epsilon = 1e-4;

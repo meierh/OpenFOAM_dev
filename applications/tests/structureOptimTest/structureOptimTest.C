@@ -56,46 +56,38 @@ int main(int argc, char *argv[])
     #include "createMesh.H"
 
     Info<<"Start testing"<<Foam::endl;
-    
-    Quaternion quaternions = {0.000234,-0.000234,-0.707,0.707};
-    Rotation R(quaternions);
-    Info<<R<<Foam::endl;
-    
-    
-    //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
-    
-    for(label run=0; run<1; run++)
+    for(label run=0; run<10; run++)
     {
         label k = RandomInt(0,10);
         Info<<"----- Run:"<<run<<" -----:"<<k<<Foam::endl;
 
-        std::vector<scalar> a0(4);
+        std::vector<scalar> a0(5);
         for(scalar& val : a0)
             val = RandomFloat(0,1);
         std::vector<std::vector<scalar>> ak(k);
         std::vector<std::vector<scalar>> bk(k);
         for(label i=0; i<k; i++)
         {
-            ak[i].resize(4);
+            ak[i].resize(5);
             for(scalar& val : ak[i])
                 val = RandomFloat(0,1);
-            bk[i].resize(4);
+            bk[i].resize(5);
             for(scalar& val : bk[i])
                 val = RandomFloat(0,1);
         }
-        std::vector<scalar> phase(4);
+        std::vector<scalar> phase(5);
         for(scalar& val : a0)
             val = RandomFloat(0,6.2);
         
-        gsNurbs<scalar> a_0 = Structure::createNurbs(0,1,2,a0);
+        gsNurbs<scalar> a_0 = Structure::createNurbs(0,1,3,a0);
         std::vector<gsNurbs<scalar>> a_k(k);
         std::vector<gsNurbs<scalar>> b_k(k);
         for(label i=0; i<k; i++)
         {
-            a_k[i] = Structure::createNurbs(0,1,2,ak[i]);
-            b_k[i] = Structure::createNurbs(0,1,2,bk[i]);
+            a_k[i] = Structure::createNurbs(0,1,3,ak[i]);
+            b_k[i] = Structure::createNurbs(0,1,3,bk[i]);
         }
-        gsNurbs<scalar> phaseShift = Structure::createNurbs(0,1,2,phase);
+        gsNurbs<scalar> phaseShift = Structure::createNurbs(0,1,3,phase);
         
         List<List<vector>> curveCoeffs(1);
         curveCoeffs[0] = List<vector>(4);
@@ -190,7 +182,6 @@ int main(int argc, char *argv[])
         testStructure.printCurves();
         */
         
-        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     }
     
     Info<<"Done testing"<<Foam::endl;    

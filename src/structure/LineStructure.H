@@ -461,7 +461,6 @@ class LineStructure : public Structure
         
         void exchangeHaloMarkersWeight();
         
-                
         static scalar evaluateRodArcLen
         (
             const ActiveRodMesh::rodCosserat* oneRod,
@@ -507,7 +506,7 @@ class LineStructure : public Structure
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
         
-        //scalar characteristicSize(label rodNumber, scalar par) override;
+        scalar characteristicSize(label rodNumber, scalar par) override;
                 
     private:
         const List<scalar> crossSecArea;

@@ -865,6 +865,19 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             label K = iter->first;
             scalar matrixEntry = iter->second;
             matrixRow.append({matrixEntry,K});
+            if(K==I && std::abs(matrixEntry)<1e-5)
+            {
+                Info<<"I:"<<I<<" K:"<<K<<" matrixEntry:"<<matrixEntry<<Foam::endl;
+                Info<<"markerI:"<<markerI.to_string()<<Foam::endl;
+            }
+        }
+        if(rowEntries.find(I)==rowEntries.end())
+        {
+            Info<<"matrixRow:";
+            for(auto entr : matrixRow)
+                Info<<"("<<entr.first<<","<<entr.second<<") ";
+            Info<<Foam::endl;
+            FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         }
         A.addRow(matrixRow);
         b[I] = 1;
@@ -889,7 +902,10 @@ void Foam::LineStructure::computeMarkerWeights()
     Info<<"Computed marker weights"<<Foam::endl;
     CSR_Matrix_par& A = std::get<0>(*system);
     Vector_par& ones = std::get<1>(*system);
+
+    //Info<<ones.to_string()<<Foam::endl;
     
+    Info<<"Select solutionStrategy"<<Foam::endl;
     switch (solutionStrategy)
     {
         case SystemSolve::Raw:
@@ -900,7 +916,11 @@ void Foam::LineStructure::computeMarkerWeights()
         {
             Vector_par rowSum = A*ones;
             for(label localRow=0; localRow<rowSum.getLocalSize().second; localRow++)
+            {
+                if(rowSum[localRow]==0)
+                    FatalErrorInFunction<<"Matrix has a zero in the diagonal"<<exit(FatalError);
                 rowSum[localRow] = 1.0/rowSum[localRow];
+            }
             CSR_DiagMatrix_par P(rowSum);
             A = P*A;
             ones = P*ones;
@@ -918,10 +938,16 @@ void Foam::LineStructure::computeMarkerWeights()
         }
         case SystemSolve::Jacobi:
         {
-            CSR_Matrix_par diagA = A.diagonalMatrix();
+            CSR_DiagMatrix_par diagA = A.diagonalMatrix();
+            //Info<<diagA.to_string()<<Foam::endl;
             Vector_par diagAVec = diagA*ones;
+            //Info<<diagAVec.to_string()<<Foam::endl;
             for(label localRow=0; localRow<diagAVec.getLocalSize().second; localRow++)
+            {
+                if(diagAVec[localRow]==0)
+                    FatalErrorInFunction<<"Matrix has a zero in the diagonal"<<exit(FatalError);
                 diagAVec[localRow] = 1.0/diagAVec[localRow];
+            }
             CSR_DiagMatrix_par P(diagAVec);
             A = P*A;
             ones = P*ones;        
@@ -930,7 +956,7 @@ void Foam::LineStructure::computeMarkerWeights()
         default:
             FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
     }
-
+    Info<<"Selected solutionStrategy"<<Foam::endl;
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
 
@@ -1069,7 +1095,6 @@ Foam::scalar Foam::LineStructure::bisectionBinary
     return 0.5*(startValue+endValue);
 }
 
-/*
 Foam::scalar Foam::LineStructure::characteristicSize
 (
     label rodNumber,
@@ -1078,7 +1103,6 @@ Foam::scalar Foam::LineStructure::characteristicSize
 {
     FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
 }
-*/
 
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 (
