@@ -3,7 +3,7 @@ Foam::volScalarField refine
 (
     Foam::IOobject
     (
-        "refine",
+        "refineField",
         runTime.name(),
         mesh,
         Foam::IOobject::MUST_READ,

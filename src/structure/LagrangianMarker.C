@@ -538,6 +538,7 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
     
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
+    /*
     for(uint i=0; i<gen3DIndices.size(); i++)
     {
         for(uint j=0; j<gen3DIndices.size(); j++)
@@ -545,6 +546,51 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
             moments3D(i,j) = computeMoment(indices[i][j]);
         }
     }
+    */
+    
+    
+    /*
+     * -------------- Performance improvement --------------
+     */
+    for(uint i=0; i<gen3DIndices.size(); i++)
+    {
+        for(uint j=0; j<gen3DIndices.size(); j++)
+        {
+            moments3D(i,j) = 0;
+        }
+    }
+    const List<Pair<label>>& momentsCells = (momentsSupportType==SupportType::Direct) ? directSupport : fullSupport;
+    vector X = getMarkerPosition();
+    scalar convValue = Foam::zero();
+    for(const Pair<label>& suppCell : momentsCells)
+    {
+        vector cellCentre;
+        scalar cellVolume;
+        getCellData(suppCell,cellCentre,cellVolume);
+        vector x = cellCentre;
+        scalar w = deltaDirac(X,x);
+        
+        for(uint i=0; i<gen3DIndices.size(); i++)
+        {
+            for(uint j=0; j<gen3DIndices.size(); j++)
+            {
+                vector conn = x-X;
+                vector coeff(1,1,1);
+                for(label dim=0; dim<3; dim++)
+                {
+                    for(label index=0; index<indices[i][j][dim]; index++)
+                    {
+                        coeff[dim]*=conn[dim];
+                    }
+                }
+                moments3D(i,j) += w*cellVolume*coeff[0]*coeff[1]*coeff[2];
+            }
+        }
+    }
+    /*
+     * -------------------------------------------------------
+     */
+    
     
     return moments3DPtr;
 }
@@ -589,6 +635,7 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
         
     auto moments2DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(6,6));
     gismo::gsMatrix<scalar>& moments2D = *moments2DPtr;
+    /*
     for(uint i=0; i<gen3DIndices.size(); i++)
     {
         for(uint j=0; j<gen3DIndices.size(); j++)
@@ -596,6 +643,49 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
             moments2D(i,j) = computeMoment(indices[i][j]);
         }
     }
+    */
+    
+    /*
+     * -------------- Performance improvement --------------
+     */
+    for(uint i=0; i<gen3DIndices.size(); i++)
+    {
+        for(uint j=0; j<gen3DIndices.size(); j++)
+        {
+            moments2D(i,j) = 0;
+        }
+    }
+    const List<Pair<label>>& momentsCells = (momentsSupportType==SupportType::Direct) ? directSupport : fullSupport;
+    vector X = getMarkerPosition();
+    scalar convValue = Foam::zero();
+    for(const Pair<label>& suppCell : momentsCells)
+    {
+        vector cellCentre;
+        scalar cellVolume;
+        getCellData(suppCell,cellCentre,cellVolume);
+        vector x = cellCentre;
+        scalar w = deltaDirac(X,x);
+        
+        for(uint i=0; i<gen3DIndices.size(); i++)
+        {
+            for(uint j=0; j<gen3DIndices.size(); j++)
+            {
+                vector conn = x-X;
+                vector coeff(1,1,1);
+                for(label dim=0; dim<3; dim++)
+                {
+                    for(label index=0; index<indices[i][j][dim]; index++)
+                    {
+                        coeff[dim]*=conn[dim];
+                    }
+                }
+                moments2D(i,j) += w*cellVolume*coeff[0]*coeff[1]*coeff[2];
+            }
+        }
+    }
+    /*
+     * -------------------------------------------------------
+     */
 
     return moments2DPtr;
 }

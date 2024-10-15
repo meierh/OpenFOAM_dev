@@ -15,19 +15,24 @@ fieldRefineDemands("fieldDemands",doRefine),
 markerRefineDemands("markerDemands",doRefine)
 {
     dictionary& topoChangerDict = dynamicMeshDict.subDict("topoChanger");
+    
+    if(topoChangerDict.found("field")) topoChangerDict.set("field",doRefine.name());
+    else topoChangerDict.add("field",doRefine.name());
+    
+    Info<<"doRefine.name():"<<doRefine.name()<<Foam::endl;
+    
+    //Set refine/stay/unrefine field values
+    if(topoChangerDict.found("upperRefineLevel")) topoChangerDict.set("upperRefineLevel",1.5);
+    else topoChangerDict.add("upperRefineLevel",1.5);
+    
+    if(topoChangerDict.found("lowerRefineLevel")) topoChangerDict.set("lowerRefineLevel",0.5);
+    else topoChangerDict.add("lowerRefineLevel",0.5);
+    
+    if(topoChangerDict.found("unrefineLevel")) topoChangerDict.set("unrefineLevel",-0.5);
+    else topoChangerDict.add("unrefineLevel",-0.5);
+    
     if(topoChangerDict.found("markerCellFactor"))
     {
-        //Set refine/stay/unrefine field values
-        if(topoChangerDict.found("upperRefineLevel")) topoChangerDict.set("upperRefineLevel",1.5);
-        else topoChangerDict.add("upperRefineLevel",1.5);
-        
-        if(topoChangerDict.found("lowerRefineLevel")) topoChangerDict.set("lowerRefineLevel",0.5);
-        else topoChangerDict.add("lowerRefineLevel",0.5);
-        
-        if(topoChangerDict.found("unrefineLevel")) topoChangerDict.set("unrefineLevel",-0.5);
-        else topoChangerDict.add("unrefineLevel",-0.5);
-        
-        
         ITstream topoChangerFactorStream = topoChangerDict.lookup("markerCellFactor");
         token topoChangerFactorToken;
         topoChangerFactorStream.read(topoChangerFactorToken);
@@ -64,15 +69,19 @@ void Foam::MeshRefiner::adaptMesh()
 void Foam::MeshRefiner::refineMeshOnStaticMarkers()
 {
     bool refined = true;
+    Info<<"------------refineMeshOnStaticMarkers-------------"<<Foam::endl;
     while(refined)
     {
-        Info<<"------------Refine mesh iteration-------------"<<Foam::endl;
+        Info<<"structure.getCollectedMarkers().size():"<<structure.getCollectedMarkers().size()<<Foam::endl;
+        Info<<"mesh.cells().size():"<<mesh.cells().size()<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
+        //Info<<"doRefine:"<<doRefine<<Foam::endl;
         refined = mesh.update();
+        Info<<"refined:"<<refined<<Foam::endl;
     }
 }
 
@@ -81,13 +90,16 @@ void Foam::MeshRefiner::refineMeshAndMarkers()
     bool refined = true;
     while(refined)
     {
-        Info<<"------------Refine mesh and marker iteration-------------"<<Foam::endl;
+        Info<<"------------refineMeshAndMarkers-------------"<<Foam::endl;
+        Info<<"structure.getCollectedMarkers().size():"<<structure.getCollectedMarkers().size()<<Foam::endl;
+        Info<<"mesh.cells().size():"<<mesh.cells().size()<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
         refined = mesh.update();
+        Info<<"refined:"<<refined<<Foam::endl;
         structure.settleIntoRefinedMesh();
         structure.refineMarkersOnRefinedMesh();
     }
@@ -102,11 +114,9 @@ void Foam::MeshRefiner::fieldRefinement()
 
 void Foam::MeshRefiner::markerRefinement(scalar defaultValue)
 {
-    Info<<"  markerRefinement"<<Foam::endl;
     dimensionSet dimensions = fieldRefineDemands.dimensions();
     Foam::dimensioned<Foam::scalar> val("fieldRefinement",dimensions,defaultValue);
     markerRefineDemands = val;
-
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     for(uint markerInd=0; markerInd<markers.size(); markerInd++)
     {
@@ -114,7 +124,7 @@ void Foam::MeshRefiner::markerRefinement(scalar defaultValue)
         label markerCellInd = oneMarker->getMarkerCell();
         scalar charLen = oneMarker->getMarkerCharacLen();
         scalar markerCellLen = Structure::initialSpacingFromMesh(mesh,markerCellInd);
-        if(charLen<markerCellLen)
+        if(charLen*markerCharLengthToCellSizeFactor < markerCellLen)
             markerRefineDemands[markerCellInd] = 1;
         else
             markerRefineDemands[markerCellInd] = 0;

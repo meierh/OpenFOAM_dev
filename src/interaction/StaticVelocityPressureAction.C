@@ -16,9 +16,10 @@ VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_,mo
     Info<<" Refinement set:"<<static_cast<bool>(refinement_)<<Foam::endl;
     if(refinement_)
     {
-        Info<<"Do refinement"<<Foam::endl;
+        Info<<"|||||||||||||||||||||||||Do refinement|||||||||||||||||||||||||"<<Foam::endl;
         refinement_->refineMeshOnStaticMarkers();
         refinement_->refineMeshAndMarkers();
+        Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
     }
     structure.finalizeMarkers();
 }

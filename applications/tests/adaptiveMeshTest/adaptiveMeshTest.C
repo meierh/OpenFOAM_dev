@@ -31,8 +31,18 @@ Description
 
 #include "argList.H"
 #include "fvMesh.H"
-#include "pisoControl.H"
-#include "fvModels.H"
+
+#include "fvmDiv.H"
+#include "fvmLaplacian.H"
+#include "constrainHbyA.H"
+#include "constrainPressure.H"
+#include "adjustPhi.H"
+#include "fvcMeshPhi.H"
+#include "fvcFlux.H"
+#include "fvcDdt.H"
+#include "fvcGrad.H"
+#include "fvcSnGrad.H"
+#include "fvmLaplacian.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -41,9 +51,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"    
-    Foam::pisoControl piso(mesh);
     #include "createFields.H"
-    Foam::scalar cumulativeContErr = 0;
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
     
@@ -64,11 +72,10 @@ int main(int argc, char *argv[])
         {
             refine[i] = 1;
         }
-        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
+        Foam::Info<<"refine:"<<refine.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         bool refine1 = mesh.update();
         Foam::Info<<"refine 1:"<<refine1<<Foam::endl;
-        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
         runTime.write();
 
@@ -78,10 +85,9 @@ int main(int argc, char *argv[])
         {
             refine[i] = 0;
         }
-        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
+        Foam::Info<<"refine:"<<refine.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         bool refine2 = mesh.update();
-        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         Foam::Info<<"refine 2:"<<refine2<<Foam::endl;
         Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
@@ -93,10 +99,9 @@ int main(int argc, char *argv[])
         {
             refine[i] = -1;
         }
-        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
+        Foam::Info<<"field:"<<refine.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         bool refine3 = mesh.update();
-        Foam::Info<<"field:"<<testField.primitiveField()<<Foam::endl;
         Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
         Foam::Info<<"refine 3:"<<refine3<<Foam::endl;
         Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
@@ -108,7 +113,12 @@ int main(int argc, char *argv[])
         Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
             << Foam::nl << Foam::endl;
+            
+        Foam::Info<<"mesh.toc():"<<mesh.toc()<<Foam::endl;
     }
+    const Foam::fvMeshTopoChanger& topoCh = mesh.topoChanger();
+    const Foam::fvMeshTopoChanger* topoChPtr = &topoCh;
+        
     Foam::Info<< "End\n" << Foam::endl;
 
     return 0;
