@@ -54,7 +54,7 @@ class LagrangianMarker
         inline scalar getMarkerVolume() const {return markerVolume;}
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
-        inline scalar getMarkerCharacLen() const {FatalErrorInFunction<<"NotImplemented"<<exit(FatalError);return markerCharLen;}
+        inline scalar getMarkerCharacLen() const {return markerCharLen;}
         virtual inline scalar getMarkerAngle() const {return 0;}
         virtual inline scalar getMarkerRadiusFrac() const {return 0;}
         inline const DynamicList<Pair<label>>& getSupportCells(SupportType type=SupportType::Direct) const

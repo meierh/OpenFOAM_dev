@@ -52,17 +52,17 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
         useStructure = false;
     }
     
+    create_Refiner(mesh);
     create_VelocityForcing();
     create_Temperature();
     create_TemperatureForcing();
-    create_Refiner(mesh);
     
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useStructure:"<<useStructure<<Foam::endl;
+    Info<<"useRefinement:"<<useRefinement<<Foam::endl;
     Info<<"useVelocityForcing:"<<useVelocityForcing<<Foam::endl;
     Info<<"useTemperature:"<<useTemperature<<Foam::endl;
     Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
-    Info<<"useRefinement:"<<useRefinement<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
 }
 
@@ -92,7 +92,7 @@ void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
         word rodMovementWord = rodMovementToken.wordToken();
         if(rodMovementWord == "StaticRod")
         {
-            interaction_fU = std::make_unique<StaticVelocityPressureAction>(mesh,*structure,U_,*fU_);
+            interaction_fU = std::make_unique<StaticVelocityPressureAction>(mesh,*structure,U_,*fU_,refinement_);
         }
         else if(rodMovementWord == "MovedRod")
         {
@@ -234,7 +234,7 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
             }
             else if(refinerTypeWord == "MarkerOnly")
             {
-                refinement_ = std::make_unique<MeshRefiner>(mesh,*structure,*refine_,dynamicMeshDict);
+                refinement_ = std::make_shared<MeshRefiner>(mesh,*structure,*refine_,dynamicMeshDict);
                 useRefinement = true;
             }
             else

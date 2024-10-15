@@ -102,6 +102,7 @@ void Foam::MeshRefiner::fieldRefinement()
 
 void Foam::MeshRefiner::markerRefinement(scalar defaultValue)
 {
+    Info<<"  markerRefinement"<<Foam::endl;
     dimensionSet dimensions = fieldRefineDemands.dimensions();
     Foam::dimensioned<Foam::scalar> val("fieldRefinement",dimensions,defaultValue);
     markerRefineDemands = val;

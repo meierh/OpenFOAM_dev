@@ -528,20 +528,20 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
     {
         std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& markers = *(rodMarkersList[rodNumber]);
         
-        Info<<"markers.size():"<<markers.size()<<Foam::endl;
+        //Info<<"markers.size():"<<markers.size()<<Foam::endl;
         for(auto iterPara=markers.begin(); iterPara!=markers.end(); iterPara++)
         {
             std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& paraMarkers = *iterPara;
-            Info<<"\t paraMarkers.second.size():"<<paraMarkers.second.size();
-            Info<<"  paraMarkers:"<<paraMarkers.first<<Foam::endl;
+            //Info<<"\t paraMarkers.second.size():"<<paraMarkers.second.size();
+            //Info<<"  paraMarkers:"<<paraMarkers.first<<Foam::endl;
             scalar para = paraMarkers.first;
             
             label radialIndex = paraMarkers.second.size()-1;
             for(auto iterRadial=iterPara->second.begin(); iterRadial!=iterPara->second.end(); iterRadial++,radialIndex--)
             {
                 std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radialMarkers = *iterRadial;
-                Info<<"\t\t radialMarkers.second.size():"<<radialMarkers.second.size();
-                Info<<"  radialMarkers:"<<radialMarkers.first<<Foam::endl;
+                //Info<<"\t\t radialMarkers.second.size():"<<radialMarkers.second.size();
+                //Info<<"  radialMarkers:"<<radialMarkers.first<<Foam::endl;
                 scalar radialFrac = radialMarkers.first;
                 
                 bool isRadialCenter = false;
@@ -1193,7 +1193,6 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                             pointField points(4);
                             if(surfaceType==Surface::Circumferential)
                             {                  
-                                Info<<"Circumferential"<<Foam::endl;
                                 points[0] = getPosition(prevParameter,radialIndexFrac,lowerAngle,0,0);
                                 points[1] = getPosition(prevParameter,radialIndexFrac,upperAngle,0,0);
                                 points[2] = getPosition(subseqParameter,radialIndexFrac,upperAngle,0,0);
@@ -1201,7 +1200,6 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                             }
                             else
                             {
-                                Info<<"Radial"<<Foam::endl;
                                 points[0] = getPosition(rodWiseIndexParameter,innerRadiusFrac,lowerAngle,0,0);
                                 points[1] = getPosition(rodWiseIndexParameter,innerRadiusFrac,upperAngle,0,0);
                                 points[2] = getPosition(rodWiseIndexParameter,outerRadiusFrac,upperAngle,0,0);
@@ -1210,6 +1208,8 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                             face thisFace({0,1,2,3});
                             
                             scalar markerVolume = thisFace.mag(points);
+                            
+                            /*
                             if(markerVolume<1e-10)
                             {
                                 Info<<"markerVolume:"<<markerVolume<<"  "<<thisFace<<Foam::endl;
@@ -1233,6 +1233,7 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                                 Info<<"     singleMarkerRadiusFrac:"<<singleMarker->getMarkerRadiusFrac()<<Foam::endl;
                                 Info<<"     singleMarkerAnlge:"<<singleMarker->getMarkerAngle()<<Foam::endl;
                             }
+                            */
                             
                             singleMarker->setMarkerVolume(markerVolume);
                             //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;

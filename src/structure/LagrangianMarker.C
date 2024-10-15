@@ -482,7 +482,8 @@ Foam::scalar Foam::LagrangianMarker::computeMoment
     else
         momentsCells = &fullSupport;
     
-    return convolute<scalar>(deltaFunction,valueFunction,*momentsCells);
+    scalar moment = convolute<scalar>(deltaFunction,valueFunction,*momentsCells);
+    return moment;
 }
 
 Foam::scalar Foam::LagrangianMarker::computeCorrectedMoment
@@ -510,11 +511,12 @@ Foam::scalar Foam::LagrangianMarker::computeMoment
     {
         return marker.deltaDirac(X,x);
     };
-    return computeMoment(indices,deltaFunction);
+    scalar moment = computeMoment(indices,deltaFunction);
+    return moment;
 }
 
 std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMomentMatrix3D() const
-{
+{       
     std::array<vector,10> gen3DIndices = 
     {
         vector(0,0,0),
@@ -533,7 +535,7 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
             indices[i][j] = index;
         }
     }
-
+    
     auto moments3DPtr = std::unique_ptr<gismo::gsMatrix<scalar>>(new gismo::gsMatrix<scalar>(10,10));
     gismo::gsMatrix<scalar>& moments3D = *moments3DPtr;
     for(uint i=0; i<gen3DIndices.size(); i++)
@@ -543,7 +545,7 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
             moments3D(i,j) = computeMoment(indices[i][j]);
         }
     }
-
+    
     return moments3DPtr;
 }
 
@@ -752,6 +754,7 @@ std::unique_ptr<Foam::Pair<gismo::gsMatrix<Foam::scalar>>> Foam::LagrangianMarke
     
     std::unique_ptr<gismo::gsMatrix<scalar>> matrixPtr;
     gismo::gsMatrix<scalar>& rhs = system->second();
+        
     if(numberDims==0)
     {
         matrixPtr = std::make_unique<gismo::gsMatrix<scalar>>(1,1);
@@ -800,11 +803,12 @@ std::unique_ptr<Foam::Pair<gismo::gsMatrix<Foam::scalar>>> Foam::LagrangianMarke
         rhs = gismo::gsMatrix<scalar>(10,1);
         matrixPtr = computeMomentMatrix3D();
     }
+
     system->first() = *matrixPtr;
     for(label row=0; row<rhs.rows(); row++)
         rhs(row,0) = 0;
     rhs(0,0) = 1;
-    
+        
     gismo::gsMatrix<scalar> P(matrixPtr->rows(),matrixPtr->cols());
     for(label row=0; row<P.rows(); row++)
         for(label col=0; col<P.cols(); col++)
@@ -873,9 +877,7 @@ std::unique_ptr<Foam::Pair<gismo::gsMatrix<Foam::scalar>>> Foam::LagrangianMarke
         default:
             FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
     }
-
-    //std::cout<<"P:"<<std::endl<<P<<std::endl;
-    
+      
     system->first() = P*system->first();
     system->second() = P*system->second();
 
@@ -908,6 +910,7 @@ void Foam::LagrangianMarker::searchValidConvolutionSetup
 )
 {   
     // Try to expand the support
+    /*
     Pair<vector> newh = minMaxNeighbourWidth(fullSupport);
     h_plus = newh.first();
     h_minus = newh.second();
@@ -917,6 +920,7 @@ void Foam::LagrangianMarker::searchValidConvolutionSetup
         return;
     else
         evaluateMarker();
+    */
     
     // Remove dimensions
     Vector<bool> dimensions;
@@ -1006,11 +1010,14 @@ void Foam::LagrangianMarker::computeCorrectionWeights()
     std::unique_ptr<Pair<gismo::gsMatrix<scalar>>> system;
     if(checkSolvability(system,existingDims))
     {
+        //Info<<"  Solvable ";
     }
     else
     {
+        //Info<<"  Search ";
         searchValidConvolutionSetup(system);
     }
+    
     
     label numberDims = 0;
     DynamicList<label> listDims;

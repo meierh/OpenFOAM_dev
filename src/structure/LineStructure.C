@@ -644,8 +644,13 @@ void Foam::LineStructure::exchangeHaloMarkersData()
 void Foam::LineStructure::computeMarkerCellWeights()
 {
     status.execValid(status.markersCellWeight);
+    auto t1 = std::chrono::high_resolution_clock::now();
     for(LagrangianMarker* marker : collectedMarkers)
+    {
         marker->compNonUniformCorrWeights();
+    }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    Info<<"Total computeMarkerCellWeights took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::endl;
     status.executed(status.markersCellWeight);
 }
 
@@ -674,7 +679,19 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     CSR_Matrix_par& A = std::get<0>(*result);
     std::get<1>(*result) = Vector_par(locProcMarkerNbr,smProcsNumOfMarkers,globNumOfMarkers);
     Vector_par& b = std::get<1>(*result);
-        
+
+    std::unordered_map<Pair<label>,DynamicList<label>,foamPairHash<label>> cellToMarkerInfluence;
+    for(uint I=0; I<collectedMarkers.size(); I++)
+    {
+        const LagrangianMarker& markerI = *(collectedMarkers[I]);
+        //cellToMarkerI.insert({markerI.getMarkerCell(),I});
+        const DynamicList<Pair<label>>& supportI = markerI.getSupportCells();
+        for(const Pair<label>& node : supportI)
+        {
+            cellToMarkerInfluence[node].append(I);
+        }
+    }
+    
     struct VectorHash
     {
         std::size_t operator()(const vector& vec) const noexcept
@@ -703,12 +720,25 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             markerI.getCellData(suppCell,centre,vol);
             markerISupportMap[centre] = vol;
         }
-                
-        std::map<label,scalar> rowEntries;
-        
-        // Compute local matrix entries
-        for(uint K=0; K<collectedMarkers.size(); K++)
+
+        std::unordered_set<label> localNeighbourMarkerK;
+        for(const Pair<label>& suppCell : supportI)
         {
+            auto iter = cellToMarkerInfluence.find(suppCell);
+            if(iter!=cellToMarkerInfluence.end())
+            {
+                for(scalar markerK : iter->second)
+                    localNeighbourMarkerK.insert(markerK);
+            }
+        }
+
+        std::map<label,scalar> rowEntries;
+        // Compute local matrix entries
+        for(auto iterK=localNeighbourMarkerK.begin(); iterK!=localNeighbourMarkerK.end(); iterK++)
+        {
+            uint K = *iterK;
+        //for(uint K=0; K<collectedMarkers.size(); K++)
+        //{
             /*
             if(Pstream::myProcNo()==0)
                 Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
@@ -862,13 +892,14 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         DynamicList<std::pair<scalar,label>> matrixRow;
         for(auto iter=rowEntries.begin(); iter!=rowEntries.end(); iter++)
         {
-            label K = iter->first;
+            uint K = iter->first;
             scalar matrixEntry = iter->second;
             matrixRow.append({matrixEntry,K});
             if(K==I && std::abs(matrixEntry)<1e-5)
             {
                 Info<<"I:"<<I<<" K:"<<K<<" matrixEntry:"<<matrixEntry<<Foam::endl;
                 Info<<"markerI:"<<markerI.to_string()<<Foam::endl;
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
             }
         }
         if(rowEntries.find(I)==rowEntries.end())
@@ -897,15 +928,19 @@ void Foam::LineStructure::computeMarkerWeights()
 {
     status.execValid(status.markersWeight);
     
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     Info<<"Compute marker weights"<<Foam::endl;
     std::unique_ptr<Foam::LineStructure::LinearSystem> system = computeMarkerEpsilonMatrix();
     Info<<"Computed marker weights"<<Foam::endl;
     CSR_Matrix_par& A = std::get<0>(*system);
     Vector_par& ones = std::get<1>(*system);
-
-    //Info<<ones.to_string()<<Foam::endl;
+    auto t2 = std::chrono::high_resolution_clock::now();
+    
+    Info<<"Matrix assembly took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::endl;
     
     Info<<"Select solutionStrategy"<<Foam::endl;
+    
     switch (solutionStrategy)
     {
         case SystemSolve::Raw:
@@ -960,6 +995,9 @@ void Foam::LineStructure::computeMarkerWeights()
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
 
+    t1 = std::chrono::high_resolution_clock::now();
+    Info<<"Linear system solution took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::endl;
+        
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
         collectedMarkers[I]->setMarkerWeight(eps[I]);
@@ -1102,6 +1140,7 @@ Foam::scalar Foam::LineStructure::characteristicSize
 )
 {
     FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
+    return 0;
 }
 
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers

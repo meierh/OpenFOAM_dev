@@ -14,6 +14,7 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
             LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf,
+            std::shared_ptr<MeshRefiner> refinement_,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
