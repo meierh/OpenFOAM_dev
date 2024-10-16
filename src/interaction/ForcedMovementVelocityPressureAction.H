@@ -19,8 +19,12 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
-        
+               
         void preSolveMovement() override;
+        void preSolveMarkerMeshAdaption() override;
+        
+        void subTimestepStructureMovement() override {};
+        void subTimestepMarkerMeshAdaption() override {};
         
     protected:
         std::unique_ptr<List<List<vector>>> readDeformationDict();

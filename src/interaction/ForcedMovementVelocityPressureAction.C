@@ -22,8 +22,14 @@ void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
 {
     std::unique_ptr<List<List<vector>>> allRodsDeformation = readDeformationDict();
     structure.setDeformation(*allRodsDeformation);
-    moveMarkersAndAdaptMesh();
+    moveMarkers();
 }
+
+void Foam::ForcedMovementVelocityPressureAction::preSolveMarkerMeshAdaption()
+{
+    meshMarkerAdaptation();
+};
+
 
 std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::readDeformationDict()
 {   

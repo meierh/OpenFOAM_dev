@@ -11,17 +11,15 @@ Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
     markerMeshType modusMarkerToField
 ):
 VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_,modusFieldToMarker,modusMarkerToField)
+{}
+
+void Foam::StaticVelocityPressureAction::preSolveMarkerMeshAdaption()
 {
-    Info<<" Create StaticVelocityPressureAction "<<Foam::endl;
-    Info<<" Refinement set:"<<static_cast<bool>(refinement_)<<Foam::endl;
-    if(refinement_)
+    if(!initalMarkerMeshAdaptionDone)
     {
-        Info<<"|||||||||||||||||||||||||Do refinement|||||||||||||||||||||||||"<<Foam::endl;
-        refinement_->refineMeshOnStaticMarkers();
-        refinement_->refineMeshAndMarkers();
-        Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
+        meshMarkerAdaptation();
+        initalMarkerMeshAdaptionDone = true;
     }
-    structure.finalizeMarkers();
 }
 
 Foam::vector Foam::StaticVelocityPressureAction::getVelocity

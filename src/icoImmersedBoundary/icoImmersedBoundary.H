@@ -182,11 +182,11 @@ public:
 
         //- Construct and solve the pressure equation in the PISO loop
         virtual void pressureCorrector();
-
-        //- Correct the momentum and thermophysical transport modelling
-        virtual void postCorrector();
-    */
+    */       
         void correctPressure() override;
+      
+        //- Correct the momentum and thermophysical transport modelling
+        void postCorrector() override;
         
         //- Solve temperature equation after one timestep pimple loop
         void postSolve() override;

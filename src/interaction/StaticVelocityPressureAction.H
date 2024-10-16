@@ -20,10 +20,15 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
         );
         
         void preSolveMovement() override {}
+        void preSolveMarkerMeshAdaption() override;
+        
+        void subTimestepStructureMovement() override {};
+        void subTimestepMarkerMeshAdaption() override {};
         
     protected:
         
     private:
+        bool initalMarkerMeshAdaptionDone = false;
         vector getVelocity(const LagrangianMarker* marker);
 
 };

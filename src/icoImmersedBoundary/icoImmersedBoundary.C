@@ -441,6 +441,16 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
     
 }
 
+void Foam::solvers::icoImmersedBoundary::postCorrector()
+{
+    incompressibleFluid::postCorrector();
+    if(interaction_fU)
+    {
+        interaction_fU->subTimestepStructureMovement();
+        interaction_fU->subTimestepMarkerMeshAdaption();
+    }
+}
+
 void Foam::solvers::icoImmersedBoundary::postSolve()
 {
     Info<<"postSolve"<<Foam::endl;

@@ -21,12 +21,17 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         );
 
         virtual void preSolveMovement()=0;
+        virtual void preSolveMarkerMeshAdaption()=0;
         
         void solve() override;
+        virtual void subTimestepStructureMovement()=0;
+        virtual void subTimestepMarkerMeshAdaption()=0;
         
+        // Adjoint methods
         void store() override;
         void setToTime(scalar time) override;
         
+        // Sensitivity methods
         const volVectorField& getReferenceInOutField() const {return input_U;}
         const DynamicList<vector>& getMarkerCouplingForce() const {return markerCouplingForce;}
         
@@ -34,7 +39,6 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         void interpolateFluidVelocityToMarkers();
         void computeCouplingForceOnMarkers();
         virtual void computeRodForceMoment();
-        void moveMarkersAndAdaptMesh();
         void interpolateFluidForceField();
         
         vector sumForces
@@ -42,6 +46,9 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
             std::function<bool(LagrangianMarker)> condition = 
                                 [](LagrangianMarker marker){return true;}
         );
+        
+        void moveMarkers();
+        void meshMarkerAdaptation();
         
         volVectorField& input_U;
         volVectorField& output_Uf;

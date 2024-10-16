@@ -78,7 +78,7 @@ void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
     markerToField<vector>(markerCouplingForce,output_Uf);
 }
 
-void Foam::VelocityPressureForceInteraction::moveMarkersAndAdaptMesh()
+void Foam::VelocityPressureForceInteraction::moveMarkers()
 {  
     List<bool> prevRodInMesh = structure.getRodInMesh();
     structure.moveMarkersOnRodMovement();
@@ -93,12 +93,6 @@ void Foam::VelocityPressureForceInteraction::moveMarkersAndAdaptMesh()
             }
         }
     }
-    if(refinement_)
-    {
-        refinement_->refineMeshOnStaticMarkers();
-        refinement_->refineMeshAndMarkers();
-    }
-    structure.finalizeMarkers();
 }
 
 Foam::vector Foam::VelocityPressureForceInteraction::sumForces
@@ -126,6 +120,18 @@ Foam::vector Foam::VelocityPressureForceInteraction::sumForces
     Pstream::scatter(result);
     
     return result;
+}
+
+void Foam::VelocityPressureForceInteraction::meshMarkerAdaptation()
+{
+    if(refinement_)
+    {
+        Info<<"|||||||||||||||||||||||||Do refinement|||||||||||||||||||||||||"<<Foam::endl;
+        refinement_->refineMeshOnStaticMarkers();
+        refinement_->refineMeshAndMarkers();
+        Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
+    }
+    structure.finalizeMarkers();
 }
 
 void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
