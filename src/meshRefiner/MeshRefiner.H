@@ -42,6 +42,8 @@ class MeshRefiner
 
         volScalarField markerRefineDemands;
         void markerRefinement(scalar defaultValue);
+        
+        bool applyMeshAdaption();
 
     private:
         scalar refinementDemandMerge(scalar fieldDemand, scalar markerDemand);

@@ -53,59 +53,6 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     }
     
     create_Refiner(mesh);
-    
-    {
-        volScalarField& refine = *refine_;
-        Foam::Info<< "Time = " << runTime.name() << Foam::nl << Foam::endl;
-
-        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl;
-        Info<<"refine:"<<refine.name()<<Foam::endl;
-
-        Foam::dimensionSet dim(0,2,-2,0,0,0,0);
-        Foam::dimensioned<Foam::scalar> val("test",dim,0);
-
-        for(Foam::label i=0; i<refine.size(); i++)
-        {
-            refine[i] = 1;
-        }
-        Foam::Info<<"refine:"<<refine.primitiveField()<<Foam::endl;
-        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
-        bool refine1 = mesh.update();
-        Foam::Info<<"refine 1:"<<refine1<<Foam::endl;
-        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
-        runTime.write();
-
-        for(Foam::label i=0; i<refine.size(); i++)
-        {
-            refine[i] = 0;
-        }
-        Foam::Info<<"refine:"<<refine.primitiveField()<<Foam::endl;
-        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
-        bool refine2 = mesh.update();
-        Foam::Info<<"refine 2:"<<refine2<<Foam::endl;
-        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
-        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
-        runTime.write();
-
-        for(Foam::label i=0; i<refine.size(); i++)
-        {
-            refine[i] = -1;
-        }
-        Foam::Info<<"field:"<<refine.primitiveField()<<Foam::endl;
-        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
-        bool refine3 = mesh.update();
-        Foam::Info<<"refine 3:"<<refine3<<Foam::endl;
-        Foam::Info<<"Refine field size:"<<refine.size()<<Foam::endl;
-        Foam::Info<<"Topochanging:"<<mesh.topoChanging()<<Foam::endl<<Foam::endl;
-        runTime.write();
-
-        runTime.write();
-
-        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << Foam::nl << Foam::endl;
-    }
-    
     create_VelocityForcing();
     create_Temperature();
     create_TemperatureForcing();
@@ -116,10 +63,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"useVelocityForcing:"<<useVelocityForcing<<Foam::endl;
     Info<<"useTemperature:"<<useTemperature<<Foam::endl;
     Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
-    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
-    Info<<"mesh.toc():"<<mesh.toc()<<Foam::endl;
-    
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
@@ -310,10 +254,13 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
         useRefinement = false;    
 }
 
-void Foam::solvers::icoImmersedBoundary::preSolve()
+void Foam::solvers::icoImmersedBoundary::preMove()
 {
     if(interaction_fU)
+    {
         interaction_fU->preSolveMovement();
+        interaction_fU->preSolveMarkerMeshAdaption();
+    }
 }
 
 void Foam::solvers::icoImmersedBoundary::momentumPredictor()

@@ -380,7 +380,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::solvePrimal()
     {
         // Update PIMPLE outer-loop parameters if changed
         pimpleCtlr.read();
-
+        
+        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
+        
         preSolve();
 
         // Adjust the time-step according to the solver maxDeltaT
@@ -390,6 +392,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::solvePrimal()
 
         Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
+        preMove();
+        
         // PIMPLE corrector loop
         while (pimpleCtlr.loop())
         {

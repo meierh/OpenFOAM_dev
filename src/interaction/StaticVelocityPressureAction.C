@@ -20,6 +20,7 @@ void Foam::StaticVelocityPressureAction::preSolveMarkerMeshAdaption()
         meshMarkerAdaptation();
         initalMarkerMeshAdaptionDone = true;
     }
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
 }
 
 Foam::vector Foam::StaticVelocityPressureAction::getVelocity

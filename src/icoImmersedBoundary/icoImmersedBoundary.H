@@ -158,7 +158,9 @@ public:
 
     
         //- Called at the start of the time-step, before the PIMPLE loop
-        void preSolve() override;
+        //void preSolve() override;
+        
+        void preMove();
 
     /*
         //- Called at the start of the PIMPLE loop to move the mesh

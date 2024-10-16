@@ -153,10 +153,16 @@ void Foam::LagrangianMarker::computeSupport
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
-        
+                
         direct.insert({Pstream::myProcNo(),markerCell});
         full.insert({Pstream::myProcNo(),markerCell});
         DynamicList<Pair<label>> frontNodes;
+        if(markerCell<0 || markerCell>=localMeshGraph.size())
+        {
+            Info<<"markerCell:"<<markerCell<<"/"<<localMeshGraph.size()<<Foam::endl;
+            FatalErrorInFunction<<"Out of range cellInd"<<exit(FatalError);
+        }
+        
         for(const Pair<label>& edge : localMeshGraph[markerCell])
         {
             if(edge.first()!=-1 && edge.second()!=-1)
@@ -166,7 +172,7 @@ void Foam::LagrangianMarker::computeSupport
                 frontNodes.append({edge.first(),edge.second()});
             }
         }
-        
+                
         for(label iteration=1; iteration<iterations; iteration++)
         {
             DynamicList<Pair<label>> newFront;
@@ -212,6 +218,7 @@ void Foam::LagrangianMarker::computeSupport
         }
     }
     
+    
     directSupport.resize(0);
     for(auto iterCells=direct.begin(); iterCells!=direct.end(); iterCells++)
     {
@@ -223,7 +230,7 @@ void Foam::LagrangianMarker::computeSupport
     {
         fullSupport.append(*iterCells);
     }
-
+    
     List<List<bool>> directionsExist(3,List<bool>(2,false));
     if(markerCell!=-1)
     {
@@ -274,16 +281,15 @@ void Foam::LagrangianMarker::computeSupport
                     FatalErrorInFunction<<"Faces have to be cartesian"<<exit(FatalError);
 
                 directionsExist[dir][posNeg] = true;
-                //Info<<faceInd<<" \t owner:"<<owner<<" nei:"<<edge<<"  normal:"<<faceNormal<<Foam::endl;
-                
             }
         }
     }
+        
     //Info<<"directionsExist:"<<directionsExist<<Foam::endl;
     for(label dim=0; dim<3; dim++)
     {
         existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
-    }
+    }    
 }
 
 Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth

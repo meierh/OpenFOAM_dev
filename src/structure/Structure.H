@@ -164,6 +164,8 @@ class Structure
         scalar domainEnd (label rodNumber) const;
         label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod) const;
         
+        void computeHaloData() { collectMeshHaloData(haloWidth); }
+
         void solveOneStep();
         
         static scalar matrixDistance(const FixedList<vector,3>& m1, const FixedList<vector,3>& m2);
@@ -525,6 +527,7 @@ class Structure
         
         void generateMeshGraph();
         
+        const label haloWidth = 4;        
         void collectMeshHaloData(label iterations=1);
     public:
         static scalar initialSpacingFromMesh(const fvMesh& mesh, label cellInd=0);

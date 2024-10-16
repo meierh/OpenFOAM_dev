@@ -69,19 +69,21 @@ void Foam::MeshRefiner::adaptMesh()
 void Foam::MeshRefiner::refineMeshOnStaticMarkers()
 {
     bool refined = true;
-    Info<<"------------refineMeshOnStaticMarkers-------------"<<Foam::endl;
+    Info<<"Foam::MeshRefiner::refineMeshOnStaticMarkers"<<Foam::endl;
     while(refined)
     {
-        Info<<"structure.getCollectedMarkers().size():"<<structure.getCollectedMarkers().size()<<Foam::endl;
-        Info<<"mesh.cells().size():"<<mesh.cells().size()<<Foam::endl;
+        Info<<"------------refineMeshOnStaticMarkers-------------"<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
-        //Info<<"doRefine:"<<doRefine<<Foam::endl;
-        refined = mesh.update();
-        Info<<"refined:"<<refined<<Foam::endl;
+        auto start = std::chrono::system_clock::now();
+        refined = applyMeshAdaption();
+        auto end = std::chrono::system_clock::now();
+        
+        Info<<"  refined:"<<refined<<Foam::endl;
+        Info<<"------------------------------------------------- took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()<<" milliseconds"<<Foam::endl;
     }
 }
 
@@ -91,17 +93,17 @@ void Foam::MeshRefiner::refineMeshAndMarkers()
     while(refined)
     {
         Info<<"------------refineMeshAndMarkers-------------"<<Foam::endl;
-        Info<<"structure.getCollectedMarkers().size():"<<structure.getCollectedMarkers().size()<<Foam::endl;
-        Info<<"mesh.cells().size():"<<mesh.cells().size()<<Foam::endl;
+        Info<<"    structure.getCollectedMarkers().size():"<<structure.getCollectedMarkers().size()<<Foam::endl;
+        Info<<"    mesh.cells().size():"<<mesh.cells().size()<<Foam::endl;
         markerRefinement(MUSTKEEP);
         for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
         {
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
-        refined = mesh.update();
-        Info<<"refined:"<<refined<<Foam::endl;
-        structure.settleIntoRefinedMesh();
+        refined = applyMeshAdaption();
+        Info<<"  refined:"<<refined<<Foam::endl;
         structure.refineMarkersOnRefinedMesh();
+        Info<<"---------------------------------------------"<<Foam::endl;
     }
 }
 
@@ -129,6 +131,24 @@ void Foam::MeshRefiner::markerRefinement(scalar defaultValue)
         else
             markerRefineDemands[markerCellInd] = 0;
     }
+}
+
+bool Foam::MeshRefiner::applyMeshAdaption()
+{
+    auto t1 = std::chrono::system_clock::now();
+    bool refined = mesh.update();
+    auto t2 = std::chrono::system_clock::now();
+    Info<<"Update took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::endl;
+    if(refined)
+    {
+        structure.computeHaloData();
+        auto t1 = std::chrono::system_clock::now();
+        Info<<"computeHaloData took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::endl;
+        structure.settleIntoRefinedMesh();
+        auto t2 = std::chrono::system_clock::now();
+        Info<<"settleIntoRefinedMesh took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::endl;
+    }
+    return refined;
 }
 
 Foam::scalar Foam::MeshRefiner::refinementDemandMerge

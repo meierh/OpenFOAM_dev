@@ -388,7 +388,7 @@ mesh(mesh),
 meshBoundingBox(computeMeshBoundingBox())
 {
     Info<<"----------------Structure----------------"<<Foam::endl;
-    collectMeshHaloData(4);
+    computeHaloData();
     setupActiveRodMesh();
     setupRodBoundingBoxTree();
 }
@@ -410,7 +410,7 @@ mesh(mesh),
 meshBoundingBox(computeMeshBoundingBox())
 {
     Info<<"----------------Structure dir----------------"<<Foam::endl;
-    collectMeshHaloData(4);
+    computeHaloData();
     setupActiveRodMesh();
     setupRodBoundingBoxTree();
 }

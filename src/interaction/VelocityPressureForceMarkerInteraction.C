@@ -132,6 +132,7 @@ void Foam::VelocityPressureForceInteraction::meshMarkerAdaptation()
         Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
     }
     structure.finalizeMarkers();
+    
 }
 
 void Foam::VelocityPressureForceInteraction::computeRodForceMoment()
