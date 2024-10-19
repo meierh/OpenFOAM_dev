@@ -2793,6 +2793,35 @@ Foam::scalar Foam::Structure::initialSpacingFromMesh
     return 2*minHalfDist;
 }
 
+void Foam::Structure::neighbourCells
+(
+    const fvMesh& mesh,
+    label cellInd,
+    DynamicList<label>& neighbours
+)
+{
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const labelListList& pointCells = mesh.pointCells();
+    
+    if(cellInd<0 || cellInd>=cells.size())
+        FatalErrorInFunction<<"Invalid cellInd"<<exit(FatalError);
+    
+    std::unordered_set<label> neighbourCellSet;
+    for(const label vertice : cells[cellInd].labels(faces))
+    {
+        for(label neighCell : pointCells[vertice])
+        {
+            neighbourCellSet.insert(neighCell);
+        }
+    }
+    neighbourCellSet.erase(cellInd);
+    
+    for(auto iter=neighbours.begin(); iter!=neighbours.end(); iter++)
+        neighbours.append(*iter);
+}
+
+
 void Foam::Structure::quaternionCheck()
 {
     Quaternion q;

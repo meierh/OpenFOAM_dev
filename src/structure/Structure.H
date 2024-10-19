@@ -531,6 +531,7 @@ class Structure
         void collectMeshHaloData(label iterations=1);
     public:
         static scalar initialSpacingFromMesh(const fvMesh& mesh, label cellInd=0);
+        static void neighbourCells(const fvMesh& mesh, label cellInd, DynamicList<label>& neighbours);
         
         void quaternionCheck();
         void rotationCheck();

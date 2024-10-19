@@ -11,7 +11,7 @@ Foam::CrossSectionStructure::CrossSectionStructure
 LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
-    Info<<"CrossSectionStructure"<<Foam::endl;
+    Info<<"CrossSectionStructure"<<Foam::nl;
     initialize();
 }
 
@@ -24,7 +24,7 @@ Foam::CrossSectionStructure::CrossSectionStructure
 LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
-    Info<<"CrossSectionStructure empty"<<Foam::endl;
+    Info<<"CrossSectionStructure empty"<<Foam::nl;
 }
 
 Foam::CrossSectionStructure::CrossSectionStructure
@@ -74,27 +74,27 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
 
 void Foam::CrossSectionStructure::to_string()
 {
-    Info<<"---CrossSectionStructure::Markers---"<<Foam::endl;
+    Info<<"---CrossSectionStructure::Markers---"<<Foam::nl;
     int count=0;
     for(std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>& oneRodMarkers : rodMarkersList)
     {
-        Info<<"Rod "<<count<<Foam::endl;
+        Info<<"Rod "<<count<<Foam::nl;
         if(oneRodMarkers)
         {
             for(std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& radialMarkers : *oneRodMarkers)
             {
-                Info<<"\t-"<<Foam::endl;
+                Info<<"\t-"<<Foam::nl;
                 for(std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& angleMarkers : radialMarkers.second)
                 {
                     for(const LagrangianMarkerOnCrossSec& marker : angleMarkers.second)
                     {
-                        Info<<"\t"<<marker.to_string()<<Foam::endl;
+                        Info<<"\t"<<marker.to_string()<<Foam::nl;
                     }
                 }
             }
         }
     }
-    Info<<"------------------------------------"<<Foam::endl;
+    Info<<"------------------------------------"<<Foam::nl;
 }
 
 void Foam::CrossSectionStructure::setCrossSecParameters
@@ -222,7 +222,7 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
     const IOdictionary& structureDict
 )
 {
-    Info<<"createCrossSectionsFromDict"<<Foam::endl;
+    Info<<"createCrossSectionsFromDict"<<Foam::nl;
     
     const dictionary& crossSecDict = structureDict.subDict("crossSections");
     List<keyType> crossSectionsKey = crossSecDict.keys();
@@ -230,7 +230,7 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
     std::vector<CrossSection> crossSec;
     for(keyType oneCrossSec : crossSectionsKey)
     {
-        Info<<"Read rod "<<oneCrossSec<<" cross Section"<<Foam::endl;
+        Info<<"Read rod "<<oneCrossSec<<" cross Section"<<Foam::nl;
         const dictionary& oneCrossSecDict = crossSecDict.subDict(oneCrossSec);
         ITstream crossSecTypeStream = oneCrossSecDict.lookup("type");
         token crossSecTypeToken;
@@ -403,7 +403,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             {
                 radialData[r].first = radFrac;
                 createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,radFrac,spacing,radialData[r].second);
-                //Info<<radFrac<<"  radialData["<<r<<"].second.size():"<<radialData[r].second.size()<<Foam::endl;
+                //Info<<radFrac<<"  radialData["<<r<<"].second.size():"<<radialData[r].second.size()<<Foam::nl;
                 radFrac-=radFracPart;
             }
                         
@@ -416,7 +416,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             radialData.resize(1);
             radialData[0].first = 1.0;
             createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,1.0,spacing,radialData[0].second);
-            //Info<<"radialData[0].second.size():"<<radialData[0].second.size()<<Foam::endl;
+            //Info<<"radialData[0].second.size():"<<radialData[0].second.size()<<Foam::nl;
         }
     }
     initialRodPoints[rodNumber] = std::move(pointsPtr);
@@ -528,12 +528,12 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
     {
         std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& markers = *(rodMarkersList[rodNumber]);
         
-        //Info<<"markers.size():"<<markers.size()<<Foam::endl;
+        //Info<<"markers.size():"<<markers.size()<<Foam::nl;
         for(auto iterPara=markers.begin(); iterPara!=markers.end(); iterPara++)
         {
             std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& paraMarkers = *iterPara;
             //Info<<"\t paraMarkers.second.size():"<<paraMarkers.second.size();
-            //Info<<"  paraMarkers:"<<paraMarkers.first<<Foam::endl;
+            //Info<<"  paraMarkers:"<<paraMarkers.first<<Foam::nl;
             scalar para = paraMarkers.first;
             
             label radialIndex = paraMarkers.second.size()-1;
@@ -541,7 +541,7 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
             {
                 std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radialMarkers = *iterRadial;
                 //Info<<"\t\t radialMarkers.second.size():"<<radialMarkers.second.size();
-                //Info<<"  radialMarkers:"<<radialMarkers.first<<Foam::endl;
+                //Info<<"  radialMarkers:"<<radialMarkers.first<<Foam::nl;
                 scalar radialFrac = radialMarkers.first;
                 
                 bool isRadialCenter = false;
@@ -662,7 +662,7 @@ void Foam::CrossSectionStructure::refineCircumferential
 {
     if(circumMarkers.size()<2)
     {
-        Info<<circumMarkers.front().getMarkerRadiusFrac()<<Foam::endl;
+        Info<<circumMarkers.front().getMarkerRadiusFrac()<<Foam::nl;
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
     }
     
@@ -728,7 +728,7 @@ void Foam::CrossSectionStructure::refineRadial
     std::pair<bool,scalar> refineSpacing
 )
 {
-    //Info<<"refineRadial"<<Foam::endl;
+    //Info<<"refineRadial"<<Foam::nl;
     
     if(radialMarkers.size()<2)
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
@@ -751,7 +751,7 @@ void Foam::CrossSectionStructure::refineRadial
     bool refined=true;
     while(refined)
     {
-        //Info<<"\tRefine while"<<Foam::endl;
+        //Info<<"\tRefine while"<<Foam::nl;
         refined = false;
         auto radMarkerIter0 = radialMarkers.begin();
         auto radMarkerIter1 = ++(radialMarkers.begin());
@@ -759,7 +759,7 @@ void Foam::CrossSectionStructure::refineRadial
         {
             if(radMarkerIter0->second.size()<1)
             {
-                Info<<radMarkerIter0->second.front().getMarkerParameter()<<"/"<<radMarkerIter0->second.front().getMarkerRadiusFrac()<<Foam::endl;
+                Info<<radMarkerIter0->second.front().getMarkerParameter()<<"/"<<radMarkerIter0->second.front().getMarkerRadiusFrac()<<Foam::nl;
                 FatalErrorInFunction<<"Must be at least one markers"<< exit(FatalError);
             }
             scalar radMarker0RadFrac = radMarkerIter0->second.front().getMarkerRadiusFrac();
@@ -773,7 +773,7 @@ void Foam::CrossSectionStructure::refineRadial
             
             if(radMarkerIter1->second.size()<1)
             {
-                Info<<radMarkerIter1->second.front().getMarkerParameter()<<"/"<<radMarkerIter1->second.front().getMarkerRadiusFrac()<<Foam::endl;
+                Info<<radMarkerIter1->second.front().getMarkerParameter()<<"/"<<radMarkerIter1->second.front().getMarkerRadiusFrac()<<Foam::nl;
                 FatalErrorInFunction<<"Must be at least one markers"<< exit(FatalError);
             }
             scalar radMarker1RadFrac = radMarkerIter1->second.front().getMarkerRadiusFrac();
@@ -785,9 +785,9 @@ void Foam::CrossSectionStructure::refineRadial
                 radMarker1InCell |= (iter->getMarkerCell()!=-1);
             }
             
-            //Info<<"radMarker0RadFrac:"<<radMarker0RadFrac<<"  radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::endl;
-            //Info<<"radMarker0CellSpacing:"<<radMarker0CellSpacing<<"  radMarker1CellSpacing:"<<radMarker1CellSpacing<<Foam::endl;
-            //Info<<"radMarker0InCell:"<<radMarker0InCell<<"  radMarker1InCell:"<<radMarker1InCell<<Foam::endl;
+            //Info<<"radMarker0RadFrac:"<<radMarker0RadFrac<<"  radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::nl;
+            //Info<<"radMarker0CellSpacing:"<<radMarker0CellSpacing<<"  radMarker1CellSpacing:"<<radMarker1CellSpacing<<Foam::nl;
+            //Info<<"radMarker0InCell:"<<radMarker0InCell<<"  radMarker1InCell:"<<radMarker1InCell<<Foam::nl;
             
             scalar maxDist = std::numeric_limits<scalar>::max();
             for(auto iter=radMarkerIter0->second.begin(); iter!=radMarkerIter0->second.end(); iter++)
@@ -835,7 +835,7 @@ void Foam::CrossSectionStructure::refineRadial
             if(subdivide)
             {
                 scalar middleRadiusFrac = 0.5*(radMarker0RadFrac + radMarker1RadFrac);
-                //Info<<"\tSubdivide:"<<"middleRadiusFrac:"<<middleRadiusFrac<<" radMarker0RadFrac:"<<radMarker0RadFrac<<" radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::endl;
+                //Info<<"\tSubdivide:"<<"middleRadiusFrac:"<<middleRadiusFrac<<" radMarker0RadFrac:"<<radMarker0RadFrac<<" radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::nl;
                 std::vector<scalar> angleData;
                 createSpacedPointsOnCrossSec
                 (
@@ -1033,7 +1033,7 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
             else
                 surfaceType = Surface::Circumferential;
             
-            //Info<<"rodWiseIndex:"<<rodWiseIndex<<Foam::endl;
+            //Info<<"rodWiseIndex:"<<rodWiseIndex<<Foam::nl;
             std::vector<std::vector<LagrangianMarkerOnCrossSec*>>& radialMarkers = markers[rodWiseIndex];
             scalar rodWiseIndexParameter = radialMarkers[0][0]->getMarkerParameter();
             
@@ -1072,10 +1072,10 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                     else
                         innerRadiusFrac = (radialMarkers[radialIndex+1][0]->getMarkerRadiusFrac()+radialIndexFrac)/2;
                 }
-                //Info<<"\tradialIndex:"<<radialIndex<<" - "<<circumMarkers.size()<<Foam::endl;
+                //Info<<"\tradialIndex:"<<radialIndex<<" - "<<circumMarkers.size()<<Foam::nl;
                 for(uint circIndex=0; circIndex<circumMarkers.size(); circIndex++)
                 {
-                    //Info<<"\t\tcircIndex:"<<circIndex<<"/"<<circumMarkers.size()<<Foam::endl;
+                    //Info<<"\t\tcircIndex:"<<circIndex<<"/"<<circumMarkers.size()<<Foam::nl;
 
                     LagrangianMarkerOnCrossSec* singleMarker = circumMarkers[circIndex];
                     if(singleMarker->getMarkerRadiusFrac()!=1.0 && surfaceType==Surface::Circumferential)
@@ -1114,9 +1114,9 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                             scalar h = std::cbrt(cells[singleMarker->getMarkerCell()].mag(points,faces));
                             
                             /*
-                            Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::endl;
-                            Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
-                            Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::endl;
+                            Info<<"prevParameter:"<<prevParameter<<"  subseqParameter:"<<subseqParameter<<Foam::nl;
+                            Info<<"innerRadiusFrac:"<<innerRadiusFrac<<"  outerRadiusFrac:"<<outerRadiusFrac<<Foam::nl;
+                            Info<<"lowerAngle:"<<lowerAngle<<"  upperAngle:"<<upperAngle<<Foam::nl;
                             */
                             
                             std::array<std::array<std::array<label,2>,2>,2> paraRadAnglePnts;
@@ -1185,7 +1185,7 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                             
                             scalar markerVolume = thisCell.mag(points,faces);
                             singleMarker->setMarkerVolume(markerVolume);
-                            //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
+                            //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::nl;
                             sumVolume+=singleMarker->getMarkerVolume();
                         }
                         else
@@ -1212,31 +1212,31 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
                             /*
                             if(markerVolume<1e-10)
                             {
-                                Info<<"markerVolume:"<<markerVolume<<"  "<<thisFace<<Foam::endl;
-                                Info<<"     points:"<<points<<Foam::endl;
-                                Info<<"     prevParameter:"<<prevParameter<<Foam::endl;
-                                Info<<"     subseqParameter:"<<subseqParameter<<Foam::endl;
-                                Info<<"     innerRadiusFrac:"<<innerRadiusFrac<<Foam::endl;
-                                Info<<"     radialIndexFrac:"<<radialIndexFrac<<Foam::endl;
-                                Info<<"     outerRadiusFrac:"<<outerRadiusFrac<<Foam::endl;
-                                Info<<"     lowerAngle:"<<lowerAngle<<Foam::endl;
-                                Info<<"     upperAngle:"<<upperAngle<<Foam::endl;       
-                                Info<<"     distAngle:"<<"("<<lowerAngle<<"/"<<circIndexAngle<<"/"<<upperAngle<<"):"<<upperAngle-lowerAngle<<Foam::endl;
-                                Info<<"     circumMarkers.size():"<<circumMarkers.size()<<Foam::endl;
+                                Info<<"markerVolume:"<<markerVolume<<"  "<<thisFace<<Foam::nl;
+                                Info<<"     points:"<<points<<Foam::nl;
+                                Info<<"     prevParameter:"<<prevParameter<<Foam::nl;
+                                Info<<"     subseqParameter:"<<subseqParameter<<Foam::nl;
+                                Info<<"     innerRadiusFrac:"<<innerRadiusFrac<<Foam::nl;
+                                Info<<"     radialIndexFrac:"<<radialIndexFrac<<Foam::nl;
+                                Info<<"     outerRadiusFrac:"<<outerRadiusFrac<<Foam::nl;
+                                Info<<"     lowerAngle:"<<lowerAngle<<Foam::nl;
+                                Info<<"     upperAngle:"<<upperAngle<<Foam::nl;       
+                                Info<<"     distAngle:"<<"("<<lowerAngle<<"/"<<circIndexAngle<<"/"<<upperAngle<<"):"<<upperAngle-lowerAngle<<Foam::nl;
+                                Info<<"     circumMarkers.size():"<<circumMarkers.size()<<Foam::nl;
                                 
-                                Info<<"     p1:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.2,0,0)<<Foam::endl;
-                                Info<<"     p2:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.4,0,0)<<Foam::endl;
-                                Info<<"     p3:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.6,0,0)<<Foam::endl;
-                                Info<<"     p4:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.8,0,0)<<Foam::endl;
-                                Info<<"     singleMarker:"<<singleMarker->to_string()<<Foam::endl;
-                                Info<<"     singleMarkerPara:"<<singleMarker->getMarkerParameter()<<Foam::endl;
-                                Info<<"     singleMarkerRadiusFrac:"<<singleMarker->getMarkerRadiusFrac()<<Foam::endl;
-                                Info<<"     singleMarkerAnlge:"<<singleMarker->getMarkerAngle()<<Foam::endl;
+                                Info<<"     p1:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.2,0,0)<<Foam::nl;
+                                Info<<"     p2:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.4,0,0)<<Foam::nl;
+                                Info<<"     p3:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.6,0,0)<<Foam::nl;
+                                Info<<"     p4:"<<getPosition(prevParameter,radialIndexFrac,lowerAngle+0.8,0,0)<<Foam::nl;
+                                Info<<"     singleMarker:"<<singleMarker->to_string()<<Foam::nl;
+                                Info<<"     singleMarkerPara:"<<singleMarker->getMarkerParameter()<<Foam::nl;
+                                Info<<"     singleMarkerRadiusFrac:"<<singleMarker->getMarkerRadiusFrac()<<Foam::nl;
+                                Info<<"     singleMarkerAnlge:"<<singleMarker->getMarkerAngle()<<Foam::nl;
                             }
                             */
                             
                             singleMarker->setMarkerVolume(markerVolume);
-                            //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::endl;
+                            //Info<<"|||"<<singleMarker.getMarkerVolume()<<"|||"<<singleMarker.getSupportCells().size()<<Foam::nl;
                             sumVolume+=singleMarker->getMarkerVolume();
                         }
                     }
@@ -1275,9 +1275,7 @@ void Foam::CrossSectionStructure::evaluateMarkerMeshRelation
 }
 
 void Foam::CrossSectionStructure::reduceMarkers()
-{
-    std::cout<<"CrossSectionStructure::reduceMarkers()"<<std::endl;
-    
+{   
     std::vector<MarkerReference<LagrangianMarkerOnCrossSec>> allMarkers;
     for(std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>& singleRodMarkers :  rodMarkersList)
     {
@@ -1478,8 +1476,6 @@ void Foam::CrossSectionStructure::removeOverlapMarkers()
 
 void Foam::CrossSectionStructure::collectMarkers()
 {
-    std::cout<<"CrossSectionStructure::collectMarkers"<<std::endl;
-
     status.execValid(status.markersCollected);
     collectedMarkers.resize(0);    
     for(std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>& singleRodMarkers :  rodMarkersList)
@@ -1501,7 +1497,6 @@ void Foam::CrossSectionStructure::collectMarkers()
             FatalErrorInFunction<<"Rod with no markers given"<<exit(FatalError);
     }
     status.executed(status.markersCollected);
-    std::cout<<"CrossSectionStructure::collectMarkers done"<<std::endl;
 }
 
 Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
@@ -1536,19 +1531,19 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
-    //Info<<"\t\tpara:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<" d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::endl;
+    //Info<<"\t\tpara:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<" d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::nl;
     vector tangential = d3;
     scalar tangentialLen = std::sqrt(tangential&tangential);
     tangential /= tangentialLen;
     vector tangentialDev = tangential * var_para;
-    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
+    //Info<<Foam::nl<<"parameter:"<<parameter<<Foam::nl;
     scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
     radius +=  var_radius;
-    //Info<<"radius:"<<radius<<Foam::endl;
+    //Info<<"radius:"<<radius<<Foam::nl;
     vector coordXDir = std::cos(angle)*radius*d1;
-    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
+    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::nl;
     vector coordYDir = std::sin(angle)*radius*d2;
-    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
+    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::nl;
     return (r+tangentialDev)+coordXDir+coordYDir;
 }
 
@@ -1645,16 +1640,16 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
 {
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
-    //Info<<Foam::endl<<"parameter:"<<parameter<<Foam::endl;
+    //Info<<Foam::nl<<"parameter:"<<parameter<<Foam::nl;
     scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
-    //Info<<"radius:"<<radius<<Foam::endl;
+    //Info<<"radius:"<<radius<<Foam::nl;
     scalar dradius_dangle = oneCrossSec->deriv_angle(parameter,angle)*radiusFrac;
     
-    //Info<<"radius:"<<radius<<Foam::endl;
+    //Info<<"radius:"<<radius<<Foam::nl;
     vector coordXDerivAngle = (dradius_dangle*std::cos(angle) - radius*std::sin(angle))*d1;
-    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::endl;
+    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::nl;
     vector coordYDerivAngle = (dradius_dangle*std::sin(angle) + radius*std::cos(angle))*d2;
-    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::endl;
+    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::nl;
     return coordXDerivAngle+coordYDerivAngle;
 }
 
@@ -1740,7 +1735,7 @@ Foam::scalar Foam::CrossSectionStructure::distance
     scalar radiusFrac
 )
 {
-    //Info<<"computeDist:"<<angleStart<<"-"<<angleEnd<<Foam::endl;
+    //Info<<"computeDist:"<<angleStart<<"-"<<angleEnd<<Foam::nl;
     std::function<scalar(scalar)> curveLen = 
     [rodPtr=oneRod, para=parameter, crossSecRef=crossSec, radFrac=radiusFrac](scalar angle)
     {
@@ -1850,7 +1845,7 @@ Foam::scalar Foam::CrossSectionStructure::distance
 void Foam::CrossSectionStructure::parameterGradientCheck() const
 {
     LineStructure::parameterGradientCheck();
-    Info<<"CrossSectionStructure::parameterGradientCheck (deriv_para,deriv2_para,deriv_angle,deriv2_angle) "<<Foam::endl;
+    Info<<"CrossSectionStructure::parameterGradientCheck (deriv_para,deriv2_para,deriv_angle,deriv2_angle) "<<Foam::nl;
     
     scalar nbrSteps = 20;
     scalar epsilon = 1e-8;
@@ -1897,30 +1892,30 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                 scalar fd_d2rdangle = (ua_drdangle-la_drdangle)/(2*epsilon);
                 
                 /*
-                Info<<"--------------------------"<<Foam::endl;
-                Info<<"parameter:"<<parameter<<Foam::endl;
-                Info<<"angle:"<<angle<<Foam::endl;
-                Info<<"---"<<Foam::endl;
-                Info<<"lp_r:"<<lp_r<<Foam::endl;
-                Info<<"up_r:"<<up_r<<Foam::endl;
-                Info<<"la_r:"<<la_r<<Foam::endl;
-                Info<<"ua_r:"<<ua_r<<Foam::endl;
-                Info<<"---"<<Foam::endl;
-                Info<<"lp_drdp:"<<lp_drdp<<Foam::endl;
-                Info<<"up_drdp:"<<up_drdp<<Foam::endl;
-                Info<<"la_drdangle:"<<la_drdangle<<Foam::endl;
-                Info<<"ua_drdangle:"<<ua_drdangle<<Foam::endl;
-                Info<<"---"<<Foam::endl;
-                Info<<"drdp:"<<drdp<<Foam::endl;
-                Info<<"d2rdp:"<<d2rdp<<Foam::endl;
-                Info<<"drdangle:"<<drdangle<<Foam::endl;
-                Info<<"d2rdangle:"<<d2rdangle<<Foam::endl;
-                Info<<"---"<<Foam::endl;
-                Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
-                Info<<"fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
-                Info<<"fd_drdangle:"<<fd_drdangle<<Foam::endl;
-                Info<<"fd_d2rdangle:"<<fd_d2rdangle<<Foam::endl;
-                Info<<"--------------------------"<<Foam::endl;
+                Info<<"--------------------------"<<Foam::nl;
+                Info<<"parameter:"<<parameter<<Foam::nl;
+                Info<<"angle:"<<angle<<Foam::nl;
+                Info<<"---"<<Foam::nl;
+                Info<<"lp_r:"<<lp_r<<Foam::nl;
+                Info<<"up_r:"<<up_r<<Foam::nl;
+                Info<<"la_r:"<<la_r<<Foam::nl;
+                Info<<"ua_r:"<<ua_r<<Foam::nl;
+                Info<<"---"<<Foam::nl;
+                Info<<"lp_drdp:"<<lp_drdp<<Foam::nl;
+                Info<<"up_drdp:"<<up_drdp<<Foam::nl;
+                Info<<"la_drdangle:"<<la_drdangle<<Foam::nl;
+                Info<<"ua_drdangle:"<<ua_drdangle<<Foam::nl;
+                Info<<"---"<<Foam::nl;
+                Info<<"drdp:"<<drdp<<Foam::nl;
+                Info<<"d2rdp:"<<d2rdp<<Foam::nl;
+                Info<<"drdangle:"<<drdangle<<Foam::nl;
+                Info<<"d2rdangle:"<<d2rdangle<<Foam::nl;
+                Info<<"---"<<Foam::nl;
+                Info<<"fd_drdp:"<<fd_drdp<<Foam::nl;
+                Info<<"fd_d2rdp:"<<fd_d2rdp<<Foam::nl;
+                Info<<"fd_drdangle:"<<fd_drdangle<<Foam::nl;
+                Info<<"fd_d2rdangle:"<<fd_d2rdangle<<Foam::nl;
+                Info<<"--------------------------"<<Foam::nl;
                 */
                 
                 scalar err_drdp = std::abs(fd_drdp-drdp);
@@ -1928,13 +1923,13 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                 scalar percErr_drdp = (denom_drdp==0)?0:err_drdp/denom_drdp;
                 if(percErr_drdp>0.04)
                 {
-                    Info<<"parameter:"<<parameter<<Foam::endl;
-                    Info<<"drdp:"<<drdp<<Foam::endl;
-                    Info<<"lp_r:"<<lp_r<<Foam::endl;
-                    Info<<"up_r:"<<up_r<<Foam::endl;
-                    Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
-                    Info<<"err_drdp:"<<err_drdp<<Foam::endl;
-                    Info<<"percErr_drdp:"<<percErr_drdp<<Foam::endl;
+                    Info<<"parameter:"<<parameter<<Foam::nl;
+                    Info<<"drdp:"<<drdp<<Foam::nl;
+                    Info<<"lp_r:"<<lp_r<<Foam::nl;
+                    Info<<"up_r:"<<up_r<<Foam::nl;
+                    Info<<"fd_drdp:"<<fd_drdp<<Foam::nl;
+                    Info<<"err_drdp:"<<err_drdp<<Foam::nl;
+                    Info<<"percErr_drdp:"<<percErr_drdp<<Foam::nl;
                     FatalErrorInFunction<<"Error"<<exit(FatalError);
                 }
                 scalar err_d2rdp = std::abs(fd_d2rdp-d2rdp);
@@ -1944,11 +1939,11 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                 {
                     Info<<"parameter:"<<parameter;
                     Info<<"  d2rdp:"<<d2rdp;
-                    //Info<<"lp_drdp:"<<lp_drdp<<Foam::endl;
-                    //Info<<"up_drdp:"<<up_drdp<<Foam::endl;
-                    Info<<"  fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
-                    //Info<<"err_d2rdp:"<<err_d2rdp<<Foam::endl;
-                    //Info<<"percErr_d2rdp:"<<percErr_d2rdp<<Foam::endl;
+                    //Info<<"lp_drdp:"<<lp_drdp<<Foam::nl;
+                    //Info<<"up_drdp:"<<up_drdp<<Foam::nl;
+                    Info<<"  fd_d2rdp:"<<fd_d2rdp<<Foam::nl;
+                    //Info<<"err_d2rdp:"<<err_d2rdp<<Foam::nl;
+                    //Info<<"percErr_d2rdp:"<<percErr_d2rdp<<Foam::nl;
                     //FatalErrorInFunction<<"Error"<<exit(FatalError);
                 }
                 scalar err_drdangle = std::abs(fd_drdangle-drdangle);
@@ -1956,13 +1951,13 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                 scalar percErr_drdangle = (denom_drdangle==0)?0:err_drdangle/denom_drdangle;
                 if(percErr_drdangle>0.04)
                 {
-                    Info<<"angle:"<<angle<<Foam::endl;
-                    Info<<"drdangle:"<<drdangle<<Foam::endl;
-                    Info<<"la_r:"<<la_r<<Foam::endl;
-                    Info<<"ua_r:"<<ua_r<<Foam::endl;
-                    Info<<"fd_drdangle:"<<fd_drdangle<<Foam::endl;
-                    Info<<"err_drdangle:"<<err_drdangle<<Foam::endl;
-                    Info<<"percErr_drdangle:"<<percErr_drdangle<<Foam::endl;
+                    Info<<"angle:"<<angle<<Foam::nl;
+                    Info<<"drdangle:"<<drdangle<<Foam::nl;
+                    Info<<"la_r:"<<la_r<<Foam::nl;
+                    Info<<"ua_r:"<<ua_r<<Foam::nl;
+                    Info<<"fd_drdangle:"<<fd_drdangle<<Foam::nl;
+                    Info<<"err_drdangle:"<<err_drdangle<<Foam::nl;
+                    Info<<"percErr_drdangle:"<<percErr_drdangle<<Foam::nl;
                     FatalErrorInFunction<<"Error"<<exit(FatalError);
                 }
                 scalar err_d2rdangle = std::abs(fd_d2rdangle-d2rdangle);
@@ -1970,13 +1965,13 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                 scalar percErr_d2rdangle = (denom_d2rdangle==0)?0:err_d2rdangle/denom_d2rdangle;
                 if(percErr_d2rdangle>0.04)
                 {
-                    Info<<"angle:"<<angle<<Foam::endl;
-                    Info<<"d2rdangle:"<<d2rdangle<<Foam::endl;
-                    Info<<"la_drdangle:"<<la_drdangle<<Foam::endl;
-                    Info<<"ua_drdangle:"<<ua_drdangle<<Foam::endl;
-                    Info<<"fd_d2rdangle:"<<fd_d2rdangle<<Foam::endl;
-                    Info<<"err_d2rdangle:"<<err_d2rdangle<<Foam::endl;
-                    Info<<"percErr_d2rdangle:"<<percErr_d2rdangle<<Foam::endl;
+                    Info<<"angle:"<<angle<<Foam::nl;
+                    Info<<"d2rdangle:"<<d2rdangle<<Foam::nl;
+                    Info<<"la_drdangle:"<<la_drdangle<<Foam::nl;
+                    Info<<"ua_drdangle:"<<ua_drdangle<<Foam::nl;
+                    Info<<"fd_d2rdangle:"<<fd_d2rdangle<<Foam::nl;
+                    Info<<"err_d2rdangle:"<<err_d2rdangle<<Foam::nl;
+                    Info<<"percErr_d2rdangle:"<<percErr_d2rdangle<<Foam::nl;
                     FatalErrorInFunction<<"Error"<<exit(FatalError);
                 }
             }
@@ -2024,13 +2019,13 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                     scalar percErr_drdp = (denom_drdp==0)?0:err_drdp/denom_drdp;
                     if(percErr_drdp>0.01)
                     {
-                        Info<<"parameter:"<<parameter<<Foam::endl;
-                        Info<<"drd_.first():"<<drd_.first()<<Foam::endl;
-                        Info<<"lp_r:"<<lp_r<<Foam::endl;
-                        Info<<"up_r:"<<up_r<<Foam::endl;
-                        Info<<"fd_drd_.first():"<<fd_drd_.first()<<Foam::endl;
-                        Info<<"err_drdp:"<<err_drdp<<Foam::endl;
-                        Info<<"percErr_drdp:"<<percErr_drdp<<Foam::endl;
+                        Info<<"parameter:"<<parameter<<Foam::nl;
+                        Info<<"drd_.first():"<<drd_.first()<<Foam::nl;
+                        Info<<"lp_r:"<<lp_r<<Foam::nl;
+                        Info<<"up_r:"<<up_r<<Foam::nl;
+                        Info<<"fd_drd_.first():"<<fd_drd_.first()<<Foam::nl;
+                        Info<<"err_drdp:"<<err_drdp<<Foam::nl;
+                        Info<<"percErr_drdp:"<<percErr_drdp<<Foam::nl;
                         FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
                     
@@ -2040,13 +2035,13 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                     scalar percErr_drdangle = (denom_drdangle==0)?0:err_drdangle/denom_drdangle;
                     if(percErr_drdangle>0.01)
                     {
-                        Info<<"parameter:"<<parameter<<Foam::endl;
-                        Info<<"drd_.second():"<<drd_.second()<<Foam::endl;
-                        Info<<"la_r:"<<la_r<<Foam::endl;
-                        Info<<"ua_r:"<<ua_r<<Foam::endl;
-                        Info<<"fd_drd_.second():"<<fd_drd_.second()<<Foam::endl;
-                        Info<<"err_drdangle:"<<err_drdangle<<Foam::endl;
-                        Info<<"percErr_drdangle:"<<percErr_drdangle<<Foam::endl;
+                        Info<<"parameter:"<<parameter<<Foam::nl;
+                        Info<<"drd_.second():"<<drd_.second()<<Foam::nl;
+                        Info<<"la_r:"<<la_r<<Foam::nl;
+                        Info<<"ua_r:"<<ua_r<<Foam::nl;
+                        Info<<"fd_drd_.second():"<<fd_drd_.second()<<Foam::nl;
+                        Info<<"err_drdangle:"<<err_drdangle<<Foam::nl;
+                        Info<<"percErr_drdangle:"<<percErr_drdangle<<Foam::nl;
                         FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
                     
@@ -2058,11 +2053,11 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                     {
                         Info<<"parameter:"<<parameter;
                         Info<<" d2rdp:"<<fd_d2rd_.first();
-                        //Info<<"lp_drdp:"<<lp_drdp<<Foam::endl;
-                        //Info<<"up_drdp:"<<up_drdp<<Foam::endl;
-                        Info<<" fd_d2rdp:"<<fd_drd_.first();//<<Foam::endl;
-                        //Info<<"err_d2rdp:"<<err_d2rdp<<Foam::endl;
-                        Info<<" percErr:"<<percErr_d2rdp<<Foam::endl;
+                        //Info<<"lp_drdp:"<<lp_drdp<<Foam::nl;
+                        //Info<<"up_drdp:"<<up_drdp<<Foam::nl;
+                        Info<<" fd_d2rdp:"<<fd_drd_.first();//<<Foam::nl;
+                        //Info<<"err_d2rdp:"<<err_d2rdp<<Foam::nl;
+                        Info<<" percErr:"<<percErr_d2rdp<<Foam::nl;
                         //FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
                     
@@ -2072,13 +2067,13 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
                     scalar percErr_d2rdangle = (denom_d2rdangle==0)?0:err_d2rdangle/denom_d2rdangle;
                     if(percErr_d2rdangle>0.01)
                     {
-                        Info<<"parameter:"<<parameter;//<<Foam::endl;
-                        Info<<" d2rda:"<<d2rd_.second();//<<Foam::endl;
-                        //Info<<"la_drdangle:"<<la_drdangle<<Foam::endl;
-                        //Info<<"ua_drdangle:"<<ua_drdangle<<Foam::endl;
-                        Info<<" fd_d2rda:"<<fd_d2rd_.second();//<<Foam::endl;
-                        //Info<<"err_d2rdangle:"<<err_d2rdangle<<Foam::endl;
-                        Info<<" percErr:"<<percErr_d2rdangle<<Foam::endl;
+                        Info<<"parameter:"<<parameter;//<<Foam::nl;
+                        Info<<" d2rda:"<<d2rd_.second();//<<Foam::nl;
+                        //Info<<"la_drdangle:"<<la_drdangle<<Foam::nl;
+                        //Info<<"ua_drdangle:"<<ua_drdangle<<Foam::nl;
+                        Info<<" fd_d2rda:"<<fd_d2rd_.second();//<<Foam::nl;
+                        //Info<<"err_d2rdangle:"<<err_d2rdangle<<Foam::nl;
+                        Info<<" percErr:"<<percErr_d2rdangle<<Foam::nl;
                         //FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
                 }
@@ -2091,7 +2086,7 @@ void Foam::CrossSectionStructure::selfCheck()
 {
     LineStructure::selfCheck();
     
-    Info<<"-----------Check cross Section derivatives-----------"<<Foam::endl;    
+    Info<<"-----------Check cross Section derivatives-----------"<<Foam::nl;    
     std::function<void(std::function<scalar(scalar,scalar)>,
                        std::function<scalar(scalar,scalar)>,
                        scalar,scalar,scalar,scalar,uint)> crossSecComparer =
@@ -2117,7 +2112,7 @@ void Foam::CrossSectionStructure::selfCheck()
                     percError = error;
                 if(percError>2e-3 && error>1e-4)
                 {
-                    Info<<"("<<currPara<<" -- "<<currAngle<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::endl;
+                    Info<<"("<<currPara<<" -- "<<currAngle<<"): Err:"<<error<<" percErr:"<<percError<<" // grad:"<<derivValue<<" -- fdGrad:"<<fderivValue<<Foam::nl;
                     FatalErrorInFunction<<"Comparison failed!"<<exit(FatalError);
                 }
             }
@@ -2127,15 +2122,15 @@ void Foam::CrossSectionStructure::selfCheck()
     const std::vector<CrossSection>& crossSec = getRodCrossSections();
     for(std::size_t rodNumber=0; rodNumber<crossSec.size(); rodNumber++)
     {
-        //Info<<"rodNumber:"<<rodNumber<<Foam::endl;
+        //Info<<"rodNumber:"<<rodNumber<<Foam::nl;
         CrossSection cpCrossSec = crossSec[rodNumber];
         scalar domainStart = cpCrossSec.domainStart();
         scalar domainEnd = cpCrossSec.domainEnd();
-        //Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::endl;
-        Info<<"Changing fourierCoeff"<<Foam::endl;
+        //Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::nl;
+        Info<<"Changing fourierCoeff"<<Foam::nl;
         for(label fourierCoeff=0; fourierCoeff<cpCrossSec.numberFourierCoeff(); fourierCoeff++)
         {
-            //Info<<"      numberNurbsCoeffs:"<<cpCrossSec.numberFourierCoeffNurbsCoeffs(fourierCoeff)<<Foam::endl;
+            //Info<<"      numberNurbsCoeffs:"<<cpCrossSec.numberFourierCoeffNurbsCoeffs(fourierCoeff)<<Foam::nl;
             //std::cout<<"      FourierCoeff:"<<cpCrossSec.getCurve(fourierCoeff)<<std::endl;
             for(label coeffI=0; coeffI<cpCrossSec.numberFourierCoeffNurbsCoeffs(fourierCoeff); coeffI++)
             {
@@ -2149,23 +2144,23 @@ void Foam::CrossSectionStructure::selfCheck()
                     CrossSection crossSec = cpCrossSec;
                     
                     scalar coeffBasicValue = cpCrossSec.getFourierCoeffNurbsCoeff(fourierCoeff,coeffI);
-                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
+                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::nl;
                     
                     scalar lowerCoeffValue = coeffBasicValue-epsilon;
-                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
+                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::nl;
                     crossSec.setFourierCoeffNurbsCoeff(fourierCoeff,coeffI,lowerCoeffValue);
                     scalar lowerR = crossSec(par,angle);
-                    //Info<<"lowerR:"<<lowerR<<Foam::endl;
+                    //Info<<"lowerR:"<<lowerR<<Foam::nl;
                     
-                    scalar upperCoeffValue = coeffBasicValue+epsilon;                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::endl;
+                    scalar upperCoeffValue = coeffBasicValue+epsilon;                    //Info<<"coeffBasicValue:"<<coeffBasicValue<<Foam::nl;
                     crossSec.setFourierCoeffNurbsCoeff(fourierCoeff,coeffI,upperCoeffValue);
                     scalar upperR = crossSec(par,angle);
-                    //Info<<"upperR:"<<upperR<<Foam::endl;
+                    //Info<<"upperR:"<<upperR<<Foam::nl;
                     
                     scalar diffR = upperR-lowerR;
-                    //Info<<"diffR:"<<diffR<<Foam::endl;
+                    //Info<<"diffR:"<<diffR<<Foam::nl;
                     scalar diffCoeff = upperCoeffValue-lowerCoeffValue;
-                    //Info<<"diffCoeff:"<<diffCoeff<<Foam::endl;
+                    //Info<<"diffCoeff:"<<diffCoeff<<Foam::nl;
                     scalar deriv;
                     if(diffCoeff!=0)
                          return diffR/diffCoeff;
@@ -2177,7 +2172,7 @@ void Foam::CrossSectionStructure::selfCheck()
             }
         }
         //std::cout<<"      Phase:"<<cpCrossSec.getPhaseCurve()<<std::endl;
-        Info<<"Changing phase"<<Foam::endl;
+        Info<<"Changing phase"<<Foam::nl;
         for(label phaseCoeff=0; phaseCoeff<cpCrossSec.numberPhaseNurbsCoeffs(); phaseCoeff++)
         {
             auto deriv = [&](scalar par, scalar angle)
@@ -2215,13 +2210,13 @@ void Foam::CrossSectionStructure::selfCheck()
     }
     
     /*
-    Info<<"-----------Cross Section structure derivatives-----------"<<Foam::endl;
+    Info<<"-----------Cross Section structure derivatives-----------"<<Foam::nl;
     for(label rodNumber=0; rodNumber<getNumberRods(); rodNumber++)
     {
-        Info<<"rodNumber:"<<rodNumber<<Foam::endl;
+        Info<<"rodNumber:"<<rodNumber<<Foam::nl;
         scalar domainStart = this->domainStart(rodNumber);
         scalar domainEnd = this->domainEnd(rodNumber);
-        Info<<"   numberCurveCoeffs:"<<numberCurveCoeffs(rodNumber)<<Foam::endl;
+        Info<<"   numberCurveCoeffs:"<<numberCurveCoeffs(rodNumber)<<Foam::nl;
         for(label coeffI=0; coeffI<numberCurveCoeffs(rodNumber); coeffI++)
         {
             for(label dim=0; dim<3; dim++)

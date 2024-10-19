@@ -70,28 +70,70 @@ modusMarkerToField(modusMarkerToField)
 
 void Foam::LineStructure::finalizeMarkers()
 {
+    refineEvaluateReduceCollect();
+    markerWeighting();
+}
+
+void Foam::LineStructure::refineEvaluateReduceCollect()
+{
+    auto start = std::chrono::system_clock::now();
+    
+    auto t1 = std::chrono::system_clock::now();
     refineMarkers();
-    Info<<"setMarkerVolume"<<Foam::endl;
-    setMarkerVolume();    
-    Info<<"evaluateMarkerMeshRelation"<<Foam::endl;
+    auto t2 = std::chrono::system_clock::now();
+    Info<<"refineEvaluateReduceCollect / refineMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+
+    setMarkerVolume();
+    t1 = std::chrono::system_clock::now();
+    Info<<"refineEvaluateReduceCollect / setMarkerVolume took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;    
+    
     evaluateMarkerMeshRelation();
-    Info<<"reduceMarkers"<<Foam::endl;
+    t2 = std::chrono::system_clock::now();
+    Info<<"refineEvaluateReduceCollect / evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
     reduceMarkers();
-    Info<<"collectMarkers"<<Foam::endl;
+    t1 = std::chrono::system_clock::now();
+    Info<<"refineEvaluateReduceCollect / reduceMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    
     collectMarkers();
-    Info<<"computeMarkerCellWeights"<<Foam::endl;
+    t2 = std::chrono::system_clock::now();
+    Info<<"refineEvaluateReduceCollect / collectMarkers: "<<collectedMarkers.size()<<" took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
+    auto end = std::chrono::system_clock::now();
+    Info<<"refineEvaluateReduceCollect took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
+}
+
+void Foam::LineStructure::markerWeighting()
+{
+    auto start = std::chrono::system_clock::now();
+    
+    auto t2 = std::chrono::system_clock::now();
     computeMarkerCellWeights();
-    Info<<"collectHaloMarkers"<<Foam::endl;
+    auto t1 = std::chrono::system_clock::now();
+    Info<<"markerWeighting / computeMarkerCellWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    
     collectHaloMarkers();
-    Info<<"exchangeHaloMarkersData"<<Foam::endl;
+    t2 = std::chrono::system_clock::now();
+    Info<<"markerWeighting / collectHaloMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
     exchangeHaloMarkersData();
-    Info<<"computeMarkerWeights"<<Foam::endl;
+    t1 = std::chrono::system_clock::now();
+    Info<<"markerWeighting / exchangeHaloMarkersData took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    
     computeMarkerWeights();
+    t2 = std::chrono::system_clock::now();
+    Info<<"markerWeighting / computeMarkerWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
+    auto end = std::chrono::system_clock::now();
+    Info<<"markerWeighting took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
 }
 
 void Foam::LineStructure::moveMarkersOnRodMovement()
 {
+    auto t1 = std::chrono::system_clock::now();
     evaluateMarkerMeshRelation();
+    auto t2 = std::chrono::system_clock::now();
+    Info<<"evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
 }
 
 Foam::vector Foam::LineStructure::evaluateRodVelocity
@@ -124,32 +166,58 @@ Foam::vector Foam::LineStructure::evaluateRodVelocity
 
 void Foam::LineStructure::settleIntoRefinedMesh()
 {
+    auto start = std::chrono::system_clock::now();
+    
+    auto t1 = std::chrono::system_clock::now();
     evaluateMarkerMeshRelation();
+    auto t2 = std::chrono::system_clock::now();
+    Info<<"settleIntoRefinedMesh / evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
+    auto end = std::chrono::system_clock::now();
+    Info<<"settleIntoRefinedMesh took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
 }
 
 void Foam::LineStructure::refineMarkersOnRefinedMesh()
 {
+    auto start = std::chrono::system_clock::now();
+    
+    auto t1 = std::chrono::system_clock::now();
     refineMarkers();
+    auto t2 = std::chrono::system_clock::now();
+    Info<<"refineMarkersOnRefinedMesh / refineMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
+    setMarkerVolume();
+    t1 = std::chrono::system_clock::now();
+    Info<<"refineMarkersOnRefinedMesh / setMarkerVolume took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;    
+    
     evaluateMarkerMeshRelation();
+    t2 = std::chrono::system_clock::now();
+    Info<<"refineMarkersOnRefinedMesh / evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
     collectMarkers();
+    t1 = std::chrono::system_clock::now();
+    Info<<"refineMarkersOnRefinedMesh / collectMarkers: "<<collectedMarkers.size()<<" took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    
+    auto end = std::chrono::system_clock::now();
+    Info<<"refineMarkersOnRefinedMesh took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
 }
 
 void Foam::LineStructure::to_string()
 {
-    Info<<"-------LineStructure::Markers-------"<<Foam::endl;
+    Info<<"-------LineStructure::Markers-------"<<Foam::nl;
     int count=0;
     for(std::unique_ptr<std::list<LagrangianMarker>>& oneRodMarkers : rodMarkersList)
     {
-        Info<<"Rod "<<count<<Foam::endl;
+        Info<<"Rod "<<count<<Foam::nl;
         if(oneRodMarkers)
         {
             for(const LagrangianMarker& marker : *oneRodMarkers)
             {
-                Info<<"\t"<<marker.to_string()<<Foam::endl;
+                Info<<"\t"<<marker.to_string()<<Foam::nl;
             }
         }
     }
-    Info<<"------------------------------------"<<Foam::endl;
+    Info<<"------------------------------------"<<Foam::nl;
 }
 
 void Foam::LineStructure::setNurbsParameters
@@ -207,10 +275,15 @@ Foam::vector Foam::LineStructure::dXdParam
 void Foam::LineStructure::initialize()
 {
     check();
-    Info<<"createSpacingPoints"<<Foam::endl;
-    createSpacingPoints();       
-    Info<<"createMarkersFromSpacedPoints"<<Foam::endl;
+    auto t1 = std::chrono::system_clock::now();
+    
+    createSpacingPoints();
+    auto t2 = std::chrono::system_clock::now();
+    Info<<"createSpacingPoints took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
     createMarkersFromSpacedPoints();
+    t1 = std::chrono::system_clock::now();
+    Info<<"createMarkersFromSpacedPoints took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     finalizeMarkers();
 }
@@ -267,9 +340,7 @@ void Foam::LineStructure::createSpacedPointsOnRod
     label rodNumber,
     scalar spacing
 )
-{
-    Info<<"LineStructure::createSpacedPointsOnRod"<<Foam::endl;
-    
+{   
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     auto pointsPtr = std::unique_ptr<std::vector<scalar>>(new std::vector<scalar>());
     std::vector<scalar>& pointsVec = *pointsPtr;
@@ -494,7 +565,7 @@ void Foam::LineStructure::setMarkerVolumeOnRod
                     FatalErrorInFunction<<"Marker with no predecessor and no succesor"<<exit(FatalError);
                 
                 span = LineStructure::distance(oneRod,spanStart,spanEnd);
-                //Pout<<"Cell:"<<iter->getMarkerCell()<<":"<<iter->getMarkerParameter()<<"  start:"<<spanStart<<"  end:"<<spanEnd<<"  span:"<<span<<Foam::endl;
+                //Pout<<"Cell:"<<iter->getMarkerCell()<<":"<<iter->getMarkerParameter()<<"  start:"<<spanStart<<"  end:"<<spanEnd<<"  span:"<<span<<Foam::nl;
             }
             if(modusMarkerToField==markerMeshType::NonUniform)
             {
@@ -551,7 +622,6 @@ void Foam::LineStructure::reduceMarkers()
 
 void Foam::LineStructure::removeOverlapMarkers(){};
 
-
 void Foam::LineStructure::collectMarkers()
 {
     status.execValid(status.markersCollected);    
@@ -602,7 +672,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
         {
             std::pair<LagrangianMarker*,label> markerData = localHaloCellRodMarkers[haloMarkerInd];
             LagrangianMarker* marker = markerData.first;
-            //Pout<<"Append:"<<marker->to_string()<<Foam::endl;
+            //Pout<<"Append:"<<marker->to_string()<<Foam::nl;
             label markerInd = markerData.second;
             
             vector position = marker->getMarkerPosition();
@@ -644,13 +714,10 @@ void Foam::LineStructure::exchangeHaloMarkersData()
 void Foam::LineStructure::computeMarkerCellWeights()
 {
     status.execValid(status.markersCellWeight);
-    auto t1 = std::chrono::high_resolution_clock::now();
     for(LagrangianMarker* marker : collectedMarkers)
     {
         marker->compNonUniformCorrWeights();
     }
-    auto t2 = std::chrono::high_resolution_clock::now();
-    Info<<"Total computeMarkerCellWeights took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::endl;
     status.executed(status.markersCellWeight);
 }
 
@@ -741,7 +808,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         //{
             /*
             if(Pstream::myProcNo()==0)
-                Pout<<"I:"<<I<<" K:"<<K<<Foam::endl;
+                Pout<<"I:"<<I<<" K:"<<K<<Foam::nl;
             */
 
             const LagrangianMarker& markerK = *(collectedMarkers[K]);
@@ -776,7 +843,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     matrixEntry += weightK*weightI*suppCell.second;
                     /*
                     if(Pstream::myProcNo()==0)
-                        Pout<<"    ("<<weightI<<","<<weightK<<") "<<"XI:"<<XI<<" XK:"<<XK<<" suppC:"<<suppCell.first<<" suppV:"<<suppCell.second<<Foam::endl;
+                        Pout<<"    ("<<weightI<<","<<weightK<<") "<<"XI:"<<XI<<" XK:"<<XK<<" suppC:"<<suppCell.first<<" suppV:"<<suppCell.second<<Foam::nl;
                     */
 
                 }
@@ -789,7 +856,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             rowEntries[smProcsNumOfMarkers+K] = matrixEntry;
             /*
             if(Pstream::myProcNo()==0)
-                Pout<<"Inner ("<<matrixEntry<<","<<(smProcsNumOfMarkers+K)<<")   markerKVol:"<<markerKVol<<Foam::endl;
+                Pout<<"Inner ("<<matrixEntry<<","<<(smProcsNumOfMarkers+K)<<")   markerKVol:"<<markerKVol<<Foam::nl;
             */
         }
                 
@@ -820,16 +887,16 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             label offset = processGlobalMarkerOffset[process];
             /*
             if(Pstream::myProcNo()==0)
-                Pout<<"neighbour:"<<process<<Foam::endl;
+                Pout<<"neighbour:"<<process<<Foam::nl;
             */
             label neighProcHaloCellNum = globHaloMarkers.size_haloCells(process);
             for(label haloCellInd=0; haloCellInd<neighProcHaloCellNum; haloCellInd++)
             {
-                //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"/"<<neighProcHaloCellNum<<Foam::endl;
+                //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"/"<<neighProcHaloCellNum<<Foam::nl;
                 label haloCellMarkerNum = globHaloMarkers.size_cellMarkers(process,haloCellInd);
                 for(label haloCellMarkerInd=0; haloCellMarkerInd<haloCellMarkerNum; haloCellMarkerInd++)
                 {
-                    //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"  haloCellMarkerInd:"<<haloCellMarkerInd<<"/"<<haloCellMarkerNum<<Foam::endl;
+                    //Pout<<"neighbour:"<<process<<"  haloCellInd:"<<haloCellInd<<"  haloCellMarkerInd:"<<haloCellMarkerInd<<"/"<<haloCellMarkerNum<<Foam::nl;
                     
                     std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> markerData;
                     markerData = globHaloMarkers.getMarkerData(process,haloCellInd,haloCellMarkerInd);
@@ -866,7 +933,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                         
                         for(std::pair<vector,scalar> suppCell : combinedIKSupport)
                         {
-                            //Pout<<"suppCell:"<<suppCell.first<<"/"<<suppCell.second<<Foam::endl;
+                            //Pout<<"suppCell:"<<suppCell.first<<"/"<<suppCell.second<<Foam::nl;
                             scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
                             scalar weightK = LM::correctedDeltaDirac
                             (
@@ -883,7 +950,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                     rowEntries[offset+markerKindex] = matrixEntry;
                     /*
                     if(Pstream::myProcNo()==0)
-                        Pout<<"Outer ("<<matrixEntry<<","<<(offset+markerKindex)<<") "<<Foam::endl;
+                        Pout<<"Outer ("<<matrixEntry<<","<<(offset+markerKindex)<<") "<<Foam::nl;
                     */
                 }
             }
@@ -897,8 +964,8 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             matrixRow.append({matrixEntry,K});
             if(K==I && std::abs(matrixEntry)<1e-5)
             {
-                Info<<"I:"<<I<<" K:"<<K<<" matrixEntry:"<<matrixEntry<<Foam::endl;
-                Info<<"markerI:"<<markerI.to_string()<<Foam::endl;
+                Info<<"I:"<<I<<" K:"<<K<<" matrixEntry:"<<matrixEntry<<Foam::nl;
+                Info<<"markerI:"<<markerI.to_string()<<Foam::nl;
                 FatalErrorInFunction<<"Error"<<exit(FatalError);
             }
         }
@@ -907,7 +974,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             Info<<"matrixRow:";
             for(auto entr : matrixRow)
                 Info<<"("<<entr.first<<","<<entr.second<<") ";
-            Info<<Foam::endl;
+            Info<<Foam::nl;
             FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         }
         A.addRow(matrixRow);
@@ -917,7 +984,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         {
             for(auto pair : matrixRow)
                 Pout<<"("<<pair.first<<","<<pair.second<<") ";
-            Pout<<Foam::endl;
+            Pout<<Foam::nl;
         }
         */
     }
@@ -929,18 +996,12 @@ void Foam::LineStructure::computeMarkerWeights()
     status.execValid(status.markersWeight);
     
     auto t1 = std::chrono::high_resolution_clock::now();
-
-    Info<<"Compute marker weights"<<Foam::endl;
     std::unique_ptr<Foam::LineStructure::LinearSystem> system = computeMarkerEpsilonMatrix();
-    Info<<"Computed marker weights"<<Foam::endl;
     CSR_Matrix_par& A = std::get<0>(*system);
     Vector_par& ones = std::get<1>(*system);
     auto t2 = std::chrono::high_resolution_clock::now();
-    
-    Info<<"Matrix assembly took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::endl;
-    
-    Info<<"Select solutionStrategy"<<Foam::endl;
-    
+    //Info<<"Matrix assembly took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+        
     switch (solutionStrategy)
     {
         case SystemSolve::Raw:
@@ -974,9 +1035,9 @@ void Foam::LineStructure::computeMarkerWeights()
         case SystemSolve::Jacobi:
         {
             CSR_DiagMatrix_par diagA = A.diagonalMatrix();
-            //Info<<diagA.to_string()<<Foam::endl;
+            //Info<<diagA.to_string()<<Foam::nl;
             Vector_par diagAVec = diagA*ones;
-            //Info<<diagAVec.to_string()<<Foam::endl;
+            //Info<<diagAVec.to_string()<<Foam::nl;
             for(label localRow=0; localRow<diagAVec.getLocalSize().second; localRow++)
             {
                 if(diagAVec[localRow]==0)
@@ -991,12 +1052,11 @@ void Foam::LineStructure::computeMarkerWeights()
         default:
             FatalErrorInFunction<<"Invalid option"<<exit(FatalError);
     }
-    Info<<"Selected solutionStrategy"<<Foam::endl;
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
 
     t1 = std::chrono::high_resolution_clock::now();
-    Info<<"Linear system solution took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::endl;
+    //Info<<"Linear system solution took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
         
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
@@ -1291,7 +1351,7 @@ std::tuple<Foam::vector,Foam::scalar,Foam::label,Foam::vector,Foam::DynamicList<
 ) const
 {
     if(!broadcasted)
-        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::endl;
+        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::nl;
 
     label proc = process;
     label hCI = haloCellInd;
@@ -1323,7 +1383,7 @@ Foam::scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
 ) const
 {
     if(!broadcastedWeights)
-        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::endl;
+        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::nl;
     
     label proc = Pstream::myProcNo();
     if(haloCellInd>=procHaloCellsSize[proc])
@@ -1506,7 +1566,7 @@ void Foam::LineStructure::GlobalHaloMarkers::check
 ) const
 {
     if(process<0)
-        FatalErrorInFunction<<"Invalid process index"<<Foam::endl;
+        FatalErrorInFunction<<"Invalid process index"<<Foam::nl;
     if(process>=globalHaloCellsMarkerPos.size())
         FatalErrorInFunction<<"globalHaloCellsMarkerPos size error"<<exit(FatalError);
     if(process>=globalHaloCellsMarkerVolume.size())
@@ -1533,7 +1593,7 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac size error"<<exit(FatalError);
     
     if(haloCellInd<0)
-        FatalErrorInFunction<<"Invalid haloCell index"<<Foam::endl;
+        FatalErrorInFunction<<"Invalid haloCell index"<<Foam::nl;
     if(haloCellInd>=globalHaloCellsMarkerPos[process].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerPos[process] size error"<<exit(FatalError);
     if(haloCellInd>=globalHaloCellsMarkerVolume[process].size())
@@ -1560,7 +1620,7 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac[process] size error"<<exit(FatalError);
     
     if(cellMarkerInd<0)
-        FatalErrorInFunction<<"Invalid cellMarker index"<<Foam::endl;
+        FatalErrorInFunction<<"Invalid cellMarker index"<<Foam::nl;
     if(cellMarkerInd>=globalHaloCellsMarkerPos[process][haloCellInd].size())
         FatalErrorInFunction<<"globalHaloCellsMarkerPos[process][haloCellInd] size error"<<exit(FatalError);
     if(cellMarkerInd>=globalHaloCellsMarkerVolume[process][haloCellInd].size())
@@ -1590,7 +1650,7 @@ void Foam::LineStructure::GlobalHaloMarkers::check
 void Foam::LineStructure::parameterGradientCheck() const
 {
     Structure::parameterGradientCheck();
-    Info<<"LineStructure::parameterGradientCheck"<<Foam::endl;
+    Info<<"LineStructure::parameterGradientCheck"<<Foam::nl;
     
     scalar nbrSteps = 20;
     scalar epsilon = 1e-4;
@@ -1602,7 +1662,7 @@ void Foam::LineStructure::parameterGradientCheck() const
         scalar stepsize = delta/nbrSteps;
         for(scalar parameter=domainStart; parameter<=domainEnd; parameter+=stepsize)
         {
-            //Info<<"parameter:"<<parameter<<Foam::endl;
+            //Info<<"parameter:"<<parameter<<Foam::nl;
             
             // Compute gradients
             vector drdp = derivateRodPos(Rods[rodNumber],parameter);
@@ -1623,20 +1683,20 @@ void Foam::LineStructure::parameterGradientCheck() const
                         
             if(vectorDistance(fd_drdp,drdp)>epsilon)
             {
-                Info<<"parameter:"<<parameter<<Foam::endl;
-                Info<<"drdp:"<<drdp<<Foam::endl;
-                Info<<"lower_r:"<<lower_r<<Foam::endl;
-                Info<<"upper_r:"<<upper_r<<Foam::endl;
-                Info<<"fd_drdp:"<<fd_drdp<<Foam::endl;
+                Info<<"parameter:"<<parameter<<Foam::nl;
+                Info<<"drdp:"<<drdp<<Foam::nl;
+                Info<<"lower_r:"<<lower_r<<Foam::nl;
+                Info<<"upper_r:"<<upper_r<<Foam::nl;
+                Info<<"fd_drdp:"<<fd_drdp<<Foam::nl;
                 FatalErrorInFunction<<"Error"<<exit(FatalError);
             }
             if(vectorDistance(fd_d2rdp,d2rdp)>epsilon)
             {
-                Info<<"parameter:"<<parameter;//<<Foam::endl;
-                Info<<" d2rdp:"<<d2rdp;//<<Foam::endl;
-                //Info<<"lower_drdp:"<<lower_drdp<<Foam::endl;
-                //Info<<"upper_drdp:"<<upper_drdp<<Foam::endl;
-                Info<<" fd_d2rdp:"<<fd_d2rdp<<Foam::endl;
+                Info<<"parameter:"<<parameter;//<<Foam::nl;
+                Info<<" d2rdp:"<<d2rdp;//<<Foam::nl;
+                //Info<<"lower_drdp:"<<lower_drdp<<Foam::nl;
+                //Info<<"upper_drdp:"<<upper_drdp<<Foam::nl;
+                Info<<" fd_d2rdp:"<<fd_d2rdp<<Foam::nl;
                 //FatalErrorInFunction<<"Error"<<exit(FatalError);
             }      
         }

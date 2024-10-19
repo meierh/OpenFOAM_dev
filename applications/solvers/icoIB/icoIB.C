@@ -61,8 +61,6 @@ Usage
 
 #include "argList.H"
 #include "icoImmersedBoundary.H"
-#include "pimpleSingleRegionControl.H"
-#include "setDeltaT.H"
 
 using namespace Foam;
 
@@ -75,53 +73,12 @@ int main(int argc, char *argv[])
     #include "createMesh.H"
 
     // Instantiate the solver
-    Foam::solvers::icoImmersedBoundary solver(mesh);
-
-    // Create the outer PIMPLE loop and control structure
-    pimpleSingleRegionControl pimple(solver.pimple);
-
-    // Set the initial time-step
-    setDeltaT(runTime, solver);
-
+    Foam::solvers::icoImmersedBoundary solver(mesh,runTime);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< nl << "Starting time loop\n" << endl;
 
-    while (pimple.run(runTime))
-    {
-        // Update PIMPLE outer-loop parameters if changed
-        pimple.read();
-
-        solver.preSolve();
-
-        // Adjust the time-step according to the solver maxDeltaT
-        adjustDeltaT(runTime, solver);
-
-        runTime++;
-
-        Info<< "Time = " << runTime.userTimeName() << nl << endl;
-
-        // PIMPLE corrector loop
-        while (pimple.loop())
-        {
-            solver.moveMesh();
-            solver.motionCorrector();
-            solver.fvModels().correct();
-            solver.prePredictor();
-            solver.momentumPredictor();
-            solver.thermophysicalPredictor();
-            solver.pressureCorrector();
-            solver.postCorrector();
-        }
-
-        solver.postSolve();
-
-        runTime.write();
-
-        Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << nl << endl;
-    }
+    solver.solveEqns();
 
     Info<< "End\n" << endl;
 

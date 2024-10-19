@@ -73,6 +73,9 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
+#include "pimpleSingleRegionControl.H"
+#include "setDeltaT.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -87,6 +90,8 @@ namespace solvers
 class icoImmersedBoundary : public incompressibleFluid
 {
 protected:
+    Time& time;
+    pimpleSingleRegionControl pimpleCtlr;
     IOdictionary transportProperties;
     dimensionedScalar nu;
     
@@ -144,7 +149,7 @@ public:
     // Constructors
 
         //- Construct from region mesh
-        icoImmersedBoundary(fvMesh& mesh);
+        icoImmersedBoundary(fvMesh& mesh, Time& time);
 
         //- Disallow default bitwise copy construction
         icoImmersedBoundary(const icoImmersedBoundary&) = delete;
@@ -197,6 +202,9 @@ public:
 
         //- Disallow default bitwise assignment
         void operator=(const icoImmersedBoundary&) = delete;
+        
+    // High level functions
+        void solveEqns();
 };
 
 

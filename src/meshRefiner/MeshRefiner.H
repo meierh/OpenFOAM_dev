@@ -19,8 +19,18 @@ class MeshRefiner
         virtual ~MeshRefiner() = default;
 
         virtual void adaptMesh();
-        virtual void refineMeshOnStaticMarkers();
-        virtual void refineMeshAndMarkers();
+        
+        /* Markers are not refined.
+         * Only mesh is refined
+         * Returns true if mesh was refined
+         */
+        virtual bool refineMeshOnStaticMarkers();
+        
+        /* preRefinedMesh: Was the mesh previously refined
+         * Mesh is refined and markers are refined
+         * Returns true if mesh was refined
+         */
+        virtual bool refineMeshAndMarkers(bool preRefinedMesh);
         
     protected:
         const scalar REFINE   = +1;

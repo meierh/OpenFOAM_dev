@@ -70,9 +70,6 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
-#include "pimpleSingleRegionControl.H"
-#include "setDeltaT.H"
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -87,9 +84,9 @@ namespace solvers
 class icoAdjointImmersedBoundary : public icoImmersedBoundary
 {
 protected:
-    Time& time;
-    pimpleSingleRegionControl pimpleCtlr;
     pimpleSingleRegionControl adjPimpleCtlr;
+    
+    bool steadyStateAdjoint;
     
     // Adjoint Veclocity
     volVectorField adj_U_;
@@ -121,7 +118,6 @@ protected:
     SolverPerformance<vector> adjUEqn_res;
     SolverPerformance<scalar> adjPEqn_res;
     SolverPerformance<scalar> adjTEqn_res;
-    bool steadyStateAdjoint;
     
     //Gradient Computation
     std::vector<std::pair<Parameter,scalar>> gradient;
@@ -179,7 +175,6 @@ public:
         void operator=(const icoAdjointImmersedBoundary&) = delete;
         
     // High level functions
-        
         void solvePrimal();
         void solveAdjoint();
 };

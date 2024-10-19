@@ -5,9 +5,7 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
     fvMesh& mesh,
     Time& time
 ):
-icoImmersedBoundary(mesh),
-time(time),
-pimpleCtlr(incompressibleFluid::pimple),
+icoImmersedBoundary(mesh,time),
 adjPimpleCtlr(incompressibleFluid::pimple),
 adj_U_
 (
@@ -29,10 +27,7 @@ adj_p_
     create_AdjointVelocityForcing();
     create_AdjointTemperature();
     create_AdjointTemperatureForcing();
-    
-    // Set the initial time-step
-    setDeltaT(time,*this);
-    
+
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
@@ -376,45 +371,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve()
 
 void Foam::solvers::icoAdjointImmersedBoundary::solvePrimal()
 {
-    while (pimpleCtlr.run(time))
-    {
-        // Update PIMPLE outer-loop parameters if changed
-        pimpleCtlr.read();
-        
-        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
-        
-        preSolve();
-
-        // Adjust the time-step according to the solver maxDeltaT
-        adjustDeltaT(time, *this);
-
-        time++;
-
-        Info<< "Time = " << runTime.userTimeName() << nl << endl;
-
-        preMove();
-        
-        // PIMPLE corrector loop
-        while (pimpleCtlr.loop())
-        {
-            moveMesh();
-            motionCorrector();
-            fvModels().correct();
-            prePredictor();
-            momentumPredictor();
-            thermophysicalPredictor();
-            pressureCorrector();
-            postCorrector();
-        }
-
-        postSolve();
-
-        runTime.write();
-
-        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << Foam::nl << endl;
-    }
+    icoImmersedBoundary::solveEqns();
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::solveAdjoint()
@@ -427,7 +384,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::solveAdjoint()
         adj_preSolve();
 
         // Adjust the time-step according to the solver maxDeltaT
-        adjustDeltaT(time, *this);
+        //adjustDeltaT(time, *this);
 
         time++;
 

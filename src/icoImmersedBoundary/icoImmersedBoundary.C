@@ -2,9 +2,12 @@
 
 Foam::solvers::icoImmersedBoundary::icoImmersedBoundary
 (
-    fvMesh& mesh
+    fvMesh& mesh,
+    Time& time
 ):
 incompressibleFluid(mesh),
+time(time),
+pimpleCtlr(incompressibleFluid::pimple),
 transportProperties
 (
     IOobject
@@ -56,6 +59,8 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     create_VelocityForcing();
     create_Temperature();
     create_TemperatureForcing();
+    
+    setDeltaT(time,*this);
     
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useStructure:"<<useStructure<<Foam::endl;
@@ -216,14 +221,11 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
                 IOobject::AUTO_WRITE
             );
             if(!refineIO.filePath("",true).empty())
-            {
-                Info<<"Exists in directory"<<Foam::endl;
-                
+            {                
                 refine_ = std::make_unique<volScalarField>(refineIO,mesh);
             }
             else
             {
-                Info<<"Does not exist in directory"<<Foam::endl;
                 refine_ = std::make_unique<volScalarField>(refineFieldName,p_);
             }
             if(topoChangerDict.found("field")) topoChangerDict.set("upperRefineLevel",refineFieldName);
@@ -463,4 +465,47 @@ void Foam::solvers::icoImmersedBoundary::setToTime(scalar time)
     }
     if(useTemperatureForcing)
         interaction_fT->setToTime(time);
+}
+
+void Foam::solvers::icoImmersedBoundary::solveEqns()
+{
+    while (pimpleCtlr.run(time))
+    {
+        // Update PIMPLE outer-loop parameters if changed
+        pimpleCtlr.read();
+        
+        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
+        
+        preSolve();
+
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+
+        time++;
+
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
+
+        preMove();
+        
+        // PIMPLE corrector loop
+        while (pimpleCtlr.loop())
+        {
+            moveMesh();
+            motionCorrector();
+            fvModels().correct();
+            prePredictor();
+            momentumPredictor();
+            thermophysicalPredictor();
+            pressureCorrector();
+            postCorrector();
+        }
+
+        postSolve();
+
+        runTime.write();
+
+        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
+            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
+            << Foam::nl << endl;
+    }
 }

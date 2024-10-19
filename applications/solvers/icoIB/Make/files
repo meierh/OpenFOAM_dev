@@ -1,4 +1,3 @@
-setDeltaT.C
 icoIB.C
 
 EXE = $(FOAM_APPBIN)/icoIB

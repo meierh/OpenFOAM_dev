@@ -319,6 +319,8 @@ class LineStructure : public Structure
         
     // ----------------- Finalize markers -----------------
         virtual void finalizeMarkers();
+        void refineEvaluateReduceCollect();
+        void markerWeighting();
     // ----------------- ------------------------- -----------------
         
     // ----------------- Moving Rod update methods -----------------
