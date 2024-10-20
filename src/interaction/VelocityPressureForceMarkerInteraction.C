@@ -27,6 +27,7 @@ refinement_(refinement_)
         recordRodForceFileName = recordRodForceToken.stringToken();
         if(Pstream::master())
             recordRodForceFile = std::make_unique<std::ofstream>(recordRodForceFileName);
+        printSummedRodForces = true;
     }
     if(structureDict.found("recordRodMoment"))
     {
@@ -38,6 +39,7 @@ refinement_(refinement_)
         recordRodMomentFileName = recordRodMomentToken.stringToken();
         if(Pstream::master())
             recordRodMomentFile = std::make_unique<std::ofstream>(recordRodMomentFileName);
+        printSummedRodMoments = true;
     }
 }
 
@@ -52,14 +54,20 @@ void Foam::VelocityPressureForceInteraction::solve()
     {
         vector sumForcesVal = sumForces();
         if(Pstream::master())
-            (*recordRodForceFile)<<mesh.time().value()<<":  "<<sumForcesVal[0]<<" "<<sumForcesVal[1]<<" "<<sumForcesVal[2]<<"\n";
+        {
+            Info<<"--------------Write to recordRodForceFile---------------"<<Foam::endl;
+            (*recordRodForceFile)<<mesh.time().value()<<":  "<<sumForcesVal[0]<<" "<<sumForcesVal[1]<<" "<<sumForcesVal[2]<<std::endl;
+        }
     }
     
     if(printSummedRodMoments)
     {
         vector sumMomentsVal = sumMoments();
         if(Pstream::master())
-            (*recordRodForceFile)<<mesh.time().value()<<":  "<<sumMomentsVal[0]<<" "<<sumMomentsVal[1]<<" "<<sumMomentsVal[2]<<"\n";
+        {
+            Info<<"--------------Write to recordRodMomentFile---------------"<<Foam::endl;
+            (*recordRodMomentFile)<<mesh.time().value()<<":  "<<sumMomentsVal[0]<<" "<<sumMomentsVal[1]<<" "<<sumMomentsVal[2]<<std::endl;
+        }
     }
 }
 
