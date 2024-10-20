@@ -16,6 +16,7 @@ class SensitivityTemperatureInteraction : public SensitivityInteraction
             const TemperatureInteraction& primalInteraction,
             volScalarField& input_adj_T,
             volScalarField& output_adj_Tf,
+            const IOdictionary& structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );

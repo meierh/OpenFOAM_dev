@@ -97,7 +97,7 @@ void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
         word rodMovementWord = rodMovementToken.wordToken();
         if(rodMovementWord == "StaticRod")
         {
-            interaction_fU = std::make_unique<StaticVelocityPressureAction>(mesh,*structure,U_,*fU_,refinement_);
+            interaction_fU = std::make_unique<StaticVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict,refinement_);
         }
         else if(rodMovementWord == "MovedRod")
         {

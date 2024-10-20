@@ -15,6 +15,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
             LineStructure& structure,
             volVectorField& input_U,
             volVectorField& output_Uf,
+            const IOdictionary& structureDict,
             std::shared_ptr<MeshRefiner> refinement_,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
@@ -43,9 +44,21 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         
         vector sumForces
         (
-            std::function<bool(LagrangianMarker)> condition = 
-                                [](LagrangianMarker marker){return true;}
+            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
         );
+        
+        vector sumMoments
+        (
+            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
+        );
+        
+        bool printSummedRodForces = false;
+        std::string recordRodForceFileName;
+        std::unique_ptr<std::ofstream> recordRodForceFile;
+        
+        bool printSummedRodMoments = false;
+        std::string recordRodMomentFileName;
+        std::unique_ptr<std::ofstream> recordRodMomentFile;
         
         void moveMarkers();
         void meshMarkerAdaptation();

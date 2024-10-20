@@ -7,10 +7,11 @@ Foam::SensitivityTemperatureInteraction::SensitivityTemperatureInteraction
     const TemperatureInteraction& primalInteraction,
     volScalarField& input_adj_T,
     volScalarField& output_adj_Tf,
+    const IOdictionary& structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-SensitivityInteraction(mesh,structure,modusFieldToMarker,modusMarkerToField),
+SensitivityInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 primalInteraction(primalInteraction),
 heatingDerivativeField(primalInteraction.getTemperatureField()),
 input_adj_T(input_adj_T),

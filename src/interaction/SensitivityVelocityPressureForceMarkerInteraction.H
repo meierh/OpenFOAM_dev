@@ -16,6 +16,7 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
             const VelocityPressureForceInteraction& primalInteraction,
             volVectorField& input_adj_U,
             volVectorField& output_adj_Uf,
+            const IOdictionary& structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );

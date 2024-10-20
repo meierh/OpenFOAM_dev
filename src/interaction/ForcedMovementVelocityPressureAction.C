@@ -12,8 +12,7 @@ Foam::ForcedMovementVelocityPressureAction::ForcedMovementVelocityPressureAction
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_,modusFieldToMarker,modusMarkerToField),
-structureDict(structureDict)
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,structureDict,refinement_,modusFieldToMarker,modusMarkerToField)
 {
     Info<<"Created ForcedMovementVelocityPressureAction"<<Foam::endl;
 }

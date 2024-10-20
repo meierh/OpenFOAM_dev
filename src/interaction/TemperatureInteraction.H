@@ -41,9 +41,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         );
         
         scalar getTemperature(const LagrangianMarker* marker);
-    
-        const IOdictionary& structureDict;
-        
+
     private:
         volScalarField& input_T;
         volScalarField& output_Tf;

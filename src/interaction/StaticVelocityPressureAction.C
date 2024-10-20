@@ -6,11 +6,12 @@ Foam::StaticVelocityPressureAction::StaticVelocityPressureAction
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf,
+    const IOdictionary& structureDict,
     std::shared_ptr<MeshRefiner> refinement_,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,refinement_,modusFieldToMarker,modusMarkerToField)
+VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,structureDict,refinement_,modusFieldToMarker,modusMarkerToField)
 {}
 
 void Foam::StaticVelocityPressureAction::preSolveMarkerMeshAdaption()

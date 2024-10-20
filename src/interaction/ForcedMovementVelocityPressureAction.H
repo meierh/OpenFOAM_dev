@@ -30,7 +30,6 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
         std::unique_ptr<List<List<vector>>> readDeformationDict();
         
     private:
-        const IOdictionary& structureDict;
         vector getVelocity(const LagrangianMarker* marker) override;
         //std::unique_ptr<List<List<vector>>> readMovementFromDict();
 };

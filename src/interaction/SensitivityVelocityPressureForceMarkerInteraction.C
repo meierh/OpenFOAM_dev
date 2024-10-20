@@ -7,10 +7,11 @@ Foam::SensitivityVelocityPressureForceInteraction::SensitivityVelocityPressureFo
     const VelocityPressureForceInteraction& primalInteraction,
     volVectorField& input_adj_U,
     volVectorField& output_adj_Uf,
+    const IOdictionary& structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-SensitivityInteraction(mesh,structure,modusFieldToMarker,modusMarkerToField),
+SensitivityInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 primalInteraction(primalInteraction),
 forcingDerivativeField(primalInteraction.getReferenceInOutField()),
 input_adj_U(input_adj_U),

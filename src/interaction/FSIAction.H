@@ -27,7 +27,6 @@ class FSIAction : public VelocityPressureForceInteraction
         
     private:
         vector getVelocity(const LagrangianMarker* marker) override;
-        const IOdictionary& structureDict;
         std::pair<gsNurbs<scalar>,gsNurbs<scalar>> assignForceOnRod
         (
             const List<List<vector>>& globalRodForce,

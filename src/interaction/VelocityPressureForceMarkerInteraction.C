@@ -7,15 +7,38 @@ Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
     LineStructure& structure,
     volVectorField& input_U,
     volVectorField& output_Uf,
+    const IOdictionary& structureDict,
     std::shared_ptr<MeshRefiner> refinement_,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-FieldMarkerStructureInteraction(mesh,structure,modusFieldToMarker,modusMarkerToField),
+FieldMarkerStructureInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 input_U(input_U),
 output_Uf(output_Uf),
 refinement_(refinement_)
 {
+    if(structureDict.found("recordRodForce"))
+    {
+        ITstream recordRodForceStream = structureDict.lookup("recordRodForce");
+        token recordRodForceToken;
+        recordRodForceStream.read(recordRodForceToken);
+        if(!recordRodForceToken.isString())
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/recordRodForce -- must be string"<<exit(FatalError);
+        recordRodForceFileName = recordRodForceToken.stringToken();
+        if(Pstream::master())
+            recordRodForceFile = std::make_unique<std::ofstream>(recordRodForceFileName);
+    }
+    if(structureDict.found("recordRodMoment"))
+    {
+        ITstream recordRodMomentStream = structureDict.lookup("recordRodMoment");
+        token recordRodMomentToken;
+        recordRodMomentStream.read(recordRodMomentToken);
+        if(!recordRodMomentToken.isString())
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/recordRodMoment -- must be string"<<exit(FatalError);
+        recordRodMomentFileName = recordRodMomentToken.stringToken();
+        if(Pstream::master())
+            recordRodMomentFile = std::make_unique<std::ofstream>(recordRodMomentFileName);
+    }
 }
 
 void Foam::VelocityPressureForceInteraction::solve()
@@ -24,6 +47,20 @@ void Foam::VelocityPressureForceInteraction::solve()
     computeCouplingForceOnMarkers();
     computeRodForceMoment();
     interpolateFluidForceField();
+    
+    if(printSummedRodForces)
+    {
+        vector sumForcesVal = sumForces();
+        if(Pstream::master())
+            (*recordRodForceFile)<<mesh.time().value()<<":  "<<sumForcesVal[0]<<" "<<sumForcesVal[1]<<" "<<sumForcesVal[2]<<"\n";
+    }
+    
+    if(printSummedRodMoments)
+    {
+        vector sumMomentsVal = sumMoments();
+        if(Pstream::master())
+            (*recordRodForceFile)<<mesh.time().value()<<":  "<<sumMomentsVal[0]<<" "<<sumMomentsVal[1]<<" "<<sumMomentsVal[2]<<"\n";
+    }
 }
 
 void Foam::VelocityPressureForceInteraction::store()
@@ -115,6 +152,33 @@ Foam::vector Foam::VelocityPressureForceInteraction::sumForces
         LagrangianMarker* oneMarker = markers[i];
         if(condition(*oneMarker))
             result += rodForce[i];
+    }
+    Pstream::gather(result,std::plus<vector>());
+    Pstream::scatter(result);
+    
+    return result;
+}
+
+Foam::vector Foam::VelocityPressureForceInteraction::sumMoments
+(
+    std::function<bool(LagrangianMarker)> condition
+)
+{
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    
+    if(rodMoment.size()!=static_cast<label>(markers.size()))
+    {
+        Info<<"rodMoment.size():"<<rodMoment.size()<<Foam::endl;
+        Info<<"markers.size():"<<markers.size()<<Foam::endl;
+        FatalErrorInFunction<<"Mismatch in size of rodMoment and markers"<<exit(FatalError);
+    }
+    
+    vector result = Foam::zero();
+    for(std::size_t i=0; i<markers.size(); i++)
+    {
+        LagrangianMarker* oneMarker = markers[i];
+        if(condition(*oneMarker))
+            result += rodMoment[i];
     }
     Pstream::gather(result,std::plus<vector>());
     Pstream::scatter(result);

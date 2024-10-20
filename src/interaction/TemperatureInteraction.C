@@ -10,8 +10,7 @@ Foam::TemperatureInteraction::TemperatureInteraction
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-FieldMarkerStructureInteraction(mesh,structure,modusFieldToMarker,modusMarkerToField),
-structureDict(structureDict),
+FieldMarkerStructureInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 input_T(input_T),
 output_Tf(output_Tf)
 {

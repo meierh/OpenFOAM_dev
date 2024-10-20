@@ -13,6 +13,7 @@ class FieldMarkerStructureInteraction
         (
             const fvMesh& mesh,
             LineStructure& structure,
+            const IOdictionary& structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
@@ -28,6 +29,7 @@ class FieldMarkerStructureInteraction
         ActiveRodMesh::rodMesh* rodMesh;        
         const fvMesh& mesh;
         LineStructure& structure;
+        const IOdictionary& structureDict;
 
         //Map field from fielData to markerData according to markers
         template<typename T> void fieldToMarker
