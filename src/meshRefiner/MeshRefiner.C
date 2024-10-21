@@ -107,13 +107,14 @@ bool Foam::MeshRefiner::refineMeshAndMarkers
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
         refined = applyMeshAdaption();
+        Info<<"Refined:"<<refined<<Foam::endl;
         meshWasRefined |= refined;
         if(refined)
             structure.refineMarkersOnRefinedMesh();
         auto end = std::chrono::system_clock::now();
         Info<<"------------------------------------------------- took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()<<" milliseconds"<<Foam::nl;
     }
-    
+        
     return meshWasRefined;
 }
 

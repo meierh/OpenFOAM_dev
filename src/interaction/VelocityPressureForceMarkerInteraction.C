@@ -55,7 +55,6 @@ void Foam::VelocityPressureForceInteraction::solve()
         vector sumForcesVal = sumForces();
         if(Pstream::master())
         {
-            Info<<"--------------Write to recordRodForceFile---------------"<<Foam::endl;
             (*recordRodForceFile)<<mesh.time().value()<<":  "<<sumForcesVal[0]<<" "<<sumForcesVal[1]<<" "<<sumForcesVal[2]<<std::endl;
         }
     }
@@ -65,7 +64,6 @@ void Foam::VelocityPressureForceInteraction::solve()
         vector sumMomentsVal = sumMoments();
         if(Pstream::master())
         {
-            Info<<"--------------Write to recordRodMomentFile---------------"<<Foam::endl;
             (*recordRodMomentFile)<<mesh.time().value()<<":  "<<sumMomentsVal[0]<<" "<<sumMomentsVal[1]<<" "<<sumMomentsVal[2]<<std::endl;
         }
     }

@@ -73,7 +73,7 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
-#include "pimpleSingleRegionControl.H"
+#include "pimpleIBControl.H"
 #include "setDeltaT.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -91,7 +91,7 @@ class icoImmersedBoundary : public incompressibleFluid
 {
 protected:
     Time& time;
-    pimpleSingleRegionControl pimpleCtlr;
+    pimpleIBControl pimpleCtlr;
     IOdictionary transportProperties;
     dimensionedScalar nu;
     

@@ -522,6 +522,10 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
     std::pair<bool,scalar> forcedSpacing
 )
 {
+    Info<<"CrossSectionStructure::refineMarkersOnRod"<<Foam::endl;
+    Info<<"initialMeshSpacing:"<<initialMeshSpacing<<Foam::endl;
+
+    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
     if(rodMarkersList[rodNumber])

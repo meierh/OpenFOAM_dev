@@ -62,6 +62,9 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     
     setDeltaT(time,*this);
     
+    pimpleCtlr.addEqnPerformance(&UEqn_res);
+    pimpleCtlr.addEqnPerformance(&PEqn_res);
+    
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useStructure:"<<useStructure<<Foam::endl;
     Info<<"useRefinement:"<<useRefinement<<Foam::endl;
@@ -127,7 +130,7 @@ void Foam::solvers::icoImmersedBoundary::create_Temperature()
     if(!T_IOobj.filePath("",true).empty())
     {
         T_ = std::make_unique<volScalarField>(T_IOobj,mesh);
-        alpha.value() = dimensionedScalar(transportProperties.lookup("alpha")).value();
+        alpha.value() = dimensionedScalar(transportProperties.lookup("alpha")).value();    pimpleCtlr.addEqnPerformance(&TEqn_res);
         useTemperature = true;
     }
     else
@@ -280,15 +283,11 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
     }
 
     fvVectorMatrix& UEqn = tUEqn.ref();
-    
-    Info<<"Created Ueqn"<<Foam::endl;
-  
+      
     UEqn.relax();
   
     fvConstraints().constrain(UEqn);
-    
-    Info<<"useVelocityForcing:"<<useVelocityForcing<<Foam::endl;
-  
+      
     if (pimple.momentumPredictor())
     {
         if(useVelocityForcing)
@@ -303,13 +302,10 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
 
         fvConstraints().constrain(U);
     }
-    Info<<"done momentumPredictor"<<Foam::endl;
 }
 
 void Foam::solvers::icoImmersedBoundary::correctPressure()
-{
-    Info<<"correctPressure"<<Foam::endl;
-    
+{   
     volScalarField& p(p_);
     volVectorField& U(U_);
     surfaceScalarField& phi(phi_);
@@ -401,11 +397,7 @@ void Foam::solvers::icoImmersedBoundary::postCorrector()
 }
 
 void Foam::solvers::icoImmersedBoundary::postSolve()
-{
-    Info<<"postSolve"<<Foam::endl;
-    Info<<"T_:"<<static_cast<bool>(T_)<<Foam::endl;
-    Info<<"fT_:"<<static_cast<bool>(fT_)<<Foam::endl;
-    
+{    
     if(useTemperature)
     {
         volScalarField& T = *T_;
@@ -486,6 +478,8 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
         Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
         preMove();
+        
+        FatalErrorInFunction<<"Temp Error"<<exit(FatalError);
         
         // PIMPLE corrector loop
         while (pimpleCtlr.loop())
