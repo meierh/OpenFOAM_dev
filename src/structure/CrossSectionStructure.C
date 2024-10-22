@@ -524,7 +524,7 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
 {
     Info<<"CrossSectionStructure::refineMarkersOnRod"<<Foam::endl;
     Info<<"initialMeshSpacing:"<<initialMeshSpacing<<Foam::endl;
-
+    Info<<"mesh.cells().size():"<<mesh.cells().size()<<Foam::endl;
     
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     const CrossSection& crossSec = rodCrossSection[rodNumber];
@@ -654,7 +654,7 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
                 markersIter1++;
             }
         }
-        */
+        */        
     }
 }
 
@@ -669,13 +669,112 @@ void Foam::CrossSectionStructure::refineCircumferential
         Info<<circumMarkers.front().getMarkerRadiusFrac()<<Foam::nl;
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
     }
-    
+     
     label rodNumber = circumMarkers.front().getRodNumber();
     const ActiveRodMesh::rodCosserat* oneRod = circumMarkers.front().getBaseRod();
     scalar parameter = circumMarkers.front().getMarkerParameter();
     scalar radFrac = circumMarkers.front().getMarkerRadiusFrac();
     const CrossSection* oneCrossSec = circumMarkers.front().getBaseCrossSec();
 
+    
+    scalar start_avgDeltaAngle=0;
+    scalar start_avgDeltaDist=0;
+    std::vector<scalar> deltaAngles;
+    std::vector<scalar> deltaDist;
+    for(auto iter=circumMarkers.begin(); iter!=circumMarkers.end(); iter++)
+    {
+        std::list<LagrangianMarkerOnCrossSec>::iterator next = iter;
+        next++;
+        if(next!=circumMarkers.end())
+        {
+            scalar deltaAngle = next->getMarkerAngle()-iter->getMarkerAngle();
+            start_avgDeltaAngle += deltaAngle;
+            deltaAngles.push_back(deltaAngle);
+            scalar dist = distance
+            (
+                oneRod,parameter,oneCrossSec,iter->getMarkerAngle(),next->getMarkerAngle(),radFrac
+            );
+            start_avgDeltaDist+=dist;
+            deltaDist.push_back(dist);
+        }
+        else
+            break;
+    }
+    start_avgDeltaAngle/=circumMarkers.size();
+    std::sort(deltaAngles.begin(),deltaAngles.end());
+    scalar start_medDeltaAngle = deltaAngles[deltaAngles.size()/2];
+    start_avgDeltaDist/=circumMarkers.size();
+    std::sort(deltaDist.begin(),deltaDist.end());
+    scalar start_medDeltaDist = deltaDist[deltaDist.size()/2];
+    label start_size = circumMarkers.size();
+    
+    
+    
+    scalar maxMarkerDist = std::numeric_limits<scalar>::min();
+    scalar minMarkerCellSize = std::numeric_limits<scalar>::max();
+    label refineSpanCount=0;
+    for(auto iter=circumMarkers.begin(); iter!=circumMarkers.end(); iter++)
+    {
+        std::list<LagrangianMarkerOnCrossSec>::iterator next;
+        if(next==circumMarkers.end())
+        {
+            next = circumMarkers.begin();
+        }
+        else
+        {
+            next = iter;
+            next++;
+        }
+        
+        scalar circMarker0Angle = iter->getMarkerAngle();
+        scalar circMarker0CellSpacing = iter->getMarkerCellMinSpacing();
+        bool circMarker0InCell = (iter->getMarkerCell()!=-1);
+            
+        scalar circMarker1Angle = next->getMarkerAngle();
+        scalar circMarker1CellSpacing = next->getMarkerCellMinSpacing();
+        bool circMarker1InCell = (next->getMarkerCell()!=-1);
+
+        scalar dist = distance
+        (
+                oneRod,parameter,oneCrossSec,circMarker0Angle,circMarker1Angle,radFrac
+        );
+        bool subdivide = false;
+        if(refineSpacing.first)
+        {
+            if(dist>refineSpacing.second)
+                subdivide=true;
+        }
+        if(circMarker0InCell || circMarker1InCell)
+        {
+            scalar minSpacing = std::min(circMarker0CellSpacing,circMarker1CellSpacing);
+            if(dist>minSpacing)
+                subdivide=true;
+        }
+        if(subdivide)
+            refineSpanCount++;
+        
+        maxMarkerDist = std::max(maxMarkerDist,dist);
+        minMarkerCellSize = std::min(minMarkerCellSize,circMarker0CellSpacing);
+    }
+    
+    if(refineSpanCount>0.2*circumMarkers.size())
+    {
+        scalar totalCircumDist = maxMarkerDist*circumMarkers.size();
+        label reqMarkerNbr = (totalCircumDist/minMarkerCellSize)+3;
+        scalar reqMarkerAngleSpan = 2*Foam::constant::mathematical::pi / reqMarkerNbr;
+        std::vector<LagrangianMarkerOnCrossSec> newMarkers;
+        for(scalar angle=0; angle<=2*Foam::constant::mathematical::pi; angle+=reqMarkerAngleSpan)
+        {
+            LagrangianMarkerOnCrossSec newMarker
+            (
+                *this,mesh,rodNumber,oneRod,parameter,oneCrossSec,angle,radFrac
+            );
+            newMarkers.push_back(newMarker);
+        }
+        circumMarkers.clear();
+        circumMarkers.insert(circumMarkers.end(),newMarkers.begin(),newMarkers.end());
+    }
+    
     bool refined=true;
     while(refined)
     {
@@ -684,14 +783,14 @@ void Foam::CrossSectionStructure::refineCircumferential
         auto circMarkerIter1 = ++(circumMarkers.begin());
         for( ; circMarkerIter1!=circumMarkers.end() ; )
         {
-            scalar circMarker0Angle = circMarkerIter0->getMarkerParameter();
+            scalar circMarker0Angle = circMarkerIter0->getMarkerAngle();
             scalar circMarker0CellSpacing = circMarkerIter0->getMarkerCellMinSpacing();
             bool circMarker0InCell = (circMarkerIter0->getMarkerCell()!=-1);
             
-            scalar circMarker1Angle = circMarkerIter1->getMarkerParameter();
+            scalar circMarker1Angle = circMarkerIter1->getMarkerAngle();
             scalar circMarker1CellSpacing = circMarkerIter1->getMarkerCellMinSpacing();
             bool circMarker1InCell = (circMarkerIter1->getMarkerCell()!=-1);
-            
+                        
             scalar dist = distance
             (
                 oneRod,parameter,oneCrossSec,circMarker0Angle,circMarker1Angle,radFrac
@@ -709,6 +808,11 @@ void Foam::CrossSectionStructure::refineCircumferential
                     subdivide=true;
             }
             
+            /*
+            Info<<"("<<circMarkerIter0->getMarkerCell()<<":"<<circMarker0CellSpacing<<") -- ("<<circMarkerIter1->getMarkerCell()<<":"<<circMarker1CellSpacing<<") |--| "<<"|"<<circMarker0Angle<<","<<circMarker1Angle<<","<<radFrac<<"="<<dist<<" -> "<<subdivide<<Foam::endl;
+            subdivide = false;
+            */
+            
             if(subdivide)
             {
                 scalar middleAngle = 0.5*(circMarker0Angle + circMarker1Angle);
@@ -723,6 +827,42 @@ void Foam::CrossSectionStructure::refineCircumferential
             circMarkerIter1++;
         }
     }
+    
+    
+    scalar end_avgDeltaAngle=0;
+    scalar end_avgDeltaDist=0;
+    deltaAngles.clear();
+    deltaDist.clear();
+    for(auto iter=circumMarkers.begin(); iter!=circumMarkers.end(); iter++)
+    {
+        std::list<LagrangianMarkerOnCrossSec>::iterator next = iter;
+        next++;
+        if(next!=circumMarkers.end())
+        {
+            scalar deltaAngle = next->getMarkerAngle()-iter->getMarkerAngle();
+            end_avgDeltaAngle += deltaAngle;
+            deltaAngles.push_back(deltaAngle);
+            scalar dist = distance
+            (
+                oneRod,parameter,oneCrossSec,iter->getMarkerAngle(),next->getMarkerAngle(),radFrac
+            );
+            end_avgDeltaDist+=dist;
+            deltaDist.push_back(dist);
+        }
+        else
+            break;
+    }
+    end_avgDeltaAngle/=circumMarkers.size();
+    std::sort(deltaAngles.begin(),deltaAngles.end());
+    scalar end_medDeltaAngle = deltaAngles[deltaAngles.size()/2];
+    end_avgDeltaDist/=circumMarkers.size();
+    std::sort(deltaDist.begin(),deltaDist.end());
+    scalar end_medDeltaDist = deltaDist[deltaDist.size()/2];
+    label end_size = circumMarkers.size();
+    
+    Info<<"Circum ("<<start_size<<","<<start_avgDeltaAngle<<","<<start_medDeltaAngle<<","<<start_avgDeltaDist<<","<<start_medDeltaDist<<") -> ("<<end_size<<","<<end_avgDeltaAngle<<","<<end_medDeltaAngle<<","<<end_avgDeltaDist<<","<<end_medDeltaDist<<")"<<Foam::endl;
+    
+
 }
 
 void Foam::CrossSectionStructure::refineRadial
@@ -1739,7 +1879,6 @@ Foam::scalar Foam::CrossSectionStructure::distance
     scalar radiusFrac
 )
 {
-    //Info<<"computeDist:"<<angleStart<<"-"<<angleEnd<<Foam::nl;
     std::function<scalar(scalar)> curveLen = 
     [rodPtr=oneRod, para=parameter, crossSecRef=crossSec, radFrac=radiusFrac](scalar angle)
     {
@@ -1844,6 +1983,25 @@ Foam::scalar Foam::CrossSectionStructure::distance
             errorSufficient=true;
     }
     return distance;
+}
+
+void Foam::CrossSectionStructure::printMarkerStructure()
+{
+    for(label rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
+    {
+        std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& oneRod = *(rodMarkersList[rodNumber]);
+        Info<<"------------------rodNumber:"<<rodNumber<<"--------------------"<<oneRod.size()<<Foam::endl;        
+        for(auto iterTang = oneRod.begin(); iterTang!=oneRod.end(); iterTang++)
+        {
+            std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& tangRod = *iterTang;
+            Info<<"tang:"<<tangRod.first<<"  "<<tangRod.second.size()<<Foam::endl;
+            for(auto iterRad = tangRod.second.begin(); iterRad!=tangRod.second.end(); iterRad++)
+            {
+                std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radRod = *iterRad;
+                Info<<"     rad:"<<radRod.first<<"  "<<radRod.second.size()<<Foam::endl;
+            }
+        }
+    }
 }
 
 void Foam::CrossSectionStructure::parameterGradientCheck() const
@@ -2088,7 +2246,7 @@ void Foam::CrossSectionStructure::parameterGradientCheck() const
 
 void Foam::CrossSectionStructure::selfCheck()
 {
-    LineStructure::selfCheck();
+    //LineStructure::selfCheck();
     
     Info<<"-----------Check cross Section derivatives-----------"<<Foam::nl;    
     std::function<void(std::function<scalar(scalar,scalar)>,
@@ -2131,6 +2289,8 @@ void Foam::CrossSectionStructure::selfCheck()
         scalar domainStart = cpCrossSec.domainStart();
         scalar domainEnd = cpCrossSec.domainEnd();
         //Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::nl;
+        
+        /*
         Info<<"Changing fourierCoeff"<<Foam::nl;
         for(label fourierCoeff=0; fourierCoeff<cpCrossSec.numberFourierCoeff(); fourierCoeff++)
         {
@@ -2211,6 +2371,19 @@ void Foam::CrossSectionStructure::selfCheck()
             
             crossSecComparer(deriv,fdDeriv,domainStart,domainEnd,0,6.3,20);
         }
+        */
+        
+        Info<<"Cross section distance"<<Foam::nl;
+        scalar dist = distance(Rods[rodNumber],0.5,&cpCrossSec,0,0.5,1);
+        Info<<"dist:"<<dist<<Foam::endl;
+        vector angle_0 = evaluateRodCircumPos(Rods[rodNumber],0.5,&cpCrossSec,0,1);
+        vector angle_05 = evaluateRodCircumPos(Rods[rodNumber],0.5,&cpCrossSec,0.5,1);
+        vector connec = angle_05-angle_0;
+        scalar len = std::sqrt(connec&connec);
+        
+        Info<<"angle_0:"<<angle_0<<Foam::endl;
+        Info<<"angle_05:"<<angle_05<<Foam::endl;
+        Info<<"len:"<<len<<Foam::endl;        
     }
     
     /*

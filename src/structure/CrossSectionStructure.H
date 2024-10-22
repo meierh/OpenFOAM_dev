@@ -400,6 +400,7 @@ class CrossSectionStructure : public LineStructure
         std::vector<std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>> rodMarkersList;
         
     public:
+        void printMarkerStructure() override;
         void parameterGradientCheck() const override;
         void selfCheck() override;
 };

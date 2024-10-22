@@ -71,7 +71,12 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"useVelocityForcing:"<<useVelocityForcing<<Foam::endl;
     Info<<"useTemperature:"<<useTemperature<<Foam::endl;
     Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
-    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
+    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
+    
+    create_Analysis();
+
+    if(structure)
+        structure->printMarkerStructure();
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
@@ -479,8 +484,9 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
 
         preMove();
         
-        FatalErrorInFunction<<"Temp Error"<<exit(FatalError);
-        
+        if(structure)
+            structure->printMarkerStructure();
+                
         // PIMPLE corrector loop
         while (pimpleCtlr.loop())
         {
@@ -496,10 +502,64 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
 
         postSolve();
 
+        write_Analysis();
+        
         runTime.write();
 
         Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
             << Foam::nl << endl;
+            
+        FatalErrorInFunction<<"Temp Error"<<exit(FatalError);
+    }
+}
+
+void Foam::solvers::icoImmersedBoundary::create_Analysis()
+{
+    IOobject cellSizes_IOobj
+    (
+        "cellSizes",
+        runTime.name(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::AUTO_WRITE
+    );
+    if(!cellSizes_IOobj.filePath("",true).empty())
+        cellSizes = std::make_unique<volScalarField>(cellSizes_IOobj,mesh);
+    
+    IOobject cellMarkerCount_IOobj
+    (
+        "cellMarkerCount",
+        runTime.name(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::AUTO_WRITE
+    );
+    if(!cellMarkerCount_IOobj.filePath("",true).empty())
+        cellMarkerCount = std::make_unique<volScalarField>(cellMarkerCount_IOobj,mesh);
+    
+    IOobject cellMarkerCharacSize_IOobj
+    (
+        "cellMarkerCharacSize",
+        runTime.name(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::AUTO_WRITE
+    );
+    if(!cellMarkerCharacSize_IOobj.filePath("",true).empty())
+        cellMarkerCharacSize = std::make_unique<volScalarField>(cellMarkerCharacSize_IOobj,mesh);
+    
+}
+
+void Foam::solvers::icoImmersedBoundary::write_Analysis()
+{
+    if(structure)
+    {
+        if(cellSizes)
+            structure->writeCellSizeField(*cellSizes);
+        if(cellMarkerCount)
+            structure->writeCellMarkerCountField(*cellMarkerCount);
+        if(cellMarkerCharacSize)
+            structure->writeCellMarkerCharacSizeField(*cellMarkerCharacSize);
     }
 }

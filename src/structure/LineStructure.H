@@ -632,6 +632,11 @@ class LineStructure : public Structure
         
         const std::vector<LagrangianMarker*>& getCollectedMarkers() const {return collectedMarkers;}
         
+        virtual void printMarkerStructure();
+        
+        void writeCellMarkerCountField(volScalarField& field) const;
+        void writeCellMarkerCharacSizeField(volScalarField& field) const;
+        
         //scalar initialSpacingFromMesh();
         void parameterGradientCheck() const override;
         void selfCheck() override;

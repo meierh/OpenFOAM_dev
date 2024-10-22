@@ -205,6 +205,14 @@ public:
         
     // High level functions
         void solveEqns();
+        
+    private:
+        std::unique_ptr<volScalarField> cellSizes;
+        std::unique_ptr<volScalarField> cellMarkerCount;
+        std::unique_ptr<volScalarField> cellMarkerCharacSize;
+        void create_Analysis();
+        void write_Analysis();
+        
 };
 
 

@@ -377,7 +377,7 @@ Foam::Structure::Structure
     const fvMesh& mesh,
     const Time& runTime
 ):
-initialMeshSpacing(initialSpacingFromMesh(mesh)),
+initialMeshSpacing(spacingFromMesh(mesh)),
 runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
@@ -399,7 +399,7 @@ Foam::Structure::Structure
     const IOdictionary& stuctureDict,
     const Time& runTime
 ):
-initialMeshSpacing(initialSpacingFromMesh(mesh)),
+initialMeshSpacing(spacingFromMesh(mesh)),
 runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
@@ -2276,9 +2276,9 @@ Foam::scalar Foam::Structure::characteristicSize
     vector position = rodEval(Rods[rodNumber],par);
     label cell = mesh.findCell(position);
     if(cell!=-1)
-        return initialSpacingFromMesh(mesh,cell);
+        return spacingFromMesh(mesh,cell);
     else
-        return initialSpacingFromMesh(mesh);
+        return spacingFromMesh(mesh);
 }
 
 void Foam::Structure::buildTrees()
@@ -2766,7 +2766,7 @@ void Foam::Structure::collectMeshHaloData
     generateMeshGraph();
 }
 
-Foam::scalar Foam::Structure::initialSpacingFromMesh
+Foam::scalar Foam::Structure::spacingFromMesh
 (
     const fvMesh& mesh,
     label cellInd
@@ -2821,7 +2821,15 @@ void Foam::Structure::neighbourCells
         neighbours.append(*iter);
 }
 
-
+void Foam::Structure::writeCellSizeField
+(
+    volScalarField& field
+) const
+{
+    for(label cellInd=0; cellInd<mesh.cells().size(); cellInd++)
+        field[cellInd] = spacingFromMesh(mesh,cellInd);
+}
+        
 void Foam::Structure::quaternionCheck()
 {
     Quaternion q;

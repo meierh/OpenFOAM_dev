@@ -104,7 +104,11 @@ int main(int argc, char *argv[])
         
         std::vector<CrossSection> crossSecList = {CrossSection(a_0,a_k,b_k,phaseShift)};
         CrossSectionStructure testStructure(mesh,crossSecList,true);
-        testStructure.parameterGradientCheck();
+        
+        testStructure.selfCheck();
+        
+        
+        //testStructure.parameterGradientCheck();
         
         /*
         testStructure.selfCheck();

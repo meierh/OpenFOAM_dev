@@ -526,7 +526,7 @@ void Foam::LineStructure::setMarkerVolumeOnRod
                         scalar thisPara = iter->getMarkerParameter();
                         if(!InMesh(thisPara))
                             FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
-                        scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
+                        scalar threshold = spacingFromMesh(mesh,iter->getMarkerCell())/100;
                         spanStart = bisectionBinary(prevPara,thisPara,InMesh,threshold);
                     }
                     else
@@ -548,7 +548,7 @@ void Foam::LineStructure::setMarkerVolumeOnRod
                         scalar thisPara = iter->getMarkerParameter();
                         if(!InMesh(thisPara))
                             FatalErrorInFunction<<"Both sides out of mesh"<<exit(FatalError);
-                        scalar threshold = initialSpacingFromMesh(mesh,iter->getMarkerCell())/100;
+                        scalar threshold = spacingFromMesh(mesh,iter->getMarkerCell())/100;
                         spanEnd = bisectionBinary(thisPara,nextPara,InMesh,threshold);
                     }
                     else
@@ -1463,6 +1463,62 @@ void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()
 
     Pstream::gatherList(globalHaloCellsMarkerWeight);
     Pstream::scatterList(globalHaloCellsMarkerWeight);
+}
+
+void Foam::LineStructure::printMarkerStructure()
+{
+    for(label rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
+    {
+        Info<<"--------------------rodNumber:"<<rodNumber<<"----------------------"<<Foam::endl;
+        std::list<LagrangianMarker>& oneRod = *(rodMarkersList[rodNumber]);
+        
+        for(auto iterTang = oneRod.begin(); iterTang!=oneRod.end(); iterTang++)
+        {
+            Info<<"tang:"<<iterTang->getMarkerPosition()<<Foam::endl;
+        }
+    }
+}
+
+void Foam::LineStructure::writeCellMarkerCountField
+(
+    volScalarField& field
+) const
+{
+    field = Foam::zero();
+    for(const LagrangianMarker* markerPtr : collectedMarkers)
+    {
+        label markerCell = markerPtr->getMarkerCell();
+        if(markerCell>=0 && markerCell<mesh.cells().size())
+            field[markerCell] += 1;
+    }
+}
+
+void Foam::LineStructure::writeCellMarkerCharacSizeField
+(
+    volScalarField& field
+) const
+{
+    field = Foam::zero();
+    std::unordered_map<label,DynamicList<scalar>> cellToCharacLen;
+    for(const LagrangianMarker* markerPtr : collectedMarkers)
+    {
+        label markerCell = markerPtr->getMarkerCell();
+        scalar markerCharacLen = markerPtr->getMarkerCharacLen();
+        if(markerCell>=0 && markerCell<mesh.cells().size())
+        {
+            cellToCharacLen[markerCell].append(markerCharacLen);
+        }
+    }
+    for(auto iter=cellToCharacLen.begin(); iter!=cellToCharacLen.end(); iter++)
+    {
+        const DynamicList<scalar>& characLens = iter->second;
+        label markerCell = iter->first;
+        scalar avgLens = 0;
+        for(scalar len : characLens)
+            avgLens += len;
+        avgLens /= characLens.size();
+        field[markerCell] = avgLens;
+    }
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::check()

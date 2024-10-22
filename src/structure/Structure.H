@@ -530,8 +530,10 @@ class Structure
         const label haloWidth = 4;        
         void collectMeshHaloData(label iterations=1);
     public:
-        static scalar initialSpacingFromMesh(const fvMesh& mesh, label cellInd=0);
+        static scalar spacingFromMesh(const fvMesh& mesh, label cellInd=0);
         static void neighbourCells(const fvMesh& mesh, label cellInd, DynamicList<label>& neighbours);
+        
+        void writeCellSizeField(volScalarField& field) const;
         
         void quaternionCheck();
         void rotationCheck();

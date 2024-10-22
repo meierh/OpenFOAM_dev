@@ -149,7 +149,7 @@ void Foam::MeshRefiner::markerRefinement
             neighbours.append(markerCellInd);
             for(label cell : neighbours)
             {
-                scalar cellLen = Structure::initialSpacingFromMesh(mesh,cell);
+                scalar cellLen = Structure::spacingFromMesh(mesh,cell);
                 if(charLen*markerCharLengthToCellSizeFactor < cellLen)
                     markerRefineDemands[cell] = std::max(REFINE,markerRefineDemands[cell]);
                 else

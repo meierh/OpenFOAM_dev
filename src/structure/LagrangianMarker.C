@@ -304,7 +304,7 @@ Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
     {
         scalar min = std::numeric_limits<scalar>::min();
         scalar max = std::numeric_limits<scalar>::max();
-        scalar cellSpacing = structure.initialSpacingFromMesh(mesh,markerCell);
+        scalar cellSpacing = structure.spacingFromMesh(mesh,markerCell);
         minSpan = vector(max,max,max);
         maxSpan = vector(min,min,min);
         Vector<bool> minSet(false,false,false);
