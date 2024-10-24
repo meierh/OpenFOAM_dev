@@ -42,13 +42,13 @@ class CrossSection
         scalar computePhaseShiftDeriv(scalar parameter) const;
         scalar computePhaseShiftDeriv2(scalar parameter) const;
         
-        scalar operator()(scalar parameter, scalar angle) const;
-        std::function<scalar(scalar)> getEvalOnPoint(scalar parameter) const;
+        scalar operator()(scalar parameter, scalar angle);
+        std::function<scalar(scalar)> getEvalOnPoint(scalar parameter);
         
-        scalar deriv_angle(scalar parameter, scalar angle) const;
-        std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter) const;
-        scalar deriv2_angle(scalar parameter, scalar angle) const;
-        std::function<scalar(scalar)> getDeriv2AngleOnPoint(scalar parameter) const;
+        scalar deriv_angle(scalar parameter, scalar angle);
+        std::function<scalar(scalar)> getDerivAngleOnPoint(scalar parameter);
+        scalar deriv2_angle(scalar parameter, scalar angle);
+        std::function<scalar(scalar)> getDeriv2AngleOnPoint(scalar parameter);
         
         scalar deriv_para(scalar parameter, scalar angle) const;
         scalar deriv2_para(scalar parameter, scalar angle) const;
@@ -127,6 +127,9 @@ class CrossSection
         std::vector<gsNurbs<scalar>> a_k;
         std::vector<gsNurbs<scalar>> b_k;
         gsNurbs<scalar> phaseShift;
+        
+        std::unordered_map<scalar,std::tuple<scalar,std::vector<scalar>,std::vector<scalar>,scalar>> a0akbkPhase_Buffer;
+        
         uint numberCoeffs;
         scalar domStart;
         scalar domEnd;
@@ -137,19 +140,19 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
     public:
         explicit LagrangianMarkerOnCrossSec
         (
-            const LineStructure& structure,
+            LineStructure& structure,
             const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter,
-            const CrossSection* baseCrossSec,
+            CrossSection* baseCrossSec,
             const scalar markerAngle,
             const scalar radiusFrac
         );
         
         inline scalar getMarkerAngle() const override {return markerAngle;}
         inline scalar getMarkerRadiusFrac() const override {return markerRadiusFrac;}
-        inline const CrossSection* getBaseCrossSec() const {return baseCrossSec;}
+        inline CrossSection* getBaseCrossSec() {return baseCrossSec;}
         void evaluateMarker();
         
         vector getMarkerVelocity() const override;
@@ -159,7 +162,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         
         scalar markerAngle;
         scalar markerRadiusFrac;
-        const CrossSection* baseCrossSec;        
+        CrossSection* baseCrossSec;        
 };
 
 class CrossSectionStructure : public LineStructure
@@ -190,7 +193,7 @@ class CrossSectionStructure : public LineStructure
         //void transferMarkers(FieldMarkerStructureInteraction& connector);
         
     // ----------------- Moving Rod update methods -----------------
-        vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const override;        
+        vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) override;        
     // ----------------- ------------------------- -----------------
         
         void to_string() override;
@@ -227,7 +230,7 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* oneCrossSec,
+            CrossSection* oneCrossSec,
             scalar radFrac,
             scalar spacing,
             std::vector<scalar>& angleData
@@ -296,7 +299,7 @@ class CrossSectionStructure : public LineStructure
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameterA,
             scalar parameterB,
-            const CrossSection* oneCrossSec,
+            CrossSection* oneCrossSec,
             scalar angleA,
             scalar angleB,
             scalar radiusFracA,
@@ -304,31 +307,58 @@ class CrossSectionStructure : public LineStructure
         );
 
     public:
+        
+        vector evaluateRodCircumPos
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac,
+            scalar var_para = 0,
+            scalar var_radius = 0
+        ) override;
+        
         static vector evaluateRodCircumPos
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* oneCrossSec,
+            CrossSection* oneCrossSec,
             scalar angle,
             scalar radiusFrac,
             scalar var_para = 0,
             scalar var_radius = 0
         );
         
+        Pair<vector> derivateRodCircumPos
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac
+        ) override;
+        
         static Pair<vector> derivateRodCircumPos
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* oneCrossSec,
+            CrossSection* oneCrossSec,
             scalar angle,
             scalar radiusFrac
         );
     
+        Pair<vector> derivate2RodCircumPos
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac
+        ) override;
+        
         static Pair<vector> derivate2RodCircumPos
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* oneCrossSec,
+            CrossSection* oneCrossSec,
             scalar angle,
             scalar radiusFrac
         );
@@ -347,7 +377,15 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* oneCrossSec,
+            CrossSection* oneCrossSec,
+            scalar angle,
+            scalar radiusFrac=1
+        );
+        
+        vector evaluateRodCircumDerivAngle
+        (
+            label rodNumber,
+            scalar parameter,
             scalar angle,
             scalar radiusFrac=1
         );
@@ -359,7 +397,7 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* crossSec,
+            CrossSection* crossSec,
             std::function<T(scalar)> function
         );
         
@@ -368,7 +406,17 @@ class CrossSectionStructure : public LineStructure
         (   
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* crossSec,
+            CrossSection* crossSec,
+            scalar angleStart,
+            scalar angleEnd,
+            std::function<T(scalar)> function
+        );
+        
+        template<typename T>
+        T integrateCircumwise
+        (   
+            label rodNumber,
+            scalar parameter,
             scalar angleStart,
             scalar angleEnd,
             std::function<T(scalar)> function
@@ -378,7 +426,16 @@ class CrossSectionStructure : public LineStructure
         (
             const ActiveRodMesh::rodCosserat* oneRod,
             scalar parameter,
-            const CrossSection* crossSec,
+            CrossSection* crossSec,
+            scalar angleStart,
+            scalar angleEnd,
+            scalar radiusFrac
+        );
+        
+        scalar distance
+        (
+            label rodNumber,
+            scalar parameter,
             scalar angleStart,
             scalar angleEnd,
             scalar radiusFrac
@@ -386,8 +443,27 @@ class CrossSectionStructure : public LineStructure
         
         static scalar distance
         (
-            const LagrangianMarkerOnCrossSec& A,
-            const LagrangianMarkerOnCrossSec& B
+            LagrangianMarkerOnCrossSec& A,
+            LagrangianMarkerOnCrossSec& B
+        );
+        
+        static scalar lowerBound_distance
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            CrossSection* crossSec,
+            scalar angleStart,
+            scalar angleEnd,
+            scalar radiusFrac
+        );
+        
+        scalar lowerBound_distance
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angleStart,
+            scalar angleEnd,
+            scalar radiusFrac
         );
 
         std::vector<CrossSection> rodCrossSection;
@@ -401,7 +477,7 @@ class CrossSectionStructure : public LineStructure
         
     public:
         void printMarkerStructure() override;
-        void parameterGradientCheck() const override;
+        void parameterGradientCheck() override;
         void selfCheck() override;
 };
 

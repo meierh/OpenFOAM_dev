@@ -919,6 +919,10 @@ void Foam::Structure::setupActiveRodMesh()
     prevDeformations.resize(nR);
     prevRotations.clear();
     prevRotations.resize(nR);
+    
+    rodEvalBuffer.resize(nR);
+    rodDerivEvalBuffer.resize(nR);
+    rodDeriv2EvalBuffer.resize(nR);    
 }
 
 void Foam::Structure::updateRodCoordinateSystem()
@@ -977,6 +981,13 @@ Foam::label Foam::Structure::getMaxDegree
     */
     return std::max<label>(baseDegreeX,defDegreeX);
 }
+
+void Foam::Structure::computeHaloData()
+{
+    collectMeshHaloData(haloWidth);
+    cellDataBuffer.clear();
+}
+
 
 /*
 Foam::FixedList<Foam::vector,3> Foam::Structure::quaternionsToRotation
@@ -1528,6 +1539,10 @@ void Foam::Structure::setDeformation
         defCoeffs(coeffNum,1) = deformationCoeffs[coeffNum][1];
         defCoeffs(coeffNum,2) = deformationCoeffs[coeffNum][2];        
     }
+    
+    rodEvalBuffer[rodNumber].clear();
+    rodDerivEvalBuffer[rodNumber].clear();
+    rodDeriv2EvalBuffer[rodNumber].clear();
 }
 
 const gsNurbs<Foam::scalar>& Foam::Structure::getDeformation
@@ -1616,6 +1631,33 @@ Foam::vector Foam::Structure::rodDeriv2Eval
 
 void Foam::Structure::rodEval
 (
+    label rodNumber,
+    scalar parameter,
+    vector& d1,
+    vector& d2,
+    vector& d3,
+    vector& r
+)
+{
+    std::unordered_map<scalar,std::array<vector,4>>& oneRodEvalBuffer = rodEvalBuffer[rodNumber];
+    auto iter = oneRodEvalBuffer.find(parameter);
+    if(iter!=oneRodEvalBuffer.end())
+    {
+        const std::array<vector,4>& bufferedResult = iter->second;
+        d1 = bufferedResult[0];
+        d2 = bufferedResult[1];
+        d3 = bufferedResult[2];
+        r  = bufferedResult[3];
+    }
+    else
+    {
+        rodEval(Rods[rodNumber],parameter,d1,d2,d3,r);
+        oneRodEvalBuffer.insert({parameter,{d1,d2,d3,r}});
+    }
+}
+
+void Foam::Structure::rodEval
+(
     const ActiveRodMesh::rodCosserat* rod,
     scalar parameter,
     vector& d1,
@@ -1629,6 +1671,33 @@ void Foam::Structure::rodEval
 
 void Foam::Structure::rodDerivEval
 (
+    label rodNumber,
+    scalar parameter,
+    vector& dd1dp,
+    vector& dd2dp,
+    vector& dd3dp,
+    vector& drdp
+)
+{
+    std::unordered_map<scalar,std::array<vector,4>>& oneRodDerivEvalBuffer = rodDerivEvalBuffer[rodNumber];
+    auto iter = oneRodDerivEvalBuffer.find(parameter);
+    if(iter!=oneRodDerivEvalBuffer.end())
+    {
+        const std::array<vector,4>& bufferedResult = iter->second;
+        dd1dp = bufferedResult[0];
+        dd2dp = bufferedResult[1];
+        dd3dp = bufferedResult[2];
+        drdp  = bufferedResult[3];
+    }
+    else
+    {
+        rodDerivEval(Rods[rodNumber],parameter,dd1dp,dd2dp,dd3dp,drdp);
+        oneRodDerivEvalBuffer.insert({parameter,{dd1dp,dd2dp,dd3dp,drdp}});
+    }
+}
+
+void Foam::Structure::rodDerivEval
+(
     const ActiveRodMesh::rodCosserat* rod,
     scalar parameter,
     vector& dd1dp,
@@ -1637,7 +1706,63 @@ void Foam::Structure::rodDerivEval
     vector& drdp
 )
 {
-    rodDerivEval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,dd1dp,dd2dp,dd3dp,drdp);
+    //rodDerivEval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,dd1dp,dd2dp,dd3dp,drdp);
+    
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    const gsNurbs<scalar>& def = rod->m_Def;
+    const gsNurbs<scalar>& rot = rod->m_Rot;  
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+        
+    gsMatrix<scalar> basePnt;
+    curve.deriv_into(parMat,basePnt);
+
+    gsMatrix<scalar> defPnt;
+    def.deriv_into(parMat,defPnt);
+    
+    gsMatrix<scalar> pnt = basePnt+defPnt;    
+    drdp = vector(pnt(0,0),pnt(1,0),pnt(2,0));
+
+    gsMatrix<scalar> rotQuat;
+    rot.eval_into(parMat,rotQuat);
+    Quaternion q(rotQuat);
+    
+    gsMatrix<scalar> drotQuatdp = evalNurbsDeriv(rot,parameter);
+    Quaternion dqdp(drotQuatdp);
+    
+    Rotation dRdp = Rotation::compute_dRdX(dqdp,q);
+    
+    dd1dp = dRdp.get_d1();
+    dd2dp = dRdp.get_d2();
+    dd3dp = dRdp.get_d3();
+}
+
+void Foam::Structure::rodDeriv2Eval
+(
+    label rodNumber,
+    scalar parameter,
+    vector& d2d1dp,
+    vector& d2d2dp,
+    vector& d2d3dp,
+    vector& d2rdp
+)
+{
+    std::unordered_map<scalar,std::array<vector,4>>& oneRodDeriv2EvalBuffer = rodDeriv2EvalBuffer[rodNumber];
+    auto iter = oneRodDeriv2EvalBuffer.find(parameter);
+    if(iter!=oneRodDeriv2EvalBuffer.end())
+    {
+        const std::array<vector,4>& bufferedResult = iter->second;
+        d2d1dp = bufferedResult[0];
+        d2d2dp = bufferedResult[1];
+        d2d3dp = bufferedResult[2];
+        d2rdp  = bufferedResult[3];
+    }
+    else
+    {
+        rodDeriv2Eval(Rods[rodNumber],parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+        oneRodDeriv2EvalBuffer.insert({parameter,{d2d1dp,d2d2dp,d2d3dp,d2rdp}});
+    }
 }
 
 void Foam::Structure::rodDeriv2Eval
@@ -1650,7 +1775,45 @@ void Foam::Structure::rodDeriv2Eval
     vector& d2rdp
 )
 {
-    rodDeriv2Eval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+    //rodDeriv2Eval(rod->m_Curve,rod->m_Def,rod->m_Rot,parameter,d2d1dp,d2d2dp,d2d3dp,d2rdp);
+    
+    
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    const gsNurbs<scalar>& def = rod->m_Def;
+    const gsNurbs<scalar>& rot = rod->m_Rot;  
+    
+    gsMatrix<scalar> parMat(1,1);
+    parMat.at(0) = parameter;
+    
+        
+    gsMatrix<scalar> basePnt = evalNurbsDeriv2(curve,parameter);
+    
+
+    gsMatrix<scalar> defPnt = evalNurbsDeriv2(def,parameter);
+    
+    
+    gsMatrix<scalar> pnt = basePnt+defPnt;    
+    d2rdp = vector(pnt(0,0),pnt(1,0),pnt(2,0));
+
+    gsMatrix<scalar> rotQuat;
+    rot.eval_into(parMat,rotQuat);
+    Quaternion q(rotQuat);
+    
+    
+    gsMatrix<scalar> drotQuatdp = evalNurbsDeriv(rot,parameter);
+    Quaternion dqdp(drotQuatdp);
+    
+    
+    gsMatrix<scalar> d2rotQuatdp = evalNurbsDeriv2(rot,parameter);
+    Quaternion d2qdp(d2rotQuatdp);
+    
+    
+    Rotation d2Rdp = Rotation::compute_d2RdX(d2qdp,dqdp,q);
+    
+    
+    d2d1dp = d2Rdp.get_d1();
+    d2d2dp = d2Rdp.get_d2();
+    d2d3dp = d2Rdp.get_d3();
 }
 
 void Foam::Structure::rodEval
@@ -1768,20 +1931,20 @@ void Foam::Structure::rodDeriv2Eval
     vector& d2rdp
 )
 {
+    auto t0 = std::chrono::system_clock::now();
+
     gsMatrix<scalar> parMat(1,1);
     parMat.at(0) = parameter;
     
-    //std::cout<<"-------------Start----------------------"<<parameter<<std::endl;
-    //std::cout<<"curve:"<<curve<<std::endl;
-    //std::cout<<"def:"<<def<<std::endl;
-    //std::cout<<"rot:"<<rot<<std::endl;
+    auto t1 = std::chrono::system_clock::now();
         
     gsMatrix<scalar> basePnt = evalNurbsDeriv2(curve,parameter);
+    
+    auto t2 = std::chrono::system_clock::now();
 
     gsMatrix<scalar> defPnt = evalNurbsDeriv2(def,parameter);
     
-    //std::cout<<"basePnt:"<<basePnt<<std::endl;
-    //std::cout<<"defPnt:"<<defPnt<<std::endl;
+    auto t3 = std::chrono::system_clock::now();
     
     gsMatrix<scalar> pnt = basePnt+defPnt;    
     d2rdp = vector(pnt(0,0),pnt(1,0),pnt(2,0));
@@ -1790,18 +1953,36 @@ void Foam::Structure::rodDeriv2Eval
     rot.eval_into(parMat,rotQuat);
     Quaternion q(rotQuat);
     
+    auto t4 = std::chrono::system_clock::now();
+    
     gsMatrix<scalar> drotQuatdp = evalNurbsDeriv(rot,parameter);
     Quaternion dqdp(drotQuatdp);
+    
+    auto t5 = std::chrono::system_clock::now();
     
     gsMatrix<scalar> d2rotQuatdp = evalNurbsDeriv2(rot,parameter);
     Quaternion d2qdp(d2rotQuatdp);
     
+    auto t6 = std::chrono::system_clock::now();
+    
     Rotation d2Rdp = Rotation::compute_d2RdX(d2qdp,dqdp,q);
+    
+    auto t7 = std::chrono::system_clock::now();
     
     d2d1dp = d2Rdp.get_d1();
     d2d2dp = d2Rdp.get_d2();
     d2d3dp = d2Rdp.get_d3();
+    auto t8 = std::chrono::system_clock::now();
     //std::cout<<"--------------End---------------------"<<std::endl;
+    Info<<"\t\t\t rodDeriv2Eval t0-t1 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t1-t2 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t2-t3 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t3-t4 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t4-t5 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t5-t6 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t6-t7 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t7-t6).count()<<Foam::nl;
+    Info<<"\t\t\t rodDeriv2Eval t7-t8 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t8-t7).count()<<Foam::nl;
+    Info<<"\t\t\t sum t0-t8 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t8-t0).count()<<Foam::nl;
 }
 
 Foam::Quaternion Foam::Structure::m_Rot_Eval
@@ -2189,6 +2370,9 @@ void Foam::Structure::setCurveCoeffs
             curveCoeffs(coeffNumber,1) = rodCoeffs[coeffNumber][1];
             curveCoeffs(coeffNumber,2) = rodCoeffs[coeffNumber][2];
         }
+        rodEvalBuffer[rodNumber].clear();
+        rodDerivEvalBuffer[rodNumber].clear();
+        rodDeriv2EvalBuffer[rodNumber].clear();
     }
     setupActiveRodMesh();
 }
@@ -3012,7 +3196,7 @@ void Foam::Structure::transformationCheck()
     }
 }
 
-void Foam::Structure::parameterGradientCheck() const
+void Foam::Structure::parameterGradientCheck()
 {
     Info<<"Structure::parameterGradientCheck (rodDerivEval,rodDerivEval2)"<<Foam::endl;
 

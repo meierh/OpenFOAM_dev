@@ -183,7 +183,7 @@ Foam::scalar Foam::CrossSection::operator()
 (
     scalar parameter,
     scalar angle
-) const
+)
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> evalOnPoint = getEvalOnPoint(parameter);
@@ -193,30 +193,47 @@ Foam::scalar Foam::CrossSection::operator()
 std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getEvalOnPoint
 (
     scalar parameter
-) const
+)
 {
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
+    auto iter = a0akbkPhase_Buffer.find(parameter);
     
     scalar a0Coeff;
-    gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
-    a0Coeff = a0CoeffI.at(0);
-        
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
+    scalar phShift;
     
-    scalar phShift = computePhaseShift(parameter);
+    if(iter!=a0akbkPhase_Buffer.end())
+    {
+        a0Coeff = std::get<0>(iter->second);
+        *aCoeffs = std::get<1>(iter->second);
+        *bCoeffs = std::get<2>(iter->second);
+        phShift = std::get<3>(iter->second);
+    }
+    else
+    {
+        gsMatrix<scalar> parMat(1,1);
+        parMat.at(0) = parameter;
+    
+        gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
+        a0Coeff = a0CoeffI.at(0);
+        
+        for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+        {
+            gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
+            aCoeffs->push_back(aCoeffI.at(0));
+        }
+    
+        for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+        {
+            gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
+            bCoeffs->push_back(bCoeffI.at(0));
+        }
+    
+        phShift = computePhaseShift(parameter);
+        
+        std::tuple<scalar,std::vector<scalar>,std::vector<scalar>,scalar> data = {a0Coeff,*aCoeffs,*bCoeffs,phShift};
+        a0akbkPhase_Buffer[parameter] = data;
+    }
     
     //Info<<"parameter:"<<parameter<<Foam::endl;
     return [num_Coeff=numberCoeffs,a_0=a0Coeff,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar rad)
@@ -236,7 +253,7 @@ Foam::scalar Foam::CrossSection::deriv_angle
 (
     scalar parameter,
     scalar angle
-) const
+)
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> derivOnPoint = getDerivAngleOnPoint(parameter);
@@ -246,26 +263,47 @@ Foam::scalar Foam::CrossSection::deriv_angle
 std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDerivAngleOnPoint
 (
     scalar parameter
-) const
+)
 {
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-        
+    auto iter = a0akbkPhase_Buffer.find(parameter);
+    
+    scalar a0Coeff;
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
+    scalar phShift;
     
-    scalar phShift = computePhaseShift(parameter);
+    if(iter!=a0akbkPhase_Buffer.end())
+    {
+        a0Coeff = std::get<0>(iter->second);
+        *aCoeffs = std::get<1>(iter->second);
+        *bCoeffs = std::get<2>(iter->second);
+        phShift = std::get<3>(iter->second);
+    }
+    else
+    {
+        gsMatrix<scalar> parMat(1,1);
+        parMat.at(0) = parameter;
+    
+        gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
+        a0Coeff = a0CoeffI.at(0);
+        
+        for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+        {
+            gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
+            aCoeffs->push_back(aCoeffI.at(0));
+        }
+    
+        for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+        {
+            gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
+            bCoeffs->push_back(bCoeffI.at(0));
+        }
+    
+        phShift = computePhaseShift(parameter);
+        
+        std::tuple<scalar,std::vector<scalar>,std::vector<scalar>,scalar> data = {a0Coeff,*aCoeffs,*bCoeffs,phShift};
+        a0akbkPhase_Buffer[parameter] = data;
+    }
     
     return [num_Coeff=numberCoeffs,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
     {
@@ -284,7 +322,7 @@ Foam::scalar Foam::CrossSection::deriv2_angle
 (
     scalar parameter,
     scalar angle
-) const
+)
 {
     //Info<<"par:"<<parameter<<" angle:"<<angle<<Foam::endl;
     std::function<scalar(scalar)> deriv2OnPoint = getDeriv2AngleOnPoint(parameter);
@@ -294,26 +332,47 @@ Foam::scalar Foam::CrossSection::deriv2_angle
 std::function<Foam::scalar(Foam::scalar)> Foam::CrossSection::getDeriv2AngleOnPoint
 (
     scalar parameter
-) const
+) 
 {
-    gsMatrix<scalar> parMat(1,1);
-    parMat.at(0) = parameter;
-        
+    auto iter = a0akbkPhase_Buffer.find(parameter);
+    
+    scalar a0Coeff;
     auto aCoeffs = std::make_shared<std::vector<scalar>>();
-    for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
-        aCoeffs->push_back(aCoeffI.at(0));
-    }
-    
     auto bCoeffs = std::make_shared<std::vector<scalar>>();
-    for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
-    {
-        gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
-        bCoeffs->push_back(bCoeffI.at(0));
-    }
+    scalar phShift;
     
-    scalar phShift = computePhaseShift(parameter);
+    if(iter!=a0akbkPhase_Buffer.end())
+    {
+        a0Coeff = std::get<0>(iter->second);
+        *aCoeffs = std::get<1>(iter->second);
+        *bCoeffs = std::get<2>(iter->second);
+        phShift = std::get<3>(iter->second);
+    }
+    else
+    {
+        gsMatrix<scalar> parMat(1,1);
+        parMat.at(0) = parameter;
+    
+        gsMatrix<scalar> a0CoeffI = a_0.eval(parMat);
+        a0Coeff = a0CoeffI.at(0);
+        
+        for(uint coeffI=0; coeffI<a_k.size(); coeffI++)
+        {
+            gsMatrix<scalar> aCoeffI = a_k[coeffI].eval(parMat);
+            aCoeffs->push_back(aCoeffI.at(0));
+        }
+    
+        for(uint coeffI=0; coeffI<b_k.size(); coeffI++)
+        {
+            gsMatrix<scalar> bCoeffI = b_k[coeffI].eval(parMat);
+            bCoeffs->push_back(bCoeffI.at(0));
+        }
+    
+        phShift = computePhaseShift(parameter);
+        
+        std::tuple<scalar,std::vector<scalar>,std::vector<scalar>,scalar> data = {a0Coeff,*aCoeffs,*bCoeffs,phShift};
+        a0akbkPhase_Buffer[parameter] = data;
+    }
     
     return [num_Coeff=numberCoeffs,a_k=aCoeffs,b_k=bCoeffs,pS=phShift](scalar angle)
     {

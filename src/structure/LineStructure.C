@@ -142,7 +142,7 @@ Foam::vector Foam::LineStructure::evaluateRodVelocity
     scalar parameter,
     scalar angle,
     scalar radiusFrac
-) const
+)
 {
     scalar currentTime = mesh.time().value();
     vector currentPosition = evaluateRodPos(Rods[rodNumber],parameter);
@@ -1203,6 +1203,41 @@ Foam::scalar Foam::LineStructure::characteristicSize
     return 0;
 }
 
+Foam::vector Foam::LineStructure::evaluateRodCircumPos
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle,
+    scalar radiusFrac,
+    scalar var_para,
+    scalar var_radius
+)
+{
+    FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+}
+        
+Foam::Pair<Foam::vector> Foam::LineStructure::derivateRodCircumPos
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+}
+    
+Foam::Pair<Foam::vector> Foam::LineStructure::derivate2RodCircumPos
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+}
+
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 (
     // [haloCells] -> [marker of cell] -> ptr,index
@@ -1465,6 +1500,8 @@ void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()
     Pstream::scatterList(globalHaloCellsMarkerWeight);
 }
 
+
+
 void Foam::LineStructure::printMarkerStructure()
 {
     for(label rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
@@ -1703,7 +1740,7 @@ void Foam::LineStructure::GlobalHaloMarkers::check
         FatalErrorInFunction<<"globalHaloCellsMarkerRadiusFrac[process][haloCellInd] size error"<<exit(FatalError);
 }
 
-void Foam::LineStructure::parameterGradientCheck() const
+void Foam::LineStructure::parameterGradientCheck()
 {
     Structure::parameterGradientCheck();
     Info<<"LineStructure::parameterGradientCheck"<<Foam::nl;

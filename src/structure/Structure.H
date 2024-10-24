@@ -164,7 +164,7 @@ class Structure
         scalar domainEnd (label rodNumber) const;
         label getMaxDegree(const ActiveRodMesh::rodCosserat* oneRod) const;
         
-        void computeHaloData() { collectMeshHaloData(haloWidth); }
+        void computeHaloData();
 
         void solveOneStep();
         
@@ -293,7 +293,7 @@ class Structure
     public:
         void setDeformation(const List<List<vector>>& deformationCoeffs);
         void setDeformation(label rodNumber, const List<vector>& deformationCoeffs);
-        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const = 0;
+        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) = 0;
         const gsNurbs<scalar>& getDeformation(label rodNumber) const;
     // ----------------- ------------------------- -----------------
         
@@ -312,8 +312,11 @@ class Structure
         static vector rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         static vector rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter);
         
+        void rodEval(label rodNumber, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
+        void rodDerivEval(label rodNumber, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodDerivEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& dd1dp, vector& dd2dp, vector& dd3dp, vector& drdp);
+        void rodDeriv2Eval(label rodNumber, scalar parameter, vector& d1, vector& d2, vector& d3, vector& r);
         static void rodDeriv2Eval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& d2d1dp, vector& d2d2dp, vector& d2d3dp, vector& d2rdp);
         
         static void rodEval(const ActiveRodMesh::rodCosserat* rod, scalar parameter, vector& r);
@@ -393,6 +396,11 @@ class Structure
         const scalar initialMeshSpacing;
         const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourhoodProcesses;}
         const List<List<Pair<label>>>& getMeshGraph() const {return meshGraph;}
+        
+    private:
+        List<std::unordered_map<scalar,std::array<vector,4>>> rodEvalBuffer;
+        List<std::unordered_map<scalar,std::array<vector,4>>> rodDerivEvalBuffer;
+        List<std::unordered_map<scalar,std::array<vector,4>>> rodDeriv2EvalBuffer;
         
     protected:
 
@@ -508,6 +516,7 @@ class Structure
         template<typename T>
         std::unique_ptr<List<List<T>>> broadcastHaloFields(const GeometricField<T,fvPatchField,volMesh>& fieldData);
         /*********************************Collect halo cells***********************************/
+        std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>>& getCellDataBuffer(){return cellDataBuffer;}
     
     private:
         /*********************************Collect halo cells***********************************/
@@ -525,6 +534,8 @@ class Structure
         
         List<List<Pair<label>>> meshGraph;
         
+        std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>> cellDataBuffer;
+        
         void generateMeshGraph();
         
         const label haloWidth = 4;        
@@ -538,7 +549,7 @@ class Structure
         void quaternionCheck();
         void rotationCheck();
         void transformationCheck();
-        virtual void parameterGradientCheck() const;
+        virtual void parameterGradientCheck();
         virtual void selfCheck();
 };
 #include "Structure.T.H"

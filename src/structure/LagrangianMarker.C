@@ -2,7 +2,7 @@
 
 Foam::LagrangianMarker::LagrangianMarker
 (
-    const LineStructure& structure,
+    LineStructure& structure,
     const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod,
@@ -19,7 +19,7 @@ markerParameter(markerParameter)
 
 Foam::LagrangianMarker::LagrangianMarker
 (    
-    const LineStructure& structure,
+    LineStructure& structure,
     const fvMesh& mesh,
     const label rodNumber,
     const ActiveRodMesh::rodCosserat* baseRod
@@ -296,12 +296,15 @@ Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
 (
     const List<Pair<label>>& support
 ) const
-{   
+{
+    //Info<<"------------minMaxNeighbourWidth------------"<<Foam::nl;
     vector minSpan;
     vector maxSpan;
         
     if(support.size()>1 && markerCell!=-1)
     {
+        //auto t0 = std::chrono::system_clock::now();
+
         scalar min = std::numeric_limits<scalar>::min();
         scalar max = std::numeric_limits<scalar>::max();
         scalar cellSpacing = structure.spacingFromMesh(mesh,markerCell);
@@ -309,16 +312,23 @@ Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
         maxSpan = vector(min,min,min);
         Vector<bool> minSet(false,false,false);
         Vector<bool> maxSet(false,false,false);
+        
+        //auto t1 = std::chrono::system_clock::now();
+        
         for(label i=0; i<support.size(); i++)
         {
             const Pair<label>& neiCellDataA = support[i];           
             if(neiCellDataA.first()!=Pstream::myProcNo() || neiCellDataA.second()!=markerCell)
             {
+                //auto ti0 = std::chrono::system_clock::now();
+
                 vector cellCentreN;
                 scalar cellVolN;
                 getCellData(neiCellDataA,cellCentreN,cellVolN);
                 vector centreToNeighbour = cellCentreN-markerPosition;
                         
+                //auto ti1 = std::chrono::system_clock::now();
+                
                 for(label d=0; d<3; d++)
                 {
                     centreToNeighbour[d] = std::abs(centreToNeighbour[d]);
@@ -333,8 +343,17 @@ Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
                         maxSet[d] = true;
                     }
                 }
+                
+                //auto ti2 = std::chrono::system_clock::now();
+                
+                //Info<<"  minMaxNeighbourWidth ti0-ti1 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(ti1-ti0).count()<<Foam::nl;
+                //Info<<"  minMaxNeighbourWidth ti1-ti2 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(ti2-ti1).count()<<Foam::nl;
+
             }
         }
+        
+        //auto t2 = std::chrono::system_clock::now();
+        
         for(label d=0; d<3; d++)
         {
             if(!minSet[d])
@@ -342,6 +361,14 @@ Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
             if(!maxSet[d])
                 maxSpan[d] = cellSpacing;
         }
+        
+        //auto t3 = std::chrono::system_clock::now();
+        
+        /*
+        Info<<"minMaxNeighbourWidth t0-t1 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count()<<Foam::nl;
+        Info<<"minMaxNeighbourWidth t1-t2 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count()<<Foam::nl;
+        Info<<"minMaxNeighbourWidth t2-t3 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count()<<Foam::nl;
+        */
     }
     else
     {
@@ -386,6 +413,7 @@ Foam::vector Foam::LagrangianMarker::dilationFactors
 
 void Foam::LagrangianMarker::checkDirectSupport() const
 {
+    /*
     for(const Pair<label>& cell : directSupport)
     {
         vector x;
@@ -395,10 +423,12 @@ void Foam::LagrangianMarker::checkDirectSupport() const
         if(value<=0)
             FatalErrorInFunction<<"Direct support out of function range!"<<exit(FatalError);
     }
+    */
 }
 
 void Foam::LagrangianMarker::reduceSupport()
 {
+    /*
     DynamicList<Pair<label>> fullSupport;
     for(const Pair<label>& cell : this->fullSupport)
     {
@@ -410,6 +440,7 @@ void Foam::LagrangianMarker::reduceSupport()
             fullSupport.append(cell);
     }
     this->fullSupport = fullSupport;
+    */
 }
 
 void Foam::LagrangianMarker::computeCharacLength()
@@ -426,32 +457,46 @@ void Foam::LagrangianMarker::getCellData
     scalar& cellVolume
 ) const
 {
-    const cellList& cells = mesh.cells();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
+    LineStructure& structure = const_cast<LineStructure&>(this->structure);
+    std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>>& cellDataBuffer = structure.getCellDataBuffer();
+    auto iter=cellDataBuffer.find(cell);
     
-    const Pair<label>& suppCellData = cell;
-    if(suppCellData.first()==Pstream::myProcNo())
+    if(iter!=cellDataBuffer.end())
     {
-        label cellInd = suppCellData.second();
-        if(cellInd<0 || cellInd>=cells.size())
-            FatalErrorInFunction<<"Out of range cell ind"<<exit(FatalError);
-        cellCentre = cells[cellInd].centre(points,faces);
-        cellVolume = cells[cellInd].mag(points,faces);
+        cellCentre = iter->second.first;
+        cellVolume = iter->second.second;
     }
     else
     {
-        label neighProcess = suppCellData.first();
-        const DynamicList<Structure::CellDescription>& neighHaloCells = structure.getHaloCellList(neighProcess);
-        const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
-        auto iter = neighborHaloCellToIndexMap.find(suppCellData.second());
-        if(iter==neighborHaloCellToIndexMap.end())
-            FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
-        label index = iter->second;
-        if(index<0 || index>=neighHaloCells.size())
-            FatalErrorInFunction<<"Out of bounds cell number!"<<exit(FatalError);
-        cellCentre = neighHaloCells[index].centre;
-        cellVolume = neighHaloCells[index].volume;
+        const cellList& cells = mesh.cells();
+        const faceList& faces = mesh.faces();
+        const pointField& points = mesh.points();
+        
+        const Pair<label>& suppCellData = cell;
+        if(suppCellData.first()==Pstream::myProcNo())
+        {
+            label cellInd = suppCellData.second();
+            if(cellInd<0 || cellInd>=cells.size())
+                FatalErrorInFunction<<"Out of range cell ind"<<exit(FatalError);
+            cellCentre = cells[cellInd].centre(points,faces);
+            cellVolume = cells[cellInd].mag(points,faces);
+        }
+        else
+        {
+            label neighProcess = suppCellData.first();
+            const DynamicList<Structure::CellDescription>& neighHaloCells = structure.getHaloCellList(neighProcess);
+            const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
+            auto iter = neighborHaloCellToIndexMap.find(suppCellData.second());
+            if(iter==neighborHaloCellToIndexMap.end())
+                FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            label index = iter->second;
+            if(index<0 || index>=neighHaloCells.size())
+                FatalErrorInFunction<<"Out of bounds cell number!"<<exit(FatalError);
+            cellCentre = neighHaloCells[index].centre;
+            cellVolume = neighHaloCells[index].volume;
+        }
+        
+        cellDataBuffer.insert({cell,{cellCentre,cellVolume}});
     }
 }
 

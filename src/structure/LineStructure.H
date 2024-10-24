@@ -20,7 +20,7 @@ class LagrangianMarker
         
         explicit LagrangianMarker
         (
-            const LineStructure& structure,
+            LineStructure& structure,
             const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod,
@@ -29,7 +29,7 @@ class LagrangianMarker
     protected:
         explicit LagrangianMarker
         (    
-            const LineStructure& structure,
+            LineStructure& structure,
             const fvMesh& mesh,
             const label rodNumber,
             const ActiveRodMesh::rodCosserat* baseRod
@@ -102,7 +102,7 @@ class LagrangianMarker
         void getCellData(const Pair<label>& cell, vector& cellCentre, scalar& volume) const;
         
     protected:        
-        const LineStructure& structure;
+        LineStructure& structure;
         const fvMesh& mesh;
         label rodNumber;
         const ActiveRodMesh::rodCosserat* baseRod;
@@ -163,6 +163,9 @@ class LagrangianMarker
         SystemSolve solutionStrategy = SystemSolve::GeoRescaled;
         scalar conditionThreshold = 1e5;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
+        
+        
+        std::unordered_set<scalar> paraMarker;
 };
 #include "LagrangianMarker.T.H"
 
@@ -326,7 +329,7 @@ class LineStructure : public Structure
     // ----------------- Moving Rod update methods -----------------
         virtual void moveMarkersOnRodMovement();
         void createMarkersOnRod(label rodNumber){createMarkersFromSpacedPointsOnRod(rodNumber);};
-        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) const;
+        virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac);
     // ----------------- ------------------------- -----------------
         
     // ----------------- Refined mesh update methods -----------------
@@ -615,6 +618,33 @@ class LineStructure : public Structure
         };
         
         const List<scalar>& getCrossSecArea() const {return crossSecArea;}
+        
+        virtual vector evaluateRodCircumPos
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac,
+            scalar var_para = 0,
+            scalar var_radius = 0
+        );
+                
+        virtual Pair<vector> derivateRodCircumPos
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac
+        );
+            
+        virtual Pair<vector> derivate2RodCircumPos
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle,
+            scalar radiusFrac
+        );
+        
     protected:
         // [haloCells] -> [marker of cell] -> ptr        
         std::vector<std::vector<std::pair<LagrangianMarker*,label>>> haloCellsRodMarkersList;
@@ -638,7 +668,7 @@ class LineStructure : public Structure
         void writeCellMarkerCharacSizeField(volScalarField& field) const;
         
         //scalar initialSpacingFromMesh();
-        void parameterGradientCheck() const override;
+        void parameterGradientCheck() override;
         void selfCheck() override;
 };
 //#include "FieldMarkerStructureInteraction.T.H"
