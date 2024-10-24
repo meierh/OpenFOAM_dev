@@ -913,6 +913,7 @@ void Foam::CrossSection::setFourierCoeffNurbsCoeff
     coeffs(derivCoeffNumber,0) = value;
     
     createFourierCoeffNurbsCoeffDerivatives();
+    a0akbkPhase_Buffer.clear();
 }
 
 void Foam::CrossSection::setPhaseNurbsCoeff
@@ -927,6 +928,7 @@ void Foam::CrossSection::setPhaseNurbsCoeff
     coeffs(derivCoeffNumber,0) = value;
     
     createPhaseNurbsCoeffDerivatives();
+    a0akbkPhase_Buffer.clear();
 }
 
 Foam::scalar Foam::CrossSection::getFourierCoeffNurbsCoeff

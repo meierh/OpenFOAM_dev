@@ -2681,7 +2681,7 @@ void Foam::CrossSectionStructure::selfCheck()
             }
         }
     };
-    
+        
     const std::vector<CrossSection>& crossSec = getRodCrossSections();
     for(std::size_t rodNumber=0; rodNumber<crossSec.size(); rodNumber++)
     {
@@ -2774,6 +2774,7 @@ void Foam::CrossSectionStructure::selfCheck()
         }
         */
         
+        /*
         Info<<"Cross section distance"<<Foam::nl;
         scalar dist = distance(Rods[rodNumber],0.5,&cpCrossSec,0,0.5,1);
         Info<<"dist:"<<dist<<Foam::nl;
@@ -2784,7 +2785,103 @@ void Foam::CrossSectionStructure::selfCheck()
         
         Info<<"angle_0:"<<angle_0<<Foam::nl;
         Info<<"angle_05:"<<angle_05<<Foam::nl;
-        Info<<"len:"<<len<<Foam::nl;        
+        Info<<"len:"<<len<<Foam::nl;
+        */
+        scalar radius00 = cpCrossSec(0.25,0);
+        scalar radius01 = cpCrossSec(0.25,0.01);
+        scalar radius02 = cpCrossSec(0.25,0.02);
+        scalar radius03 = cpCrossSec(0.25,0.03);
+        scalar radius04 = cpCrossSec(0.25,0.04);
+        
+        Info<<"r000:"<<radius00<<Foam::endl;
+        Info<<"r001:"<<radius01<<Foam::endl;
+        Info<<"r002:"<<radius02<<Foam::endl;
+        Info<<"r003:"<<radius03<<Foam::endl;
+        Info<<"r004:"<<radius04<<Foam::endl;
+        
+        scalar dradius00 = cpCrossSec.deriv_angle(0.25,0);
+        scalar dradius01 = cpCrossSec.deriv_angle(0.25,0.01);
+        scalar dradius02 = cpCrossSec.deriv_angle(0.25,0.02);
+        scalar dradius03 = cpCrossSec.deriv_angle(0.25,0.03);
+        scalar dradius04 = cpCrossSec.deriv_angle(0.25,0.04);
+        
+        Info<<"dr000:"<<dradius00<<Foam::endl;
+        Info<<"dr001:"<<dradius01<<Foam::endl;
+        Info<<"dr002:"<<dradius02<<Foam::endl;
+        Info<<"dr003:"<<dradius03<<Foam::endl;
+        Info<<"dr004:"<<dradius04<<Foam::endl;
+        
+        scalar d2radius00 = cpCrossSec.deriv2_angle(0.25,0);
+        scalar d2radius01 = cpCrossSec.deriv2_angle(0.25,0.01);
+        scalar d2radius02 = cpCrossSec.deriv2_angle(0.25,0.02);
+        scalar d2radius03 = cpCrossSec.deriv2_angle(0.25,0.03);
+        scalar d2radius04 = cpCrossSec.deriv2_angle(0.25,0.04);
+        
+        Info<<"d2r000:"<<d2radius00<<Foam::endl;
+        Info<<"d2r001:"<<d2radius01<<Foam::endl;
+        Info<<"d2r002:"<<d2radius02<<Foam::endl;
+        Info<<"d2r003:"<<d2radius03<<Foam::endl;
+        Info<<"d2r004:"<<d2radius04<<Foam::endl;
+        
+        radius00 = cpCrossSec(0.25,0);
+        radius01 = cpCrossSec(0.25,0.01);
+        radius02 = cpCrossSec(0.25,0.02);
+        radius03 = cpCrossSec(0.25,0.03);
+        radius04 = cpCrossSec(0.25,0.04);
+        
+        Info<<"r000:"<<radius00<<Foam::endl;
+        Info<<"r001:"<<radius01<<Foam::endl;
+        Info<<"r002:"<<radius02<<Foam::endl;
+        Info<<"r003:"<<radius03<<Foam::endl;
+        Info<<"r004:"<<radius04<<Foam::endl;
+        
+        dradius00 = cpCrossSec.deriv_angle(0.25,0);
+        dradius01 = cpCrossSec.deriv_angle(0.25,0.01);
+        dradius02 = cpCrossSec.deriv_angle(0.25,0.02);
+        dradius03 = cpCrossSec.deriv_angle(0.25,0.03);
+        dradius04 = cpCrossSec.deriv_angle(0.25,0.04);
+        
+        Info<<"dr000:"<<dradius00<<Foam::endl;
+        Info<<"dr001:"<<dradius01<<Foam::endl;
+        Info<<"dr002:"<<dradius02<<Foam::endl;
+        Info<<"dr003:"<<dradius03<<Foam::endl;
+        Info<<"dr004:"<<dradius04<<Foam::endl;
+        
+        d2radius00 = cpCrossSec.deriv2_angle(0.25,0);
+        d2radius01 = cpCrossSec.deriv2_angle(0.25,0.01);
+        d2radius02 = cpCrossSec.deriv2_angle(0.25,0.02);
+        d2radius03 = cpCrossSec.deriv2_angle(0.25,0.03);
+        d2radius04 = cpCrossSec.deriv2_angle(0.25,0.04);
+        
+        Info<<"d2r000:"<<d2radius00<<Foam::endl;
+        Info<<"d2r001:"<<d2radius01<<Foam::endl;
+        Info<<"d2r002:"<<d2radius02<<Foam::endl;
+        Info<<"d2r003:"<<d2radius03<<Foam::endl;
+        Info<<"d2r004:"<<d2radius04<<Foam::endl;
+        
+        vector rodPosStatic = evaluateRodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,1);
+        vector rodPos = evaluateRodCircumPos(rodNumber,0.25,0.01,1);
+        
+        Pair<vector> drodPosStatic = derivateRodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,1);
+        Pair<vector> drodPos = derivateRodCircumPos(rodNumber,0.25,0.01,1);
+        
+        Pair<vector> d2rodPosStatic = derivate2RodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,1);
+        Pair<vector> d2rodPos = derivate2RodCircumPos(rodNumber,0.25,0.01,1);
+        
+        Info<<"rodPosStatic:"<<rodPosStatic<<Foam::endl;
+        Info<<"rodPos      :"<<rodPos<<Foam::endl;
+        Info<<"drodPosStatic:"<<drodPosStatic<<Foam::endl;
+        Info<<"drodPos      :"<<drodPos<<Foam::endl;
+        Info<<"d2rodPosStatic:"<<d2rodPosStatic<<Foam::endl;
+        Info<<"d2rodPos      :"<<d2rodPos<<Foam::endl;
+        
+        Info<<"rodPosStatic:"<<rodPosStatic<<Foam::endl;
+        Info<<"rodPos      :"<<rodPos<<Foam::endl;
+        Info<<"drodPosStatic:"<<drodPosStatic<<Foam::endl;
+        Info<<"drodPos      :"<<drodPos<<Foam::endl;
+        Info<<"d2rodPosStatic:"<<d2rodPosStatic<<Foam::endl;
+        Info<<"d2rodPos      :"<<d2rodPos<<Foam::endl;
+        
     }
     
     /*

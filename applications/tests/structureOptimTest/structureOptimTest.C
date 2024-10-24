@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     #include "createMesh.H"
 
     Info<<"Start testing"<<Foam::endl;
-    for(label run=0; run<10; run++)
+    for(label run=0; run<1; run++)
     {
         label k = RandomInt(0,10);
         Info<<"----- Run:"<<run<<" -----:"<<k<<Foam::endl;

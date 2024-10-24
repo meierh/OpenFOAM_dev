@@ -57,7 +57,8 @@ class CrossSection
 
     public:
         const gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber) const;
-        const gsNurbs<scalar>& getCurve(label fourierCoeffNumber) const {return *(getCurvePtr(fourierCoeffNumber));}        const gsNurbs<scalar>& getPhaseCurve() const {return phaseShift;}
+        const gsNurbs<scalar>& getCurve(label fourierCoeffNumber) const {return *(getCurvePtr(fourierCoeffNumber));}
+        const gsNurbs<scalar>& getPhaseCurve() const {return phaseShift;}
     private:
         gsNurbs<scalar>* getCurvePtr(label fourierCoeffNumber);
 
