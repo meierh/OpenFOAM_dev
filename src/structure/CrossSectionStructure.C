@@ -367,7 +367,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         scalar addedDistPnt1 = maxRadiusPnt1*std::sin(halfAngle);
         
         scalar totalDistance = rodDistance+addedDistPnt0+addedDistPnt1;
-        scalar totalDistanceFrac = totalDistance/spacing;
+        scalar totalDistanceFrac = totalDistance/ (spacing*iniRodPntsDistToMeshSpacing);
         label nbrOfAddIntersec = std::ceil(totalDistanceFrac)-1;
         
         scalar subDistPara = (pnt1Para-pnt0Para)/(nbrOfAddIntersec+1);
@@ -393,7 +393,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         if(index==0 || index==onRodPoints.size()-1)
         {
             scalar upperLimitRadius = crossSec.upperLimitRadius(parameter);
-            scalar radiusSpacing = upperLimitRadius/spacing;
+            scalar radiusSpacing = upperLimitRadius/(spacing*iniRodPntsDistToMeshSpacing);
             label numberOfFracs = std::ceil(radiusSpacing);
             scalar radFracPart = 1.0/numberOfFracs;
             scalar radFrac = 1.0;
@@ -447,7 +447,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
         for( ; pntsIter1!=points.end() ; )
         {
             scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
-            if(dist>spacing)
+            if(dist > spacing*iniRodPntsDistToMeshSpacing)
             {
                 scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
                 points.insert(pntsIter1,middlePar);
@@ -853,7 +853,7 @@ void Foam::CrossSectionStructure::refineCircumferential
             if(circMarker0InCell || circMarker1InCell)
             {
                 scalar minSpacing = std::min(circMarker0CellSpacing,circMarker1CellSpacing);
-                if(dist>minSpacing)
+                if(dist > minSpacing*refnRodMarkersDistToMeshSpacing)
                     subdivide=true;
             }
             if(!subdivide)
@@ -870,7 +870,7 @@ void Foam::CrossSectionStructure::refineCircumferential
                 if(circMarker0InCell || circMarker1InCell)
                 {
                     scalar minSpacing = std::min(circMarker0CellSpacing,circMarker1CellSpacing);
-                    if(dist>minSpacing)
+                    if(dist > minSpacing*refnRodMarkersDistToMeshSpacing)
                         subdivide=true;
                 }
             }
@@ -1057,7 +1057,7 @@ void Foam::CrossSectionStructure::refineRadial
             if(radMarker0InCell || radMarker1InCell)
             {
                 scalar minSpacing = std::min(radMarker0CellSpacing,radMarker1CellSpacing);
-                if(maxDist>minSpacing)
+                if(maxDist > minSpacing*refnRodMarkersDistToMeshSpacing)
                     subdivide=true;
             }
 
@@ -1187,7 +1187,7 @@ void Foam::CrossSectionStructure::refineTangential
             if(tangMarker0InCell || tangMarker1InCell)
             {
                 scalar minSpacing = std::min(tangMarker0CellSpacing,tangMarker1CellSpacing);
-                if(totalDistance>minSpacing)
+                if(totalDistance > minSpacing*refnRodMarkersDistToMeshSpacing)
                     subdivide=true;
             }
             

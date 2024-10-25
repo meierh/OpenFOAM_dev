@@ -518,7 +518,9 @@ class LineStructure : public Structure
         // [rodNumber] -> ...
     protected:
         /********************Marker points**************************/
+        scalar iniRodPntsDistToMeshSpacing = 1; // rodPntsDist / MeshSpacing
         std::vector<std::unique_ptr<std::vector<scalar>>> initialRodPoints;
+        scalar refnRodMarkersDistToMeshSpacing = 1; // rodPntsDist / MeshSpacing
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         std::vector<LagrangianMarker*> collectedMarkers;
         

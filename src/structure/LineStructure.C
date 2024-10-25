@@ -361,7 +361,7 @@ void Foam::LineStructure::createSpacedPointsOnRod
         {
             scalar dist = distance(oneRod,*pntsIter0,*pntsIter1);
             summedDist+=dist;
-            if(dist>spacing)
+            if(dist > spacing*iniRodPntsDistToMeshSpacing)
             {
                 scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
                 points.insert(pntsIter1,middlePar);
@@ -459,7 +459,7 @@ void Foam::LineStructure::refineMarkersOnRod
                 if(markers0InCell || markers1InCell)
                 {
                     scalar minSpacing = std::min(markers0CellSpacing,markers1CellSpacing);
-                    if(dist>minSpacing)
+                    if(dist > minSpacing*refnRodMarkersDistToMeshSpacing)
                         subdivide=true;
                 }
             

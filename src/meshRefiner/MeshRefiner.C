@@ -152,7 +152,6 @@ void Foam::MeshRefiner::markerRefinement
                 scalar cellLen = Structure::spacingFromMesh(mesh,cell);
                 if(charLen*markerCharLengthToCellSizeFactor < cellLen)
                 {
-                    Info<<"Refine because:"<<charLen<<"*"<<markerCharLengthToCellSizeFactor<<" < "<<cellLen<<Foam::endl;
                     markerRefineDemands[cell] = std::max(REFINE,markerRefineDemands[cell]);
                 }
                 else
