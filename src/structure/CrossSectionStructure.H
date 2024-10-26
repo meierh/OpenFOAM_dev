@@ -240,23 +240,27 @@ class CrossSectionStructure : public LineStructure
         void refineMarkersOnRod
         (
             label rodNumber,
+            bool useMarkerCharLenSpacing = false,
             std::pair<bool,scalar> forcedSpacing = {false,-1}
         ) override;
         void refineCircumferential
         (
             std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
+            bool useMarkerCharLenSpacing = false,
             std::pair<bool,scalar> refineSpacing = {false,0}
         );
         void refineRadial
         (
             std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>& radialMarkers,
             scalar initialSpacing,
+            bool useMarkerCharLenSpacing = false,
             std::pair<bool,scalar> refineSpacing = {false,0}
         );
         void refineTangential
         (
             std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& tangMarkers,
             scalar initialSpacing,
+            bool useMarkerCharLenSpacing = false,
             std::pair<bool,scalar> refineSpacing = {false,0}
         );
         

@@ -33,6 +33,7 @@ bool Foam::solvers::pimpleIBControl::loop()
 
 bool Foam::solvers::pimpleIBControl::evalConvergence()
 {
+    return false;
     innerLoopIteration++;
     
     if(delayedInitialConvergence)
@@ -49,7 +50,7 @@ bool Foam::solvers::pimpleIBControl::evalConvergence()
         allEqnsConverged &= perf->converged();
     for(const SolverPerformance<scalar>* perf : scaEqns)
         allEqnsConverged &= perf->converged();
-    Info<<"allEqnsConverged:"<<allEqnsConverged<<Foam::endl;
+    //Info<<"allEqnsConverged:"<<allEqnsConverged<<Foam::endl;
     if(!allEqnsConverged)
         return true;
     
@@ -70,7 +71,7 @@ bool Foam::solvers::pimpleIBControl::evalConvergence()
         if(nIterations>1)
             allEqnsFinal = false;
     }
-    Info<<"allEqnsFinal:"<<allEqnsFinal<<Foam::endl;
+    //Info<<"allEqnsFinal:"<<allEqnsFinal<<Foam::endl;
     if(!allEqnsFinal)
         return true;   
     

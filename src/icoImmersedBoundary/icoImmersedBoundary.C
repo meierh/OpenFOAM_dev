@@ -483,10 +483,7 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
         Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
         preMove();
-        
-        if(structure)
-            structure->printMarkerStructure();
-                
+                        
         // PIMPLE corrector loop
         while (pimpleCtlr.loop())
         {
@@ -504,13 +501,14 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
 
         write_Analysis();
         
+        if(structure)
+            structure->printMarkerStructure();
+        
         runTime.write();
 
         Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << Foam::nl << endl;
-            
-        FatalErrorInFunction<<"Temp Error"<<exit(FatalError);
+            << Foam::nl << endl;            
     }
 }
 

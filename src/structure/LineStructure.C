@@ -410,13 +410,14 @@ void Foam::LineStructure::createMarkersFromSpacedPointsOnRod
 
 void Foam::LineStructure::refineMarkers
 (
+    bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> forcedSpacing
 )
 {
     status.execValid(status.markersRefined);
     for(uint rodIndex=0; rodIndex<rodMarkersList.size(); rodIndex++)
     {
-        refineMarkersOnRod(rodIndex,forcedSpacing);
+        refineMarkersOnRod(rodIndex,useMarkerCharLenSpacing,forcedSpacing);
     }
     status.executed(status.markersRefined);
 }
@@ -424,6 +425,7 @@ void Foam::LineStructure::refineMarkers
 void Foam::LineStructure::refineMarkersOnRod
 (
     label rodNumber,
+    bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> forcedSpacing
 )
 {
@@ -442,10 +444,12 @@ void Foam::LineStructure::refineMarkersOnRod
             {
                 scalar markers0Para = markersIter0->getMarkerParameter();
                 scalar markers0CellSpacing = markersIter0->getMarkerCellMinSpacing();
+                scalar markers0CharacSpacing = markersIter0->getMarkerCharacLen();
                 bool markers0InCell = (markersIter0->getMarkerCell()!=-1);
                 
-                scalar markers1Para = markersIter0->getMarkerParameter();
-                scalar markers1CellSpacing = markersIter0->getMarkerCellMinSpacing();
+                scalar markers1Para = markersIter1->getMarkerParameter();
+                scalar markers1CellSpacing = markersIter1->getMarkerCellMinSpacing();
+                scalar markers1CharacSpacing = markersIter1->getMarkerCharacLen();
                 bool markers1InCell = (markersIter1->getMarkerCell()!=-1);
                 
                 scalar dist = distance(oneRod,markers0Para,markers1Para);
@@ -459,6 +463,13 @@ void Foam::LineStructure::refineMarkersOnRod
                 if(markers0InCell || markers1InCell)
                 {
                     scalar minSpacing = std::min(markers0CellSpacing,markers1CellSpacing);
+                    if(useMarkerCharLenSpacing)
+                    {
+                        if(markers0InCell)
+                            minSpacing = std::min(minSpacing,markers0CharacSpacing*rodPntDistToMarkerCharLen);
+                        if(markers1InCell)
+                            minSpacing = std::min(minSpacing,markers1CharacSpacing*rodPntDistToMarkerCharLen);
+                    }
                     if(dist > minSpacing*refnRodMarkersDistToMeshSpacing)
                         subdivide=true;
                 }
@@ -1202,6 +1213,55 @@ Foam::scalar Foam::LineStructure::characteristicSize
     FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
     return 0;
 }
+
+void Foam::LineStructure::readRodPntsToMeshSpacingDict
+(
+    const IOdictionary& structureDict
+)
+{
+    if(structureDict.found("iniPntDistToCellSpacing"))
+    {
+        ITstream iniSpacingFactorStream = structureDict.lookup("iniPntDistToCellSpacing");
+        token iniSpacingFactorToken;
+        iniSpacingFactorStream.read(iniSpacingFactorToken);
+        if(!iniSpacingFactorToken.isScalar())
+        {
+            Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken<<Foam::endl;
+            Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken.typeName()<<Foam::endl;
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/iniPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
+        }
+        iniRodPntsDistToMeshSpacing = iniSpacingFactorToken.scalarToken();
+    }
+    
+    if(structureDict.found("refnPntDistToCellSpacing"))
+    {
+        ITstream refnSpacingFactorStream = structureDict.lookup("refnPntDistToCellSpacing");
+        token refnSpacingFactorToken;
+        refnSpacingFactorStream.read(refnSpacingFactorToken);
+        if(!refnSpacingFactorToken.isScalar())
+        {
+            Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken<<Foam::endl;
+            Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken.typeName()<<Foam::endl;
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/refnPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
+        }
+        refnRodMarkersDistToMeshSpacing = refnSpacingFactorToken.scalarToken();
+    }
+    
+    if(structureDict.found("pntDistToMarkerCharLen"))
+    {
+        ITstream pntDistToMarkerCharLenStream = structureDict.lookup("pntDistToMarkerCharLen");
+        token pntDistToMarkerCharLenToken;
+        pntDistToMarkerCharLenStream.read(pntDistToMarkerCharLenToken);
+        if(!pntDistToMarkerCharLenToken.isScalar())
+        {
+            Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken<<Foam::endl;
+            Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken.typeName()<<Foam::endl;
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
+        }
+        rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
+    }
+}
+
 
 Foam::vector Foam::LineStructure::evaluateRodCircumPos
 (

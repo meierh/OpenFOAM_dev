@@ -373,11 +373,13 @@ class LineStructure : public Structure
 
         void refineMarkers
         (
+            bool useMarkerCharLenSpacing = false,
             std::pair<bool,scalar> forcedSpacing = {false,-1}
         );
         virtual void refineMarkersOnRod
         (
             label rodNumber,
+            bool useMarkerCharLenSpacing = false,
             std::pair<bool,scalar> forcedSpacing = {false,-1}
         );
 
@@ -523,6 +525,10 @@ class LineStructure : public Structure
         scalar refnRodMarkersDistToMeshSpacing = 1; // rodPntsDist / MeshSpacing
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         std::vector<LagrangianMarker*> collectedMarkers;
+        
+        scalar rodPntDistToMarkerCharLen = 1; // rodPntDist / markerCharLen
+        
+        void readRodPntsToMeshSpacingDict(const IOdictionary& structureDict);       
         
         std::map<scalar,std::vector<LagrangianMarker>> storage;
         

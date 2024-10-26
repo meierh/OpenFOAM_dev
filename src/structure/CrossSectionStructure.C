@@ -519,13 +519,10 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
 void Foam::CrossSectionStructure::refineMarkersOnRod
 (
     label rodNumber,
+    bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> forcedSpacing
 )
-{
-    Info<<"CrossSectionStructure::refineMarkersOnRod"<<Foam::nl;
-    Info<<"initialMeshSpacing:"<<initialMeshSpacing<<Foam::nl;
-    Info<<"mesh.cells().size():"<<mesh.cells().size()<<Foam::nl;
-    
+{    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     CrossSection& crossSec = rodCrossSection[rodNumber];
     if(rodMarkersList[rodNumber])
@@ -661,6 +658,7 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
 void Foam::CrossSectionStructure::refineCircumferential
 (
     std::list<LagrangianMarkerOnCrossSec>& circumMarkers,
+    bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> refineSpacing
 )
 {
@@ -834,10 +832,12 @@ void Foam::CrossSectionStructure::refineCircumferential
         {
             scalar circMarker0Angle = circMarkerIter0->getMarkerAngle();
             scalar circMarker0CellSpacing = circMarkerIter0->getMarkerCellMinSpacing();
+            scalar circMarkers0CharacSpacing = circMarkerIter0->getMarkerCharacLen();
             bool circMarker0InCell = (circMarkerIter0->getMarkerCell()!=-1);
             
             scalar circMarker1Angle = circMarkerIter1->getMarkerAngle();
             scalar circMarker1CellSpacing = circMarkerIter1->getMarkerCellMinSpacing();
+            scalar circMarkers1CharacSpacing = circMarkerIter1->getMarkerCharacLen();
             bool circMarker1InCell = (circMarkerIter1->getMarkerCell()!=-1);
                         
             bool subdivide = false;
@@ -870,6 +870,13 @@ void Foam::CrossSectionStructure::refineCircumferential
                 if(circMarker0InCell || circMarker1InCell)
                 {
                     scalar minSpacing = std::min(circMarker0CellSpacing,circMarker1CellSpacing);
+                    if(useMarkerCharLenSpacing)
+                    {
+                        if(circMarker0InCell)
+                            minSpacing = std::min(minSpacing,circMarkers0CharacSpacing*rodPntDistToMarkerCharLen);
+                        if(circMarker1InCell)
+                            minSpacing = std::min(minSpacing,circMarkers1CharacSpacing*rodPntDistToMarkerCharLen);
+                    }
                     if(dist > minSpacing*refnRodMarkersDistToMeshSpacing)
                         subdivide=true;
                 }
@@ -949,6 +956,7 @@ void Foam::CrossSectionStructure::refineRadial
 (
     std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>& radialMarkers,
     scalar initialSpacing,
+    bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> refineSpacing
 )
 {
@@ -971,7 +979,7 @@ void Foam::CrossSectionStructure::refineRadial
         if(iter->second.size()<1)
             FatalErrorInFunction<<"Must be at least one marker in list"<< exit(FatalError);
         if(iter->second.front().getMarkerRadiusFrac()!=0)
-            refineCircumferential(iter->second,refineSpacing);
+            refineCircumferential(iter->second,useMarkerCharLenSpacing,refineSpacing);
     }
     auto t1 = std::chrono::system_clock::now();
     //Info<<"\t IterRadialRefn:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
@@ -993,10 +1001,12 @@ void Foam::CrossSectionStructure::refineRadial
             }
             scalar radMarker0RadFrac = radMarkerIter0->second.front().getMarkerRadiusFrac();
             scalar radMarker0CellSpacing = std::numeric_limits<scalar>::max();
+            scalar radMarker0CharacSpacing = std::numeric_limits<scalar>::max();
             bool radMarker0InCell = false;
             for(auto iter=radMarkerIter0->second.begin(); iter!=radMarkerIter0->second.end(); iter++)
             {
                 radMarker0CellSpacing = std::min(radMarker0CellSpacing,iter->getMarkerCellMinSpacing());
+                radMarker0CharacSpacing = std::min(radMarker0CharacSpacing,iter->getMarkerCharacLen());
                 radMarker0InCell |= (iter->getMarkerCell()!=-1);
             }
             
@@ -1007,10 +1017,12 @@ void Foam::CrossSectionStructure::refineRadial
             }
             scalar radMarker1RadFrac = radMarkerIter1->second.front().getMarkerRadiusFrac();
             scalar radMarker1CellSpacing = std::numeric_limits<scalar>::max();
+            scalar radMarker1CharacSpacing = std::numeric_limits<scalar>::max();
             bool radMarker1InCell = false;
             for(auto iter=radMarkerIter1->second.begin(); iter!=radMarkerIter1->second.end(); iter++)
             {
                 radMarker1CellSpacing = std::min(radMarker1CellSpacing,iter->getMarkerCellMinSpacing());
+                radMarker1CharacSpacing = std::min(radMarker1CharacSpacing,iter->getMarkerCharacLen());
                 radMarker1InCell |= (iter->getMarkerCell()!=-1);
             }
             
@@ -1057,6 +1069,13 @@ void Foam::CrossSectionStructure::refineRadial
             if(radMarker0InCell || radMarker1InCell)
             {
                 scalar minSpacing = std::min(radMarker0CellSpacing,radMarker1CellSpacing);
+                if(useMarkerCharLenSpacing)
+                {
+                    if(radMarker0InCell)
+                        minSpacing = std::min(minSpacing,radMarker0CharacSpacing*rodPntDistToMarkerCharLen);
+                    if(radMarker1InCell)
+                        minSpacing = std::min(minSpacing,radMarker1CharacSpacing*rodPntDistToMarkerCharLen);
+                }
                 if(maxDist > minSpacing*refnRodMarkersDistToMeshSpacing)
                     subdivide=true;
             }
@@ -1081,7 +1100,7 @@ void Foam::CrossSectionStructure::refineRadial
                     );
                     angleMarkers.push_back(middleRadiusMarker);
                 }
-                refineCircumferential(angleMarkers,refineSpacing);
+                refineCircumferential(angleMarkers,useMarkerCharLenSpacing,refineSpacing);
                 radialMarkers.insert(radMarkerIter1,radialSlice);
                 refined=true;
             }
@@ -1100,6 +1119,7 @@ void Foam::CrossSectionStructure::refineTangential
 (
     std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& tangMarkers,
     scalar initialSpacing,
+    bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> refineSpacing
 )
 {
@@ -1134,10 +1154,12 @@ void Foam::CrossSectionStructure::refineTangential
                 FatalErrorInFunction<<"Must be at least one angle marker layer"<< exit(FatalError);
             scalar tangMarker0Para = tangMarkerIter0->second.front().second.front().getMarkerParameter();
             scalar tangMarker0CellSpacing = std::numeric_limits<scalar>::max();
+            scalar tangMarker0CharacSpacing = std::numeric_limits<scalar>::max();
             bool tangMarker0InCell = false;
             for(auto iter=tangMarkerIter0->second.front().second.begin(); iter!=tangMarkerIter0->second.front().second.end(); iter++)
             {
                 tangMarker0CellSpacing = std::min(tangMarker0CellSpacing,iter->getMarkerCellMinSpacing());
+                tangMarker0CharacSpacing = std::min(tangMarker0CharacSpacing,iter->getMarkerCharacLen());
                 tangMarker0InCell |= (iter->getMarkerCell()!=-1);
             }
             
@@ -1147,10 +1169,12 @@ void Foam::CrossSectionStructure::refineTangential
                 FatalErrorInFunction<<"Must be at least one angle marker layer"<< exit(FatalError);
             scalar tangMarker1Para = tangMarkerIter1->second.front().second.front().getMarkerParameter();
             scalar tangMarker1CellSpacing = std::numeric_limits<scalar>::max();
+            scalar tangMarker1CharacSpacing = std::numeric_limits<scalar>::max();
             bool tangMarker1InCell = false;
             for(auto iter=tangMarkerIter1->second.front().second.begin(); iter!=tangMarkerIter1->second.front().second.end(); iter++)
             {
                 tangMarker1CellSpacing = std::min(tangMarker1CellSpacing,iter->getMarkerCellMinSpacing());
+                tangMarker1CharacSpacing = std::min(tangMarker1CharacSpacing,iter->getMarkerCharacLen());
                 tangMarker1InCell |= (iter->getMarkerCell()!=-1);
             }
             
@@ -1187,6 +1211,13 @@ void Foam::CrossSectionStructure::refineTangential
             if(tangMarker0InCell || tangMarker1InCell)
             {
                 scalar minSpacing = std::min(tangMarker0CellSpacing,tangMarker1CellSpacing);
+                if(useMarkerCharLenSpacing)
+                {
+                    if(tangMarker0InCell)
+                        minSpacing = std::min(minSpacing,tangMarker0CharacSpacing*rodPntDistToMarkerCharLen);
+                    if(tangMarker1InCell)
+                        minSpacing = std::min(minSpacing,tangMarker1CharacSpacing*rodPntDistToMarkerCharLen);
+                }
                 if(totalDistance > minSpacing*refnRodMarkersDistToMeshSpacing)
                     subdivide=true;
             }
@@ -1220,7 +1251,7 @@ void Foam::CrossSectionStructure::refineTangential
                 auto ti4 = std::chrono::system_clock::now();
                 //Info<<" ToMarkers:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti4-ti3).count();
                 
-                refineCircumferential(angleMarkers.second,refineSpacing);
+                refineCircumferential(angleMarkers.second,useMarkerCharLenSpacing,refineSpacing);
                 
                 auto ti5 = std::chrono::system_clock::now();
                 //Info<<" RefnCirc:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti5-ti4).count();

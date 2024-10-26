@@ -198,7 +198,7 @@ void Foam::VelocityPressureForceInteraction::meshMarkerAdaptation()
     {
         Info<<"|||||||||||||||||||||||||Do refinement|||||||||||||||||||||||||"<<Foam::endl;
         bool meshRefined = refinement_->refineMeshOnStaticMarkers();
-        meshRefined = refinement_->refineMeshAndMarkers(meshRefined);
+        //meshRefined = refinement_->refineMeshAndMarkers(meshRefined);
         Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
     }
     structure.finalizeMarkers();
