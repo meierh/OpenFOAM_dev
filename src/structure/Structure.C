@@ -126,6 +126,7 @@ Foam::scalar& Foam::Quaternion::operator[]
             return z;
         default:
             FatalErrorInFunction<<"Invalid index in quaternion"<<exit(FatalError);
+            return w;
     }
 }
 
@@ -146,6 +147,7 @@ Foam::scalar Foam::Quaternion::operator[]
             return z;
         default:
             FatalErrorInFunction<<"Invalid index in quaternion"<<exit(FatalError);
+            return w;
     }
 }
 
@@ -488,9 +490,18 @@ Foam::word Foam::Structure::xmlFromDict(const IOdictionary& stuctureDict)
     token rodFileToken;
     rodTypeStream.read(rodFileToken);
     if(!rodFileToken.isString())
-        FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodFile -- must be string"<<exit(FatalError);
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/rodFile -- must be string"<<exit(FatalError);
     word rodFileWord = rodFileToken.stringToken();
-    fileName caseDirectory = runDirectory+"/"+caseName+"/structure/";
+    word caseName = this->caseName;
+    if(Pstream::parRun())
+    {
+        std::size_t sepInd = caseName.find('/');
+        if(sepInd==caseName.npos)
+            FatalErrorInFunction<<"Invalid caseName:"<<caseName<<exit(FatalError);
+        word redCaseName = caseName.substr(0,sepInd);
+        caseName = redCaseName;
+    }
+    fileName caseDirectory = runDirectory+"/"+caseName+"/constant/";
     word fullPath = caseDirectory+rodFileWord;
     return fullPath;
 }
@@ -1144,7 +1155,7 @@ std::vector<Foam::scalar> Foam::Structure::computeUniformKnots
     for(uint p=0; p<=degree; p++)
         knots.push_back(domainStart);
     
-    for(uint i=0; i<centerCoeffs-1; i++)
+    for(label i=0; i<centerCoeffs-1; i++)
         knots.push_back(knots.back()+stepsize);
     
     for(uint p=0; p<=degree; p++)
@@ -2178,7 +2189,7 @@ Foam::vector Foam::Structure::get_drdC
 {
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffDerivedCenterline[rodNumber].size())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=static_cast<label>(coeffDerivedCenterline[rodNumber].size()))
         FatalErrorInFunction<<"Invalid derivCoeffNumber!"<<exit(FatalError);
     if(derivDimension<0 || derivDimension>=3)
         FatalErrorInFunction<<"Invalid derivDimension!"<<exit(FatalError);
@@ -2241,7 +2252,7 @@ Foam::Quaternion Foam::Structure::get_coeffDerivQuaternions
 {
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffDerivedCenterline[rodNumber].size())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=static_cast<label>(coeffDerivedCenterline[rodNumber].size()))
         FatalErrorInFunction<<"Invalid derivCoeffNumber!"<<exit(FatalError);
     if(derivDimension<0 || derivDimension>=3)
         FatalErrorInFunction<<"Invalid derivDimension!"<<exit(FatalError);
@@ -2268,7 +2279,7 @@ const gsNurbs<Foam::scalar>& Foam::Structure::getCoeffDerivedQuaternions
         
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
-    if(derivCoeffNumber<0 || derivCoeffNumber>=coeffDerivedQuaternions[rodNumber].size())
+    if(derivCoeffNumber<0 || derivCoeffNumber>=static_cast<label>(coeffDerivedQuaternions[rodNumber].size()))
         FatalErrorInFunction<<"Invalid derivCoeffNumber!"<<exit(FatalError);
     if(derivDimension<0 || derivDimension>=3)
         FatalErrorInFunction<<"Invalid derivDimension!"<<exit(FatalError);
@@ -2626,6 +2637,9 @@ const Foam::List<Foam::List<Foam::Pair<Foam::label>>>& Foam::Structure::getHaloM
 
 void Foam::Structure::generateMeshGraph()
 {
+    globalHaloMeshGraph.clear();
+    meshGraph.clear();
+    
     const cellList& cells = mesh.cells();
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
@@ -2677,6 +2691,10 @@ void Foam::Structure::collectMeshHaloData
     label iterations
 )
 {
+    globalHaloCellList_Sorted.clear();
+    globalHaloCellToIndexMap.clear();
+    patchFaceToCellMap.clear();
+    
     if(iterations<1)
         FatalErrorInFunction<<"Must be at least one iterations"<<exit(FatalError);
     
@@ -3089,8 +3107,8 @@ void Foam::Structure::rotationCheck()
 {
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
-        scalar domainStart = this->domainStart(rodNumber);
-        scalar domainEnd = this->domainEnd(rodNumber);
+        //scalar domainStart = this->domainStart(rodNumber);
+        //scalar domainEnd = this->domainEnd(rodNumber);
         for(label curveCoeffs=0; curveCoeffs<numberCurveCoeffs(rodNumber); curveCoeffs++)
         {
             for(label coefDim=0; coefDim<3; coefDim++)
@@ -3133,24 +3151,24 @@ void Foam::Structure::transformationCheck()
                     vector lower_r,lower_d1,lower_d2,lower_d3;
                     scalar lowerCoeffValue = coeffBasicValue-epsilon;
                     setCurveCoeff(rodNumber,curveCoeffs,coefDim,lowerCoeffValue);
-                    vector lower_p = rodEval(Rods[rodNumber],parameter);
+                    //vector lower_p = rodEval(Rods[rodNumber],parameter);
                     Quaternion lower_Q = m_Rot_Eval(rodNumber,parameter);
                     Rotation lower_R(lower_Q);
                     vector lower_para = rodEval(Rods[rodNumber],parameter-epsilon);
                     vector upper_para = rodEval(Rods[rodNumber],parameter+epsilon);
-                    vector lower_dPara = (upper_para-lower_para)/(2*epsilon);
+                    //vector lower_dPara = (upper_para-lower_para)/(2*epsilon);
                     rodEval(Rods[rodNumber],parameter,lower_d1,lower_d2,lower_d3,lower_r);
                     
                     // Upper value
                     vector upper_r,upper_d1,upper_d2,upper_d3;
                     scalar upperCoeffValue = coeffBasicValue+epsilon;
                     setCurveCoeff(rodNumber,curveCoeffs,coefDim,upperCoeffValue);
-                    vector upper_p = rodEval(Rods[rodNumber],parameter);
+                    //vector upper_p = rodEval(Rods[rodNumber],parameter);
                     Quaternion upper_Q = m_Rot_Eval(rodNumber,parameter);
                     Rotation upper_R(upper_Q);
                     lower_para = rodEval(Rods[rodNumber],parameter-epsilon);
                     upper_para = rodEval(Rods[rodNumber],parameter+epsilon);
-                    vector upper_dPara = (upper_para-lower_para)/(2*epsilon);
+                    //vector upper_dPara = (upper_para-lower_para)/(2*epsilon);
                     rodEval(Rods[rodNumber],parameter,upper_d1,upper_d2,upper_d3,upper_r);
 
                     vector fd_drdC = (upper_r-lower_r)/(2*epsilon);
@@ -3297,7 +3315,8 @@ void Foam::Structure::selfCheck()
     
     FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
     
-    Info<<"-----------Structure derivatives-----------"<<Foam::endl;    
+    Info<<"-----------Structure derivatives-----------"<<Foam::endl;
+    
     std::function<void(std::function<Quaternion(scalar)>,
                        std::function<Quaternion(scalar)>,
                        scalar,scalar,uint)> tComparer =
@@ -3305,7 +3324,6 @@ void Foam::Structure::selfCheck()
     {
         scalar deltaPar = maxPar-minPar;
         scalar stepsizePar = deltaPar/steps;
-        /*
         for(scalar currPara=minPar; currPara<=maxPar; currPara+=stepsizePar)
         {
             Quaternion derivValue = deriv(currPara);
@@ -3320,9 +3338,9 @@ void Foam::Structure::selfCheck()
             scalar maxPercError = std::numeric_limits<scalar>::min();
             for(label i=0; i<4; i++)
             {
-                error[i] = std::sqrt(errorVec[i]&errorVec[i]);
-                derivValueLen[i] = std::sqrt(derivValue[i]&derivValue[i]);
-                fderivValueLen[i] = std::sqrt(fderivValue[i]&fderivValue[i]);
+                error[i] = std::sqrt(errorVec[i]*errorVec[i]);
+                derivValueLen[i] = std::sqrt(derivValue[i]*derivValue[i]);
+                fderivValueLen[i] = std::sqrt(fderivValue[i]*fderivValue[i]);
                 avgLen[i] = 0.5*(derivValueLen[i]+fderivValueLen[i]);
                 if(avgLen[i]!=0)
                     percError[i] = error[i]/avgLen[i];
@@ -3341,7 +3359,6 @@ void Foam::Structure::selfCheck()
                 FatalErrorInFunction<<"t Comparison failed!"<<exit(FatalError);
             }
         }
-        */
     };
     
     std::function<void(std::function<Quaternion(scalar)>,
@@ -3427,6 +3444,7 @@ void Foam::Structure::selfCheck()
                     }
                     else
                         FatalErrorInFunction<<"No delta in coeff values!"<<exit(FatalError);
+                    return diff;
                 };
                 qComparer(derivQ,fdDerivQ,domainStart,domainEnd,20);
                 

@@ -1,3 +1,4 @@
+#include "Structure.H"
 #include "LinearSystem.H"
 
 void Foam::compute_Ay
@@ -987,10 +988,11 @@ lastWrittenRowIndex(0)
     Row_Index.setSize(0);
     
     globalCheck();
-    if(localRows<1)
-        setComplete();
-    else
+
+    if(writtenRow < localRows)
         complete = false;
+    else
+        setComplete();
 }
 
 Foam::CSR_Matrix_par::CSR_Matrix_par
@@ -1625,40 +1627,47 @@ void Foam::CSR_Matrix_par::globalCheck() const
         List<label> globalLocalRowStart(Pstream::nProcs());
         globalLocalRowStart[Pstream::myProcNo()] = localRowStart;
         Pstream::gatherList(globalLocalRowStart);
+        Pstream::scatterList(globalLocalRowStart);
         
         List<label> globalLocalRows(Pstream::nProcs());
         globalLocalRows[Pstream::myProcNo()] = localRows;
         Pstream::gatherList(globalLocalRows);
+        Pstream::scatterList(globalLocalRows);
         
-        List<label> globalGlobalRows(Pstream::nProcs());
+        List<label> globalGlobalRows(Pstream::nProcs(),0);
         globalGlobalRows[Pstream::myProcNo()] = globalRows;
         Pstream::gatherList(globalGlobalRows);
+        Pstream::scatterList(globalGlobalRows);
         
         List<label> globalGlobalCols(Pstream::nProcs());
         globalGlobalCols[Pstream::myProcNo()] = globalCols;
         Pstream::gatherList(globalGlobalCols);
-        
-        if(Pstream::master())
+        Pstream::scatterList(globalGlobalCols);
+                        
+        for(label globalRows : globalGlobalRows)
+            if(globalRows!=this->globalRows)
+            {
+                Info<<"Pstream::myProcNo():"<<Pstream::myProcNo()<<Foam::nl;
+                Info<<"globalGlobalRows:"<<globalGlobalRows<<Foam::nl;
+                Info<<"globalRows:"<<globalRows<<Foam::nl;
+                Info<<"this->globalRows:"<<this->globalRows<<Foam::nl;
+                FatalErrorInFunction<<"Global row size mismatch"<<exit(FatalError);
+            }
+        for(label globalCols : globalGlobalCols)
+            if(globalCols!=this->globalCols)
+                FatalErrorInFunction<<"Global col size mismatch"<<exit(FatalError);
+        for(label proc=0; proc<globalLocalRowStart.size()-1; proc++)
         {
-            for(label globalRows : globalGlobalRows)
-                if(globalRows!=this->globalRows)
-                    FatalErrorInFunction<<"Global row size mismatch"<<exit(FatalError);
-            for(label globalCols : globalGlobalCols)
-                if(globalCols!=this->globalCols)
-                    FatalErrorInFunction<<"Global col size mismatch"<<exit(FatalError);
-            for(label proc=0; proc<globalLocalRowStart.size()-1; proc++)
-            {
-                if(globalLocalRowStart[proc]+globalLocalRows[proc]!=globalLocalRowStart[proc+1])
-                    FatalErrorInFunction<<"Local row mismatch"<<exit(FatalError);
-            }
-            if(globalLocalRowStart.last()+globalLocalRows.last()!=this->globalRows)
-            {
-                Pout<<"globalLocalRowStart.last():"<<globalLocalRowStart.last()<<Foam::endl;
-                Pout<<"globalLocalRows.last():"<<globalLocalRows.last()<<Foam::endl;
-                Pout<<"this->globalRows:"<<this->globalRows<<Foam::endl;
-                FatalErrorInFunction<<"Local rows to global rows mismatch"<<exit(FatalError);
-            }
+            if(globalLocalRowStart[proc]+globalLocalRows[proc]!=globalLocalRowStart[proc+1])
+                FatalErrorInFunction<<"Local row mismatch"<<exit(FatalError);
         }
+        if(globalLocalRowStart.last()+globalLocalRows.last()!=this->globalRows)
+        {
+            Pout<<"globalLocalRowStart.last():"<<globalLocalRowStart.last()<<Foam::endl;
+            Pout<<"globalLocalRows.last():"<<globalLocalRows.last()<<Foam::endl;
+            Pout<<"this->globalRows:"<<this->globalRows<<Foam::endl;
+            FatalErrorInFunction<<"Local rows to global rows mismatch"<<exit(FatalError);
+        }        
     }
     else
     {
@@ -1676,7 +1685,6 @@ void Foam::CSR_Matrix_par::setComplete()
         FatalErrorInFunction<<"Local row to Row_Index mismatch:"<<localRows<<"!="<<Row_Index.size()<<exit(FatalError);
     if(V.size()!=Col_Index.size())
         FatalErrorInFunction<<"V and Col_Index mismatch"<<exit(FatalError);
-    globalCheck();
 }
 
 Foam::CSR_DiagMatrix_par::CSR_DiagMatrix_par

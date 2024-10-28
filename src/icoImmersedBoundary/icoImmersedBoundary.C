@@ -18,7 +18,7 @@ transportProperties
 nu("nu",dimensionSet(0,2,-1,0,0,0,0),transportProperties.lookup("nu")),
 alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {   
-    IOobject structureIO("structureDict","structure",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    IOobject structureIO("structureDict","constant",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
     Info<<"structureIO:"<<structureIO.name()<<Foam::endl;
     if(!structureIO.filePath("",true).empty())
     {
@@ -30,7 +30,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
         {
             Info<<"rodTypeToken:"<<rodTypeToken<<Foam::endl;
             Info<<"rodTypeToken:"<<rodTypeToken.typeName()<<Foam::endl;
-            FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodType -- must be string"<<exit(FatalError);
+            FatalErrorInFunction<<"Invalid entry in constant/structureDict/rodType -- must be string"<<exit(FatalError);
         }
         word rodTypeWord = rodTypeToken.wordToken();
         if(rodTypeWord == "Line")
@@ -48,7 +48,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
             useStructure = false;
         }
         else
-            FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodType -- valid {Line,CrossSection,Empty}"<<exit(FatalError);
+            FatalErrorInFunction<<"Invalid entry in constant/structureDict/rodType -- valid {Line,CrossSection,Empty}"<<exit(FatalError);
     }
     else
     {

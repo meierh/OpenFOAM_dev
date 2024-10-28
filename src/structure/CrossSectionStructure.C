@@ -237,7 +237,7 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
         token crossSecTypeToken;
         crossSecTypeStream.read(crossSecTypeToken);
         if(!crossSecTypeToken.isWord())
-            FatalErrorInFunction<<"Invalid token type in structure/structureDict/crossSections/"<<oneCrossSec<<"/type"<<exit(FatalError);
+            FatalErrorInFunction<<"Invalid token type in constant/structureDict/crossSections/"<<oneCrossSec<<"/type"<<exit(FatalError);
         word crossSecTypeStr = crossSecTypeToken.wordToken();
 
         if(crossSecTypeStr=="circle")

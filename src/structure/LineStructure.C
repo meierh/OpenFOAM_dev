@@ -755,7 +755,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     globalMarkerNumber[Pstream::myProcNo()] = locProcMarkerNbr;
     Pstream::gatherList(globalMarkerNumber);
     Pstream::scatterList(globalMarkerNumber);
-    
+        
     label globNumOfMarkers = 0;
     for(label proc=0; proc<globalMarkerNumber.size(); proc++)
         globNumOfMarkers += globalMarkerNumber[proc];
@@ -766,13 +766,13 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
     processGlobalMarkerOffset[0] = 0;
     for(label proc=1; proc<processGlobalMarkerOffset.size(); proc++)
         processGlobalMarkerOffset[proc] = processGlobalMarkerOffset[proc-1]+globalMarkerNumber[proc-1];
-    
+            
     auto result = std::unique_ptr<LinearSystem>(new LinearSystem());
     std::get<0>(*result) = CSR_Matrix_par(locProcMarkerNbr,smProcsNumOfMarkers,globNumOfMarkers,globNumOfMarkers);
-    CSR_Matrix_par& A = std::get<0>(*result);
+    CSR_Matrix_par& A = std::get<0>(*result);    
     std::get<1>(*result) = Vector_par(locProcMarkerNbr,smProcsNumOfMarkers,globNumOfMarkers);
     Vector_par& b = std::get<1>(*result);
-
+    
     std::unordered_map<Pair<label>,DynamicList<label>,foamPairHash<label>> cellToMarkerInfluence;
     for(uint I=0; I<collectedMarkers.size(); I++)
     {
@@ -784,7 +784,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
             cellToMarkerInfluence[node].append(I);
         }
     }
-    
+        
     struct VectorHash
     {
         std::size_t operator()(const vector& vec) const noexcept
@@ -1014,6 +1014,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
         }
         */
     }
+
     return result;
 }
 
@@ -1238,7 +1239,7 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     {
         Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken<<Foam::endl;
         Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken.typeName()<<Foam::endl;
-        FatalErrorInFunction<<"Invalid entry in structure/structureDict/iniPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/iniPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
     }
     iniRodPntsDistToMeshSpacing = iniSpacingFactorToken.scalarToken();
     
@@ -1249,7 +1250,7 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     {
         Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken<<Foam::endl;
         Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken.typeName()<<Foam::endl;
-        FatalErrorInFunction<<"Invalid entry in structure/structureDict/refnPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/refnPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
     }
     refnRodMarkersDistToMeshSpacing = refnSpacingFactorToken.scalarToken();
     
@@ -1260,7 +1261,7 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     {
         Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken<<Foam::endl;
         Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken.typeName()<<Foam::endl;
-        FatalErrorInFunction<<"Invalid entry in structure/structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
+        FatalErrorInFunction<<"Invalid entry in constant                                                            /structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
     }
     rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
     
