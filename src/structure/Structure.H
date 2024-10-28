@@ -152,7 +152,7 @@ class Structure
         explicit Structure
         (
             const fvMesh& mesh,
-            const IOdictionary& stuctureDict,
+            const std::shared_ptr<IOdictionary> structureDict,
             const Time& runTime
         );
         virtual ~Structure();
@@ -488,6 +488,7 @@ class Structure
 
     protected:
         const fvMesh& mesh;
+        const std::shared_ptr<IOdictionary> structureDict;
         BoundingBox meshBoundingBox;
         BoundingBox computeMeshBoundingBox();
         

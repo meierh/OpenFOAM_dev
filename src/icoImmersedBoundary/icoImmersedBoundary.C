@@ -22,7 +22,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"structureIO:"<<structureIO.name()<<Foam::endl;
     if(!structureIO.filePath("",true).empty())
     {
-        structureDict = std::make_unique<IOdictionary>(structureIO);
+        structureDict = std::make_shared<IOdictionary>(structureIO);
         ITstream rodTypeStream = structureDict->lookup("rodType");
         token rodTypeToken;
         rodTypeStream.read(rodTypeToken);
@@ -35,12 +35,12 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
         word rodTypeWord = rodTypeToken.wordToken();
         if(rodTypeWord == "Line")
         {
-            structure = std::make_unique<LineStructure>(mesh,*structureDict);
+            structure = std::make_unique<LineStructure>(mesh,structureDict);
             useStructure = true;
         }
         else if(rodTypeWord == "CrossSection")
         {
-            structure = std::make_unique<CrossSectionStructure>(mesh,*structureDict);
+            structure = std::make_unique<CrossSectionStructure>(mesh,structureDict);
             useStructure = true;
         }
         else if(rodTypeWord == "None")
@@ -74,9 +74,6 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
     
     create_Analysis();
-
-    if(structure)
-        structure->printMarkerStructure();
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
@@ -271,6 +268,14 @@ void Foam::solvers::icoImmersedBoundary::preMove()
         interaction_fU->preSolveMovement();
         interaction_fU->preSolveMarkerMeshAdaption();
     }
+}
+
+void Foam::solvers::icoImmersedBoundary::moveMesh()
+{
+}
+
+void Foam::solvers::icoImmersedBoundary::motionCorrector()
+{
 }
 
 void Foam::solvers::icoImmersedBoundary::momentumPredictor()
@@ -500,9 +505,6 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
         postSolve();
 
         write_Analysis();
-        
-        if(structure)
-            structure->printMarkerStructure();
         
         runTime.write();
 

@@ -33,14 +33,15 @@ crossSecArea(List<scalar>(myMesh->m_nR,crossSecArea))
 Foam::LineStructure::LineStructure
 (
     const fvMesh& mesh,
-    const IOdictionary& stuctureDict,
+    const std::shared_ptr<IOdictionary> structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-Structure(mesh,stuctureDict,mesh.time()),
+Structure(mesh,structureDict,mesh.time()),
 modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {
+    readRodPntsToMeshSpacingDict(*structureDict);
     initialize();
 }
 
@@ -58,34 +59,48 @@ modusMarkerToField(modusMarkerToField)
 Foam::LineStructure::LineStructure
 (
     const fvMesh& mesh,
-    const IOdictionary& stuctureDict,
+    const std::shared_ptr<IOdictionary> structureDict,
     bool parentConstructor,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-Structure(mesh,stuctureDict,mesh.time()),
+Structure(mesh,structureDict,mesh.time()),
 modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {}
 
-void Foam::LineStructure::finalizeMarkers()
+void Foam::LineStructure::finalizeMarkers
+(
+    bool doRefine
+)
 {
-    refineEvaluateReduceCollect();
+    refineEvaluateReduceCollect(doRefine);
     markerWeighting();
 }
 
-void Foam::LineStructure::refineEvaluateReduceCollect()
+void Foam::LineStructure::refineEvaluateReduceCollect
+(
+    bool doRefine
+)
 {
     auto start = std::chrono::system_clock::now();
     
     auto t1 = std::chrono::system_clock::now();
-    refineMarkers();
+    if(doRefine)
+        refineMarkers();
     auto t2 = std::chrono::system_clock::now();
-    Info<<"refineEvaluateReduceCollect / refineMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
-
-    setMarkerVolume();
+    if(doRefine)
+        Info<<"refineEvaluateReduceCollect / refineMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    else
+        Info<<"refineEvaluateReduceCollect / -- took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
+    if(doRefine)
+        setMarkerVolume();
     t1 = std::chrono::system_clock::now();
-    Info<<"refineEvaluateReduceCollect / setMarkerVolume took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;    
+    if(doRefine)
+        Info<<"refineEvaluateReduceCollect / setMarkerVolume took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;    
+    else
+        Info<<"refineEvaluateReduceCollect / -- took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     evaluateMarkerMeshRelation();
     t2 = std::chrono::system_clock::now();
@@ -1006,11 +1021,9 @@ void Foam::LineStructure::computeMarkerWeights()
 {
     status.execValid(status.markersWeight);
     
-    auto t1 = std::chrono::high_resolution_clock::now();
     std::unique_ptr<Foam::LineStructure::LinearSystem> system = computeMarkerEpsilonMatrix();
     CSR_Matrix_par& A = std::get<0>(*system);
     Vector_par& ones = std::get<1>(*system);
-    auto t2 = std::chrono::high_resolution_clock::now();
     //Info<<"Matrix assembly took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
         
     switch (solutionStrategy)
@@ -1066,7 +1079,6 @@ void Foam::LineStructure::computeMarkerWeights()
     BiCGSTAB solver(A);
     Vector_par eps = solver.solve(ones);
 
-    t1 = std::chrono::high_resolution_clock::now();
     //Info<<"Linear system solution took :"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
         
     for(uint I=0; I<collectedMarkers.size(); I++)
@@ -1219,47 +1231,42 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     const IOdictionary& structureDict
 )
 {
-    if(structureDict.found("iniPntDistToCellSpacing"))
+    ITstream iniSpacingFactorStream = structureDict.lookup("iniPntDistToCellSpacing");
+    token iniSpacingFactorToken;
+    iniSpacingFactorStream.read(iniSpacingFactorToken);
+    if(!iniSpacingFactorToken.isScalar())
     {
-        ITstream iniSpacingFactorStream = structureDict.lookup("iniPntDistToCellSpacing");
-        token iniSpacingFactorToken;
-        iniSpacingFactorStream.read(iniSpacingFactorToken);
-        if(!iniSpacingFactorToken.isScalar())
-        {
-            Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken<<Foam::endl;
-            Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken.typeName()<<Foam::endl;
-            FatalErrorInFunction<<"Invalid entry in structure/structureDict/iniPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
-        }
-        iniRodPntsDistToMeshSpacing = iniSpacingFactorToken.scalarToken();
+        Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken<<Foam::endl;
+        Info<<"iniSpacingFactorToken:"<<iniSpacingFactorToken.typeName()<<Foam::endl;
+        FatalErrorInFunction<<"Invalid entry in structure/structureDict/iniPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
     }
+    iniRodPntsDistToMeshSpacing = iniSpacingFactorToken.scalarToken();
     
-    if(structureDict.found("refnPntDistToCellSpacing"))
+    ITstream refnSpacingFactorStream = structureDict.lookup("refnPntDistToCellSpacing");
+    token refnSpacingFactorToken;
+    refnSpacingFactorStream.read(refnSpacingFactorToken);
+    if(!refnSpacingFactorToken.isScalar())
     {
-        ITstream refnSpacingFactorStream = structureDict.lookup("refnPntDistToCellSpacing");
-        token refnSpacingFactorToken;
-        refnSpacingFactorStream.read(refnSpacingFactorToken);
-        if(!refnSpacingFactorToken.isScalar())
-        {
-            Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken<<Foam::endl;
-            Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken.typeName()<<Foam::endl;
-            FatalErrorInFunction<<"Invalid entry in structure/structureDict/refnPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
-        }
-        refnRodMarkersDistToMeshSpacing = refnSpacingFactorToken.scalarToken();
+        Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken<<Foam::endl;
+        Info<<"refnSpacingFactorToken:"<<refnSpacingFactorToken.typeName()<<Foam::endl;
+        FatalErrorInFunction<<"Invalid entry in structure/structureDict/refnPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
     }
+    refnRodMarkersDistToMeshSpacing = refnSpacingFactorToken.scalarToken();
     
-    if(structureDict.found("pntDistToMarkerCharLen"))
+    ITstream pntDistToMarkerCharLenStream = structureDict.lookup("pntDistToMarkerCharLen");
+    token pntDistToMarkerCharLenToken;
+    pntDistToMarkerCharLenStream.read(pntDistToMarkerCharLenToken);
+    if(!pntDistToMarkerCharLenToken.isScalar())
     {
-        ITstream pntDistToMarkerCharLenStream = structureDict.lookup("pntDistToMarkerCharLen");
-        token pntDistToMarkerCharLenToken;
-        pntDistToMarkerCharLenStream.read(pntDistToMarkerCharLenToken);
-        if(!pntDistToMarkerCharLenToken.isScalar())
-        {
-            Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken<<Foam::endl;
-            Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken.typeName()<<Foam::endl;
-            FatalErrorInFunction<<"Invalid entry in structure/structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
-        }
-        rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
+        Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken<<Foam::endl;
+        Info<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken.typeName()<<Foam::endl;
+        FatalErrorInFunction<<"Invalid entry in structure/structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
     }
+    rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
+    
+    Info<<"iniRodPntsDistToMeshSpacing:"<<iniRodPntsDistToMeshSpacing<<Foam::nl;
+    Info<<"refnRodMarkersDistToMeshSpacing:"<<refnRodMarkersDistToMeshSpacing<<Foam::nl;
+    Info<<"rodPntDistToMarkerCharLen:"<<rodPntDistToMarkerCharLen<<Foam::nl;
 }
 
 
@@ -1274,6 +1281,7 @@ Foam::vector Foam::LineStructure::evaluateRodCircumPos
 )
 {
     FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+    return vector(0,0,0);
 }
         
 Foam::Pair<Foam::vector> Foam::LineStructure::derivateRodCircumPos
@@ -1285,6 +1293,7 @@ Foam::Pair<Foam::vector> Foam::LineStructure::derivateRodCircumPos
 )
 {
     FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+    return Pair<vector>(vector(0,0,0),vector(0,0,0));
 }
     
 Foam::Pair<Foam::vector> Foam::LineStructure::derivate2RodCircumPos
@@ -1296,6 +1305,7 @@ Foam::Pair<Foam::vector> Foam::LineStructure::derivate2RodCircumPos
 )
 {
     FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+    return Pair<vector>(vector(0,0,0),vector(0,0,0));
 }
 
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
@@ -1560,11 +1570,9 @@ void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()
     Pstream::scatterList(globalHaloCellsMarkerWeight);
 }
 
-
-
 void Foam::LineStructure::printMarkerStructure()
 {
-    for(label rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
+    for(std::size_t rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
     {
         Info<<"--------------------rodNumber:"<<rodNumber<<"----------------------"<<Foam::endl;
         std::list<LagrangianMarker>& oneRod = *(rodMarkersList[rodNumber]);

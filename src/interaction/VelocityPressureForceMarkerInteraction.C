@@ -197,11 +197,12 @@ void Foam::VelocityPressureForceInteraction::meshMarkerAdaptation()
     if(refinement_)
     {
         Info<<"|||||||||||||||||||||||||Do refinement|||||||||||||||||||||||||"<<Foam::endl;
-        bool meshRefined = refinement_->refineMeshOnStaticMarkers();
+        //bool meshRefined = refinement_->refineMeshOnStaticMarkers();
         //meshRefined = refinement_->refineMeshAndMarkers(meshRefined);
+        refinement_->refineMeshAndMarkers();
         Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
     }
-    structure.finalizeMarkers();
+    structure.finalizeMarkers(true);
 }
 
 void Foam::VelocityPressureForceInteraction::computeRodForceMoment()

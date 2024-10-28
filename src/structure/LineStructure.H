@@ -272,6 +272,7 @@ class LineStructure : public Structure
 {
     public:
         enum markerMeshType {Uniform=0, NonUniform=1};
+    
         explicit LineStructure
         (
             const fvMesh& mesh,
@@ -289,7 +290,7 @@ class LineStructure : public Structure
         explicit LineStructure
         (
             const fvMesh& mesh,
-            const IOdictionary& stuctureDict,
+            const std::shared_ptr<IOdictionary> structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
@@ -302,7 +303,7 @@ class LineStructure : public Structure
         explicit LineStructure
         (
             const fvMesh& mesh,
-            const IOdictionary& stuctureDict,
+            const std::shared_ptr<IOdictionary> structureDict,
             bool parentConstructor,
             markerMeshType modusFieldToMarker,
             markerMeshType modusMarkerToField
@@ -321,8 +322,8 @@ class LineStructure : public Structure
         static vector derivate2RodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
         
     // ----------------- Finalize markers -----------------
-        virtual void finalizeMarkers();
-        void refineEvaluateReduceCollect();
+        virtual void finalizeMarkers(bool doRefine=true);
+        void refineEvaluateReduceCollect(bool doRefine=true);
         void markerWeighting();
     // ----------------- ------------------------- -----------------
         
@@ -373,7 +374,7 @@ class LineStructure : public Structure
 
         void refineMarkers
         (
-            bool useMarkerCharLenSpacing = false,
+            bool useMarkerCharLenSpacing = true,
             std::pair<bool,scalar> forcedSpacing = {false,-1}
         );
         virtual void refineMarkersOnRod
@@ -440,7 +441,7 @@ class LineStructure : public Structure
         );
 
         template<class MARKER>
-        void maxOneMarkerPerCell
+        void maxTwoMarkerPerCell
         (
             std::vector<MarkerReference<MARKER>>& allMarkers,
             std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker

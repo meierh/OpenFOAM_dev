@@ -185,7 +185,7 @@ class CrossSectionStructure : public LineStructure
         explicit CrossSectionStructure
         (
             const fvMesh& mesh,
-            const IOdictionary& stuctureDict,
+            const std::shared_ptr<IOdictionary> structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );

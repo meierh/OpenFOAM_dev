@@ -387,6 +387,7 @@ nR(loadRodsFromXML()),
 mesh(mesh),
 meshBoundingBox(computeMeshBoundingBox())
 {
+    FatalErrorInFunction<<"Not in use anymore"<<exit(FatalError);
     Info<<"----------------Structure----------------"<<Foam::endl;
     computeHaloData();
     setupActiveRodMesh();
@@ -396,17 +397,18 @@ meshBoundingBox(computeMeshBoundingBox())
 Foam::Structure::Structure
 (
     const fvMesh& mesh,
-    const IOdictionary& stuctureDict,
+    const std::shared_ptr<IOdictionary> structureDict,
     const Time& runTime
 ):
 initialMeshSpacing(spacingFromMesh(mesh)),
 runTime(runTime),
 runDirectory(runTime.rootPath()),
 caseName(runTime.caseName()),
-xmlPath(xmlFromDict(stuctureDict)),
+xmlPath(xmlFromDict(*structureDict)),
 name(getName()),
 nR(loadRodsFromXML()),
 mesh(mesh),
+structureDict(structureDict),
 meshBoundingBox(computeMeshBoundingBox())
 {
     Info<<"----------------Structure dir----------------"<<Foam::endl;

@@ -612,7 +612,6 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
     }
     const List<Pair<label>>& momentsCells = (momentsSupportType==SupportType::Direct) ? directSupport : fullSupport;
     vector X = getMarkerPosition();
-    scalar convValue = Foam::zero();
     for(const Pair<label>& suppCell : momentsCells)
     {
         vector cellCentre;
@@ -708,7 +707,6 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeMo
     }
     const List<Pair<label>>& momentsCells = (momentsSupportType==SupportType::Direct) ? directSupport : fullSupport;
     vector X = getMarkerPosition();
-    scalar convValue = Foam::zero();
     for(const Pair<label>& suppCell : momentsCells)
     {
         vector cellCentre;

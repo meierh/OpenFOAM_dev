@@ -13,7 +13,38 @@ void Foam::LineStructure::reduceMarkers
         label cellInd = marker.getMarkerCell();
         cellToMarker[cellInd].push_back(&markerData);
     }
-    oneCenteredMarker(allMarkers,cellToMarker);
+    
+    const IOdictionary& structureDict = *(this->structureDict);
+    if(structureDict.found("markerReductionMethod"))
+    {
+        ITstream markerReductionStream = structureDict.lookup("markerReductionMethod");
+        token markerReductionToken;
+        markerReductionStream.read(markerReductionToken);
+        if(!markerReductionToken.isWord())
+        {
+            Info<<"markerReductionToken:"<<markerReductionToken<<Foam::endl;
+            Info<<"markerReductionToken:"<<markerReductionToken.typeName()<<Foam::endl;
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/markerReductionMethod -- must be word"<<exit(FatalError);
+        }
+        word markerReductionMethod = markerReductionToken.wordToken();
+        
+        if(markerReductionMethod=="onePerCell")
+        {
+            oneCenteredMarker(allMarkers,cellToMarker);
+        }
+        else if(markerReductionMethod=="eightPerCell")
+        {
+            maxOneMarkerPerOctant(allMarkers,cellToMarker);
+        }
+        else if(markerReductionMethod=="twoPerCell")
+        {
+            maxTwoMarkerPerCell(allMarkers,cellToMarker);
+        }
+        else
+            FatalErrorInFunction<<"Invalid option in structure/structureDict/markerReductionMethod -- must be {onePerCell}"<<exit(FatalError);
+    }
+    else
+        FatalErrorInFunction<<"Missing keyword markerReductionMethod in structure/structureDict"<<exit(FatalError);
 }
 
 template<class MARKER>
@@ -117,9 +148,9 @@ void Foam::LineStructure::maxOneMarkerPerOctant
                     
                     scalar summedVolume = 0;
                     for(SingleMarker* marker : *subCell)
-                        summedVolume += marker.getMarkerVolume();
+                        summedVolume += marker->getMarker().getMarkerVolume();
                     
-                    SingleMarker* optMarker;
+                    SingleMarker* optMarker = nullptr;
                     scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
                     for(SingleMarker* marker : *subCell)
                     {
@@ -131,7 +162,7 @@ void Foam::LineStructure::maxOneMarkerPerOctant
                             optMarkerDistToAvgPos = dist;
                         }
                     }
-                    optMarker->setMarkerVolume(summedVolume);
+                    optMarker->getMarker().setMarkerVolume(summedVolume);
                     for(SingleMarker* marker : *subCell)
                         if(marker!=optMarker)
                             marker->deleteMarker();
@@ -149,7 +180,7 @@ void Foam::LineStructure::maxOneMarkerPerOctant
 }
 
 template<class MARKER>
-void Foam::LineStructure::maxOneMarkerPerCell
+void Foam::LineStructure::maxTwoMarkerPerCell
 (
     std::vector<MarkerReference<MARKER>>& allMarkers,
     std::unordered_map<label,std::vector<MarkerReference<MARKER>*>>& cellToMarker
@@ -170,22 +201,17 @@ void Foam::LineStructure::maxOneMarkerPerCell
             vector cellCentre = oneCell.centre(points,faces);
             std::vector<SingleMarker*>& oneCellMarkers = iter->second;
             
+            scalar summedVolume = 0;
+            for(SingleMarker* marker : oneCellMarkers)
+                summedVolume += marker->getMarker().getMarkerVolume();
+            
             if(oneCellMarkers.size()>0)
-            {
-                vector averagePosition = vector(0,0,0);
-                for(SingleMarker* marker : oneCellMarkers)
-                    averagePosition += marker->getMarker().getMarkerPosition();
-                averagePosition /= oneCellMarkers.size();
-                
-                scalar summedVolume = 0;
-                for(SingleMarker* marker : oneCellMarkers)
-                    summedVolume += marker->getMarker().getMarkerVolume();
-                
-                SingleMarker* optMarker;
+            {                        
+                SingleMarker* optMarker = nullptr;
                 scalar optMarkerDistToAvgPos = std::numeric_limits<scalar>::max();
                 for(SingleMarker* marker : oneCellMarkers)
                 {
-                    vector distVec = marker->getMarker().getMarkerPosition() - averagePosition;
+                    vector distVec = marker->getMarker().getMarkerPosition() - cellCentre;
                     scalar dist = std::sqrt(distVec&distVec);
                     if(dist<optMarkerDistToAvgPos)
                     {
@@ -193,9 +219,29 @@ void Foam::LineStructure::maxOneMarkerPerCell
                         optMarkerDistToAvgPos = dist;
                     }
                 }
+                
+                SingleMarker* secondOptMarker = nullptr;
+                scalar secMarkerDistToOptMarker = std::numeric_limits<scalar>::max();
+                if(oneCellMarkers.size()>1)
+                {
+                    for(SingleMarker* marker : oneCellMarkers)
+                    {
+                        if(marker!=optMarker)
+                        {
+                            vector distVec = marker->getMarker().getMarkerPosition() - optMarker->getMarker().getMarkerPosition();
+                            scalar dist = std::sqrt(distVec&distVec);
+                            if(dist<secMarkerDistToOptMarker)
+                            {
+                                secondOptMarker = marker;
+                                secMarkerDistToOptMarker = dist;
+                            }
+                        }
+                    }
+                }
+                
                 optMarker->getMarker().setMarkerVolume(summedVolume);
                 for(SingleMarker* marker : oneCellMarkers)
-                    if(marker!=optMarker)
+                    if(marker!=optMarker && marker!=secondOptMarker)
                         marker->deleteMarker();
             }
         }

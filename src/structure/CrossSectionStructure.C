@@ -21,7 +21,7 @@ Foam::CrossSectionStructure::CrossSectionStructure
     std::vector<CrossSection> rodCrossSection,
     bool empty
 ):
-LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
+LineStructure(mesh),
 rodCrossSection(rodCrossSection)
 {
     Info<<"CrossSectionStructure empty"<<Foam::nl;
@@ -30,13 +30,14 @@ rodCrossSection(rodCrossSection)
 Foam::CrossSectionStructure::CrossSectionStructure
 (
     const fvMesh& mesh,
-    const IOdictionary& stuctureDict,
+    const std::shared_ptr<IOdictionary> structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-LineStructure(mesh,stuctureDict,true,modusFieldToMarker,modusMarkerToField),
-rodCrossSection(createCrossSectionsFromDict(stuctureDict))
+LineStructure(mesh,structureDict,true,modusFieldToMarker,modusMarkerToField),
+rodCrossSection(createCrossSectionsFromDict(*structureDict))
 {
+    readRodPntsToMeshSpacingDict(*structureDict);
     initialize();
 }
 
@@ -251,6 +252,7 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
         }
         else if(crossSecTypeStr=="cylinder")
         {
+            /*
             ITstream a0Stream = oneCrossSecDict.lookup("a0");
             token a0Token;
             a0Stream.read(a0Token);
@@ -283,6 +285,7 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
                     FatalErrorInFunction<<"Expected scalar but got:"<<phaseToken<<" at line "<<phaseToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
                 phase = phaseToken.scalarToken();
             }
+            */
 
             FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
         }
@@ -960,8 +963,8 @@ void Foam::CrossSectionStructure::refineRadial
     std::pair<bool,scalar> refineSpacing
 )
 {
-    auto t0 = std::chrono::system_clock::now();
-    auto start = t0;
+    //auto t0 = std::chrono::system_clock::now();
+    //auto start = t0;
     //Info<<"refineRadial"<<Foam::nl;
     
     if(radialMarkers.size()<2)
@@ -981,10 +984,10 @@ void Foam::CrossSectionStructure::refineRadial
         if(iter->second.front().getMarkerRadiusFrac()!=0)
             refineCircumferential(iter->second,useMarkerCharLenSpacing,refineSpacing);
     }
-    auto t1 = std::chrono::system_clock::now();
+    //auto t1 = std::chrono::system_clock::now();
     //Info<<"\t IterRadialRefn:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
 
-    t0 = std::chrono::system_clock::now();
+    //t0 = std::chrono::system_clock::now();
     bool refined=true;
     while(refined)
     {
@@ -1108,9 +1111,9 @@ void Foam::CrossSectionStructure::refineRadial
             radMarkerIter1++;
         }
     }    
-    t1 = std::chrono::system_clock::now();
+    //t1 = std::chrono::system_clock::now();
     //Info<<" RadialRefn:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
-    auto end = t1;
+    //auto end = t1;
     //Info<<"  refineRadial:"<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<Foam::nl;
 
 }
@@ -1123,8 +1126,8 @@ void Foam::CrossSectionStructure::refineTangential
     std::pair<bool,scalar> refineSpacing
 )
 {
-    auto t0 = std::chrono::system_clock::now();
-    auto start = t0;
+    //auto t0 = std::chrono::system_clock::now();
+    //auto start = t0;
     
     if(tangMarkers.size()<2)
         FatalErrorInFunction<<"Must be at least two markers"<< exit(FatalError);
@@ -1146,7 +1149,7 @@ void Foam::CrossSectionStructure::refineTangential
         for( ; tangMarkerIter1!=tangMarkers.end() ; )
         {
             
-            auto ti0 = std::chrono::system_clock::now();
+            //auto ti0 = std::chrono::system_clock::now();
 
             if(tangMarkerIter0->second.size()<1)
                 FatalErrorInFunction<<"Must be at least one radial marker layer"<< exit(FatalError);
@@ -1178,7 +1181,7 @@ void Foam::CrossSectionStructure::refineTangential
                 tangMarker1InCell |= (iter->getMarkerCell()!=-1);
             }
             
-            auto ti1 = std::chrono::system_clock::now();
+            //auto ti1 = std::chrono::system_clock::now();
             //Info<<" CSC:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti1-ti0).count();
 
             
@@ -1222,7 +1225,7 @@ void Foam::CrossSectionStructure::refineTangential
                     subdivide=true;
             }
             
-            auto ti2 = std::chrono::system_clock::now();
+            //auto ti2 = std::chrono::system_clock::now();
             //Info<<" Dec:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti2-ti1).count();
 
             if(subdivide)
@@ -1234,7 +1237,7 @@ void Foam::CrossSectionStructure::refineTangential
                     oneRod,middleMarkerPara,oneCrossSec,1.0,initialSpacing,angleData
                 );
 
-                auto ti3 = std::chrono::system_clock::now();
+                //auto ti3 = std::chrono::system_clock::now();
                 //Info<<" CLP:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti3-ti2).count();
 
                 std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>> angleMarkers;
@@ -1248,12 +1251,12 @@ void Foam::CrossSectionStructure::refineTangential
                         ));
                 }
                 
-                auto ti4 = std::chrono::system_clock::now();
+                //auto ti4 = std::chrono::system_clock::now();
                 //Info<<" ToMarkers:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti4-ti3).count();
                 
                 refineCircumferential(angleMarkers.second,useMarkerCharLenSpacing,refineSpacing);
                 
-                auto ti5 = std::chrono::system_clock::now();
+                //auto ti5 = std::chrono::system_clock::now();
                 //Info<<" RefnCirc:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti5-ti4).count();
                 
                 std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>> paraSlice;
@@ -1262,19 +1265,19 @@ void Foam::CrossSectionStructure::refineTangential
                 radialMarkers.push_back(angleMarkers);
                 tangMarkers.insert(tangMarkerIter1,paraSlice);
                 refined=true;
-                auto ti6 = std::chrono::system_clock::now();
+                //auto ti6 = std::chrono::system_clock::now();
                 //Info<<" Ins:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti6-ti5).count();
             }
             tangMarkerIter0 = tangMarkerIter1;
             tangMarkerIter1++;
             
-            auto ti7 = std::chrono::system_clock::now();
+            //auto ti7 = std::chrono::system_clock::now();
             //Info<<" Div:"<<std::chrono::duration_cast<std::chrono::milliseconds>(ti7-ti2).count()<<Foam::nl;
         }
     }
     
-    auto t1 = std::chrono::system_clock::now();
-    auto end = t1;
+    //auto t1 = std::chrono::system_clock::now();
+    //auto end = t1;
     //Info<<"  refineTangential:"<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<Foam::nl;
 }
 
@@ -1856,7 +1859,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     scalar var_radius
 )
 {
-    const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
+    //const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
     vector d1,d2,d3,r;
@@ -1885,7 +1888,7 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
     scalar radiusFrac
 )
 {
-    const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
+    //const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
     //auto t0 = std::chrono::system_clock::now();
@@ -1988,7 +1991,7 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
     scalar radiusFrac
 )
 {
-    const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
+    //const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
     //auto t0 = std::chrono::system_clock::now();
@@ -2419,18 +2422,18 @@ Foam::scalar Foam::CrossSectionStructure::lowerBound_distance
 
 void Foam::CrossSectionStructure::printMarkerStructure()
 {
-    for(label rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
+    for(std::size_t rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
     {
         std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>& oneRod = *(rodMarkersList[rodNumber]);
         Info<<"------------------rodNumber:"<<rodNumber<<"--------------------"<<oneRod.size()<<Foam::nl;        
         for(auto iterTang = oneRod.begin(); iterTang!=oneRod.end(); iterTang++)
         {
             std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& tangRod = *iterTang;
-            //Info<<"tang:"<<tangRod.first<<"  "<<tangRod.second.size()<<Foam::nl;
+            Info<<"tang:"<<tangRod.first<<"  "<<tangRod.second.size()<<Foam::nl;
             for(auto iterRad = tangRod.second.begin(); iterRad!=tangRod.second.end(); iterRad++)
             {
                 std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radRod = *iterRad;
-                //Info<<"     rad:"<<radRod.first<<"  "<<radRod.second.size()<<Foam::nl;
+                Info<<"     rad:"<<radRod.first<<"  "<<radRod.second.size()<<Foam::nl;
             }
         }
     }
@@ -2717,9 +2720,13 @@ void Foam::CrossSectionStructure::selfCheck()
     for(std::size_t rodNumber=0; rodNumber<crossSec.size(); rodNumber++)
     {
         //Info<<"rodNumber:"<<rodNumber<<Foam::nl;
+        
         CrossSection cpCrossSec = crossSec[rodNumber];
+        /*
         scalar domainStart = cpCrossSec.domainStart();
         scalar domainEnd = cpCrossSec.domainEnd();
+        */
+        
         //Info<<"   numberFourierCoeff:"<<cpCrossSec.numberFourierCoeff()<<Foam::nl;
         
         /*

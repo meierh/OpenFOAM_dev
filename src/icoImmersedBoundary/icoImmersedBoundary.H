@@ -99,7 +99,7 @@ protected:
 
     //- RodStructure
     bool useStructure;
-    std::unique_ptr<IOdictionary> structureDict;
+    std::shared_ptr<IOdictionary> structureDict;
     std::unique_ptr<LineStructure> structure;
     
     //- Velocity forcing
@@ -166,14 +166,14 @@ public:
         //void preSolve() override;
         
         void preMove();
-
-    /*
+        
         //- Called at the start of the PIMPLE loop to move the mesh
-        virtual void moveMesh();
+        void moveMesh() override;
 
         //- Corrections that follow mesh motion
-        virtual void motionCorrector();
+        void motionCorrector() override;
 
+    /*
         //- Called at the start of the PIMPLE loop
         virtual void prePredictor();
     */

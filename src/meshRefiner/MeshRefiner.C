@@ -67,8 +67,11 @@ void Foam::MeshRefiner::adaptMesh()
 }
 
 bool Foam::MeshRefiner::refineMeshOnStaticMarkers()
-{   
+{
+    FatalErrorInFunction<<"No longer in use"<<exit(FatalError);
+    
     bool meshWasRefined = false;
+    /*
     bool refined = true;
     while(refined)
     {
@@ -83,7 +86,8 @@ bool Foam::MeshRefiner::refineMeshOnStaticMarkers()
         meshWasRefined |= refined;
         auto end = std::chrono::system_clock::now();
         Info<<"------------------------------------------------- took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()<<" milliseconds"<<Foam::nl;
-    }    
+    }
+    */
     return meshWasRefined;
 }
 
@@ -107,7 +111,6 @@ bool Foam::MeshRefiner::refineMeshAndMarkers
             doRefine[cellInd] = markerRefineDemands[cellInd];
         }
         refined = applyMeshAdaption();
-        Info<<"Refined:"<<refined<<Foam::endl;
         meshWasRefined |= refined;
         if(refined)
             structure.refineMarkersOnRefinedMesh();

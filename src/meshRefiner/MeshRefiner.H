@@ -30,7 +30,7 @@ class MeshRefiner
          * Mesh is refined and markers are refined
          * Returns true if mesh was refined
          */
-        virtual bool refineMeshAndMarkers(bool preRefinedMesh);
+        virtual bool refineMeshAndMarkers(bool preRefinedMesh=false);
         
     protected:
         const scalar REFINE   = +1;
