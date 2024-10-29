@@ -18,3 +18,43 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
     
     return haloFieldPtr;
 }
+
+template<typename T>
+void Foam::exchangeBetweenTwo
+(
+    List<T>& globalData,
+    const label comm
+)
+{
+    if(Pstream::nProcs(comm)!=2)
+        FatalErrorInFunction<<"Invalid comm size"<<exit(FatalError);
+    
+    label worldCommProc0 = Pstream::baseProcNo(comm,0);
+    label worldCommProc1 = Pstream::baseProcNo(comm,1);
+    
+    if(Pstream::myProcNo()==worldCommProc0 || Pstream::myProcNo()==worldCommProc1)
+    {
+        label localProcNo = Pstream::procNo(comm,Pstream::myProcNo());
+        label globalProcNo = Pstream::myProcNo();
+        
+        label otherLocalProcNo,otherGlobalProcNo;
+        if(Pstream::myProcNo()==worldCommProc0)
+        {
+            otherLocalProcNo = Pstream::procNo(comm,worldCommProc1);
+            otherGlobalProcNo = worldCommProc1;
+        }
+        else
+        {
+            otherLocalProcNo = Pstream::procNo(comm,worldCommProc0);
+            otherGlobalProcNo = worldCommProc0;
+        }
+        
+        List<T> exchangeBuffer(2);
+        exchangeBuffer[localProcNo] = globalData[globalProcNo];
+    
+        Pstream::gatherList(exchangeBuffer,Pstream::msgType(),comm);
+        Pstream::scatterList(exchangeBuffer,Pstream::msgType(),comm);
+        
+        globalData[otherGlobalProcNo] = exchangeBuffer[otherLocalProcNo];
+    }
+}

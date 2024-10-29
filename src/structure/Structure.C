@@ -391,6 +391,7 @@ meshBoundingBox(computeMeshBoundingBox())
 {
     FatalErrorInFunction<<"Not in use anymore"<<exit(FatalError);
     Info<<"----------------Structure----------------"<<Foam::endl;
+    createParallelTopolgy();
     computeHaloData();
     setupActiveRodMesh();
     setupRodBoundingBoxTree();
@@ -414,6 +415,7 @@ structureDict(structureDict),
 meshBoundingBox(computeMeshBoundingBox())
 {
     Info<<"----------------Structure dir----------------"<<Foam::endl;
+    createParallelTopolgy();
     computeHaloData();
     setupActiveRodMesh();
     setupRodBoundingBoxTree();
@@ -2635,6 +2637,105 @@ const Foam::List<Foam::List<Foam::Pair<Foam::label>>>& Foam::Structure::getHaloM
     return globalHaloMeshGraph[process];
 }
 
+void Foam::Structure::createParallelTopolgy()
+{
+    Barrier(false);
+    
+    const polyBoundaryMesh& boundaries = mesh.boundaryMesh();
+    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
+    {
+        const polyPatch& patch = boundaries[patchIndex];
+        if(isA<processorPolyPatch>(patch))
+        {
+            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
+            label neighbourProcess = pPP->neighbProcNo();
+            neighbourProcesses.append(neighbourProcess);
+        }
+    }
+       
+    List<DynamicList<label>> globalNeighbourProcesses(Pstream::nProcs());
+    globalNeighbourProcesses[Pstream::myProcNo()] = neighbourProcesses;
+    Pstream::gatherList(globalNeighbourProcesses);
+    Pstream::scatterList(globalNeighbourProcesses);
+    for(label proc=0; proc<globalNeighbourProcesses.size(); proc++)
+    {
+        const DynamicList<label>& localNeighbourProcesses = globalNeighbourProcesses[proc];
+        Info<<"proc:"<<proc<<"-"<<localNeighbourProcesses<<Foam::endl;
+        for(label nei : localNeighbourProcesses)
+        {
+            std::vector<label> subGroup = {proc,nei};
+            std::sort(subGroup.begin(),subGroup.end());
+            label comm = Pstream::allocateCommunicator(Pstream::masterNo(),{subGroup[0],subGroup[1]});
+            neighbourToComm[{proc,nei}] = comm;
+            neighbourToComm[{nei,proc}] = comm;
+        }
+    }
+    
+    label comm = neighbourToComm[{2,3}];
+    List<label> test(4);
+    if(Pstream::myProcNo()==2)
+    {
+        test[Pstream::myProcNo()] = 2;
+    }
+    if(Pstream::myProcNo()==3)
+    {
+        test[Pstream::myProcNo()] = 3;
+    }
+    
+    Pout<<test<<Foam::endl;
+    Barrier(false);
+    exchangeBetweenTwo(test,comm);
+    Barrier(false);
+    Pout<<test<<Foam::endl;
+    
+    
+    
+    /*
+    if(Pstream::myProcNo()==2)
+    {
+        label comm = neighbourToComm[3];
+        label commProcNo = Pstream::procNo(comm,2);
+        label worldCommProcNo = Pstream::baseProcNo(comm,commProcNo);
+        label commMaster = Pstream::master(comm);
+        Pout<<"comm - 1:"<<comm<<" size:"<<Pstream::nProcs(comm)<<" commProcNo "<<commProcNo<<" commMaster: "<<commMaster<<" worldCommProcNo: "<<worldCommProcNo<<Foam::endl;
+        List<label> test(2);
+        test[0] = 3;
+        Pstream::gatherList(test,Pstream::msgType(),comm);
+        Pstream::scatterList(test,Pstream::msgType(),comm);
+        Pout<<test<<Foam::nl;
+    }
+    if(Pstream::myProcNo()==3)
+    {
+        label comm = neighbourToComm[2];
+        label commProcNo = Pstream::procNo(comm,3);
+        label worldCommProcNo = Pstream::baseProcNo(comm,commProcNo);
+        label commMaster = Pstream::master(comm);
+        Pout<<"comm - 0:"<<comm<<" size:"<<Pstream::nProcs(comm)<<" commProcNo "<<commProcNo<<" commMaster: "<<commMaster<<" worldCommProcNo: "<<worldCommProcNo<<Foam::endl;
+        List<label> test(2);
+        test[1] = 7;
+        Pstream::gatherList(test,Pstream::msgType(),comm);
+        Pstream::scatterList(test,Pstream::msgType(),comm);
+        Pout<<test<<Foam::nl;
+    }
+    */
+    
+    /*
+    for(label neighbourProcess : neighbourProcesses)
+    {
+        if(neighbourToComm.find(neighbourProcess)!=neighbourToComm.end())
+            FatalErrorInFunction<<"Duplicate processor"<<exit(FatalError);
+        neighbourToComm[neighbourProcess] = 0;
+        label comm = Pstream::allocateCommunicator(Pstream::myProcNo(),{neighbourProcess});
+        
+        Pout<<"neighborProcess:"<<neighbourProcess<<"->"<<neighbourToComm[neighbourProcess]<<Foam::endl;
+    }
+    label comm = Pstream::allocateCommunicator(0,{1,2,3});
+    Pout<<"comm:"<<comm<<Foam::endl;
+    */
+    
+    Barrier(true);
+}
+
 void Foam::Structure::generateMeshGraph()
 {
     globalHaloMeshGraph.clear();
@@ -2797,6 +2898,15 @@ void Foam::Structure::collectMeshHaloData
             }
         }
     }
+    
+    for(auto tupl : neighborProcesses)
+    {
+        Pout<<std::get<0>(tupl)<<" ";
+    }
+    Info<<Foam::endl;
+    
+    Barrier(false);
+    Barrier(true);
         
     //Exchange data
     Pstream::gatherList(procPatchOwner);

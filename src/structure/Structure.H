@@ -518,6 +518,14 @@ class Structure
         std::unique_ptr<List<List<T>>> broadcastHaloFields(const GeometricField<T,fvPatchField,volMesh>& fieldData);
         /*********************************Collect halo cells***********************************/
         std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>>& getCellDataBuffer(){return cellDataBuffer;}
+        
+    protected:
+        /*********************************Parallel topology***********************************/
+        void createParallelTopolgy();
+        DynamicList<label> neighbourProcesses;
+        std::unordered_map<Pair<label>,label,foamPairHash<label>> neighbourToComm;
+        
+        /*********************************Parallel topology***********************************/
     
     private:
         /*********************************Collect halo cells***********************************/
@@ -553,7 +561,12 @@ class Structure
         virtual void parameterGradientCheck();
         virtual void selfCheck();
 };
-#include "Structure.T.H"
 void Barrier(bool stop);
+
+template<typename T>
+static void exchangeBetweenTwo(List<T>& globalData, const label comm);
+
+#include "Structure.T.H"
+
 }
 #endif
