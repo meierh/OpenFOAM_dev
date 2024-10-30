@@ -342,6 +342,7 @@ void Foam::LineStructure::setToTime(scalar time)
 void Foam::LineStructure::createSpacingPoints()
 {
     status.execValid(status.initialPoints);
+    setupRodBoundingBoxTree();
     LineStructure::initialRodPoints.resize(myMesh->m_nR);
     for(int rodIndex=0; rodIndex<myMesh->m_nR; rodIndex++)
     {
@@ -1217,16 +1218,6 @@ Foam::scalar Foam::LineStructure::bisectionBinary
     return 0.5*(startValue+endValue);
 }
 
-Foam::scalar Foam::LineStructure::characteristicSize
-(
-    label rodNumber,
-    scalar par
-)
-{
-    FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
-    return 0;
-}
-
 void Foam::LineStructure::readRodPntsToMeshSpacingDict
 (
     const IOdictionary& structureDict
@@ -1270,6 +1261,114 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     Info<<"rodPntDistToMarkerCharLen:"<<rodPntDistToMarkerCharLen<<Foam::nl;
 }
 
+Foam::BoundingBox Foam::LineStructure::computeBox
+(
+    label rodNumber
+) const
+{
+    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    BoundingBox curve_box = BoundingBox::boundsOfNurbs(curve);
+    const gsNurbs<scalar>& deformation = rod->m_Def;
+    BoundingBox def_box = BoundingBox::boundsOfNurbs(deformation);
+    Pout<<"Foam::LineStructure::computeBox"<<Foam::endl;
+    return curve_box+def_box;
+}
+
+Foam::BoundingBox Foam::LineStructure::computeBox
+(
+    label rodNumber,
+    scalar parStart,
+    scalar parEnd
+) const
+{
+    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+
+    if(parStart<rod->m_Curve.domainStart())
+        FatalErrorInFunction<<"Out of range"<<exit(FatalError);
+    if(parEnd<rod->m_Curve.domainEnd())
+        FatalErrorInFunction<<"Out of range"<<exit(FatalError);
+    if(parEnd<parStart)
+        FatalErrorInFunction<<"End smaller than start"<<exit(FatalError);
+    
+    const gsNurbs<scalar>& curve = rod->m_Curve;
+    const gsNurbs<scalar>& def = rod->m_Def;
+
+    return BoundingBox::boundsOfNurbs(curve,parStart,parEnd)+BoundingBox::boundsOfNurbs(def,parStart,parEnd);
+}
+
+Foam::scalar Foam::LineStructure::characteristicSize
+(
+    label rodNumber,
+    scalar par
+) const
+{
+    FatalErrorInFunction<<"Not yet implemented!"<<exit(FatalError);
+    return 0;
+}
+
+void Foam::LineStructure::buildTrees()
+{
+    rodTrees.resize(nR);
+    for(label rodI=0; rodI<nR; rodI++)
+        buildTreeOnRod(rodI);
+}
+
+void Foam::LineStructure::buildTreeOnRod
+(
+    label rodNumber
+)
+{
+    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
+    
+    BoundingBoxTree& rodTree = rodTrees[rodNumber];
+    std::unique_ptr<BoundingBoxTree::Node>& root = rodTree.getRoot();
+    root = std::make_unique<BoundingBoxTree::Node>();
+    
+    root->key = 0.5*(rod->m_Curve.domainStart()+rod->m_Curve.domainEnd());
+    root->value = computeBox(rodNumber);
+    root->leftChild = std::make_unique<BoundingBoxTree::Node>();
+    root->rightChild = std::make_unique<BoundingBoxTree::Node>();
+
+    std::function<void(std::unique_ptr<BoundingBoxTree::Node>&,std::pair<scalar,scalar>)> recursiveBuildTree =
+    [&](std::unique_ptr<BoundingBoxTree::Node>& node, std::pair<scalar,scalar> bound)
+    {
+        scalar center = 0.5*(bound.first+bound.second);
+        node->key = center;
+        node->value = computeBox(rodNumber,bound.first,bound.second);
+        scalar boxSize = node->value.innerSize();
+        scalar charSize = characteristicSize(rodNumber,center);
+        if(charSize<boxSize)
+        {
+            node->leftChild = std::make_unique<BoundingBoxTree::Node>();
+            recursiveBuildTree(node->leftChild,{bound.first,center});
+            node->rightChild = std::make_unique<BoundingBoxTree::Node>();
+            recursiveBuildTree(node->rightChild,{center,bound.second});
+        }        
+    };
+}
+
+void Foam::LineStructure::setupRodBoundingBoxTree()
+{
+    buildTrees();
+    rodInMesh.resize(nR);
+    for(label rodI=0; rodI<nR; rodI++)
+    {
+        if(meshBoundingBox.boundingBoxOverlap(rodTrees[rodI].rootBox()))
+            rodInMesh[rodI] = true;
+        else
+            rodInMesh[rodI] = false;
+    }
+}
+
+void Foam::LineStructure::setDeformation
+(
+    const List<List<vector>>& deformationCoeffs
+)
+{
+    Structure::setDeformation(deformationCoeffs);
+    setupRodBoundingBoxTree();
+}
 
 Foam::vector Foam::LineStructure::evaluateRodCircumPos
 (

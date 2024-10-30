@@ -55,12 +55,49 @@ Foam::BoundingBox Foam::BoundingBox::boundingBoxIntersection
     return result;
 }
 
+Foam::scalar Foam::BoundingBox::distance
+(
+    const BoundingBox& rhs
+) const
+{
+    if(boundingBoxOverlap(rhs))
+        return 0;
+    
+    Vector<bool> inBetween({false,false,false});
+    vector minDistances;
+    for(label dim=0; dim<3; dim++)
+    {
+        scalar small_large = smaller[dim]-rhs.larger[dim];
+        scalar small_small = smaller[dim]-rhs.smaller[dim];
+        scalar large_small = larger[dim]-rhs.smaller[dim];
+        scalar large_large = larger[dim]-rhs.larger[dim];
+        
+        scalar sm = std::min(std::abs(small_large),std::abs(small_small));
+        sm = std::min(std::abs(large_small),sm);
+        sm = std::min(std::abs(large_large),sm);
+        minDistances[dim] = sm;
+        
+        if(std::signbit(small_large)!=std::signbit(small_small))
+            inBetween[dim] = true;
+        if(std::signbit(large_small)!=std::signbit(large_large))
+            inBetween[dim] = true;
+    }
+        
+    scalar distance = 0;
+    for(label dim=0; dim<3; dim++)
+        if(!inBetween[dim])
+            distance += minDistances[dim]*minDistances[dim];
+    distance = std::sqrt(distance);
+    
+    return distance;
+}
+
 bool Foam::BoundingBox::boundingBoxOverlap
 (
     const BoundingBox& rhs
 ) const
 {
-    return boundingBoxIntersection(rhs).isEmpty();
+    return !boundingBoxIntersection(rhs).isEmpty();
 }
 
 void Foam::BoundingBox::enlarge

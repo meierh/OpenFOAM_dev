@@ -1605,11 +1605,12 @@ void Foam::CrossSectionStructure::reduceMarkers()
 Foam::BoundingBox Foam::CrossSectionStructure::computeBox
 (
     label rodNumber
-)
+) const
 {
-    BoundingBox nurbsCurveBox = Structure::computeBox(rodNumber);
+    BoundingBox nurbsCurveBox = LineStructure::computeBox(rodNumber);
     std::pair<scalar,scalar> minMax = rodCrossSection[rodNumber].radiusBounds();
     nurbsCurveBox.enlarge(minMax.second);
+    Pout<<"Foam::CrossSectionStructure::computeBox"<<Foam::endl;
     return nurbsCurveBox;
 }
 
@@ -1618,9 +1619,9 @@ Foam::BoundingBox Foam::CrossSectionStructure::computeBox
     label rodNumber,
     scalar parStart,
     scalar parEnd
-)
+) const
 {
-    BoundingBox nurbsCurveBox = Structure::computeBox(rodNumber,parStart,parEnd);
+    BoundingBox nurbsCurveBox = LineStructure::computeBox(rodNumber,parStart,parEnd);
     std::pair<scalar,scalar> minMax = rodCrossSection[rodNumber].radiusBounds(parStart,parEnd);
     nurbsCurveBox.enlarge(minMax.second);
     return nurbsCurveBox;
@@ -1630,7 +1631,7 @@ Foam::scalar Foam::CrossSectionStructure::characteristicSize
 (
     label rodNumber,
     scalar par
-)
+) const
 {
     FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
     return rodCrossSection[rodNumber].upperLimitRadius(par);
@@ -1779,9 +1780,10 @@ void Foam::CrossSectionStructure::removeOverlapMarkers()
 void Foam::CrossSectionStructure::collectMarkers()
 {
     status.execValid(status.markersCollected);
-    collectedMarkers.resize(0);    
-    for(std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>& singleRodMarkers :  rodMarkersList)
+    collectedMarkers.resize(0);
+    for(std::size_t rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
     {
+        std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>& singleRodMarkers = rodMarkersList[rodNumber];
         if(singleRodMarkers)
         {
             for(std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& oneParaRodMarkers : *singleRodMarkers)
@@ -1796,7 +1798,12 @@ void Foam::CrossSectionStructure::collectMarkers()
             }
         }
         else
+        {
+            meshBoundingBox.print();
+            Pout<<"rodInMesh["<<rodNumber<<"]:"<<rodInMesh[rodNumber]<<Foam::nl;
+            Pout<<"rodTrees["<<rodNumber<<"]:"; rodTrees[rodNumber].printRoot();
             FatalErrorInFunction<<"Rod with no markers given"<<exit(FatalError);
+        }
     }
     status.executed(status.markersCollected);
 }

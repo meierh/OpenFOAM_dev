@@ -488,7 +488,9 @@ void Foam::LagrangianMarker::getCellData
             const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
             auto iter = neighborHaloCellToIndexMap.find(suppCellData.second());
             if(iter==neighborHaloCellToIndexMap.end())
+            {
                 FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            }
             label index = iter->second;
             if(index<0 || index>=neighHaloCells.size())
                 FatalErrorInFunction<<"Out of bounds cell number!"<<exit(FatalError);

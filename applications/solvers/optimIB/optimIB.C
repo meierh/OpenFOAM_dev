@@ -89,18 +89,21 @@ int main(int argc, char *argv[])
     #include "createMesh.H"
 
     // Instantiate the solver
-    Foam::solvers::icoAdjointImmersedBoundary solver(mesh);
+    Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime);
+    solver.solvePrimal();
+    solver.solveAdjoint();
   
-    label optimCoeffsNbr=1;
+    
+    //label optimCoeffsNbr=1;
   
     //Optimizer
-    Optimizer optimSolver(objFunc,optimCoeffsNbr,&solver);
+    //Optimizer optimSolver(objFunc,optimCoeffsNbr,&solver);
 
     // Create the outer PIMPLE loop and control structure
-    pimpleSingleRegionControl pimple(solver.pimple);
+    //pimpleSingleRegionControl pimple(solver.pimple);
 
     // Set the initial time-step
-    setDeltaT(runTime, solver);
+    //setDeltaT(runTime, solver);
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

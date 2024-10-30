@@ -19,13 +19,17 @@ class BoundingBox
         BoundingBox boundingBoxUnion(const BoundingBox& rhs) const;
         //Computes the  Bounding box around both boxes -- There must be no intersection
         BoundingBox boundingBoxIntersection(const BoundingBox& rhs) const;
+        scalar distance(const BoundingBox& rhs) const;
         bool boundingBoxOverlap(const BoundingBox& rhs) const;
         void enlarge(scalar size);
         bool inside(vector point, scalar eps=0) const;
         scalar innerSize();
         bool isEmpty(){return empty;}
         FixedList<vector,8> allVertices();
-        void print() const {Info<<smaller<<" -> "<<larger<<Foam::endl;}
+        void print() const {Pout<<smaller<<" -> "<<larger<<Foam::endl;}
+        Pair<vector> getBB() const {return {smaller,larger};}
+        vector getSmaller() const {return smaller;}
+        vector getLarger() const {return larger;}
         
         static BoundingBox boundsOfCoefficients(const gsMatrix<scalar>& coefs);
         static BoundingBox boundsOfNurbs(const gsNurbs<scalar>& curve);

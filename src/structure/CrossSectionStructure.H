@@ -273,23 +273,7 @@ class CrossSectionStructure : public LineStructure
         void evaluateMarkerMeshRelation(std::list<LagrangianMarkerOnCrossSec>& markerList);
         
         void reduceMarkers() override;
-        
-        BoundingBox computeBox
-        (
-            label rodNumber
-        ) override;
-        BoundingBox computeBox
-        (
-            label rodNumber,
-            scalar parStart,
-            scalar parEnd
-        ) override;
-        scalar characteristicSize
-        (
-            label rodNumber,
-            scalar par
-        ) override;
-        
+                
         void removeOverlapMarkers() override;
                 
         void collectMarkers() override;
@@ -298,6 +282,12 @@ class CrossSectionStructure : public LineStructure
         (
             std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
         );
+        
+    // ----------------- RodBoundingBox setup -----------------
+        BoundingBox computeBox(label rodNumber) const override;
+        BoundingBox computeBox(label rodNumber, scalar parStart, scalar parEnd) const override;
+        scalar characteristicSize(label rodNumber, scalar par) const override;
+    // ----------------- -------------------- -----------------
         
         scalar evaluateCircumArcLen
         (

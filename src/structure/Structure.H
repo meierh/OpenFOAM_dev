@@ -291,7 +291,7 @@ class Structure
         const std::pair<gsNurbs<scalar>,scalar>* readPrevRodDeformation(label rodNumber) const;
         const std::pair<gsNurbs<scalar>,scalar>* readPrevRodRotation(label rodNumber) const;
     public:
-        void setDeformation(const List<List<vector>>& deformationCoeffs);
+        virtual void setDeformation(const List<List<vector>>& deformationCoeffs);
         void setDeformation(label rodNumber, const List<vector>& deformationCoeffs);
         virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) = 0;
         const gsNurbs<scalar>& getDeformation(label rodNumber) const;
@@ -472,19 +472,6 @@ class Structure
             ActiveRodMesh::SolveOptions solveOpt;
         //******************* Parameters *******************//
     // -------------------------------- ------------------ --------------------------------
-        
-    // ----------------- RodBoundingBox setup -----------------
-        List<bool> rodInMesh;
-        List<BoundingBoxTree> rodTrees;
-        virtual BoundingBox computeBox(label rodNumber);
-        virtual BoundingBox computeBox(label rodNumber, scalar parStart, scalar parEnd);
-        virtual scalar characteristicSize(label rodNumber, scalar par) = 0;
-        void buildTrees();
-        void buildTreeOnRod(label rodNumber);
-        void setupRodBoundingBoxTree();
-    public:
-        const List<bool>& getRodInMesh() {return rodInMesh;};
-    // ----------------- -------------------- -----------------
 
     protected:
         const fvMesh& mesh;
@@ -524,7 +511,6 @@ class Structure
         void createParallelTopolgy();
         DynamicList<label> neighbourProcesses;
         std::unordered_map<Pair<label>,label,foamPairHash<label>> neighbourToComm;
-        
         /*********************************Parallel topology***********************************/
     
     private:

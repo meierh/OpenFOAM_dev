@@ -394,7 +394,6 @@ meshBoundingBox(computeMeshBoundingBox())
     createParallelTopolgy();
     computeHaloData();
     setupActiveRodMesh();
-    setupRodBoundingBoxTree();
 }
 
 Foam::Structure::Structure
@@ -418,7 +417,6 @@ meshBoundingBox(computeMeshBoundingBox())
     createParallelTopolgy();
     computeHaloData();
     setupActiveRodMesh();
-    setupRodBoundingBoxTree();
 }
 
 Foam::Structure::~Structure()
@@ -1003,7 +1001,6 @@ void Foam::Structure::computeHaloData()
     cellDataBuffer.clear();
 }
 
-
 /*
 Foam::FixedList<Foam::vector,3> Foam::Structure::quaternionsToRotation
 (
@@ -1520,7 +1517,6 @@ void Foam::Structure::setDeformation
         setDeformation(rodNumber,deformationCoeffs[rodNumber]);
     }
     updateRodCoordinateSystem();
-    setupRodBoundingBoxTree();
 }
 
 void Foam::Structure::setDeformation
@@ -2431,109 +2427,6 @@ void Foam::Structure::setCurveCoeff
     setCurveCoeffs(rodCoefs);  
 }
 
-Foam::BoundingBox Foam::Structure::computeBox
-(
-    label rodNumber
-)
-{
-    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
-    const gsNurbs<scalar>& curve = rod->m_Curve;
-    BoundingBox curve_box = BoundingBox::boundsOfNurbs(curve);
-    const gsNurbs<scalar>& deformation = rod->m_Def;
-    BoundingBox def_box = BoundingBox::boundsOfNurbs(deformation);
-    return curve_box+def_box;
-}
-
-Foam::BoundingBox Foam::Structure::computeBox
-(
-    label rodNumber,
-    scalar parStart,
-    scalar parEnd
-)
-{
-    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
-
-    if(parStart<rod->m_Curve.domainStart())
-        FatalErrorInFunction<<"Out of range"<<exit(FatalError);
-    if(parEnd<rod->m_Curve.domainEnd())
-        FatalErrorInFunction<<"Out of range"<<exit(FatalError);
-    if(parEnd<parStart)
-        FatalErrorInFunction<<"End smaller than start"<<exit(FatalError);
-    
-    const gsNurbs<scalar>& curve = rod->m_Curve;
-    const gsNurbs<scalar>& def = rod->m_Def;
-
-    return BoundingBox::boundsOfNurbs(curve,parStart,parEnd)+BoundingBox::boundsOfNurbs(def,parStart,parEnd);
-}
-
-Foam::scalar Foam::Structure::characteristicSize
-(
-    label rodNumber,
-    scalar par
-)
-{
-    vector position = rodEval(Rods[rodNumber],par);
-    label cell = mesh.findCell(position);
-    if(cell!=-1)
-        return spacingFromMesh(mesh,cell);
-    else
-        return spacingFromMesh(mesh);
-}
-
-void Foam::Structure::buildTrees()
-{
-    rodTrees.resize(nR);
-    for(label rodI=0; rodI<nR; rodI++)
-        buildTreeOnRod(rodI);
-}
-
-void Foam::Structure::buildTreeOnRod
-(
-    label rodNumber
-)
-{
-    const ActiveRodMesh::rodCosserat* rod = Rods[rodNumber];
-    
-    BoundingBoxTree& rodTree = rodTrees[rodNumber];
-    std::unique_ptr<BoundingBoxTree::Node>& root = rodTree.getRoot();
-    root = std::make_unique<BoundingBoxTree::Node>();
-    
-    root->key = 0.5*(rod->m_Curve.domainStart()+rod->m_Curve.domainEnd());
-    root->value = computeBox(rodNumber);
-    root->leftChild = std::make_unique<BoundingBoxTree::Node>();
-    root->rightChild = std::make_unique<BoundingBoxTree::Node>();
-
-    std::function<void(std::unique_ptr<BoundingBoxTree::Node>&,std::pair<scalar,scalar>)> recursiveBuildTree =
-    [&](std::unique_ptr<BoundingBoxTree::Node>& node, std::pair<scalar,scalar> bound)
-    {
-        scalar center = 0.5*(bound.first+bound.second);
-        node->key = center;
-        node->value = computeBox(rodNumber,bound.first,bound.second);
-        scalar boxSize = node->value.innerSize();
-        scalar charSize = characteristicSize(rodNumber,center);
-        if(charSize<boxSize)
-        {
-            node->leftChild = std::make_unique<BoundingBoxTree::Node>();
-            recursiveBuildTree(node->leftChild,{bound.first,center});
-            node->rightChild = std::make_unique<BoundingBoxTree::Node>();
-            recursiveBuildTree(node->rightChild,{center,bound.second});
-        }        
-    };
-}
-
-void Foam::Structure::setupRodBoundingBoxTree()
-{
-    buildTrees();
-    rodInMesh.resize(nR);
-    for(label rodI=0; rodI<nR; rodI++)
-    {
-        if(meshBoundingBox.boundingBoxOverlap(rodTrees[rodI].rootBox()))
-            rodInMesh[rodI] = true;
-        else
-            rodInMesh[rodI] = false;
-    }
-}
-
 Foam::BoundingBox Foam::Structure::computeMeshBoundingBox()
 {
     vector smaller = mesh.points()[0];
@@ -2639,101 +2532,28 @@ const Foam::List<Foam::List<Foam::Pair<Foam::label>>>& Foam::Structure::getHaloM
 
 void Foam::Structure::createParallelTopolgy()
 {
-    Barrier(false);
+    List<Pair<vector>> boundingBoxes(Pstream::nProcs());
+    if(meshBoundingBox.isEmpty())
+        FatalErrorInFunction<<"meshBoundingBox can not be empty"<<exit(FatalError);
+    boundingBoxes[Pstream::myProcNo()] = meshBoundingBox.getBB();
+    Pstream::gatherList(boundingBoxes);
+    Pstream::scatterList(boundingBoxes);
     
-    const polyBoundaryMesh& boundaries = mesh.boundaryMesh();
-    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
+    for(label proc=0; proc<Pstream::nProcs(); proc++)
     {
-        const polyPatch& patch = boundaries[patchIndex];
-        if(isA<processorPolyPatch>(patch))
+        BoundingBox procBB(boundingBoxes[proc].first(),boundingBoxes[proc].second());
+        for(label nei=proc+1; nei<Pstream::nProcs(); nei++)
         {
-            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
-            label neighbourProcess = pPP->neighbProcNo();
-            neighbourProcesses.append(neighbourProcess);
+            BoundingBox neiBB(boundingBoxes[nei].first(),boundingBoxes[nei].second());
+            scalar bbSize = std::max(procBB.innerSize(),neiBB.innerSize());
+            if(procBB.distance(neiBB)<=bbSize)
+            {
+                label comm = Pstream::allocateCommunicator(Pstream::masterNo(),{proc,nei});
+                neighbourToComm[{proc,nei}] = comm;
+                neighbourToComm[{nei,proc}] = comm;
+            }
         }
     }
-       
-    List<DynamicList<label>> globalNeighbourProcesses(Pstream::nProcs());
-    globalNeighbourProcesses[Pstream::myProcNo()] = neighbourProcesses;
-    Pstream::gatherList(globalNeighbourProcesses);
-    Pstream::scatterList(globalNeighbourProcesses);
-    for(label proc=0; proc<globalNeighbourProcesses.size(); proc++)
-    {
-        const DynamicList<label>& localNeighbourProcesses = globalNeighbourProcesses[proc];
-        Info<<"proc:"<<proc<<"-"<<localNeighbourProcesses<<Foam::endl;
-        for(label nei : localNeighbourProcesses)
-        {
-            std::vector<label> subGroup = {proc,nei};
-            std::sort(subGroup.begin(),subGroup.end());
-            label comm = Pstream::allocateCommunicator(Pstream::masterNo(),{subGroup[0],subGroup[1]});
-            neighbourToComm[{proc,nei}] = comm;
-            neighbourToComm[{nei,proc}] = comm;
-        }
-    }
-    
-    label comm = neighbourToComm[{2,3}];
-    List<label> test(4);
-    if(Pstream::myProcNo()==2)
-    {
-        test[Pstream::myProcNo()] = 2;
-    }
-    if(Pstream::myProcNo()==3)
-    {
-        test[Pstream::myProcNo()] = 3;
-    }
-    
-    Pout<<test<<Foam::endl;
-    Barrier(false);
-    exchangeBetweenTwo(test,comm);
-    Barrier(false);
-    Pout<<test<<Foam::endl;
-    
-    
-    
-    /*
-    if(Pstream::myProcNo()==2)
-    {
-        label comm = neighbourToComm[3];
-        label commProcNo = Pstream::procNo(comm,2);
-        label worldCommProcNo = Pstream::baseProcNo(comm,commProcNo);
-        label commMaster = Pstream::master(comm);
-        Pout<<"comm - 1:"<<comm<<" size:"<<Pstream::nProcs(comm)<<" commProcNo "<<commProcNo<<" commMaster: "<<commMaster<<" worldCommProcNo: "<<worldCommProcNo<<Foam::endl;
-        List<label> test(2);
-        test[0] = 3;
-        Pstream::gatherList(test,Pstream::msgType(),comm);
-        Pstream::scatterList(test,Pstream::msgType(),comm);
-        Pout<<test<<Foam::nl;
-    }
-    if(Pstream::myProcNo()==3)
-    {
-        label comm = neighbourToComm[2];
-        label commProcNo = Pstream::procNo(comm,3);
-        label worldCommProcNo = Pstream::baseProcNo(comm,commProcNo);
-        label commMaster = Pstream::master(comm);
-        Pout<<"comm - 0:"<<comm<<" size:"<<Pstream::nProcs(comm)<<" commProcNo "<<commProcNo<<" commMaster: "<<commMaster<<" worldCommProcNo: "<<worldCommProcNo<<Foam::endl;
-        List<label> test(2);
-        test[1] = 7;
-        Pstream::gatherList(test,Pstream::msgType(),comm);
-        Pstream::scatterList(test,Pstream::msgType(),comm);
-        Pout<<test<<Foam::nl;
-    }
-    */
-    
-    /*
-    for(label neighbourProcess : neighbourProcesses)
-    {
-        if(neighbourToComm.find(neighbourProcess)!=neighbourToComm.end())
-            FatalErrorInFunction<<"Duplicate processor"<<exit(FatalError);
-        neighbourToComm[neighbourProcess] = 0;
-        label comm = Pstream::allocateCommunicator(Pstream::myProcNo(),{neighbourProcess});
-        
-        Pout<<"neighborProcess:"<<neighbourProcess<<"->"<<neighbourToComm[neighbourProcess]<<Foam::endl;
-    }
-    label comm = Pstream::allocateCommunicator(0,{1,2,3});
-    Pout<<"comm:"<<comm<<Foam::endl;
-    */
-    
-    Barrier(true);
 }
 
 void Foam::Structure::generateMeshGraph()
@@ -2792,6 +2612,9 @@ void Foam::Structure::collectMeshHaloData
     label iterations
 )
 {
+    Barrier(false);
+    auto t1 = std::chrono::high_resolution_clock::now();
+    
     globalHaloCellList_Sorted.clear();
     globalHaloCellToIndexMap.clear();
     patchFaceToCellMap.clear();
@@ -2899,16 +2722,31 @@ void Foam::Structure::collectMeshHaloData
         }
     }
     
-    for(auto tupl : neighborProcesses)
-    {
-        Pout<<std::get<0>(tupl)<<" ";
-    }
-    Info<<Foam::endl;
-    
     Barrier(false);
-    Barrier(true);
+    auto t2 = std::chrono::high_resolution_clock::now();
+    Info<<"Setup took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;
         
+    /*
     //Exchange data
+    std::set<label> orderedComms;
+    for(auto iter=neighbourToComm.begin(); iter!=neighbourToComm.end(); iter++)
+    {
+        orderedComms.insert(iter->second);
+    }
+    for(auto iter=orderedComms.begin(); iter!=orderedComms.end(); iter++)
+    {
+        label comm = *iter;
+        
+        exchangeBetweenTwo(procPatchOwner,comm);
+        exchangeBetweenTwo(procPatchNeighbour,comm);
+        exchangeBetweenTwo(procPatchIndex,comm);
+        exchangeBetweenTwo(procPatchFaceLocalIndex,comm);
+        exchangeBetweenTwo(procCellInds,comm);
+        exchangeBetweenTwo(procCellCentres,comm);
+        exchangeBetweenTwo(procCellMags,comm);
+    }   
+    */
+    
     Pstream::gatherList(procPatchOwner);
     Pstream::gatherList(procPatchNeighbour);
     Pstream::gatherList(procPatchIndex);
@@ -2924,7 +2762,12 @@ void Foam::Structure::collectMeshHaloData
     Pstream::scatterList(procCellInds);
     Pstream::scatterList(procCellCentres);
     Pstream::scatterList(procCellMags);
-        
+    
+    
+    Barrier(false);
+    t1 = std::chrono::high_resolution_clock::now();
+    Info<<"Exchange took "<<std::chrono::duration_cast<std::chrono::microseconds>(t1-t2).count()<<" microseconds"<<Foam::nl;
+
     //Compute halo cell list
     globalHaloCellList_Sorted.resize(Pstream::nProcs());
     globalHaloCellToIndexMap.resize(Pstream::nProcs());
@@ -2987,6 +2830,10 @@ void Foam::Structure::collectMeshHaloData
         }
     }
     
+    Barrier(false);
+    t2 = std::chrono::high_resolution_clock::now();
+    Info<<"Compute halo cell list took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;
+    
     // [proc] -> neighbour -> patchInd -> locFaceInd -> index
     List<std::unordered_map<label,std::unordered_map<label,std::map<label,label>>>> globalProcessToPatchIndToLocInd(Pstream::nProcs());
     for(label process=0; process<Pstream::nProcs(); process++)
@@ -3010,7 +2857,11 @@ void Foam::Structure::collectMeshHaloData
             
             globalProcessToPatchIndToLocInd[process][neighbour][index][faceLocalIndex] = patchFaceInd;
         }
-    }    
+    }
+    
+    Barrier(false);
+    t1 = std::chrono::high_resolution_clock::now();
+    Info<<"Compute map 1 took "<<std::chrono::duration_cast<std::chrono::microseconds>(t1-t2).count()<<" microseconds"<<Foam::nl;
     
     for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
     {
@@ -3077,7 +2928,15 @@ void Foam::Structure::collectMeshHaloData
         }
     }
     
+    Barrier(false);
+    t2 = std::chrono::high_resolution_clock::now();
+    Info<<"Compute map 2 took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;
+    
     generateMeshGraph();
+    
+    Barrier(false);
+    t1 = std::chrono::high_resolution_clock::now();
+    Info<<"Generate Graph took "<<std::chrono::duration_cast<std::chrono::microseconds>(t1-t2).count()<<" microseconds"<<Foam::nl;
 }
 
 Foam::scalar Foam::Structure::spacingFromMesh

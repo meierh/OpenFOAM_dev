@@ -26,6 +26,9 @@ void Foam::exchangeBetweenTwo
     const label comm
 )
 {
+    if(globalData.size()!=Pstream::nProcs())
+        FatalErrorInFunction<<"Invalid globalData size"<<exit(FatalError);
+    
     if(Pstream::nProcs(comm)!=2)
         FatalErrorInFunction<<"Invalid comm size"<<exit(FatalError);
     

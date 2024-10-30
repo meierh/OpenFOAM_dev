@@ -513,9 +513,7 @@ class LineStructure : public Structure
         //const label minRefinement = 1;
         markerMeshType modusFieldToMarker;
         markerMeshType modusMarkerToField;
-        
-        scalar characteristicSize(label rodNumber, scalar par) override;
-                
+                        
     private:
         const List<scalar> crossSecArea;
         // [rodNumber] -> ...
@@ -532,8 +530,25 @@ class LineStructure : public Structure
         void readRodPntsToMeshSpacingDict(const IOdictionary& structureDict);       
         
         std::map<scalar,std::vector<LagrangianMarker>> storage;
-        
         /******************Halo markers data************************/
+        
+    // ----------------- RodBoundingBox setup -----------------
+        List<bool> rodInMesh;
+        List<BoundingBoxTree> rodTrees;
+        virtual BoundingBox computeBox(label rodNumber) const;
+        virtual BoundingBox computeBox(label rodNumber, scalar parStart, scalar parEnd) const;
+        virtual scalar characteristicSize(label rodNumber, scalar par) const;
+        void buildTrees();
+        void buildTreeOnRod(label rodNumber);
+        void setupRodBoundingBoxTree();
+    public:
+        const List<bool>& getRodInMesh() {return rodInMesh;};
+    // ----------------- -------------------- -----------------
+        
+    // --------------- Rod movement methods ---------------
+        void setDeformation(const List<List<vector>>& deformationCoeffs) override;
+    // ----------------- ------------------------- -----------------
+        
     public:
         class GlobalHaloMarkers
         {
