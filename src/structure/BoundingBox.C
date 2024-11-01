@@ -14,6 +14,29 @@ larger(larger)
             empty = true;
 }
 
+Foam::BoundingBox::BoundingBox
+(
+    const fvMesh& mesh,
+    const cell& cell
+)
+{
+    pointField points = cell.points(mesh.faces(),mesh.points());
+    if(points.size()==0)
+        FatalErrorInFunction<<"Illegal cell"<<exit(FatalError);
+    vector smaller = points[0];
+    vector larger = points[0];
+    for(vector pnt : points)
+    {
+        for(label dim=0; dim<3; dim++)
+        {
+            smaller[dim] = std::min(smaller[dim],pnt[dim]);
+            larger[dim] = std::max(larger[dim],pnt[dim]);
+        }
+    }
+    this->smaller = smaller;
+    this->larger = larger;
+}
+
 Foam::BoundingBox Foam::BoundingBox::operator+
 (
     const BoundingBox& rhs

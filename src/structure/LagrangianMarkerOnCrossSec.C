@@ -30,27 +30,36 @@ baseCrossSec(baseCrossSec)
 
 void Foam::LagrangianMarkerOnCrossSec::evaluateMarker()
 {
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()"<<Foam::nl;
     //auto t0 = std::chrono::system_clock::now();
     markerPosition = CrossSectionStructure::evaluateRodCircumPos
     (
         baseRod,markerParameter,baseCrossSec,markerAngle,markerRadiusFrac
     );
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::markerPosition:"<<markerPosition<<Foam::nl;
     //auto t1 = std::chrono::system_clock::now();
-    markerCell = mesh.findCell(markerPosition);
+    markerCell = structure.findCell(markerPosition);
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::markerCell:"<<markerCell<<Foam::nl;
     //auto t2 = std::chrono::system_clock::now();
     computeSupport();
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::computeSupport"<<Foam::nl;
     //auto t3 = std::chrono::system_clock::now();
     Pair<vector> h = minMaxNeighbourWidth(directSupport);
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::h"<<Foam::nl;
     //auto t4 = std::chrono::system_clock::now();
     h_plus = h.first();
     h_minus = h.second();
     dilation = dilationFactors(h);
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::dilation"<<Foam::nl;
     //auto t5 = std::chrono::system_clock::now();
     checkDirectSupport();
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::checkDirectSupport"<<Foam::nl;
     //auto t6 = std::chrono::system_clock::now();
     reduceSupport();
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::reduceSupport"<<Foam::nl;
     //auto t7 = std::chrono::system_clock::now();
     computeCharacLength();
+    //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::computeCharacLength"<<Foam::nl;
     //auto t8 = std::chrono::system_clock::now();
     
     /*

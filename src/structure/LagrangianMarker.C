@@ -125,7 +125,7 @@ void Foam::LagrangianMarker::total_print() const
 void Foam::LagrangianMarker::evaluateMarker()
 {
     markerPosition = LineStructure::evaluateRodPos(baseRod,markerParameter);
-    markerCell = mesh.findCell(markerPosition);
+    markerCell = structure.findCell(markerPosition);
     computeSupport();
     Pair<vector> h = minMaxNeighbourWidth(directSupport);
     h_plus = h.first();
@@ -172,6 +172,12 @@ void Foam::LagrangianMarker::computeSupport
                 frontNodes.append({edge.first(),edge.second()});
             }
         }
+        
+        if(Pstream::myProcNo()==0 && markerCell==280)
+        {
+            Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
+            Pout<<"frontNodes:"<<frontNodes<<Foam::nl;
+        }
                 
         for(label iteration=1; iteration<iterations; iteration++)
         {
@@ -190,13 +196,20 @@ void Foam::LagrangianMarker::computeSupport
                     }
                     else
                     {
+        if(Pstream::myProcNo()==0 && markerCell==280)
+        {
+            Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
+            Pout<<proc<<"->"<<cellInd<<Foam::nl;
+        }
                         const List<List<Pair<label>>>& procHaloMeshGraph = structure.getHaloMeshGraph(proc);
+                        /*
                         const std::unordered_map<label,label>& procHaloCellToIndex = structure.getHaloCellToIndexMap(proc);
                         auto iter = procHaloCellToIndex.find(cellInd);
                         if(iter==procHaloCellToIndex.end())
                             FatalErrorInFunction<<"Support iteration depth mismatch!"<<exit(FatalError);
                         label procHaloIndex = iter->second;
-                        const List<Pair<label>>& procHaloCellGraph = procHaloMeshGraph[procHaloIndex];
+                        */
+                        const List<Pair<label>>& procHaloCellGraph = procHaloMeshGraph[cellInd];
                         nodeNeighbours = &procHaloCellGraph;
                     }
                                         
@@ -289,7 +302,14 @@ void Foam::LagrangianMarker::computeSupport
     for(label dim=0; dim<3; dim++)
     {
         existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
-    }    
+    }
+    
+    if(Pstream::myProcNo()==0 && markerCell==280)
+    {
+        Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
+        Pout<<"iterations:"<<iterations<<Foam::nl;
+        Pout<<"fullSupport:"<<fullSupport<<Foam::nl;
+    }
 }
 
 Foam::Pair<Foam::vector> Foam::LagrangianMarker::minMaxNeighbourWidth
@@ -489,6 +509,11 @@ void Foam::LagrangianMarker::getCellData
             auto iter = neighborHaloCellToIndexMap.find(suppCellData.second());
             if(iter==neighborHaloCellToIndexMap.end())
             {
+                Pout<<"directSupport:"<<directSupport<<Foam::nl;
+                Pout<<"fullSupport:"<<fullSupport<<Foam::nl;
+                Pout<<"markerCell:"<<markerCell<<Foam::nl;
+                Pout<<"neighHaloCells.size():"<<neighHaloCells.size()<<Foam::nl;
+                Pout<<"suppCellData:"<<suppCellData<<Foam::nl;
                 FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
             }
             label index = iter->second;

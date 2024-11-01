@@ -108,9 +108,23 @@ void Foam::FieldMarkerStructureInteraction::integrateFieldOverMarker
         {
             const std::unordered_map<label,label>& procCellToInd = structure.getHaloCellToIndexMap(proc);
             auto iterIndex = procCellToInd.find(cellInd);
-            if(iterIndex!=procCellToInd.end())
+            if(iterIndex==procCellToInd.end())
+            {
+                Pout<<"proc:"<<proc<<Foam::nl;
+                Pout<<"cellInd:"<<cellInd<<Foam::nl;
+                Pout<<"iterIndex->second:"<<iterIndex->second<<Foam::nl;
+                Pout<<"haloFields.size():"<<haloFields.size()<<Foam::nl;
+                Pout<<"haloFields["<<proc<<"].size():"<<haloFields[proc].size()<<Foam::nl;
                 FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);
+            }
             label haloIndex = iterIndex->second;
+            if(haloIndex<0 || haloIndex>=haloFields[proc].size())
+            {
+                Pout<<"haloIndex:"<<haloIndex<<Foam::nl;
+                Pout<<"haloFields.size():"<<haloFields.size()<<Foam::nl;
+                Pout<<"haloFields["<<proc<<"].size():"<<haloFields[proc].size()<<Foam::nl;
+                FatalErrorInFunction<<"Halo cell out of range"<<exit(FatalError);
+            }
             return haloFields[proc][haloIndex];                    
         }
     };

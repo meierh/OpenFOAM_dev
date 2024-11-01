@@ -470,7 +470,7 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
 (
     label rodNumber
 )
-{   
+{  
     if(rodInMesh[rodNumber])
     {
         const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
@@ -487,6 +487,10 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
         
         oneRodMarkers.resize(thisRodIniPnts.size());
         auto iterPara = oneRodMarkers.begin();
+        
+        meshBoundingBox.print();
+        rodTrees[rodNumber].printRoot();
+        
         for(uint paraInd=0; paraInd<thisRodIniPnts.size(); paraInd++,iterPara++)
         {
             scalar parameter = thisRodIniPnts[paraInd].first;
@@ -1610,7 +1614,6 @@ Foam::BoundingBox Foam::CrossSectionStructure::computeBox
     BoundingBox nurbsCurveBox = LineStructure::computeBox(rodNumber);
     std::pair<scalar,scalar> minMax = rodCrossSection[rodNumber].radiusBounds();
     nurbsCurveBox.enlarge(minMax.second);
-    Pout<<"Foam::CrossSectionStructure::computeBox"<<Foam::endl;
     return nurbsCurveBox;
 }
 
@@ -1784,25 +1787,33 @@ void Foam::CrossSectionStructure::collectMarkers()
     for(std::size_t rodNumber=0; rodNumber<rodMarkersList.size(); rodNumber++)
     {
         std::unique_ptr<std::list<std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>>>& singleRodMarkers = rodMarkersList[rodNumber];
-        if(singleRodMarkers)
+        if(rodInMesh[rodNumber])
         {
-            for(std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& oneParaRodMarkers : *singleRodMarkers)
+            if(singleRodMarkers)
             {
-                for(std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radialFracRodMarkers : oneParaRodMarkers.second)
+                for(std::pair<scalar,std::list<std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>>>& oneParaRodMarkers : *singleRodMarkers)
                 {
-                    for(LagrangianMarkerOnCrossSec& marker : radialFracRodMarkers.second)
+                    for(std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radialFracRodMarkers : oneParaRodMarkers.second)
                     {
-                        collectedMarkers.push_back(&marker);
+                        for(LagrangianMarkerOnCrossSec& marker : radialFracRodMarkers.second)
+                        {
+                            collectedMarkers.push_back(&marker);
+                        }
                     }
                 }
+            }
+            else
+            {
+                meshBoundingBox.print();
+                Pout<<"rodInMesh["<<rodNumber<<"]:"<<rodInMesh[rodNumber]<<Foam::nl;
+                Pout<<"rodTrees["<<rodNumber<<"]:"; rodTrees[rodNumber].printRoot();
+                FatalErrorInFunction<<"Rod with no markers given but in mesh"<<exit(FatalError);
             }
         }
         else
         {
-            meshBoundingBox.print();
-            Pout<<"rodInMesh["<<rodNumber<<"]:"<<rodInMesh[rodNumber]<<Foam::nl;
-            Pout<<"rodTrees["<<rodNumber<<"]:"; rodTrees[rodNumber].printRoot();
-            FatalErrorInFunction<<"Rod with no markers given"<<exit(FatalError);
+            if(singleRodMarkers)
+                FatalErrorInFunction<<"Rod out of mesh but markers given"<<exit(FatalError);
         }
     }
     status.executed(status.markersCollected);

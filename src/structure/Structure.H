@@ -45,6 +45,7 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include "fvMesh.H"
+#include "meshSearch.H"
 #include "processorPolyPatch.H"
 #include "GeometricField.H"
 #include "volFieldsFwd.H"
@@ -395,7 +396,6 @@ class Structure
         
         const scalar initialMeshSpacing;
         const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourhoodProcesses;}
-        const List<List<Pair<label>>>& getMeshGraph() const {return meshGraph;}
         
     private:
         List<std::unordered_map<scalar,std::array<vector,4>>> rodEvalBuffer;
@@ -499,45 +499,72 @@ class Structure
     public:
         const DynamicList<CellDescription>& getHaloCellList(label process) const;
         const std::unordered_map<label,label>& getHaloCellToIndexMap(label process) const;
-        const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& getPatchFaceToCellMap() const;
+        //const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& getPatchFaceToCellMap() const;
         const List<List<Pair<label>>>& getHaloMeshGraph(label process) const;
         template<typename T>
         std::unique_ptr<List<List<T>>> broadcastHaloFields(const GeometricField<T,fvPatchField,volMesh>& fieldData);
         /*********************************Collect halo cells***********************************/
         std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>>& getCellDataBuffer(){return cellDataBuffer;}
-        
-    protected:
-        /*********************************Parallel topology***********************************/
-        void createParallelTopolgy();
-        DynamicList<label> neighbourProcesses;
-        std::unordered_map<Pair<label>,label,foamPairHash<label>> neighbourToComm;
-        /*********************************Parallel topology***********************************/
-    
+            
     private:
         /*********************************Collect halo cells***********************************/
         // [proc] -> processes' halo cells 
         List<DynamicList<CellDescription>> globalHaloCellList_Sorted;
         // [proc] -> cell -> index
         List<std::unordered_map<label,label>> globalHaloCellToIndexMap;
-        //faceInd -> [{neighbor proc,cell}]
-        std::unordered_map<label,List<DynamicList<std::pair<label,label>>>> patchFaceToCellMap;
+
         // [proc] -> processes' halo cells -> edges -> {proc,cell}
-        List<List<List<Pair<label>>>> globalHaloMeshGraph;
+        //List<List<List<Pair<label>>>> globalHaloMeshGraph;
         /*********************************Collect halo cells***********************************/
         
         std::unordered_set<label> neighbourhoodProcesses;
         
-        List<List<Pair<label>>> meshGraph;
+        /*********************************Global mesh data***********************************/
+        //faceInd -> [{proc,cell}]
+        std::unordered_map<label,Pair<label>> patchFaceToNeighCellMap;
+        // [proc] -> cell -> neighbours -> {proc,cellInd}
+        List<List<List<Pair<label>>>> globalMeshGraph;
+        // localCell -> neighbours -> {proc,cellInd}
+        List<List<Pair<label>>>* localMeshGraph;
         
+        // [proc] -> cell -> {centre}
+        List<List<vector>> globalMeshCentres;
+        // [proc] -> cell -> {magnitude}
+        List<List<scalar>> globalMeshMagn;
+        
+        void computePatchFaceToCellMap();
+        void generateMeshGraph();
+    public:
+        const List<List<Pair<label>>>& getMeshGraph(label proc=Pstream::myProcNo()) const;
+        /*********************************Collect halo cells***********************************/
+        
+    protected:
+        /*********************************Parallel topology***********************************/
+        void createParallelTopolgy();
+        DynamicList<label> neighbourProcesses;
+        std::unordered_map<Pair<label>,label,foamPairHash<label>> neighbourToComm;
+        DynamicList<label> orderedComms;
+        bool exchangeSpecific = true;
+    public:
+        template<typename T> void exchangeBetweenAll(List<T>& globalData);
+        /*********************************Parallel topology***********************************/
+    
+    private:
         std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>> cellDataBuffer;
         
-        void generateMeshGraph();
         
-        const label haloWidth = 4;        
+        const label haloWidth = 4;
         void collectMeshHaloData(label iterations=1);
+
+        void selfCheckHalos();
     public:
         static scalar spacingFromMesh(const fvMesh& mesh, label cellInd=0);
         static void neighbourCells(const fvMesh& mesh, label cellInd, DynamicList<label>& neighbours);
+        
+    private:
+        std::unique_ptr<meshSearch> cellSearchEngine;
+    public:
+        label findCell(vector position, label cellHint=-1);
         
         void writeCellSizeField(volScalarField& field) const;
         

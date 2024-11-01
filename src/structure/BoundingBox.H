@@ -14,6 +14,7 @@ class BoundingBox
     public:
         BoundingBox(){}
         BoundingBox(vector smaller, vector larger);
+        BoundingBox(const fvMesh& mesh, const cell& cell);
         BoundingBox operator+(const BoundingBox& rhs) const;
         //Compute the largest necessary bounding box around both boxes -- There must be no intersection
         BoundingBox boundingBoxUnion(const BoundingBox& rhs) const;

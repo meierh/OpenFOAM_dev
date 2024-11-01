@@ -9,5 +9,6 @@ LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C
 CrossSectionStructureParameters.C
 LinearSystem.C
+MeshTree.C
 
 LIB = $(FOAM_USER_LIBBIN)/libStructure

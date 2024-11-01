@@ -2512,6 +2512,7 @@ const std::unordered_map<Foam::label,Foam::label>& Foam::Structure::getHaloCellT
     return globalHaloCellToIndexMap[process];
 }
 
+/*
 const std::unordered_map<Foam::label,Foam::List<Foam::DynamicList<std::pair<Foam::label,Foam::label>>>>&
 Foam::Structure::getPatchFaceToCellMap
 (
@@ -2519,15 +2520,16 @@ Foam::Structure::getPatchFaceToCellMap
 {
     return patchFaceToCellMap;
 }
+*/
 
-const Foam::List<Foam::List<Foam::Pair<Foam::label>>>& Foam::Structure::getHaloMeshGraph
+const Foam::List<Foam::List<Foam::Pair<Foam::label>>>& Foam::Structure::getMeshGraph
 (
     label process
 ) const
 {
-    if(process<0 || process>=globalHaloMeshGraph.size())
-        FatalErrorInFunction<<"Out of bounds process number"<<exit(FatalError);
-    return globalHaloMeshGraph[process];
+    if(process<0 || process>=Pstream::myProcNo())
+        FatalErrorInFunction<<"Out of bounds process number:"<<process<<exit(FatalError);
+    return globalMeshGraph[process];
 }
 
 void Foam::Structure::createParallelTopolgy()
@@ -2554,19 +2556,109 @@ void Foam::Structure::createParallelTopolgy()
             }
         }
     }
+    
+    std::set<label> orderedComms;
+    for(auto iter=neighbourToComm.begin(); iter!=neighbourToComm.end(); iter++)
+    {
+        orderedComms.insert(iter->second);
+    }
+    for(auto iter=orderedComms.begin(); iter!=orderedComms.end(); iter++)
+        this->orderedComms.append(*iter);
+    
+    Pout<<"orderedComms:"<<this->orderedComms<<Foam::nl;
+    for(label comm : orderedComms)
+        Pout<<comm<<" - "<<Pstream::procID(comm)<<Foam::nl;
+}
+
+void Foam::Structure::computePatchFaceToCellMap()
+{
+    patchFaceToNeighCellMap.clear();
+    
+    const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
+    const labelList& owner = mesh.owner();
+    const labelList& neighbour = mesh.neighbour();
+    const pointField& points = mesh.points();
+    const polyBoundaryMesh& boundaries = mesh.boundaryMesh();
+    
+    //[proc] -> [...] -> {neighbour,patchFaceInd,cellInd}
+    List<DynamicList<Tuple3<label,label,label>>> patchFaceToOwnCell(Pstream::nProcs());
+    //[...] -> {neighbour,patchFaceInd,cellInd}
+    DynamicList<Tuple3<label,label,label>>& procPatchFaceToOwnCell = patchFaceToOwnCell[Pstream::myProcNo()];
+    
+    for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
+    {
+        const polyPatch& patch = boundaries[patchIndex];
+        if(isA<processorPolyPatch>(patch))
+        {
+            const processorPolyPatch* pPP = dynamic_cast<const processorPolyPatch*>(&patch);
+            label neighborProcess = pPP->neighbProcNo();
+            label patchStartFace = pPP->start();
+            label patchSizeFaces = pPP->size();
+
+            //neighborProcesses.append({neighborProcess,patchStartFace,patchSizeFaces});
+            
+            for(label locFaceInd=0; locFaceInd<patchSizeFaces; locFaceInd++)
+            {
+                label faceInd = locFaceInd+patchStartFace;
+                if(faceInd<neighbour.size())
+                    FatalErrorInFunction<<"Boundary face has a neighbour"<<exit(FatalError);
+                
+                label cellInd = owner[faceInd];
+                procPatchFaceToOwnCell.append({neighborProcess,faceInd,cellInd});
+            }
+        }
+    }
+    
+    exchangeBetweenAll(patchFaceToOwnCell);
+    
+    for(label proc=0; proc<Pstream::nProcs(); proc++)
+    {
+        const DynamicList<Tuple3<label,label,label>>& procPatchFaceToCell = patchFaceToOwnCell[proc];
+        for(const Tuple3<label,label,label>& patchData : procPatchFaceToCell)
+        {
+            if(patchData.first()==Pstream::myProcNo())
+            {
+                auto iter = patchFaceToNeighCellMap.find(patchData.second());
+                if(iter!=patchFaceToNeighCellMap.end())
+                    FatalErrorInFunction<<"Duplicate entry for face"<<exit(FatalError);
+                patchFaceToNeighCellMap[patchData.second()] = {patchData.first(),patchData.third()};
+            }
+        }
+    }
 }
 
 void Foam::Structure::generateMeshGraph()
 {
-    globalHaloMeshGraph.clear();
-    meshGraph.clear();
+    computePatchFaceToCellMap();
+    
+    Barrier(false);
+    auto t1 = std::chrono::high_resolution_clock::now();
     
     const cellList& cells = mesh.cells();
+    const faceList& faces = mesh.faces();
     const labelList& owners = mesh.owner();
     const labelList& neighbours = mesh.neighbour();
-    const std::unordered_map<label,List<DynamicList<std::pair<label,label>>>>& patchFaceToCell = getPatchFaceToCellMap();
+    const pointField& points = mesh.points();
     
-    meshGraph.setSize(cells.size());
+    globalMeshGraph.clear();
+    globalMeshGraph.setSize(Pstream::nProcs());
+    localMeshGraph = &(globalMeshGraph[Pstream::myProcNo()]);
+    localMeshGraph->setSize(cells.size());
+    List<List<Pair<label>>>& meshGraph = *localMeshGraph;
+    
+    globalMeshCentres.clear();
+    globalMeshCentres.setSize(Pstream::nProcs());
+    globalMeshCentres[Pstream::myProcNo()].setSize(cells.size());
+    
+    globalMeshMagn.clear();
+    globalMeshMagn.setSize(Pstream::nProcs());
+    globalMeshMagn[Pstream::myProcNo()].setSize(cells.size());
+    
+    Barrier(false);
+    auto t2 = std::chrono::high_resolution_clock::now();
+    Info<<"Graph setup took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;
+    
     for(label cellInd=0; cellInd<cells.size(); cellInd++)
     {
         const cell& oneCell = cells[cellInd];
@@ -2583,28 +2675,67 @@ void Foam::Structure::generateMeshGraph()
             {
                 neighData = {Pstream::myProcNo(),neighbours[faceInd]};
             }
-            else if(patchFaceToCell.find(faceInd)!=patchFaceToCell.end())
+            else if(patchFaceToNeighCellMap.find(faceInd)!=patchFaceToNeighCellMap.end())
             {
-                auto iter = patchFaceToCell.find(faceInd);
-                const List<DynamicList<std::pair<label,label>>>& thisPatchFaceNeighbour = iter->second;
-                if(thisPatchFaceNeighbour.size()<1)
-                    FatalErrorInFunction<<"Neighbourhood must be larger than one iteration"<<exit(FatalError);
-                const DynamicList<std::pair<label,label>>& firstIterNeighbourhood = thisPatchFaceNeighbour[0];
-                if(firstIterNeighbourhood.size()!=1)
-                    FatalErrorInFunction<<"First iteration neighbourhood must be sized 1"<<exit(FatalError);
-                std::pair<label,label> neighbourCell = firstIterNeighbourhood[0];
-                neighData = {neighbourCell.first,neighbourCell.second};
+                auto iter = patchFaceToNeighCellMap.find(faceInd);
+                const Pair<label>& neighCell = iter->second;
+                neighData = neighCell;
             }
-
             meshGraph[cellInd][cellFaceInd] = neighData;
+        }
+        globalMeshCentres[cellInd] = oneCell.centre(points,faces);
+        globalMeshMagn[cellInd] = oneCell.mag(points,faces);        
+    }
+    
+    Barrier(false);
+    t1 = std::chrono::high_resolution_clock::now();
+    Info<<"Graph collection took "<<std::chrono::duration_cast<std::chrono::microseconds>(t1-t2).count()<<" microseconds"<<Foam::nl;
+    
+    // Flatten data to transfer
+    List<List<label>> cellNeiCount(Pstream::nProcs());
+    List<DynamicList<Pair<label>>> serializedMeshGraph(Pstream::nProcs());
+    for(label cellInd=0; cellInd<localMeshGraph->size(); cellInd++)
+    {
+        cellNeiCount[Pstream::myProcNo()][cellInd] = (*localMeshGraph)[cellInd].size();
+        for(label cellNeiInd=0; cellNeiInd<(*localMeshGraph)[cellInd].size(); cellNeiInd++)
+        {
+            serializedMeshGraph[Pstream::myProcNo()].append((*localMeshGraph)[cellInd][cellNeiInd]);
         }
     }
     
-    globalHaloMeshGraph.setSize(Pstream::nProcs());
-    globalHaloMeshGraph[Pstream::myProcNo()] = meshGraph;
+    // Transfer
+    exchangeBetweenAll(cellNeiCount);
+    exchangeBetweenAll(serializedMeshGraph);
+    exchangeBetweenAll(globalMeshCentres);
+    exchangeBetweenAll(globalMeshMagn);
     
-    Pstream::gatherList(globalHaloMeshGraph);
-    Pstream::scatterList(globalHaloMeshGraph);    
+    // Flatten data to transfer
+    for(label proc=0; proc<Pstream::nProcs(); proc++)
+    {
+        if(proc!=Pstream::myProcNo())
+        {
+            const List<label>& procCellNeiCount = cellNeiCount[proc];
+            const DynamicList<Pair<label>>& procSerializedMeshGraph = serializedMeshGraph[proc];
+            
+            List<List<Pair<label>>>& procGlobalMeshGraph = globalMeshGraph[proc];
+            procGlobalMeshGraph.setSize(procCellNeiCount.size());
+            
+            label index=0;
+            for(label cellInd=0; cellInd<procCellNeiCount.size(); cellInd++)
+            {
+                procGlobalMeshGraph[cellInd].setSize(procCellNeiCount[cellInd]);
+                for(label cellNeiInd=0; cellNeiInd<procCellNeiCount[cellInd]; cellNeiInd++)
+                {
+                    procGlobalMeshGraph[cellInd][cellNeiInd] = procSerializedMeshGraph[index];
+                    index++;
+                }
+            }
+        }
+    }
+    
+    Barrier(false);
+    t2 = std::chrono::high_resolution_clock::now();
+    Info<<"Graph exchange took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;    
 }
 
 void Foam::Structure::collectMeshHaloData
@@ -2612,6 +2743,83 @@ void Foam::Structure::collectMeshHaloData
     label iterations
 )
 {
+    if(iterations<1)
+        FatalErrorInFunction<<"Must be at least one iterations"<<exit(FatalError);
+    
+    generateMeshGraph();
+    
+    globalHaloCellList_Sorted.clear();
+    globalHaloCellList_Sorted.resize(Pstream::nProcs());
+    globalHaloCellToIndexMap.clear();
+    globalHaloCellToIndexMap.resize(Pstream::nProcs());
+    for(label proc=0; proc<Pstream::nProcs(); proc++)
+    {
+        std::unordered_map<label,bool> procBoundaryCells;
+        const List<List<Pair<label>>>& procMeshGraph = globalMeshGraph[proc];
+        for(label locCellInd=0; locCellInd<procMeshGraph.size(); locCellInd++)
+        {
+            const List<Pair<label>>& cellNeis = procMeshGraph[locCellInd];
+            bool border=false;
+            for(const Pair<label>& nei : cellNeis)
+            {
+                if(nei.first()!=proc && nei.first()!=-1)
+                    border=true;
+            }
+            if(border)
+                procBoundaryCells.insert({locCellInd,false});
+        }
+        for(label k=1; k<iterations; k++)
+        {
+            for(auto iter=procBoundaryCells.begin(); iter!=procBoundaryCells.end(); iter++)
+            {
+                const label cellInd = iter->first;
+                if(!(iter->second))
+                {
+                    const List<Pair<label>>& cellGraph = procMeshGraph[cellInd];
+                    for(const Pair<label>& cellNei : cellGraph)
+                    {
+                        if(cellNei.first()!=proc && cellNei.first()!=-1)
+                        {
+                            auto iter = procBoundaryCells.find(cellNei.second());
+                            if(iter==procBoundaryCells.end())
+                                procBoundaryCells.insert({cellNei.second(),false});
+                        }
+                    }
+                    iter->second = true;
+                }
+            }
+        }
+        
+        const List<vector>& procMeshCentres = globalMeshCentres[proc];
+        const List<scalar>& procMeshMagn = globalMeshMagn[proc];
+        
+        DynamicList<CellDescription>& haloCellList_Sorted = globalHaloCellList_Sorted[proc];
+        for(auto iter=procBoundaryCells.begin(); iter!=procBoundaryCells.end(); iter++)
+        {
+            label cellInd = iter->first;
+            CellDescription oneCellData = {cellInd,procMeshCentres[cellInd],procMeshMagn[cellInd]};
+            haloCellList_Sorted.append(oneCellData);
+        }
+        std::sort(haloCellList_Sorted.begin(),haloCellList_Sorted.end(),
+                  [](const CellDescription& a, const CellDescription& b)
+                    {
+                        return a.index < b.index;
+                    }
+                );
+        for(label index=0; index<haloCellList_Sorted.size(); index++)
+        {
+            globalHaloCellToIndexMap[proc][haloCellList_Sorted[index].index] = index;
+        }
+    }
+    
+    
+    auto t1 = std::chrono::high_resolution_clock::now();
+    
+    //Continue here
+    
+    //generateMeshGraph();
+
+    /*
     Barrier(false);
     auto t1 = std::chrono::high_resolution_clock::now();
     
@@ -2619,8 +2827,7 @@ void Foam::Structure::collectMeshHaloData
     globalHaloCellToIndexMap.clear();
     patchFaceToCellMap.clear();
     
-    if(iterations<1)
-        FatalErrorInFunction<<"Must be at least one iterations"<<exit(FatalError);
+
     
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
@@ -2643,6 +2850,11 @@ void Foam::Structure::collectMeshHaloData
     List<DynamicList<List<DynamicList<label>>>> procCellInds(Pstream::nProcs());
     List<DynamicList<List<DynamicList<vector>>>> procCellCentres(Pstream::nProcs());
     List<DynamicList<List<DynamicList<scalar>>>> procCellMags(Pstream::nProcs());
+    //[procs]->[...]->{cellInd,center,mag,[...]->iteration,patch}
+    List<DynamicList<label>> procCellHaloCellInd(Pstream::nProcs());
+    List<DynamicList<vector>> procCellHaloCentre(Pstream::nProcs());
+    List<DynamicList<scalar>> procCellHaloMag(Pstream::nProcs());
+
     
     for(label patchIndex=0; patchIndex<boundaries.size(); patchIndex++)
     {
@@ -2725,44 +2937,14 @@ void Foam::Structure::collectMeshHaloData
     Barrier(false);
     auto t2 = std::chrono::high_resolution_clock::now();
     Info<<"Setup took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;
-        
-    /*
-    //Exchange data
-    std::set<label> orderedComms;
-    for(auto iter=neighbourToComm.begin(); iter!=neighbourToComm.end(); iter++)
-    {
-        orderedComms.insert(iter->second);
-    }
-    for(auto iter=orderedComms.begin(); iter!=orderedComms.end(); iter++)
-    {
-        label comm = *iter;
-        
-        exchangeBetweenTwo(procPatchOwner,comm);
-        exchangeBetweenTwo(procPatchNeighbour,comm);
-        exchangeBetweenTwo(procPatchIndex,comm);
-        exchangeBetweenTwo(procPatchFaceLocalIndex,comm);
-        exchangeBetweenTwo(procCellInds,comm);
-        exchangeBetweenTwo(procCellCentres,comm);
-        exchangeBetweenTwo(procCellMags,comm);
-    }   
-    */
-    
-    Pstream::gatherList(procPatchOwner);
-    Pstream::gatherList(procPatchNeighbour);
-    Pstream::gatherList(procPatchIndex);
-    Pstream::gatherList(procPatchFaceLocalIndex);
-    Pstream::gatherList(procCellInds);
-    Pstream::gatherList(procCellCentres);
-    Pstream::gatherList(procCellMags);
-    
-    Pstream::scatterList(procPatchOwner);
-    Pstream::scatterList(procPatchNeighbour);
-    Pstream::scatterList(procPatchIndex);
-    Pstream::scatterList(procPatchFaceLocalIndex);
-    Pstream::scatterList(procCellInds);
-    Pstream::scatterList(procCellCentres);
-    Pstream::scatterList(procCellMags);
-    
+
+    exchangeBetweenAll(procPatchOwner);
+    exchangeBetweenAll(procPatchNeighbour);
+    exchangeBetweenAll(procPatchIndex);
+    exchangeBetweenAll(procPatchFaceLocalIndex);
+    exchangeBetweenAll(procCellInds);
+    exchangeBetweenAll(procCellCentres);
+    exchangeBetweenAll(procCellMags);
     
     Barrier(false);
     t1 = std::chrono::high_resolution_clock::now();
@@ -2826,6 +3008,16 @@ void Foam::Structure::collectMeshHaloData
                 );
         for(label index=0; index<haloCellList_Sorted.size(); index++)
         {
+            if(Pstream::myProcNo()==0)
+            {
+                if(process==2 && haloCellList_Sorted[index].index==135)
+                    Pout<<"( "<<process<<",325):"<<index<<Foam::nl;
+            }
+            if(Pstream::myProcNo()==2)
+            {
+                if(process==0 && haloCellList_Sorted[index].index==325)
+                    Pout<<"( "<<process<<",325):"<<index<<Foam::nl;
+            }
             globalHaloCellToIndexMap[process][haloCellList_Sorted[index].index] = index;
         }
     }
@@ -2853,7 +3045,13 @@ void Foam::Structure::collectMeshHaloData
             //const List<DynamicList<label>>& cellInds = patchCellInds[patchFaceInd];
             
             if(owner!=process)
+            {
+                Pout<<"owner:"<<owner<<Foam::nl;
+                Pout<<"neighbour:"<<neighbour<<Foam::nl;
+                Pout<<"index:"<<index<<Foam::nl;
+                Pout<<"faceLocalIndex:"<<faceLocalIndex<<Foam::nl;
                 FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+            }
             
             globalProcessToPatchIndToLocInd[process][neighbour][index][faceLocalIndex] = patchFaceInd;
         }
@@ -2875,7 +3073,12 @@ void Foam::Structure::collectMeshHaloData
             
             auto iter = globalProcessToPatchIndToLocInd[neighborProcess].find(Pstream::myProcNo());
             if(iter==globalProcessToPatchIndToLocInd[neighborProcess].end())
+            {
+                Pout<<"neighborProcess:"<<neighborProcess<<Foam::nl;
+                Pout<<"patchStartFace:"<<patchStartFace<<Foam::nl;
+                Pout<<"patchSizeFaces:"<<patchSizeFaces<<Foam::nl;
                 FatalErrorInFunction<<"Data mismatch"<<exit(FatalError);
+            }
                 
             // patchInd -> locFaceInd -> index
             const std::unordered_map<label,std::map<label,label>>& patchIndToLocInd = iter->second;
@@ -2927,16 +3130,184 @@ void Foam::Structure::collectMeshHaloData
             }
         }
     }
+    */
     
     Barrier(false);
-    t2 = std::chrono::high_resolution_clock::now();
+    auto t2 = std::chrono::high_resolution_clock::now();
     Info<<"Compute map 2 took "<<std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()<<" microseconds"<<Foam::nl;
     
-    generateMeshGraph();
     
     Barrier(false);
     t1 = std::chrono::high_resolution_clock::now();
     Info<<"Generate Graph took "<<std::chrono::duration_cast<std::chrono::microseconds>(t1-t2).count()<<" microseconds"<<Foam::nl;
+    
+    //Ready parallel find Cell
+    mesh.findCell(0.5*(meshBoundingBox.getSmaller()+meshBoundingBox.getLarger()));
+    
+    selfCheckHalos();
+    
+    //Barrier(true);
+}
+
+void Foam::Structure::selfCheckHalos()
+{
+    Barrier(false);
+    std::unordered_set<Pair<label>,foamPairHash<label>> neighbors;
+    
+    for(label cellInd=0; cellInd<localMeshGraph->size(); cellInd++)
+    {
+        const List<Pair<label>>& cellNei = (*localMeshGraph)[cellInd];
+        if(Pstream::myProcNo()==0 && cellInd==280)
+            Pout<<"280 ---cellNei:"<<cellNei<<Foam::nl;
+        for(const Pair<label>& nei : cellNei)
+        {
+            if(nei.first()!=Pstream::myProcNo() && nei.first()!=-1)
+            {
+                const List<List<Pair<label>>>& procMeshGraph = getHaloMeshGraph(nei.first());
+                if(nei.second()<0 || nei.second()>=procMeshGraph.size())
+                    FatalErrorInFunction<<"Out of range neighbor"<<exit(FatalError);
+                const List<Pair<label>> neiProcCell1 = procMeshGraph[nei.second()];
+                bool neighbourOrigCell = false;
+                for(const Pair<label>& cell : neiProcCell1)
+                {
+                    if(cell==Pair<label>(Pstream::myProcNo(),cellInd))
+                        neighbourOrigCell = true;
+                }
+                if(!neighbourOrigCell)
+                    FatalErrorInFunction<<"Non matching neighbour"<<exit(FatalError);
+                
+                if(Pstream::myProcNo()==0 && cellInd==280)
+                {
+                    Pout<<nei<<"------neiProcCell1:"<<neiProcCell1<<Foam::nl;
+                    neighbors.insert(neiProcCell1.begin(),neiProcCell1.end());
+                }
+                                
+                const std::unordered_map<label,label>& procHaloCellToIndexMap = getHaloCellToIndexMap(nei.first());
+                auto iter = procHaloCellToIndexMap.find(nei.second());
+                if(iter==procHaloCellToIndexMap.end())
+                {
+                    Pout<<"("<<cellInd<<") -> "<<nei<<Foam::nl;
+                    FatalErrorInFunction<<"Out of range halo"<<exit(FatalError);
+                }
+                
+                const DynamicList<CellDescription>& procHaloCellList = getHaloCellList(nei.first());
+                label index = iter->second;
+                if(index<0 || index>=procHaloCellList.size())
+                    FatalErrorInFunction<<"Out of range index"<<exit(FatalError);
+                const CellDescription& cellDesc = procHaloCellList[index];
+                if(cellDesc.index!=nei.second())
+                    FatalErrorInFunction<<"Mismatch cell index"<<exit(FatalError);
+                
+                for(const Pair<label>& haloCell1 : neiProcCell1)
+                {
+                    if(haloCell1.first()!=Pstream::myProcNo() && haloCell1.first()!=-1)
+                    {
+                        const List<List<Pair<label>>>& procMeshGraph = getHaloMeshGraph(haloCell1.first());
+                        if(haloCell1.second()<0 || haloCell1.second()>=procMeshGraph.size())
+                            FatalErrorInFunction<<"Out of range neighbor"<<exit(FatalError);
+                        const List<Pair<label>> neiProcCell2 = procMeshGraph[haloCell1.second()];
+                        
+                        if(Pstream::myProcNo()==0 && cellInd==280)
+                        {
+                            Pout<<haloCell1<<"---------neiProcCell2:"<<neiProcCell2<<Foam::nl;
+                            neighbors.insert(neiProcCell2.begin(),neiProcCell2.end());
+                        }
+                        
+                        const std::unordered_map<label,label>& procHaloCellToIndexMap = getHaloCellToIndexMap(haloCell1.first());
+                        auto iter = procHaloCellToIndexMap.find(haloCell1.second());
+                        if(iter==procHaloCellToIndexMap.end())
+                        {
+                            Pout<<"("<<cellInd<<") -> "<<haloCell1<<Foam::nl;
+                            FatalErrorInFunction<<"Out of range halo"<<exit(FatalError);
+                        }
+                        
+                        const DynamicList<CellDescription>& procHaloCellList = getHaloCellList(haloCell1.first());
+                        label index = iter->second;
+                        if(index<0 || index>=procHaloCellList.size())
+                            FatalErrorInFunction<<"Out of range index"<<exit(FatalError);
+                        const CellDescription& cellDesc = procHaloCellList[index];
+                        if(cellDesc.index!=haloCell1.second())
+                            FatalErrorInFunction<<"Mismatch cell index"<<exit(FatalError);
+                        
+                        for(const Pair<label>& haloCell2 : neiProcCell2)
+                        {
+                            if(haloCell2.first()!=Pstream::myProcNo() && haloCell2.first()!=-1)
+                            {
+                                const List<List<Pair<label>>>& procMeshGraph = getHaloMeshGraph(haloCell2.first());
+                                if(haloCell2.second()<0 || haloCell2.second()>=procMeshGraph.size())
+                                    FatalErrorInFunction<<"Out of range neighbor"<<exit(FatalError);
+                                const List<Pair<label>> neiProcCell3 = procMeshGraph[haloCell2.second()];
+                                
+                                if(Pstream::myProcNo()==0 && cellInd==280)
+                                {
+                                    Pout<<haloCell2<<"------------neiProcCell3:"<<neiProcCell3<<Foam::nl;
+                                    neighbors.insert(neiProcCell3.begin(),neiProcCell3.end());
+                                }
+                                
+                                const std::unordered_map<label,label>& procHaloCellToIndexMap = getHaloCellToIndexMap(haloCell2.first());
+                                auto iter = procHaloCellToIndexMap.find(haloCell2.second());
+                                if(iter==procHaloCellToIndexMap.end())
+                                {
+                                    Pout<<"("<<cellInd<<") -> "<<haloCell2<<Foam::nl;
+                                    FatalErrorInFunction<<"Out of range halo"<<exit(FatalError);
+                                }
+                                
+                                const DynamicList<CellDescription>& procHaloCellList = getHaloCellList(haloCell2.first());
+                                label index = iter->second;
+                                if(index<0 || index>=procHaloCellList.size())
+                                    FatalErrorInFunction<<"Out of range index"<<exit(FatalError);
+                                const CellDescription& cellDesc = procHaloCellList[index];
+                                if(cellDesc.index!=haloCell2.second())
+                                    FatalErrorInFunction<<"Mismatch cell index"<<exit(FatalError);
+                                
+                                /*
+                                for(const Pair<label>& haloCell3 : neiProcCell3)
+                                {
+                                    if(haloCell3.first()!=Pstream::myProcNo() && haloCell3.first()!=-1)
+                                    {
+                                        const List<List<Pair<label>>>& procMeshGraph = getHaloMeshGraph(haloCell3.first());
+                                        if(haloCell3.second()<0 || haloCell3.second()>=procMeshGraph.size())
+                                            FatalErrorInFunction<<"Out of range neighbor"<<exit(FatalError);
+                                        const List<Pair<label>> neiProcCell4 = procMeshGraph[nei.second()];
+                                        
+                                        const std::unordered_map<label,label>& procHaloCellToIndexMap = getHaloCellToIndexMap(haloCell3.first());
+                                        auto iter = procHaloCellToIndexMap.find(haloCell3.second());
+                                        if(iter==procHaloCellToIndexMap.end())
+                                        {
+                                            Pout<<"("<<cellInd<<") -> "<<haloCell3<<Foam::nl;
+                                            FatalErrorInFunction<<"Out of range halo"<<exit(FatalError);
+                                        }
+                                        
+                                        const DynamicList<CellDescription>& procHaloCellList = getHaloCellList(haloCell3.first());
+                                        label index = iter->second;
+                                        if(index<0 || index>=procHaloCellList.size())
+                                            FatalErrorInFunction<<"Out of range index"<<exit(FatalError);
+                                        const CellDescription& cellDesc = procHaloCellList[index];
+                                        if(cellDesc.index!=haloCell3.second())
+                                            FatalErrorInFunction<<"Mismatch cell index"<<exit(FatalError);
+                                    }
+                                }
+                                */
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if(Pstream::myProcNo()==0 && cellInd==280)
+        {
+            DynamicList<Pair<label>> neighborList;
+            for(auto iter = neighbors.begin(); iter!=neighbors.end(); iter++)
+                neighborList.append(*iter);
+            std::sort(neighborList.begin(),neighborList.end(),
+                  [](const Pair<label>& a, const Pair<label>& b)
+                    {
+                        return a.second() < b.second();
+                    }
+                );
+            Pout<<neighborList<<Foam::nl;
+        }
+    }
 }
 
 Foam::scalar Foam::Structure::spacingFromMesh
@@ -2994,6 +3365,16 @@ void Foam::Structure::neighbourCells
         neighbours.append(*iter);
 }
 
+Foam::label Foam::Structure::findCell
+(
+    vector position,
+    label cellHint
+)
+{
+    label cellInd = mesh.findCell(position);    
+    return cellInd;
+}
+
 void Foam::Structure::writeCellSizeField
 (
     volScalarField& field
@@ -3002,7 +3383,7 @@ void Foam::Structure::writeCellSizeField
     for(label cellInd=0; cellInd<mesh.cells().size(); cellInd++)
         field[cellInd] = spacingFromMesh(mesh,cellInd);
 }
-        
+
 void Foam::Structure::quaternionCheck()
 {
     Quaternion q;

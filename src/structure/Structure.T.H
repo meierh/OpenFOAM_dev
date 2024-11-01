@@ -16,6 +16,9 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
         ownHaloField[haloCellInd] = fieldData[ownHaloCells[haloCellInd].index];
     }
     
+    Pstream::gatherList(haloField);
+    Pstream::scatterList(haloField);
+    
     return haloFieldPtr;
 }
 
@@ -60,4 +63,60 @@ void Foam::exchangeBetweenTwo
         
         globalData[otherGlobalProcNo] = exchangeBuffer[otherLocalProcNo];
     }
+}
+
+template<typename T>
+void Foam::Structure::exchangeBetweenAll
+(
+    List<T>& globalData
+)
+{
+    DynamicList<label> times;
+    if( std::is_same<T,DynamicList<List<DynamicList<label>>>>::value ||
+        std::is_same<T,DynamicList<List<DynamicList<vector>>>>::value ||
+        std::is_same<T,DynamicList<List<DynamicList<scalar>>>>::value
+      )
+    {
+        /*
+        List<label> dynSize(globalData.size());
+        dynSize[Pstream::myProcNo()] = globalData[Pstream::myProcNo()].size();
+        exchangeBetweenAll(dynSize);
+        
+        List<List<label>> dynListSizes(globalData.size());
+        dynListSizes[Pstream::myProcNo()] = List<label>(dynSize[Pstream::myProcNo()]);
+        for(label i=0; i<dynListSizes[Pstream::myProcNo()].size(); i++)
+            dynListSizes[Pstream::myProcNo()][i] = globalData[Pstream::myProcNo()][i].size();
+        exchangeBetweenAll(dynListSizes);
+        
+        List<List<List<label>>> dynListDynSizes(globalData.size());
+        dynListDynSizes[Pstream::myProcNo()] = List<List<label>>(dynSize[Pstream::myProcNo()]);
+        for(label i=0; i<dynListDynSizes[Pstream::myProcNo()].size(); i++)
+            dynListDynSizes[Pstream::myProcNo()][i].setSize(globalData[Pstream::myProcNo()][i].size());
+        
+        exchangeBetweenAll(dynListDynSizes);
+        */
+    }
+    else if(std::is_same<T,DynamicList<List<DynamicList<scalar>>>>::value)
+    {
+        
+    }
+    else
+    {
+        if(exchangeSpecific)
+        {
+            for(label comm : orderedComms)
+            {
+                auto t1 = std::chrono::high_resolution_clock::now();
+                exchangeBetweenTwo<T>(globalData,comm);
+                auto t2 = std::chrono::high_resolution_clock::now();
+                times.append(std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
+            }
+        }
+        else
+        {
+            Pstream::gatherList(globalData);
+            Pstream::scatterList(globalData);
+        }
+    }
+    Pout<<"times:"<<times<<Foam::nl;
 }

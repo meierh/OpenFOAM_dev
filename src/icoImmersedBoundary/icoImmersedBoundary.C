@@ -510,7 +510,8 @@ void Foam::solvers::icoImmersedBoundary::solveEqns()
 
         Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << Foam::nl << endl;            
+            << Foam::nl << endl;
+        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     }
 }
 
