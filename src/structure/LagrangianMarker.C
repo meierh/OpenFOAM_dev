@@ -146,7 +146,7 @@ void Foam::LagrangianMarker::computeSupport
     const labelList& owners = mesh.owner();
     const pointField& points = mesh.points();
     
-    const List<List<Pair<label>>>& localMeshGraph = structure.getMeshGraph();
+    const List<List<Pair<label>>>& localMeshGraph = structure.getMeshGraph(Pstream::myProcNo());
     std::unordered_set<Pair<label>,foamPairHash<label>> direct;
     std::unordered_set<Pair<label>,foamPairHash<label>> full;
     if(markerCell!=-1)
@@ -201,7 +201,7 @@ void Foam::LagrangianMarker::computeSupport
             Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
             Pout<<proc<<"->"<<cellInd<<Foam::nl;
         }
-                        const List<List<Pair<label>>>& procHaloMeshGraph = structure.getHaloMeshGraph(proc);
+                        const List<List<Pair<label>>>& procMeshGraph = structure.getMeshGraph(proc);
                         /*
                         const std::unordered_map<label,label>& procHaloCellToIndex = structure.getHaloCellToIndexMap(proc);
                         auto iter = procHaloCellToIndex.find(cellInd);
@@ -209,8 +209,8 @@ void Foam::LagrangianMarker::computeSupport
                             FatalErrorInFunction<<"Support iteration depth mismatch!"<<exit(FatalError);
                         label procHaloIndex = iter->second;
                         */
-                        const List<Pair<label>>& procHaloCellGraph = procHaloMeshGraph[cellInd];
-                        nodeNeighbours = &procHaloCellGraph;
+                        const List<Pair<label>>& cellProcMeshGraph = procMeshGraph[cellInd];
+                        nodeNeighbours = &cellProcMeshGraph;
                     }
                                         
                     for(const Pair<label>& node : *nodeNeighbours)
@@ -478,6 +478,22 @@ void Foam::LagrangianMarker::getCellData
 ) const
 {
     LineStructure& structure = const_cast<LineStructure&>(this->structure);
+    label proc = cell.first();
+    label cellInd = cell.second();
+    if(proc<0 || proc>=Pstream::nProcs())
+        FatalErrorInFunction<<"Out of bounds proc"<<exit(FatalError);
+    if(!structure.neighbourDataExists(proc))
+    {
+        Pout<<"cell:"<<cell<<Foam::nl;
+        FatalErrorInFunction<<"Try to access non neighbour process"<<exit(FatalError);
+    }
+    if(cellInd<0 || cellInd>=structure.getMeshGraph(proc).size())
+        FatalErrorInFunction<<"Try to access non neighbour cells"<<exit(FatalError);
+    
+    cellCentre =structure.getCellCentre(proc,cellInd);
+    cellVolume = structure.getCellVolume(proc,cellInd);
+    
+    /*
     std::unordered_map<Pair<label>,std::pair<vector,scalar>,foamPairHash<label>>& cellDataBuffer = structure.getCellDataBuffer();
     auto iter=cellDataBuffer.find(cell);
     
@@ -504,7 +520,7 @@ void Foam::LagrangianMarker::getCellData
         else
         {
             label neighProcess = suppCellData.first();
-            const DynamicList<Structure::CellDescription>& neighHaloCells = structure.getHaloCellList(neighProcess);
+            const DynamicList<Structure::CellDescription>& neighHaloCells = structure.getGlobalHaloCellList_Sorted(neighProcess);
             const std::unordered_map<label,label>& neighborHaloCellToIndexMap = structure.getHaloCellToIndexMap(neighProcess);
             auto iter = neighborHaloCellToIndexMap.find(suppCellData.second());
             if(iter==neighborHaloCellToIndexMap.end())
@@ -525,6 +541,7 @@ void Foam::LagrangianMarker::getCellData
         
         cellDataBuffer.insert({cell,{cellCentre,cellVolume}});
     }
+    */
 }
 
 Foam::scalar Foam::LagrangianMarker::computeMoment

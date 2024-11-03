@@ -555,6 +555,7 @@ class LineStructure : public Structure
             public:
                 GlobalHaloMarkers
                 (
+                    const LineStructure* structure,
                     std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList
                 );
                 GlobalHaloMarkers(){}
@@ -601,6 +602,8 @@ class LineStructure : public Structure
                 );
             
             private:
+                const LineStructure* structure = nullptr;
+                
                 // [haloCells] -> [marker of cell] -> ptr,index
                 std::vector<std::vector<std::pair<LagrangianMarker*,label>>>* selfhaloCellsRodMarkersList;
                 

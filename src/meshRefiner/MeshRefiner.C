@@ -169,7 +169,7 @@ bool Foam::MeshRefiner::applyMeshAdaption()
     bool refined = mesh.update();
     if(refined)
     {
-        structure.computeHaloData();
+        structure.computeMeshSetup();
         structure.settleIntoRefinedMesh();
     }
     return refined;

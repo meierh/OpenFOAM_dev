@@ -687,7 +687,7 @@ void Foam::LineStructure::collectHaloMarkers()
 {
     status.execValid(status.markersHaloCollect);
     haloCellsRodMarkersList.clear();
-    haloCellsRodMarkersList.resize(getHaloCellList(Pstream::myProcNo()).size());
+    haloCellsRodMarkersList.resize(getGlobalHaloCellList_Sorted(Pstream::myProcNo()).size());
     const std::unordered_map<label,label>& selfHaloCellToIndex = getHaloCellToIndexMap(Pstream::myProcNo());
     for(uint localMarkerInd=0; localMarkerInd<collectedMarkers.size(); localMarkerInd++)
     {
@@ -708,7 +708,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
 {
     status.execValid(status.markersHaloExchange);
     
-    globHaloMarkers = GlobalHaloMarkers(haloCellsRodMarkersList);
+    globHaloMarkers = GlobalHaloMarkers(this,haloCellsRodMarkersList);
     for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
         std::vector<std::pair<LagrangianMarker*,label>>& localHaloCellRodMarkers = haloCellsRodMarkersList[haloCellInd];
@@ -918,7 +918,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                 if(cellIndexIter==processHaloCellToIndexMap.end())
                     FatalErrorInFunction<<"Cell in process halo not found"<<exit(FatalError);
                 label index = cellIndexIter->second;
-                const DynamicList<CellDescription>& processHaloCellList = getHaloCellList(process);
+                const DynamicList<CellDescription>& processHaloCellList = getGlobalHaloCellList_Sorted(process);
                 const CellDescription& oneCell = processHaloCellList[index];
                 if(oneCell.index!=cellInd)
                     FatalErrorInFunction<<"Cell index data mismatch"<<exit(FatalError);
@@ -1110,7 +1110,9 @@ void Foam::LineStructure::computeMarkerWeights()
 }
 
 void Foam::LineStructure::exchangeHaloMarkersWeight()
-{    
+{
+    Pout<<"-------------------------LineStructure::exchangeHaloMarkersWeight"<<Foam::nl;
+    
     status.execValid(status.markersWeightExchange);
     
     for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
@@ -1428,9 +1430,11 @@ Foam::Pair<Foam::vector> Foam::LineStructure::derivate2RodCircumPos
 
 Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 (
+    const LineStructure* structure,
     // [haloCells] -> [marker of cell] -> ptr,index
     std::vector<std::vector<std::pair<LagrangianMarker*,label>>>& selfhaloCellsRodMarkersList
 ):
+structure(structure),
 selfhaloCellsRodMarkersList(&selfhaloCellsRodMarkersList),
 broadcasted(false),
 broadcastedWeights(false)
@@ -1606,7 +1610,7 @@ Foam::scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
 ) const
 {
     if(!broadcastedWeights)
-        FatalErrorInFunction<<"Not broadcasted yet"<<Foam::nl;
+        FatalErrorInFunction<<"Not broadcasted yet"<<exit(FatalError);
     
     label proc = Pstream::myProcNo();
     if(haloCellInd>=procHaloCellsSize[proc])
@@ -1643,6 +1647,9 @@ Foam::label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
 
 void Foam::LineStructure::GlobalHaloMarkers::communicate()
 {
+    Pout<<"---------------------------------LineStructure::GlobalHaloMarkers::communicate"<<Foam::nl;
+
+    
     broadcasted = true;
     
     Pstream::gatherList(globalHaloCellsMarkerPos);
@@ -1682,6 +1689,8 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
 
 void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()
 {
+    Pout<<"---------------------------------LineStructure::GlobalHaloMarkers::communicateWeight"<<Foam::nl;
+    
     broadcastedWeights = true;
 
     Pstream::gatherList(globalHaloCellsMarkerWeight);

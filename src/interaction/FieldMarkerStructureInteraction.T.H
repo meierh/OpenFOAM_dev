@@ -162,6 +162,8 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     GeometricField<T,fvPatchField,volMesh>& fieldData
 )
 {
+    Pout<<"FieldMarkerStructureInteraction::markerToField"<<Foam::nl;
+    
     fieldData = Foam::zero();
     
     const cellList& cells = mesh.cells();
@@ -205,6 +207,8 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     const List<List<DynamicList<scalar>>>& haloMarkerWeights = *haloMarkerWeightsPtr;
     */
     
+    Pout<<"FieldMarkerStructureInteraction::markerToField::broadcast"<<Foam::nl;
+    
     // Broadcast marker field
     if(markerData.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
@@ -212,24 +216,36 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     broadcastedHaloMarkerFieldPtr = structure.broadcastHaloMarkerField<T>(markerData);
     List<List<DynamicList<T>>> broadcastedHaloMarkerField = *broadcastedHaloMarkerFieldPtr;
     
-    const LineStructure::GlobalHaloMarkers& gHM = structure.get_globalHaloMarkers();
+    Pout<<"FieldMarkerStructureInteraction::markerToField::broadcast::done"<<Foam::nl;
     
+    const LineStructure::GlobalHaloMarkers& gHM = structure.get_globalHaloMarkers();
     using LM=LagrangianMarker;
     const std::unordered_set<label>& neighbourProcs = structure.getNeighbourProcesses();
+    
+    Pout<<"FieldMarkerStructureInteraction::markerToField::GlobalHaloMarkers"<<Foam::nl;
+    
     for(label proc : neighbourProcs)
     {
         //const List<DynamicList<scalar>>& thisProcHaloMarkerWeights = haloMarkerWeights[proc];
         const List<DynamicList<T>>& thisProcHaloMarkeField = broadcastedHaloMarkerField[proc];
         label numHaloCells = gHM.size_haloCells(proc);
-        if(/*numHaloCells!=thisProcHaloMarkerWeights.size() ||*/ numHaloCells!=thisProcHaloMarkeField.size())
+        if(numHaloCells!=thisProcHaloMarkeField.size())
             FatalErrorInFunction<<"Halo cell number mismatch"<<exit(FatalError);        
         for(label haloCellInd=0; haloCellInd<numHaloCells; haloCellInd++)
         {
             label numHaloCellMarkers = gHM.size_cellMarkers(proc,haloCellInd);
             //const DynamicList<scalar>& thisHaloCellMarkerWeights = thisProcHaloMarkerWeights[haloCellInd];
             const DynamicList<T>& thisHaloCellMarkeField = thisProcHaloMarkeField[haloCellInd];
-            if(/*numHaloCellMarkers!=thisHaloCellMarkerWeights.size() ||*/ numHaloCellMarkers!=thisHaloCellMarkeField.size())
+            if(numHaloCellMarkers!=thisHaloCellMarkeField.size())
+            {
+                Pout<<"proc:"<<proc<<Foam::nl;
+                Pout<<"haloCellInd:"<<haloCellInd<<Foam::nl;
+                Pout<<"numHaloCells:"<<numHaloCells<<Foam::nl;
+                Pout<<"thisProcHaloMarkeField.size():"<<thisProcHaloMarkeField.size()<<Foam::nl;
+                Pout<<"numHaloCellMarkers:"<<numHaloCellMarkers<<Foam::nl;
+                Pout<<"thisHaloCellMarkeField.size():"<<thisHaloCellMarkeField.size()<<Foam::nl;
                 FatalErrorInFunction<<"Marker number mismatch"<<exit(FatalError);
+            }
             for(label markerInd=0; markerInd<numHaloCellMarkers; markerInd++)
             {
                 std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> haloMarkerData;
@@ -272,4 +288,6 @@ void Foam::FieldMarkerStructureInteraction::markerToField
             }
         }
     }
+    
+    Pout<<"FieldMarkerStructureInteraction::markerToField::done"<<Foam::nl;
 }

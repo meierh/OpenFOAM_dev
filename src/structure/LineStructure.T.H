@@ -326,7 +326,13 @@ template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStruc
     for(uint haloCellInd=0; haloCellInd<selfhaloCellsRodMarkersList->size(); haloCellInd++)
     {
         std::vector<std::pair<LagrangianMarker*,label>>& oneHaloCellMarkerList = (*selfhaloCellsRodMarkersList)[haloCellInd];
-        DynamicList<T> oneHaloCellMarkerField = myProcResult[haloCellInd];
+        DynamicList<T>& oneHaloCellMarkerField = myProcResult[haloCellInd];
+        /*
+        if(haloCellInd==108 && Pstream::myProcNo()==0)
+        {
+            Pout<<"--------------------oneHaloCellMarkerList.size():"<<oneHaloCellMarkerList.size()<<Foam::nl;
+        }
+        */
         for(uint markerInd=0; markerInd<oneHaloCellMarkerList.size(); markerInd++)
         {
             std::pair<LagrangianMarker*,label>& oneMarker = oneHaloCellMarkerList[markerInd];
@@ -334,8 +340,66 @@ template<typename T> std::unique_ptr<List<List<DynamicList<T>>>> Foam::LineStruc
             oneHaloCellMarkerField.append(collectedMarkerField[index]);
         }
     }
-    Pstream::gatherList(result);
-    Pstream::scatterList(result);
+    /*
+    if(Pstream::myProcNo()==0)
+    {
+        Pout<<"abc--------------------myProcResult[108].size():"<<myProcResult[108].size()<<Foam::nl;
+    }
+    */
+    
+    // Flatten data to transfer
+    List<List<label>> listCount(Pstream::nProcs());
+    listCount[Pstream::myProcNo()].setSize(result[Pstream::myProcNo()].size());
+    List<DynamicList<T>> serializedHaloMarkerData(Pstream::nProcs());
+    for(label haloCellInd=0; haloCellInd<listCount[Pstream::myProcNo()].size(); haloCellInd++)
+    {
+        listCount[Pstream::myProcNo()][haloCellInd] = myProcResult[haloCellInd].size();
+        for(const T& data : myProcResult[haloCellInd])
+            serializedHaloMarkerData[Pstream::myProcNo()].append(data);
+    }
+    /*
+    if(Pstream::myProcNo()==0)
+    {
+        Pout<<"before--------------------listCount[0][108]:"<<listCount[0][108]<<Foam::nl;
+    }
+    */
+    
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Missing structure pointer"<<exit(FatalError);
+    structure->exchangeBetweenAll(listCount);
+    structure->exchangeBetweenAll(serializedHaloMarkerData);
+    
+    // Restructure
+    for(label proc=0; proc<Pstream::nProcs(); proc++)
+    {
+        if(proc!=Pstream::myProcNo())
+        {
+            const List<label>& procListCount = listCount[proc];
+            const DynamicList<T>& procSerializedData = serializedHaloMarkerData[proc];
+            
+            List<DynamicList<T>>& procResult = result[proc];
+            procResult.setSize(procListCount.size());
+            
+            label index=0;
+            for(label cellInd=0; cellInd<procListCount.size(); cellInd++)
+            {
+                for(label cellNeiInd=0; cellNeiInd<procListCount[cellInd]; cellNeiInd++)
+                {
+                    procResult[cellInd].append(procSerializedData[index]);
+                    index++;
+                }
+            }
+        }
+    }
+    /*
+    if(Pstream::myProcNo()==0)
+    {
+        Pout<<"after--------------------listCount[0][108]:"<<listCount[0][108]<<Foam::nl;
+    }
+    */
+
+    //exchangeBetweenAll(result);
+    //Barrier(true);
     return resultPtr;
 }
 

@@ -8,7 +8,7 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
     List<List<T>>& haloField = *haloFieldPtr;
     List<T>& ownHaloField = haloField[Pstream::myProcNo()];
     
-    const DynamicList<CellDescription>& ownHaloCells = getHaloCellList(Pstream::myProcNo());    
+    const DynamicList<CellDescription>& ownHaloCells = getGlobalHaloCellList_Sorted(Pstream::myProcNo());    
     ownHaloField.setSize(ownHaloCells.size());
     
     for(label haloCellInd=0; haloCellInd<ownHaloCells.size(); haloCellInd++)
@@ -16,14 +16,13 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
         ownHaloField[haloCellInd] = fieldData[ownHaloCells[haloCellInd].index];
     }
     
-    Pstream::gatherList(haloField);
-    Pstream::scatterList(haloField);
+    exchangeBetweenAll(haloField);
     
     return haloFieldPtr;
 }
 
 template<typename T>
-void Foam::exchangeBetweenTwo
+void Foam::Structure::exchangeBetweenTwo
 (
     List<T>& globalData,
     const label comm
@@ -69,7 +68,7 @@ template<typename T>
 void Foam::Structure::exchangeBetweenAll
 (
     List<T>& globalData
-)
+) const
 {
     DynamicList<label> times;
     if( std::is_same<T,DynamicList<List<DynamicList<label>>>>::value ||
@@ -118,5 +117,5 @@ void Foam::Structure::exchangeBetweenAll
             Pstream::scatterList(globalData);
         }
     }
-    Pout<<"times:"<<times<<Foam::nl;
+    //Pout<<"times:"<<times<<Foam::nl;
 }
