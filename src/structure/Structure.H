@@ -495,7 +495,7 @@ class Structure
         //List of existing neighborhood data (MPI local)
         List<bool> myProcExistingData;
         // Generates : (neighbourProcesses,proc_ProcToComm,orderedComms)
-        void createParallelTopolgy();
+        void createParallelTopology();
         bool exchangeSpecific = true;
     public:
         const std::unordered_set<label>& getNeighbourProcesses() const {return neighbourProcesses;}

@@ -34,34 +34,26 @@ void Foam::Structure::exchangeBetweenTwo
     if(Pstream::nProcs(comm)!=2)
         FatalErrorInFunction<<"Invalid comm size"<<exit(FatalError);
     
-    label worldCommProc0 = Pstream::baseProcNo(comm,0);
-    label worldCommProc1 = Pstream::baseProcNo(comm,1);
+    label globalProcID_0 = Pstream::baseProcNo(comm,0);
+    label globalProcID_1 = Pstream::baseProcNo(comm,1);
+    label myGlobalProcID = Pstream::myProcNo();
+    label otherGlobalProcID = (myGlobalProcID==globalProcID_0)?globalProcID_1:globalProcID_0;
+
+    if(globalProcID_0!=Pstream::myProcNo() && globalProcID_1!=Pstream::myProcNo())
+        return;
     
-    if(Pstream::myProcNo()==worldCommProc0 || Pstream::myProcNo()==worldCommProc1)
-    {
-        label localProcNo = Pstream::procNo(comm,Pstream::myProcNo());
-        label globalProcNo = Pstream::myProcNo();
-        
-        label otherLocalProcNo,otherGlobalProcNo;
-        if(Pstream::myProcNo()==worldCommProc0)
-        {
-            otherLocalProcNo = Pstream::procNo(comm,worldCommProc1);
-            otherGlobalProcNo = worldCommProc1;
-        }
-        else
-        {
-            otherLocalProcNo = Pstream::procNo(comm,worldCommProc0);
-            otherGlobalProcNo = worldCommProc0;
-        }
-        
-        List<T> exchangeBuffer(2);
-        exchangeBuffer[localProcNo] = globalData[globalProcNo];
+    label localProcID_0 = Pstream::procNo(comm,globalProcID_0);
+    label localProcID_1 = Pstream::procNo(comm,globalProcID_1);
+    label myLocalProcID = Pstream::procNo(comm,myGlobalProcID);
+    label otherLocalProcID = (myLocalProcID==localProcID_0)?localProcID_1:localProcID_0;
+
+    List<T> exchangeBuffer(2);
+    exchangeBuffer[myLocalProcID] = globalData[myGlobalProcID];
     
-        Pstream::gatherList(exchangeBuffer,Pstream::msgType(),comm);
-        Pstream::scatterList(exchangeBuffer,Pstream::msgType(),comm);
-        
-        globalData[otherGlobalProcNo] = exchangeBuffer[otherLocalProcNo];
-    }
+    Pstream::gatherList(exchangeBuffer,Pstream::msgType(),comm);
+    Pstream::scatterList(exchangeBuffer,Pstream::msgType(),comm);
+    
+    globalData[otherGlobalProcID] = exchangeBuffer[otherLocalProcID];
 }
 
 template<typename T>
@@ -70,52 +62,16 @@ void Foam::Structure::exchangeBetweenAll
     List<T>& globalData
 ) const
 {
-    DynamicList<label> times;
-    if( std::is_same<T,DynamicList<List<DynamicList<label>>>>::value ||
-        std::is_same<T,DynamicList<List<DynamicList<vector>>>>::value ||
-        std::is_same<T,DynamicList<List<DynamicList<scalar>>>>::value
-      )
+    if(exchangeSpecific)
     {
-        /*
-        List<label> dynSize(globalData.size());
-        dynSize[Pstream::myProcNo()] = globalData[Pstream::myProcNo()].size();
-        exchangeBetweenAll(dynSize);
-        
-        List<List<label>> dynListSizes(globalData.size());
-        dynListSizes[Pstream::myProcNo()] = List<label>(dynSize[Pstream::myProcNo()]);
-        for(label i=0; i<dynListSizes[Pstream::myProcNo()].size(); i++)
-            dynListSizes[Pstream::myProcNo()][i] = globalData[Pstream::myProcNo()][i].size();
-        exchangeBetweenAll(dynListSizes);
-        
-        List<List<List<label>>> dynListDynSizes(globalData.size());
-        dynListDynSizes[Pstream::myProcNo()] = List<List<label>>(dynSize[Pstream::myProcNo()]);
-        for(label i=0; i<dynListDynSizes[Pstream::myProcNo()].size(); i++)
-            dynListDynSizes[Pstream::myProcNo()][i].setSize(globalData[Pstream::myProcNo()][i].size());
-        
-        exchangeBetweenAll(dynListDynSizes);
-        */
-    }
-    else if(std::is_same<T,DynamicList<List<DynamicList<scalar>>>>::value)
-    {
-        
+        for(label comm : orderedComms)
+        {
+            exchangeBetweenTwo<T>(globalData,comm);
+        }
     }
     else
     {
-        if(exchangeSpecific)
-        {
-            for(label comm : orderedComms)
-            {
-                auto t1 = std::chrono::high_resolution_clock::now();
-                exchangeBetweenTwo<T>(globalData,comm);
-                auto t2 = std::chrono::high_resolution_clock::now();
-                times.append(std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
-            }
-        }
-        else
-        {
-            Pstream::gatherList(globalData);
-            Pstream::scatterList(globalData);
-        }
+        Pstream::gatherList(globalData);
+        Pstream::scatterList(globalData);
     }
-    //Pout<<"times:"<<times<<Foam::nl;
 }

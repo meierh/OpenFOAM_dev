@@ -391,7 +391,7 @@ meshBoundingBox(computeMeshBoundingBox())
 {
     FatalErrorInFunction<<"Not in use anymore"<<exit(FatalError);
     Info<<"----------------Structure----------------"<<Foam::endl;
-    createParallelTopolgy();
+    createParallelTopology();
     computeMeshSetup();
     setupActiveRodMesh();
 }
@@ -414,7 +414,7 @@ structureDict(structureDict),
 meshBoundingBox(computeMeshBoundingBox())
 {
     Info<<"----------------Structure dir----------------"<<Foam::endl;
-    createParallelTopolgy();
+    createParallelTopology();
     computeMeshSetup();
     setupActiveRodMesh();
 }
@@ -2486,7 +2486,7 @@ Foam::scalar Foam::Structure::supportDomainMinSize
     return minSuppSize;
 }
 
-void Foam::Structure::createParallelTopolgy()
+void Foam::Structure::createParallelTopology()
 {
     List<Pair<vector>> boundingBoxes(Pstream::nProcs());
     if(meshBoundingBox.isEmpty())
@@ -2527,8 +2527,6 @@ void Foam::Structure::createParallelTopolgy()
     }
     for(auto iter=orderedComms.begin(); iter!=orderedComms.end(); iter++)
         this->orderedComms.append(*iter);
-    
-    Pout<<"myProcExistingData:"<<myProcExistingData<<Foam::nl;
 }
 
 void Foam::Structure::computePatchFaceToCellMap()

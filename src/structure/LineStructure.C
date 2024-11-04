@@ -90,32 +90,32 @@ void Foam::LineStructure::refineEvaluateReduceCollect
         refineMarkers();
     auto t2 = std::chrono::system_clock::now();
     if(doRefine)
-        Pout<<"refineEvaluateReduceCollect / refineMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+        Info<<"refineEvaluateReduceCollect / refineMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
     else
-        Pout<<"refineEvaluateReduceCollect / -- took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+        Info<<"refineEvaluateReduceCollect / -- took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
     
     if(doRefine)
         setMarkerVolume();
     t1 = std::chrono::system_clock::now();
     if(doRefine)
-        Pout<<"refineEvaluateReduceCollect / setMarkerVolume took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;    
+        Info<<"refineEvaluateReduceCollect / setMarkerVolume took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;    
     else
-        Pout<<"refineEvaluateReduceCollect / -- took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+        Info<<"refineEvaluateReduceCollect / -- took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     evaluateMarkerMeshRelation();
     t2 = std::chrono::system_clock::now();
-    Pout<<"refineEvaluateReduceCollect / evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    Info<<"refineEvaluateReduceCollect / evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
     
     reduceMarkers();
     t1 = std::chrono::system_clock::now();
-    Pout<<"refineEvaluateReduceCollect / reduceMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    Info<<"refineEvaluateReduceCollect / reduceMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     collectMarkers();
     t2 = std::chrono::system_clock::now();
-    Pout<<"refineEvaluateReduceCollect / collectMarkers: "<<collectedMarkers.size()<<" took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    Info<<"refineEvaluateReduceCollect / collectMarkers: "<<collectedMarkers.size()<<" took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
     
     auto end = std::chrono::system_clock::now();
-    Pout<<"refineEvaluateReduceCollect took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
+    Info<<"refineEvaluateReduceCollect took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
 }
 
 void Foam::LineStructure::markerWeighting()
@@ -125,22 +125,26 @@ void Foam::LineStructure::markerWeighting()
     auto t2 = std::chrono::system_clock::now();
     computeMarkerCellWeights();
     auto t1 = std::chrono::system_clock::now();
-    Pout<<"markerWeighting / computeMarkerCellWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    Info<<"markerWeighting / computeMarkerCellWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     collectHaloMarkers();
     t2 = std::chrono::system_clock::now();
-    Pout<<"markerWeighting / collectHaloMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    Info<<"markerWeighting / collectHaloMarkers took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
     
     exchangeHaloMarkersData();
     t1 = std::chrono::system_clock::now();
-    Pout<<"markerWeighting / exchangeHaloMarkersData took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
+    Info<<"markerWeighting / exchangeHaloMarkersData took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     computeMarkerWeights();
     t2 = std::chrono::system_clock::now();
-    Pout<<"markerWeighting / computeMarkerWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    Info<<"markerWeighting / computeMarkerWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    
+    exchangeHaloMarkersWeight();
+    t1 = std::chrono::system_clock::now();
+    Info<<"exchangeHaloMarkersWeight / computeMarkerWeights took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t1-t2).count()<<" milliseconds"<<Foam::nl;
     
     auto end = std::chrono::system_clock::now();
-    Pout<<"markerWeighting took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
+    Info<<"markerWeighting took "<<std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count()<<" milliseconds"<<Foam::nl;
 }
 
 void Foam::LineStructure::moveMarkersOnRodMovement()
@@ -148,7 +152,7 @@ void Foam::LineStructure::moveMarkersOnRodMovement()
     auto t1 = std::chrono::system_clock::now();
     evaluateMarkerMeshRelation();
     auto t2 = std::chrono::system_clock::now();
-    Pout<<"evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    Info<<"evaluateMarkerMeshRelation took "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
 }
 
 Foam::vector Foam::LineStructure::evaluateRodVelocity
@@ -730,8 +734,6 @@ void Foam::LineStructure::exchangeHaloMarkersData()
             scalar para = marker->getMarkerParameter();
             scalar angle = marker->getMarkerAngle();
             scalar radiusFrac = marker->getMarkerRadiusFrac();
-
-            
             
             const DynamicList<Pair<label>>& supportCells = marker->getSupportCells();
             for(Pair<label> oneSupport : supportCells)
@@ -1110,9 +1112,7 @@ void Foam::LineStructure::computeMarkerWeights()
 }
 
 void Foam::LineStructure::exchangeHaloMarkersWeight()
-{
-    Pout<<"-------------------------LineStructure::exchangeHaloMarkersWeight"<<Foam::nl;
-    
+{    
     status.execValid(status.markersWeightExchange);
     
     for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
@@ -1122,7 +1122,6 @@ void Foam::LineStructure::exchangeHaloMarkersWeight()
         {
             std::pair<LagrangianMarker*,label> markerData = localHaloCellRodMarkers[haloMarkerInd];
             LagrangianMarker* marker = markerData.first;
-            
             scalar weight = marker->getMarkerWeight();
             globHaloMarkers.insertMarkerWeight(haloCellInd,haloMarkerInd,weight);
         }
@@ -1277,9 +1276,9 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     }
     rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
     
-    Pout<<"iniRodPntsDistToMeshSpacing:"<<iniRodPntsDistToMeshSpacing<<Foam::nl;
-    Pout<<"refnRodMarkersDistToMeshSpacing:"<<refnRodMarkersDistToMeshSpacing<<Foam::nl;
-    Pout<<"rodPntDistToMarkerCharLen:"<<rodPntDistToMarkerCharLen<<Foam::nl;
+    Info<<"iniRodPntsDistToMeshSpacing:"<<iniRodPntsDistToMeshSpacing<<Foam::nl;
+    Info<<"refnRodMarkersDistToMeshSpacing:"<<refnRodMarkersDistToMeshSpacing<<Foam::nl;
+    Info<<"rodPntDistToMarkerCharLen:"<<rodPntDistToMarkerCharLen<<Foam::nl;
 }
 
 Foam::BoundingBox Foam::LineStructure::computeBox
@@ -1510,8 +1509,7 @@ broadcastedWeights(false)
     
     procHaloCellsSize.setSize(nProcs);
     procHaloCellsSize[Pstream::myProcNo()] = selfHaloCellSize;
-    Pstream::gatherList(procHaloCellsSize);
-    Pstream::scatterList(procHaloCellsSize);
+    structure->exchangeBetweenAll(procHaloCellsSize);
     
     procHaloCellMarkerSize.setSize(nProcs);
     for(label proc=0; proc<nProcs; proc++)
@@ -1524,6 +1522,8 @@ void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
     std::tuple<vector,scalar,label,vector,DynamicList<Pair<label>>,DynamicList<vector>,DynamicList<scalar>,FixedList<scalar,10>,label,scalar,scalar,scalar> data
 )
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     if(broadcasted)
         FatalErrorInFunction<<"Already broadcasted"<<exit(FatalError);
     
@@ -1556,6 +1556,8 @@ void Foam::LineStructure::GlobalHaloMarkers::insertMarkerWeight
     scalar weight
 )
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     if(broadcastedWeights)
         FatalErrorInFunction<<"Already broadcasted weights"<<exit(FatalError);
     
@@ -1566,7 +1568,7 @@ void Foam::LineStructure::GlobalHaloMarkers::insertMarkerWeight
     if(cellMarkerInd>=procHaloCellMarkerSize[proc][hCI])
         FatalErrorInFunction<<"Out of range value for marker ind"<<exit(FatalError);
     label cMI = cellMarkerInd;
-
+    
     globalHaloCellsMarkerWeight[proc][hCI][cMI] = weight;
 }
 
@@ -1577,8 +1579,13 @@ std::tuple<Foam::vector,Foam::scalar,Foam::label,Foam::vector,Foam::DynamicList<
     label cellMarkerInd
 ) const
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     if(!broadcasted)
         FatalErrorInFunction<<"Not broadcasted yet"<<Foam::nl;
+    
+    if(!(structure->neighbourDataExists(process)))
+        FatalErrorInFunction<<"Tried to access non neighbour"<<exit(FatalError);
 
     label proc = process;
     label hCI = haloCellInd;
@@ -1609,22 +1616,35 @@ Foam::scalar Foam::LineStructure::GlobalHaloMarkers::getMarkerWeight
     label cellMarkerInd
 ) const
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     if(!broadcastedWeights)
         FatalErrorInFunction<<"Not broadcasted yet"<<exit(FatalError);
     
-    label proc = Pstream::myProcNo();
-    if(haloCellInd>=procHaloCellsSize[proc])
+    if(!(structure->neighbourDataExists(process)))
+        FatalErrorInFunction<<"Tried to access non neighbour"<<exit(FatalError);
+    
+    if(haloCellInd>=procHaloCellsSize[process])
         FatalErrorInFunction<<"Out of range value for halocCellInd"<<exit(FatalError);
     label hCI = haloCellInd;
-    if(cellMarkerInd>=procHaloCellMarkerSize[proc][hCI])
+    if(cellMarkerInd>=procHaloCellMarkerSize[process][hCI])
+    {
+        Pout<<"process:"<<process<<Foam::nl;
+        Pout<<"haloCellInd:"<<haloCellInd<<Foam::nl;
+        Pout<<"cellMarkerInd:"<<cellMarkerInd<<Foam::nl;
+        Pout<<"procHaloCellsSize["<<process<<"]:"<<procHaloCellsSize[process]<<Foam::nl;
+        Pout<<"procHaloCellMarkerSize["<<process<<"]["<<hCI<<"]:"<<procHaloCellMarkerSize[process][hCI]<<Foam::nl;
         FatalErrorInFunction<<"Out of range value for marker ind"<<exit(FatalError);
+    }
     label cMI = cellMarkerInd;
     
-    return globalHaloCellsMarkerWeight[proc][hCI][cMI];
+    return globalHaloCellsMarkerWeight[process][hCI][cMI];
 }
 
 Foam::label Foam::LineStructure::GlobalHaloMarkers::size_processes() const
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     return Pstream::nProcs();
 }
 
@@ -1633,6 +1653,8 @@ Foam::label Foam::LineStructure::GlobalHaloMarkers::size_haloCells
     label process
 ) const
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     return procHaloCellsSize[process];
 }
 
@@ -1642,59 +1664,45 @@ Foam::label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
     label haloCellInd
 ) const
 {
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     return procHaloCellMarkerSize[process][haloCellInd];
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::communicate()
 {
-    Pout<<"---------------------------------LineStructure::GlobalHaloMarkers::communicate"<<Foam::nl;
-
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     
     broadcasted = true;
     
-    Pstream::gatherList(globalHaloCellsMarkerPos);
-    Pstream::gatherList(globalHaloCellsMarkerVolume);
-    Pstream::gatherList(globalHaloCellsLocalIndex);
-    Pstream::gatherList(globalHaloCellsMarkerDilation);
-    Pstream::gatherList(globalHaloCellsMarkerSupportCellIndices);
-    Pstream::gatherList(globalHaloCellsMarkerSupportCellCentres);
-    Pstream::gatherList(globalHaloCellsMarkerSupportCellVolume);
-    Pstream::gatherList(globalHaloCellsMarkerb);
-    Pstream::gatherList(globalHaloCellsMarkerWeight);
-    Pstream::gatherList(globalHaloCellsMarkerNurbsInd);
-    Pstream::gatherList(globalHaloCellsMarkerParameter);
-    Pstream::gatherList(globalHaloCellsMarkerAngle);
-    Pstream::gatherList(globalHaloCellsMarkerRadiusFrac);
-    
-    Pstream::scatterList(globalHaloCellsMarkerPos);
-    Pstream::scatterList(globalHaloCellsMarkerVolume);
-    Pstream::scatterList(globalHaloCellsLocalIndex);
-    Pstream::scatterList(globalHaloCellsMarkerDilation);
-    Pstream::scatterList(globalHaloCellsMarkerSupportCellIndices);
-    Pstream::scatterList(globalHaloCellsMarkerSupportCellCentres);
-    Pstream::scatterList(globalHaloCellsMarkerSupportCellVolume);
-    Pstream::scatterList(globalHaloCellsMarkerb);
-    Pstream::scatterList(globalHaloCellsMarkerWeight);
-    Pstream::scatterList(globalHaloCellsMarkerNurbsInd);
-    Pstream::scatterList(globalHaloCellsMarkerParameter);
-    Pstream::scatterList(globalHaloCellsMarkerAngle);
-    Pstream::scatterList(globalHaloCellsMarkerRadiusFrac);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerPos);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerVolume);
+    structure->exchangeBetweenAll(globalHaloCellsLocalIndex);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerDilation);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerSupportCellIndices);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerSupportCellCentres);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerSupportCellVolume);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerb);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerWeight);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerNurbsInd);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerParameter);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerAngle);
+    structure->exchangeBetweenAll(globalHaloCellsMarkerRadiusFrac);
+       
+    structure->exchangeBetweenAll(procHaloCellMarkerSize);
 
-    Pstream::gatherList(procHaloCellMarkerSize);
-    Pstream::scatterList(procHaloCellMarkerSize);
-
-    check();
-    
+    //check();
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()
 {
-    Pout<<"---------------------------------LineStructure::GlobalHaloMarkers::communicateWeight"<<Foam::nl;
-    
+    if(structure==nullptr)
+        FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
+        
     broadcastedWeights = true;
-
-    Pstream::gatherList(globalHaloCellsMarkerWeight);
-    Pstream::scatterList(globalHaloCellsMarkerWeight);
+    
+    structure->exchangeBetweenAll(globalHaloCellsMarkerWeight);
 }
 
 void Foam::LineStructure::printMarkerStructure()

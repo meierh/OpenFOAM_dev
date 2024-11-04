@@ -161,9 +161,7 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     const DynamicList<T>& markerData,
     GeometricField<T,fvPatchField,volMesh>& fieldData
 )
-{
-    Pout<<"FieldMarkerStructureInteraction::markerToField"<<Foam::nl;
-    
+{    
     fieldData = Foam::zero();
     
     const cellList& cells = mesh.cells();
@@ -206,24 +204,18 @@ void Foam::FieldMarkerStructureInteraction::markerToField
         FatalErrorInFunction<<"Halo Marker Values not broadcasted before markerToField"<<exit(FatalError);
     const List<List<DynamicList<scalar>>>& haloMarkerWeights = *haloMarkerWeightsPtr;
     */
-    
-    Pout<<"FieldMarkerStructureInteraction::markerToField::broadcast"<<Foam::nl;
-    
+        
     // Broadcast marker field
     if(markerData.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Marker Data size mismatch"<< exit(FatalError);
     std::unique_ptr<List<List<DynamicList<T>>>> broadcastedHaloMarkerFieldPtr; 
     broadcastedHaloMarkerFieldPtr = structure.broadcastHaloMarkerField<T>(markerData);
     List<List<DynamicList<T>>> broadcastedHaloMarkerField = *broadcastedHaloMarkerFieldPtr;
-    
-    Pout<<"FieldMarkerStructureInteraction::markerToField::broadcast::done"<<Foam::nl;
-    
+        
     const LineStructure::GlobalHaloMarkers& gHM = structure.get_globalHaloMarkers();
     using LM=LagrangianMarker;
     const std::unordered_set<label>& neighbourProcs = structure.getNeighbourProcesses();
-    
-    Pout<<"FieldMarkerStructureInteraction::markerToField::GlobalHaloMarkers"<<Foam::nl;
-    
+        
     for(label proc : neighbourProcs)
     {
         //const List<DynamicList<scalar>>& thisProcHaloMarkerWeights = haloMarkerWeights[proc];
@@ -288,6 +280,4 @@ void Foam::FieldMarkerStructureInteraction::markerToField
             }
         }
     }
-    
-    Pout<<"FieldMarkerStructureInteraction::markerToField::done"<<Foam::nl;
 }

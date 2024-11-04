@@ -487,10 +487,7 @@ void Foam::CrossSectionStructure::createMarkersFromSpacedPointsOnRod
         
         oneRodMarkers.resize(thisRodIniPnts.size());
         auto iterPara = oneRodMarkers.begin();
-        
-        meshBoundingBox.print();
-        rodTrees[rodNumber].printRoot();
-        
+                
         for(uint paraInd=0; paraInd<thisRodIniPnts.size(); paraInd++,iterPara++)
         {
             scalar parameter = thisRodIniPnts[paraInd].first;

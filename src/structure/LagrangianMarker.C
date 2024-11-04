@@ -172,13 +172,7 @@ void Foam::LagrangianMarker::computeSupport
                 frontNodes.append({edge.first(),edge.second()});
             }
         }
-        
-        if(Pstream::myProcNo()==0 && markerCell==280)
-        {
-            Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
-            Pout<<"frontNodes:"<<frontNodes<<Foam::nl;
-        }
-                
+                        
         for(label iteration=1; iteration<iterations; iteration++)
         {
             DynamicList<Pair<label>> newFront;
@@ -196,11 +190,6 @@ void Foam::LagrangianMarker::computeSupport
                     }
                     else
                     {
-        if(Pstream::myProcNo()==0 && markerCell==280)
-        {
-            Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
-            Pout<<proc<<"->"<<cellInd<<Foam::nl;
-        }
                         const List<List<Pair<label>>>& procMeshGraph = structure.getMeshGraph(proc);
                         /*
                         const std::unordered_map<label,label>& procHaloCellToIndex = structure.getHaloCellToIndexMap(proc);
@@ -302,13 +291,6 @@ void Foam::LagrangianMarker::computeSupport
     for(label dim=0; dim<3; dim++)
     {
         existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
-    }
-    
-    if(Pstream::myProcNo()==0 && markerCell==280)
-    {
-        Pout<<"------------markerInd------------:"<<markerCell<<Foam::nl;
-        Pout<<"iterations:"<<iterations<<Foam::nl;
-        Pout<<"fullSupport:"<<fullSupport<<Foam::nl;
     }
 }
 
