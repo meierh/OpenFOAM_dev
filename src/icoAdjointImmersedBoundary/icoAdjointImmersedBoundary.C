@@ -70,10 +70,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperature()
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
         );
-        if(adj_T_IOobj.filePath("",true).empty())
-        {
+        if(!adj_T_IOobj.filePath("",true).empty())
             adj_T_ = std::make_unique<volScalarField>(adj_T_IOobj,mesh);
-        }
+        else
+            FatalErrorInFunction<<"Failed to create_AdjointTemperature"<<exit(FatalError);
     }
     else
         useAdjointTemperature = false;

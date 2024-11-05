@@ -303,7 +303,7 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
         if(useVelocityForcing)
         {
             volVectorField& fU = *fU_;
-            UEqn_res = solve(UEqn == -fvc::grad(p) + fU);
+            UEqn_res = solve(UEqn == -fvc::grad(p)/* + fU*/);
             
             interaction_fU->solve();
          }

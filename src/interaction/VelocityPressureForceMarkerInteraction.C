@@ -105,6 +105,7 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
         FatalErrorInFunction<<"Mismatch in size of markerFluidVelocity and markers"<<exit(FatalError);
     
     scalar deltaT = mesh.time().deltaTValue();
+    Info<<"Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers: "<<deltaT<<Foam::nl;
     
     markerCouplingForce.resize(markers.size());
     for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
