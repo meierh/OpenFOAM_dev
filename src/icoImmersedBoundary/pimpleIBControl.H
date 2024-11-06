@@ -77,24 +77,46 @@ namespace solvers
 class pimpleIBControl : public pimpleSingleRegionControl
 {
     public:
-        pimpleIBControl(pimpleNoLoopControl& pimple, bool delayedInitialConvergence=true);
+        pimpleIBControl(pimpleNoLoopControl& pimple,Time& runTime);
         pimpleIBControl(const pimpleIBControl&)=delete;
         //virtual ~pimpleIBControl() {~pimpleSingleRegionControl::pimpleSingleRegionControl();}
 
-        bool run(Time& time);
-        bool loop();
-        bool evalConvergence();
+        bool loop()=delete;
         
-        void addEqnPerformance(SolverPerformance<vector>* eqn);
-        void addEqnPerformance(SolverPerformance<scalar>* eqn);
+        bool run(Time& time);
+        bool momentumLoop();
+        bool temperatureLoop();
+        
+        void setVelocityPerformance(SolverPerformance<vector>* uEqn);
+        void setPressurePerformance(SolverPerformance<scalar>* pEqn);
+        void setTemperaturePerformance(SolverPerformance<scalar>* tEqn);
         
     private:
-        DynamicList<SolverPerformance<vector>*> vecEqns;
-        DynamicList<SolverPerformance<scalar>*> scaEqns;
+        void readFromDict();
+        Time& runTime;
         
+        // Momentum system
+        SolverPerformance<vector>* velocityEqns=nullptr;
+        scalar velocityTolerance;
+        SolverPerformance<scalar>* pressureEqns=nullptr;
+        scalar pressureTolerance;
+        label momentumInnerIteration;
+        label minMomentumIterations=1;
+        scalar momentumIterTolFrac=1;
+        
+        // Temperature system
+        SolverPerformance<scalar>* temperatureEqns;
+        scalar temperatureTolerance;
+        bool temperatureToleranceSet = false;
+        label temperatureInnerIteration;
+        label minTemperatureIterations=1;
+        scalar temperatureIterTolFrac=1;
+        bool temperatureUsed = false;
+        
+        //Full system
+        label minOuterIterations=1; // nOuterCorrectors
         label timeIteration;
-        label innerLoopIteration;
-        bool delayedInitialConvergence;
+        bool delayedInitialConvergence = true;
 };
 
 

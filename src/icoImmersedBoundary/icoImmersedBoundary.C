@@ -7,7 +7,7 @@ Foam::solvers::icoImmersedBoundary::icoImmersedBoundary
 ):
 incompressibleFluid(mesh),
 time(time),
-pimpleCtlr(incompressibleFluid::pimple),
+pimpleCtlr(incompressibleFluid::pimple,time),
 transportProperties
 (
     IOobject
@@ -62,8 +62,8 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     
     setDeltaT(time,*this);
     
-    pimpleCtlr.addEqnPerformance(&UEqn_res);
-    pimpleCtlr.addEqnPerformance(&PEqn_res);
+    pimpleCtlr.setVelocityPerformance(&UEqn_res);
+    pimpleCtlr.setPressurePerformance(&PEqn_res);
     
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useStructure:"<<useStructure<<Foam::endl;
@@ -132,7 +132,7 @@ void Foam::solvers::icoImmersedBoundary::create_Temperature()
     if(!T_IOobj.filePath("",true).empty())
     {
         T_ = std::make_unique<volScalarField>(T_IOobj,mesh);
-        alpha.value() = dimensionedScalar(transportProperties.lookup("alpha")).value();    pimpleCtlr.addEqnPerformance(&TEqn_res);
+        alpha.value() = dimensionedScalar(transportProperties.lookup("alpha")).value();    pimpleCtlr.setTemperaturePerformance(&TEqn_res);
         useTemperature = true;
     }
     else
@@ -300,15 +300,11 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
       
     if (pimple.momentumPredictor())
     {
+        UEqn_res = solve(UEqn == -fvc::grad(p));
         if(useVelocityForcing)
         {
-            volVectorField& fU = *fU_;
-            UEqn_res = solve(UEqn == -fvc::grad(p)/* + fU*/);
-            
             interaction_fU->solve();
-         }
-         else
-            UEqn_res = solve(UEqn == -fvc::grad(p));
+        }
 
         fvConstraints().constrain(U);
     }
@@ -413,7 +409,7 @@ void Foam::solvers::icoImmersedBoundary::postSolve()
         volScalarField& T = *T_;
         fvScalarMatrix TEqn(fvm::ddt(T)+fvm::div(phi,T)-fvm::laplacian(alpha,T));
         
-        do
+        while(pimpleCtlr.temperatureLoop())
         {
             if(useTemperatureForcing)
             {
@@ -427,7 +423,6 @@ void Foam::solvers::icoImmersedBoundary::postSolve()
                 TEqn_res = solve(TEqn); 
             }
         }
-        while(TEqn_res.nIterations()>0);
     }
 }
 
@@ -469,49 +464,52 @@ void Foam::solvers::icoImmersedBoundary::setToTime(scalar time)
         interaction_fT->setToTime(time);
 }
 
-void Foam::solvers::icoImmersedBoundary::solveEqns()
+void Foam::solvers::icoImmersedBoundary::oneTimestep()
+{
+    pimpleCtlr.read();
+
+    Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
+
+    preSolve();
+
+    // Adjust the time-step according to the solver maxDeltaT
+    adjustDeltaT(time, *this);
+
+    time++;
+
+    Info<< "Time = " << runTime.userTimeName() << nl << endl;
+
+    preMove();
+                    
+    // PIMPLE corrector loop
+    while (pimpleCtlr.momentumLoop())
+    {
+        moveMesh();
+        motionCorrector();
+        fvModels().correct();
+        prePredictor();
+        momentumPredictor();
+        thermophysicalPredictor();
+        pressureCorrector();
+        postCorrector();
+    }
+
+    postSolve();
+
+    write_Analysis();
+
+    runTime.write();
+
+    Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
+        << "  ClockTime = " << runTime.elapsedClockTime() << " s"
+        << Foam::nl << endl;
+}
+
+void Foam::solvers::icoImmersedBoundary::Solve()
 {
     while (pimpleCtlr.run(time))
     {
-        // Update PIMPLE outer-loop parameters if changed
-        pimpleCtlr.read();
-        
-        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
-        
-        preSolve();
-
-        // Adjust the time-step according to the solver maxDeltaT
-        adjustDeltaT(time, *this);
-
-        time++;
-
-        Info<< "Time = " << runTime.userTimeName() << nl << endl;
-
-        preMove();
-                        
-        // PIMPLE corrector loop
-        while (pimpleCtlr.loop())
-        {
-            moveMesh();
-            motionCorrector();
-            fvModels().correct();
-            prePredictor();
-            momentumPredictor();
-            thermophysicalPredictor();
-            pressureCorrector();
-            postCorrector();
-        }
-
-        postSolve();
-
-        write_Analysis();
-        
-        runTime.write();
-
-        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << Foam::nl << endl;
-        //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+        oneTimestep();
     }
 }
 

@@ -3,93 +3,219 @@
 Foam::solvers::pimpleIBControl::pimpleIBControl
 (
     pimpleNoLoopControl& pimple,
-    bool delayedInitialConvergence
+    Time& runTime
 ):
 pimpleSingleRegionControl(pimple),
-delayedInitialConvergence(delayedInitialConvergence)
+runTime(runTime),
+timeIteration(0)
 {
-    timeIteration = 0;
+    readFromDict();
 }
 
-bool Foam::solvers::pimpleIBControl::run
-(
-    Time& time
-)
+void Foam::solvers::pimpleIBControl::readFromDict()
+{
+    IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    if(!fvSolutionIO.filePath("",true).empty())
+    {
+        IOdictionary fvSolutionDict(fvSolutionIO);
+        
+        dictionary& solverDict = fvSolutionDict.subDict("solvers");
+        
+        // Read velocityTolerance
+        dictionary& uDict = solverDict.subDict("U");
+        ITstream uDictToleranceStream = uDict.lookup("tolerance");
+        token uDictToleranceToken;
+        uDictToleranceStream.read(uDictToleranceToken);
+        if(!uDictToleranceToken.isScalar())
+            FatalErrorInFunction<<"Invalid entry in system/fvSolution/solvers/U/tolerance -- must be scalar"<<exit(FatalError);
+        velocityTolerance = uDictToleranceToken.scalarToken();
+        
+        // Read pressureTolerance
+        dictionary& pDict = solverDict.subDict("p");
+        ITstream pDictToleranceStream = pDict.lookup("tolerance");
+        token pDictToleranceToken;
+        pDictToleranceStream.read(pDictToleranceToken);
+        if(!pDictToleranceToken.isScalar())
+            FatalErrorInFunction<<"Invalid entry in system/fvSolution/solvers/p/tolerance -- must be scalar"<<exit(FatalError);
+        pressureTolerance = pDictToleranceToken.scalarToken();
+        
+        // Read temperatureTolerance
+        if(solverDict.found("T"))
+        {
+            dictionary& tDict = solverDict.subDict("T");
+            ITstream tDictToleranceStream = tDict.lookup("tolerance");
+            token tDictToleranceToken;
+            tDictToleranceStream.read(tDictToleranceToken);
+            if(!tDictToleranceToken.isScalar())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/solvers/T/tolerance -- must be scalar"<<exit(FatalError);
+            temperatureTolerance = tDictToleranceToken.scalarToken();
+            temperatureToleranceSet = true;
+        }
+        
+        dictionary& pimpleDict = fvSolutionDict.subDict("PIMPLE");
+        
+        // Read nOuterCorrectors
+        if(pimpleDict.found("nOuterCorrectors"))
+        {
+            ITstream nOuterCorrectorsStream = pimpleDict.lookup("nOuterCorrectors");
+            token nOuterCorrectorsToken;
+            nOuterCorrectorsStream.read(nOuterCorrectorsToken);
+            if(!nOuterCorrectorsToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/nOuterCorrectors -- must be label"<<exit(FatalError);
+            minOuterIterations = nOuterCorrectorsToken.labelToken();
+        }
+        
+        // Read minMomentumIterations
+        if(pimpleDict.found("minMomentumIterations"))
+        {
+            ITstream minMomentumIterationsStream = pimpleDict.lookup("minMomentumIterations");
+            token minMomentumIterationsToken;
+            minMomentumIterationsStream.read(minMomentumIterationsToken);
+            if(!minMomentumIterationsToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/minMomentumIterations -- must be label"<<exit(FatalError);
+            minMomentumIterations = minMomentumIterationsToken.labelToken();
+            if(minMomentumIterations<1)
+                FatalErrorInFunction<<"minMomentumIterations must be >= 1"<<exit(FatalError);
+        }
+        
+        // Read momentumIterTolFrac
+        if(pimpleDict.found("momentumIterTolFrac"))
+        {
+            ITstream momentumIterTolFracStream = pimpleDict.lookup("momentumIterTolFrac");
+            token momentumIterTolFracToken;
+            momentumIterTolFracStream.read(momentumIterTolFracToken);
+            if(!momentumIterTolFracToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/momentumIterTolFrac -- must be label"<<exit(FatalError);
+            momentumIterTolFrac = momentumIterTolFracToken.labelToken();
+        }
+        
+        // Read momentumIterTolFrac
+        if(pimpleDict.found("minTemperatureIterations"))
+        {
+            ITstream minTemperatureIterationsStream = pimpleDict.lookup("minTemperatureIterations");
+            token minTemperatureIterationsToken;
+            minTemperatureIterationsStream.read(minTemperatureIterationsToken);
+            if(!minTemperatureIterationsToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/minTemperatureIterations -- must be label"<<exit(FatalError);
+            minTemperatureIterations = minTemperatureIterationsToken.labelToken();
+            if(minTemperatureIterations<1)
+                FatalErrorInFunction<<"minTemperatureIterations must be >= 1"<<exit(FatalError);
+        }
+        
+        if(pimpleDict.found("temperatureIterTolFrac"))
+        {
+            ITstream temperatureIterTolFracStream = pimpleDict.lookup("temperatureIterTolFrac");
+            token temperatureIterTolFracToken;
+            temperatureIterTolFracStream.read(temperatureIterTolFracToken);
+            if(!temperatureIterTolFracToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/temperatureIterTolFrac -- must be label"<<exit(FatalError);
+            temperatureIterTolFrac = temperatureIterTolFracToken.labelToken();
+        }
+        
+        if(pimpleDict.found("delayedInitialIterations"))
+        {
+            ITstream delayedInitialIterationsStream = pimpleDict.lookup("delayedInitialIterations");
+            token delayedInitialIterationsToken;
+            delayedInitialIterationsStream.read(delayedInitialIterationsToken);
+            if(!delayedInitialIterationsToken.isWord())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/delayedInitialIterations -- must be label"<<exit(FatalError);
+            word delayedInitialIterationsWord = delayedInitialIterationsToken.wordToken();
+            if(delayedInitialIterationsWord=="yes")
+                delayedInitialConvergence = true;
+            else if(delayedInitialIterationsWord=="no")
+                delayedInitialConvergence = false;
+            else
+                FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/delayedInitialIterations -- must be {yes,no}"<<exit(FatalError);
+        }
+    }
+    else
+        FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
+}
+
+bool Foam::solvers::pimpleIBControl::run(Time& time)
 {
     timeIteration++;
-    innerLoopIteration=0;
     return pimpleSingleRegionControl::run(time);
 }
 
-bool Foam::solvers::pimpleIBControl::loop()
-{
-    innerLoopIteration++;
-    bool convergence = evalConvergence();
-    bool pimpleSingleRegionControlLoop = pimpleSingleRegionControl::loop();
-    bool combinedLoop = convergence | pimpleSingleRegionControlLoop;
-    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||Loop  time:"<<timeIteration<<" (conv:"<<convergence<<" , pSRCL:"<<pimpleSingleRegionControlLoop<<") -> "<<combinedLoop<<Foam::endl;
-    return combinedLoop;
-}
-
-bool Foam::solvers::pimpleIBControl::evalConvergence()
-{
-    return false;
-    innerLoopIteration++;
-    
-    if(delayedInitialConvergence)
+bool Foam::solvers::pimpleIBControl::momentumLoop()
+{    
+    bool contLoop;
+    if(delayedInitialConvergence && momentumInnerIteration>timeIteration)
     {
-        if(innerLoopIteration>timeIteration)
-        {
-            Info<<"-----------------------------------delayedInitialConvergence------------------------"<<Foam::endl;
-            return false;
-        }
+        contLoop = false;
+    }
+    else if(momentumInnerIteration<minMomentumIterations)
+    {
+        contLoop = true;
+    }
+    else
+    {
+        if(velocityEqns==nullptr)
+            FatalErrorInFunction<<"velocityEqns not set!"<<exit(FatalError);
+        bool uEqnConverged = velocityEqns->converged();
+        vector uInitialRes = velocityEqns->initialResidual();
+        bool uIterationConverged = true;
+        for(label d=0; d<3; d++)
+           uIterationConverged &= (uInitialRes[d] < velocityTolerance*momentumIterTolFrac);
+        
+        if(pressureEqns==nullptr)
+            FatalErrorInFunction<<"pressureEqns not set!"<<exit(FatalError);
+        bool pEqnConverged = pressureEqns->converged();
+        scalar pInitialRes = pressureEqns->initialResidual();
+        bool pIterationConverged = (pInitialRes < pressureTolerance*momentumIterTolFrac);
+        
+        contLoop = uEqnConverged && uIterationConverged && pEqnConverged && pIterationConverged;
     }
     
-    bool allEqnsConverged = true;
-    for(const SolverPerformance<vector>* perf : vecEqns)
-        allEqnsConverged &= perf->converged();
-    for(const SolverPerformance<scalar>* perf : scaEqns)
-        allEqnsConverged &= perf->converged();
-    //Info<<"allEqnsConverged:"<<allEqnsConverged<<Foam::endl;
-    if(!allEqnsConverged)
-        return true;
-    
-    bool allEqnsFinal = true;
-    for(const SolverPerformance<vector>* perf : vecEqns)
-    {
-        vector nIterations = perf->nIterations();
-        if(nIterations[0]>1)
-            allEqnsFinal = false;
-        if(nIterations[1]>1)
-            allEqnsFinal = false;
-        if(nIterations[2]>1)
-            allEqnsFinal = false;
-    }
-    for(const SolverPerformance<scalar>* perf : scaEqns)
-    {
-        label nIterations = perf->nIterations();
-        if(nIterations>1)
-            allEqnsFinal = false;
-    }
-    //Info<<"allEqnsFinal:"<<allEqnsFinal<<Foam::endl;
-    if(!allEqnsFinal)
-        return true;   
-    
-    return false;
+    momentumInnerIteration++;
+    return contLoop;
 }
 
-void Foam::solvers::pimpleIBControl::addEqnPerformance
-(
-    SolverPerformance<vector>* eqn
-)
+bool Foam::solvers::pimpleIBControl::temperatureLoop()
 {
-    vecEqns.append(eqn);
+    if(!temperatureUsed)
+        FatalErrorInFunction<<"Temperature not used but temperature loop called"<<exit(FatalError);
+    
+    if(!temperatureToleranceSet)
+        FatalErrorInFunction<<"TemperatureTolerance not set"<<exit(FatalError);
+    
+    bool contLoop;
+    if(delayedInitialConvergence && temperatureInnerIteration>timeIteration)
+    {
+        contLoop = false;
+    }
+    if(temperatureInnerIteration<minTemperatureIterations)
+    {
+        contLoop = true;
+    }
+    else
+    {        
+        if(temperatureEqns==nullptr)
+            FatalErrorInFunction<<"temperatureEqns not set!"<<exit(FatalError);
+        bool tEqnConverged = temperatureEqns->converged();
+        scalar tInitialRes = temperatureEqns->initialResidual();
+        bool tIterationConverged = (tInitialRes < temperatureTolerance*temperatureIterTolFrac);
+        
+        contLoop = tEqnConverged && tIterationConverged;
+    }
+    
+    temperatureInnerIteration++;
+    return contLoop;
 }
 
-void Foam::solvers::pimpleIBControl::addEqnPerformance
-(
-    SolverPerformance<scalar>* eqn
-)
+void Foam::solvers::pimpleIBControl::setVelocityPerformance(SolverPerformance<vector>* uEqn)
 {
-    scaEqns.append(eqn);
+    velocityEqns = uEqn;
+}
+
+void Foam::solvers::pimpleIBControl::setPressurePerformance(SolverPerformance<scalar>* pEqn)
+{
+    pressureEqns = pEqn;
+}
+
+void Foam::solvers::pimpleIBControl::setTemperaturePerformance(SolverPerformance<scalar>* tEqn)
+{
+    temperatureEqns = tEqn;
+    temperatureUsed = true;
 }

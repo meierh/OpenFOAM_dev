@@ -141,7 +141,6 @@ protected:
     void store();
     void setToTime(scalar time);
     
-public:
     //- Runtime type information
     //TypeName("icoImmersedBoundary");
 
@@ -160,8 +159,7 @@ public:
 
 
     // Member Functions
-
-    
+        
         //- Called at the start of the time-step, before the PIMPLE loop
         //void preSolve() override;
         
@@ -204,7 +202,10 @@ public:
         void operator=(const icoImmersedBoundary&) = delete;
         
     // High level functions
-        void solveEqns();
+        void oneTimestep();
+        
+    public:
+        void Solve();
         
     private:
         std::unique_ptr<volScalarField> cellSizes;
