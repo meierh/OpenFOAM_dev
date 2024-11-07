@@ -84,17 +84,28 @@ class pimpleIBControl : public pimpleSingleRegionControl
         bool loop()=delete;
         
         bool run(Time& time);
+        
         bool momentumLoop();
+        bool momentumPredictor();
+        bool consistent();
+        label nCorrPiso();
+        bool correct();
+        bool correctNonOrthogonal();
+        bool finalNonOrthogonalIter();
+
         bool temperatureLoop();
         
         void setVelocityPerformance(SolverPerformance<vector>* uEqn);
         void setPressurePerformance(SolverPerformance<scalar>* pEqn);
         void setTemperaturePerformance(SolverPerformance<scalar>* tEqn);
         
-    private:
+    protected:
+        pimpleNoLoopControl& pimple;        
         void readFromDict();
-        Time& runTime;
+        Time& runTime;        
+        label timeIteration;
         
+    private:
         // Momentum system
         SolverPerformance<vector>* velocityEqns=nullptr;
         scalar velocityTolerance;
@@ -115,7 +126,6 @@ class pimpleIBControl : public pimpleSingleRegionControl
         
         //Full system
         label minOuterIterations=1; // nOuterCorrectors
-        label timeIteration;
         bool delayedInitialConvergence = true;
 };
 

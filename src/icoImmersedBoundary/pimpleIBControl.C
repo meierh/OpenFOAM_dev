@@ -6,6 +6,7 @@ Foam::solvers::pimpleIBControl::pimpleIBControl
     Time& runTime
 ):
 pimpleSingleRegionControl(pimple),
+pimple(pimple),
 runTime(runTime),
 timeIteration(0)
 {
@@ -170,6 +171,37 @@ bool Foam::solvers::pimpleIBControl::momentumLoop()
     
     momentumInnerIteration++;
     return contLoop;
+}
+
+bool Foam::solvers::pimpleIBControl::momentumPredictor()
+{
+    return pimple.momentumPredictor();
+}
+
+bool Foam::solvers::pimpleIBControl::consistent()
+{
+    return pimple.consistent();
+}
+
+Foam::label Foam::solvers::pimpleIBControl::nCorrPiso()
+{
+    return pimple.nCorrPiso();
+}
+
+bool Foam::solvers::pimpleIBControl::correct()
+{
+    return pimple.correct();
+}
+
+
+bool Foam::solvers::pimpleIBControl::correctNonOrthogonal()
+{
+    return pimple.correctNonOrthogonal();
+}
+
+bool Foam::solvers::pimpleIBControl::finalNonOrthogonalIter()
+{
+    return pimple.finalNonOrthogonalIter();
 }
 
 bool Foam::solvers::pimpleIBControl::temperatureLoop()

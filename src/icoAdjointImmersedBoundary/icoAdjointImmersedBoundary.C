@@ -6,7 +6,7 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
     Time& time
 ):
 icoImmersedBoundary(mesh,time),
-adjPimpleCtlr(incompressibleFluid::pimple),
+adjPimpleCtlr(incompressibleFluid::pimple,time),
 adj_U_
 (
     IOobject
@@ -100,13 +100,13 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing
         useAdjointTemperatureForcing = false;
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve()
+void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
 {   
-    if(useTemperature)
-    {
-        //volVectorField& U(U_);    
-        //phi = mesh.Sf() * U;
-        
+    if(useAdjointTemperature)
+    {        
         volScalarField& adj_T = *adj_T_;
         std::unique_ptr<fvScalarMatrix> adjTEqnPtr;
         if(steadyStateAdjoint)
@@ -114,8 +114,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve()
         else
             adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::ddt(adj_T)-fvm::div(phi,adj_T)+fvm::laplacian(alpha,adj_T));
         fvScalarMatrix& adjTEqn = *adjTEqnPtr;
-        
-        do
+
+        while(adjPimpleCtlr.adjTemperatureLoop())
         {
             if(useTemperatureForcing)
             {
@@ -128,11 +128,13 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve()
                 adjTEqn_res = solve(adjTEqn); 
             }
         }
-        while(adjTEqn_res.nIterations()>0);
     }
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor()
+void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
 {
     volVectorField& U(U_);
     volVectorField& adj_U(adj_U_);
@@ -240,7 +242,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor()
     adj_UEqn.relax();
     fvConstraints().constrain(adj_UEqn);
 
-    if (pimple.momentumPredictor())
+    if (adjPimpleCtlr.momentumPredictor())
     {
         if(useAdjointVelocityForcing)
         {
@@ -259,16 +261,22 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_thermophysicalPredictor()
 {
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::adj_pressureCorrector()
+void Foam::solvers::icoAdjointImmersedBoundary::adj_pressureCorrector
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
 {
-     while (pimple.correct())
+     while (adjPimpleCtlr.adjCorrect())
      {
-         adj_correctPressure();
+         adj_correctPressure(adjPimpleCtlr);
      }
      tadj_UEqn.clear();
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure()
+void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
 {
     //volScalarField& p(p_);
     //volVectorField& U(U_);
@@ -300,7 +308,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure()
 
     tmp<volScalarField> rA_adjtU(rA_adjU);
 
-    if (pimple.consistent())
+    if (adjPimpleCtlr.consistent())
     {
         rA_adjtU = 1.0/max(1.0/rA_adjU - adj_UEqn.H1(), 0.1/rA_adjU);
         adj_phiHbyA += fvc::interpolate(rA_adjtU() - rA_adjU)*fvc::snGrad(adj_p)*mesh.magSf();
@@ -318,7 +326,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure()
     //fvScalarMatrix p_rghEqnSource(fvModels().sourceProxy(adj_p));
 
     // Non-orthogonal pressure corrector loop
-    while (pimple.correctNonOrthogonal())
+    while (adjPimpleCtlr.correctNonOrthogonal())
     {
         fvScalarMatrix adj_pEqn
         (
@@ -358,7 +366,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure()
     //fvc::makeRelative(phi, U);
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve()
+void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
 {
     for(std::pair<Parameter,scalar>& singleParameter : gradient)
     {
@@ -369,46 +380,40 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve()
     }
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::solvePrimal()
+void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
 {
-    icoImmersedBoundary::solveEqns();
+    // Update PIMPLE outer-loop parameters if changed
+    adjPimpleCtlr.read();
+
+    adj_preSolve(adjPimpleCtlr);
+    // PIMPLE corrector loop
+    while (adjPimpleCtlr.adjMomentumLoop())
+    {
+        adj_moveMesh();
+        adj_motionCorrector();
+        //adj_fvModels().correct();
+        adj_prePredictor();
+        adj_momentumPredictor(adjPimpleCtlr);
+        adj_thermophysicalPredictor();
+        adj_pressureCorrector(adjPimpleCtlr);
+        adj_postCorrector();
+    }
+    adj_postSolve(adjPimpleCtlr);
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::solveAdjoint()
+void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
 {
-    while (adjPimpleCtlr.run(time))
+    oneAdjSteadyTimestep(adjPimpleCtlr);
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
+{
+    while (pimpleCtlr.run(time))
     {
-        // Update PIMPLE outer-loop parameters if changed
-        adjPimpleCtlr.read();
-
-        adj_preSolve();
-
-        // Adjust the time-step according to the solver maxDeltaT
-        //adjustDeltaT(time, *this);
-
-        time++;
-
-        Info<< "Time = " << runTime.userTimeName() << nl << endl;
-
-        // PIMPLE corrector loop
-        while (adjPimpleCtlr.loop())
-        {
-            adj_moveMesh();
-            adj_motionCorrector();
-            //adj_fvModels().correct();
-            adj_prePredictor();
-            adj_momentumPredictor();
-            adj_thermophysicalPredictor();
-            adj_pressureCorrector();
-            adj_postCorrector();
-        }
-
-        adj_postSolve();
-
-        runTime.write();
-
-        Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << Foam::nl << endl;
+        icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
+        oneAdjSteadyTimestep(adjPimpleCtlr);
     }
 }

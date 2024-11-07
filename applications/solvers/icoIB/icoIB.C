@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 
     Info<< nl << "Starting time loop\n" << endl;
 
-    solver.solveEqns();
+    solver.Solve();
         
     Info<< "End\n" << endl;
 

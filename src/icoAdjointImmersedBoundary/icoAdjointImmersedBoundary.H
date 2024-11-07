@@ -70,6 +70,8 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
+#include "pimpleAdjIBControl.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -83,63 +85,65 @@ namespace solvers
 
 class icoAdjointImmersedBoundary : public icoImmersedBoundary
 {
-protected:
-    pimpleSingleRegionControl adjPimpleCtlr;
-    
-    bool steadyStateAdjoint;
-    
-    // Adjoint Veclocity
-    volVectorField adj_U_;
-    
-    // Adjoint Pressure
-    volScalarField adj_p_;
-        
-    //- Adjnout Velocity forcing
-    bool useAdjointVelocityForcing;
-    std::unique_ptr<volVectorField> adj_fU_;
-    std::unique_ptr<SensitivityVelocityPressureForceInteraction> interaction_adj_fU;
-    void create_AdjointVelocityForcing();
-    
-    //- Adjoint Temperature
-    bool useAdjointTemperature;
-    std::unique_ptr<volScalarField> adj_T_;
-    void create_AdjointTemperature();
-    
-    //- Adjoint Temperature forcing
-    bool useAdjointTemperatureForcing;
-    std::unique_ptr<volScalarField> adj_fT_;
-    std::unique_ptr<SensitivityTemperatureInteraction> interaction_ajd_fT;
-    void create_AdjointTemperatureForcing();
-    
-    // Adjoint U equation
-    tmp<fvVectorMatrix> tadj_UEqn;    
-    
-    //- Solver Performances
-    SolverPerformance<vector> adjUEqn_res;
-    SolverPerformance<scalar> adjPEqn_res;
-    SolverPerformance<scalar> adjTEqn_res;
-    
-    //Gradient Computation
-    std::vector<std::pair<Parameter,scalar>> gradient;
-    
-public:
+    public:
     // Constructors
-
         //- Construct from region mesh
         icoAdjointImmersedBoundary(fvMesh& mesh, Time& time);
-
         //- Disallow default bitwise copy construction
         icoAdjointImmersedBoundary(const icoImmersedBoundary&) = delete;
-
-
-    //- Destructor
-    virtual ~icoAdjointImmersedBoundary()=default;
+        //- Destructor
+        virtual ~icoAdjointImmersedBoundary()=default;
+        //- Disallow default bitwise assignment
+        void operator=(const icoAdjointImmersedBoundary&) = delete;
+    
+    // High level functions
+        void SolveSteadyAdjoint();
+    
+    protected:
+        pimpleAdjIBControl adjPimpleCtlr;
+        
+        bool steadyStateAdjoint;
+        
+        // Adjoint Veclocity
+        volVectorField adj_U_;
+        
+        // Adjoint Pressure
+        volScalarField adj_p_;
+            
+        //- Adjnout Velocity forcing
+        bool useAdjointVelocityForcing;
+        std::unique_ptr<volVectorField> adj_fU_;
+        std::unique_ptr<SensitivityVelocityPressureForceInteraction> interaction_adj_fU;
+        void create_AdjointVelocityForcing();
+        
+        //- Adjoint Temperature
+        bool useAdjointTemperature;
+        std::unique_ptr<volScalarField> adj_T_;
+        void create_AdjointTemperature();
+        
+        //- Adjoint Temperature forcing
+        bool useAdjointTemperatureForcing;
+        std::unique_ptr<volScalarField> adj_fT_;
+        std::unique_ptr<SensitivityTemperatureInteraction> interaction_ajd_fT;
+        void create_AdjointTemperatureForcing();
+        
+        // Adjoint U equation
+        tmp<fvVectorMatrix> tadj_UEqn;    
+        
+        //- Solver Performances
+        SolverPerformance<vector> adjUEqn_res;
+        SolverPerformance<scalar> adjPEqn_res;
+        SolverPerformance<scalar> adjTEqn_res;
+        
+        //Gradient Computation
+        std::vector<std::pair<Parameter,scalar>> gradient;
+        
 
 
     // Member Functions
 
         //- Load stored sets of 
-        void adj_preSolve();
+        void adj_preSolve(pimpleAdjIBControl& adjPimpleCtlr);
 
         //- Called at the start of the PIMPLE loop to move the mesh
         void adj_moveMesh(){}
@@ -151,7 +155,7 @@ public:
         void adj_prePredictor(){};
         
         //- Construct and optionally solve the momentum equation
-        void adj_momentumPredictor();
+        void adj_momentumPredictor(pimpleAdjIBControl& adjPimpleCtlr);
 
         //- Construct and solve the energy equation,
         //  convert to temperature
@@ -159,24 +163,19 @@ public:
         void adj_thermophysicalPredictor();
 
         //- Construct and solve the pressure equation in the PISO loop
-        void adj_pressureCorrector();
+        void adj_pressureCorrector(pimpleAdjIBControl& adjPimpleCtlr);
 
         //- Correct the momentum and thermophysical transport modelling
         void adj_postCorrector(){};
         
-        void adj_correctPressure();
+        void adj_correctPressure(pimpleAdjIBControl& adjPimpleCtlr);
         
         //- Computes gradient after one timestep
-        void adj_postSolve();
+        void adj_postSolve(pimpleAdjIBControl& adjPimpleCtlr);
     
-    // Member Operators
-
-        //- Disallow default bitwise assignment
-        void operator=(const icoAdjointImmersedBoundary&) = delete;
-        
     // High level functions
-        void solvePrimal();
-        void solveAdjoint();
+        void oneAdjSteadyTimestep(pimpleAdjIBControl& adjPimpleCtlr);
+        void oneAdjSteadyTimestep();        
 };
 
 

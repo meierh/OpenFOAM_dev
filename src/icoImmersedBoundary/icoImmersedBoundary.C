@@ -195,7 +195,10 @@ void Foam::solvers::icoImmersedBoundary::create_TemperatureForcing()
         useTemperatureForcing = false;
 }
 
-void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
+void Foam::solvers::icoImmersedBoundary::create_Refiner
+(
+    fvMesh& mesh
+)
 {
     IOobject dynamicMeshDictIO("dynamicMeshDict","constant",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
     if(!dynamicMeshDictIO.filePath("",true).empty())
@@ -261,7 +264,18 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner(fvMesh& mesh)
         useRefinement = false;    
 }
 
-void Foam::solvers::icoImmersedBoundary::preMove()
+void Foam::solvers::icoImmersedBoundary::preSolve
+(
+    pimpleIBControl& pimpleCtlr
+)
+{
+    incompressibleFluid::preSolve();
+}
+
+void Foam::solvers::icoImmersedBoundary::preMove
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
     if(interaction_fU)
     {
@@ -270,15 +284,32 @@ void Foam::solvers::icoImmersedBoundary::preMove()
     }
 }
 
-void Foam::solvers::icoImmersedBoundary::moveMesh()
+void Foam::solvers::icoImmersedBoundary::moveMesh
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
 }
 
-void Foam::solvers::icoImmersedBoundary::motionCorrector()
+void Foam::solvers::icoImmersedBoundary::motionCorrector
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
 }
 
-void Foam::solvers::icoImmersedBoundary::momentumPredictor()
+void Foam::solvers::icoImmersedBoundary::prePredictor
+(
+    pimpleIBControl& pimpleCtlr
+)
+{
+    incompressibleFluid::prePredictor();
+}
+
+void Foam::solvers::icoImmersedBoundary::momentumPredictor
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
     volVectorField& U(U_);
   
@@ -298,7 +329,7 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
   
     fvConstraints().constrain(UEqn);
       
-    if (pimple.momentumPredictor())
+    if (pimpleCtlr.momentumPredictor())
     {
         UEqn_res = solve(UEqn == -fvc::grad(p));
         if(useVelocityForcing)
@@ -310,7 +341,10 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor()
     }
 }
 
-void Foam::solvers::icoImmersedBoundary::correctPressure()
+void Foam::solvers::icoImmersedBoundary::correctPressure
+(
+    pimpleIBControl& pimpleCtlr
+)
 {   
     volScalarField& p(p_);
     volVectorField& U(U_);
@@ -339,14 +373,14 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
 
     tmp<volScalarField> rAtU(rAU);
 
-    if (pimple.consistent())
+    if (pimpleCtlr.consistent())
     {
         rAtU = 1.0/max(1.0/rAU - UEqn.H1(), 0.1/rAU);
         phiHbyA += fvc::interpolate(rAtU() - rAU)*fvc::snGrad(p)*mesh.magSf();
         HbyA -= (rAU - rAtU())*fvc::grad(p);
     }
 
-    if (pimple.nCorrPiso() <= 1)
+    if (pimpleCtlr.nCorrPiso() <= 1)
     {
         tUEqn.clear();
     }
@@ -358,7 +392,7 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
     //fvScalarMatrix p_rghEqnSource(fvModels().sourceProxy(p));
 
     // Non-orthogonal pressure corrector loop
-    while (pimple.correctNonOrthogonal())
+    while (pimpleCtlr.correctNonOrthogonal())
     {
         fvScalarMatrix pEqn(fvm::laplacian(rAtU(),p)==fvc::div(phiHbyA));
         
@@ -370,7 +404,7 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
 
         pEqn.solve();
 
-        if (pimple.finalNonOrthogonalIter())
+        if (pimpleCtlr.finalNonOrthogonalIter())
         {
             phi = phiHbyA - pEqn.flux();
         }
@@ -392,7 +426,10 @@ void Foam::solvers::icoImmersedBoundary::correctPressure()
     
 }
 
-void Foam::solvers::icoImmersedBoundary::postCorrector()
+void Foam::solvers::icoImmersedBoundary::postCorrector
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
     incompressibleFluid::postCorrector();
     if(interaction_fU)
@@ -402,7 +439,10 @@ void Foam::solvers::icoImmersedBoundary::postCorrector()
     }
 }
 
-void Foam::solvers::icoImmersedBoundary::postSolve()
+void Foam::solvers::icoImmersedBoundary::postSolve
+(
+    pimpleIBControl& pimpleCtlr
+)
 {    
     if(useTemperature)
     {
@@ -464,52 +504,49 @@ void Foam::solvers::icoImmersedBoundary::setToTime(scalar time)
         interaction_fT->setToTime(time);
 }
 
-void Foam::solvers::icoImmersedBoundary::oneTimestep()
+void Foam::solvers::icoImmersedBoundary::oneTimestep
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
     pimpleCtlr.read();
-
-    Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
-
-    preSolve();
+    preSolve(pimpleCtlr);
 
     // Adjust the time-step according to the solver maxDeltaT
     adjustDeltaT(time, *this);
 
     time++;
-
     Info<< "Time = " << runTime.userTimeName() << nl << endl;
 
-    preMove();
-                    
-    // PIMPLE corrector loop
+    preMove(pimpleCtlr);                    
     while (pimpleCtlr.momentumLoop())
     {
-        moveMesh();
-        motionCorrector();
-        fvModels().correct();
-        prePredictor();
-        momentumPredictor();
+        moveMesh(pimpleCtlr);
+        motionCorrector(pimpleCtlr);
+        //fvModels().correct();
+        prePredictor(pimpleCtlr);
+        momentumPredictor(pimpleCtlr);
         thermophysicalPredictor();
         pressureCorrector();
-        postCorrector();
+        postCorrector(pimpleCtlr);
     }
+    postSolve(pimpleCtlr);
+}
 
-    postSolve();
-
-    write_Analysis();
-
-    runTime.write();
-
-    Foam::Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-        << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-        << Foam::nl << endl;
+void Foam::solvers::icoImmersedBoundary::oneTimestep()
+{
+    oneTimestep(pimpleCtlr);
 }
 
 void Foam::solvers::icoImmersedBoundary::Solve()
 {
     while (pimpleCtlr.run(time))
     {
+        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
         oneTimestep();
+        write_Analysis();
+        runTime.write();
+        Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
 }
 

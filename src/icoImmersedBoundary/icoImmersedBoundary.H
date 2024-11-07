@@ -89,95 +89,89 @@ namespace solvers
 
 class icoImmersedBoundary : public incompressibleFluid
 {
-protected:
-    Time& time;
-    pimpleIBControl pimpleCtlr;
-    IOdictionary transportProperties;
-    dimensionedScalar nu;
-    
-    enum ImmersionMethod {addForce, substrValue};   
-
-    //- RodStructure
-    bool useStructure;
-    std::shared_ptr<IOdictionary> structureDict;
-    std::unique_ptr<LineStructure> structure;
-    
-    //- Velocity forcing
-    bool useVelocityForcing;
-    std::unique_ptr<volVectorField> fU_;
-    std::unique_ptr<VelocityPressureForceInteraction> interaction_fU;
-    void create_VelocityForcing();
-    
-    //- Temperature
-    bool useTemperature;
-    std::unique_ptr<volScalarField> T_;
-    dimensionedScalar alpha;
-    void create_Temperature();
-    
-    //- Temperature forcing
-    bool useTemperatureForcing;
-    std::unique_ptr<volScalarField> fT_;
-    std::unique_ptr<TemperatureInteraction> interaction_fT;
-    void create_TemperatureForcing();
-    
-    //- Refinement
-    bool useRefinement;
-    std::shared_ptr<MeshRefiner> refinement_;
-    std::unique_ptr<volScalarField> refine_;
-    void create_Refiner(fvMesh& mesh);
-    
-    //- Solver Performances
-    SolverPerformance<vector> UEqn_res;
-    SolverPerformance<scalar> PEqn_res;
-    SolverPerformance<scalar> TEqn_res;
-    
-    //Storage
-    std::map<scalar,fvMesh> storage_Mesh;
-    std::map<scalar,volVectorField> storage_U;
-    std::map<scalar,volScalarField> storage_p;
-    std::map<scalar,volScalarField> storage_T;
-    std::vector<scalar> times;
-    std::unordered_map<scalar,label> timeToIndex;
-    void store();
-    void setToTime(scalar time);
-    
-    //- Runtime type information
-    //TypeName("icoImmersedBoundary");
-
-
-    // Constructors
-
+    public:
         //- Construct from region mesh
         icoImmersedBoundary(fvMesh& mesh, Time& time);
-
         //- Disallow default bitwise copy construction
         icoImmersedBoundary(const icoImmersedBoundary&) = delete;
+        //- Destructor
+        virtual ~icoImmersedBoundary() = default;
+        //- Disallow default bitwise assignment
+        void operator=(const icoImmersedBoundary&) = delete;
+        
+        void Solve();
+        
+        
+    protected:
+        Time& time;
+        pimpleIBControl pimpleCtlr;
+        IOdictionary transportProperties;
+        dimensionedScalar nu;
+        
+        enum ImmersionMethod {addForce, substrValue};   
 
-
-    //- Destructor
-    virtual ~icoImmersedBoundary() = default;
-
-
+        //- RodStructure
+        bool useStructure;
+        std::shared_ptr<IOdictionary> structureDict;
+        std::unique_ptr<LineStructure> structure;
+        
+        //- Velocity forcing
+        bool useVelocityForcing;
+        std::unique_ptr<volVectorField> fU_;
+        std::unique_ptr<VelocityPressureForceInteraction> interaction_fU;
+        void create_VelocityForcing();
+        
+        //- Temperature
+        bool useTemperature;
+        std::unique_ptr<volScalarField> T_;
+        dimensionedScalar alpha;
+        void create_Temperature();
+        
+        //- Temperature forcing
+        bool useTemperatureForcing;
+        std::unique_ptr<volScalarField> fT_;
+        std::unique_ptr<TemperatureInteraction> interaction_fT;
+        void create_TemperatureForcing();
+        
+        //- Refinement
+        bool useRefinement;
+        std::shared_ptr<MeshRefiner> refinement_;
+        std::unique_ptr<volScalarField> refine_;
+        void create_Refiner(fvMesh& mesh);
+        
+        //- Solver Performances
+        SolverPerformance<vector> UEqn_res;
+        SolverPerformance<scalar> PEqn_res;
+        SolverPerformance<scalar> TEqn_res;
+        
+        //Storage
+        std::map<scalar,fvMesh> storage_Mesh;
+        std::map<scalar,volVectorField> storage_U;
+        std::map<scalar,volScalarField> storage_p;
+        std::map<scalar,volScalarField> storage_T;
+        std::vector<scalar> times;
+        std::unordered_map<scalar,label> timeToIndex;
+        void store();
+        void setToTime(scalar time);
+    
     // Member Functions
         
         //- Called at the start of the time-step, before the PIMPLE loop
-        //void preSolve() override;
+        void preSolve(pimpleIBControl& pimpleCtlr);
         
-        void preMove();
+        void preMove(pimpleIBControl& pimpleCtlr);
         
         //- Called at the start of the PIMPLE loop to move the mesh
-        void moveMesh() override;
+        void moveMesh(pimpleIBControl& pimpleCtlr);
 
         //- Corrections that follow mesh motion
-        void motionCorrector() override;
+        void motionCorrector(pimpleIBControl& pimpleCtlr);
 
-    /*
         //- Called at the start of the PIMPLE loop
-        virtual void prePredictor();
-    */
+        void prePredictor(pimpleIBControl& pimpleCtlr);
         
         //- Construct and optionally solve the momentum equation
-        void momentumPredictor() override;
+        void momentumPredictor(pimpleIBControl& pimpleCtlr);
 
     /*
         //- Construct and solve the energy equation,
@@ -188,25 +182,18 @@ protected:
         //- Construct and solve the pressure equation in the PISO loop
         virtual void pressureCorrector();
     */       
-        void correctPressure() override;
+        void correctPressure(pimpleIBControl& pimpleCtlr);
       
         //- Correct the momentum and thermophysical transport modelling
-        void postCorrector() override;
+        void postCorrector(pimpleIBControl& pimpleCtlr);
         
         //- Solve temperature equation after one timestep pimple loop
-        void postSolve() override;
-
-    // Member Operators
-
-        //- Disallow default bitwise assignment
-        void operator=(const icoImmersedBoundary&) = delete;
+        void postSolve(pimpleIBControl& pimpleCtlr);
         
     // High level functions
+        void oneTimestep(pimpleIBControl& pimpleCtlr);
         void oneTimestep();
-        
-    public:
-        void Solve();
-        
+            
     private:
         std::unique_ptr<volScalarField> cellSizes;
         std::unique_ptr<volScalarField> cellMarkerCount;

@@ -1,3 +1,4 @@
 icoAdjointImmersedBoundary.C
+pimpleAdjIBControl.C
 
 LIB = $(FOAM_USER_LIBBIN)/libicoAdjointImmersedBoundary
