@@ -92,6 +92,8 @@ class icoImmersedBoundary : public incompressibleFluid
     public:
         //- Construct from region mesh
         icoImmersedBoundary(fvMesh& mesh, Time& time);
+        //- Construct from region mesh
+        icoImmersedBoundary(fvMesh& mesh, Time& time, pimpleIBControl& pimpleCtlr);
         //- Disallow default bitwise copy construction
         icoImmersedBoundary(const icoImmersedBoundary&) = delete;
         //- Destructor
@@ -104,7 +106,7 @@ class icoImmersedBoundary : public incompressibleFluid
         
     protected:
         Time& time;
-        pimpleIBControl pimpleCtlr;
+        std::unique_ptr<pimpleIBControl> pimpleCtlr;
         IOdictionary transportProperties;
         dimensionedScalar nu;
         
@@ -125,6 +127,7 @@ class icoImmersedBoundary : public incompressibleFluid
         bool useTemperature;
         std::unique_ptr<volScalarField> T_;
         dimensionedScalar alpha;
+        void create_Temperature(pimpleIBControl& pimpleCtlr);
         void create_Temperature();
         
         //- Temperature forcing
@@ -193,14 +196,14 @@ class icoImmersedBoundary : public incompressibleFluid
     // High level functions
         void oneTimestep(pimpleIBControl& pimpleCtlr);
         void oneTimestep();
+        
+        void create_Analysis();
+        void write_Analysis();
             
     private:
         std::unique_ptr<volScalarField> cellSizes;
         std::unique_ptr<volScalarField> cellMarkerCount;
-        std::unique_ptr<volScalarField> cellMarkerCharacSize;
-        void create_Analysis();
-        void write_Analysis();
-        
+        std::unique_ptr<volScalarField> cellMarkerCharacSize;        
 };
 
 

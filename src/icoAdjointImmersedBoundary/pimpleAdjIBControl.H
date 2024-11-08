@@ -51,8 +51,8 @@ See also
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef pimpleIBControl_H
-#define pimpleIBControl_H
+#ifndef pimpleAdjIBControl_H
+#define pimpleAdjIBControl_H
 
 #include "incompressibleFluid.H"
 #include "CrossSectionStructure.H"
@@ -61,7 +61,7 @@ See also
 #include "FixedTemperatureAction.H"
 #include "MeshRefiner.H"
 
-#include "pimpleSingleRegionControl.H"
+#include "pimpleIBControl.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -74,57 +74,56 @@ namespace solvers
                           Class incompressibleFluid Declaration
 \*---------------------------------------------------------------------------*/
 
-class pimpleIBControl : public pimpleSingleRegionControl
+class pimpleAdjIBControl : public pimpleIBControl
 {
     public:
-        pimpleIBControl(pimpleNoLoopControl& pimple,Time& runTime);
+        pimpleAdjIBControl(pimpleNoLoopControl& pimple,Time& runTime);
+        pimpleAdjIBControl(const pimpleAdjIBControl&)=delete;
+        //virtual ~pimpleIBControl() {~pimpleSingleRegionControl::pimpleSingleRegionControl();}
 
         bool loop()=delete;
         
         bool run(Time& time);
         
-        bool momentumLoop();
-        bool momentumPredictor();
-        bool consistent();
-        label nCorrPiso();
-        bool correct();
-        bool correctNonOrthogonal();
-        bool finalNonOrthogonalIter();
-
-        bool temperatureLoop();
+        bool adjMomentumLoop();
+        bool adjMomentumPredictor();
+        bool adjConsistent();
+        label adjNCorrPiso();
+        bool adjCorrect();
+        bool adjCorrectNonOrthogonal();
+        bool adjFinalNonOrthogonalIter();
         
-        void setVelocityPerformance(SolverPerformance<vector>* uEqn);
-        void setPressurePerformance(SolverPerformance<scalar>* pEqn);
-        void setTemperaturePerformance(SolverPerformance<scalar>* tEqn);
+        bool adjTemperatureLoop();
         
-    protected:
-        pimpleNoLoopControl& pimple;        
-        void readFromDict();
-        Time& runTime;        
-        label timeIteration;
+        void setAdjVelocityPerformance(SolverPerformance<vector>* adjUEqn);
+        void setAdjPressurePerformance(SolverPerformance<scalar>* adjPEqn);
+        void setAdjTemperaturePerformance(SolverPerformance<scalar>* adjTEqn);
         
     private:
+        void readFromDict();
+        
         // Momentum system
-        SolverPerformance<vector>* velocityEqns=nullptr;
-        scalar velocityTolerance;
-        SolverPerformance<scalar>* pressureEqns=nullptr;
-        scalar pressureTolerance;
-        label momentumInnerIteration;
-        label minMomentumIterations=1;
-        scalar momentumIterTolFrac=1;
+        SolverPerformance<vector>* adjVelocityEqns=nullptr;
+        scalar adjVelocityTolerance;
+        SolverPerformance<scalar>* adjPressureEqns=nullptr;
+        scalar adjPressureTolerance;
+        label adjMomentumInnerIteration;
+        label adjMinMomentumIterations=1;
+        scalar adjMomentumIterTolFrac=1;
         
         // Temperature system
-        SolverPerformance<scalar>* temperatureEqns;
-        scalar temperatureTolerance;
-        bool temperatureToleranceSet = false;
-        label temperatureInnerIteration;
-        label minTemperatureIterations=1;
-        scalar temperatureIterTolFrac=1;
-        bool temperatureUsed = false;
+        SolverPerformance<scalar>* adjTemperatureEqns;
+        scalar adjTemperatureTolerance;
+        bool adjTemperatureToleranceSet = false;
+        label adjTemperatureInnerIteration;
+        label adjMinTemperatureIterations=1;
+        scalar adjTemperatureIterTolFrac=1;
+        bool adjTemperatureUsed = false;
         
         //Full system
-        label minOuterIterations=1; // nOuterCorrectors
-        bool delayedInitialConvergence = true;
+        label adjMinOuterIterations=1; // nOuterCorrectors
+        label adjTimeIteration;
+        bool adjDelayedInitialConvergence = true;
 };
 
 

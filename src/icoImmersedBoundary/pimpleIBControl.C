@@ -50,6 +50,7 @@ void Foam::solvers::pimpleIBControl::readFromDict()
             if(!tDictToleranceToken.isScalar())
                 FatalErrorInFunction<<"Invalid entry in system/fvSolution/solvers/T/tolerance -- must be scalar"<<exit(FatalError);
             temperatureTolerance = tDictToleranceToken.scalarToken();
+            temperatureUsed = true;
             temperatureToleranceSet = true;
         }
         
@@ -135,6 +136,8 @@ void Foam::solvers::pimpleIBControl::readFromDict()
 
 bool Foam::solvers::pimpleIBControl::run(Time& time)
 {
+    momentumInnerIteration = 0;
+    temperatureInnerIteration = 0;
     timeIteration++;
     return pimpleSingleRegionControl::run(time);
 }
@@ -142,7 +145,11 @@ bool Foam::solvers::pimpleIBControl::run(Time& time)
 bool Foam::solvers::pimpleIBControl::momentumLoop()
 {    
     bool contLoop;
-    if(delayedInitialConvergence && momentumInnerIteration>timeIteration)
+    if(momentumInnerIteration==0)
+    {
+        contLoop = true;
+    }
+    else if(delayedInitialConvergence && momentumInnerIteration>timeIteration)
     {
         contLoop = false;
     }
@@ -169,7 +176,7 @@ bool Foam::solvers::pimpleIBControl::momentumLoop()
         contLoop = uEqnConverged && uIterationConverged && pEqnConverged && pIterationConverged;
     }
     
-    momentumInnerIteration++;
+    momentumInnerIteration++;   
     return contLoop;
 }
 
@@ -212,14 +219,20 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
     if(!temperatureToleranceSet)
         FatalErrorInFunction<<"TemperatureTolerance not set"<<exit(FatalError);
     
-    bool contLoop;
-    if(delayedInitialConvergence && temperatureInnerIteration>timeIteration)
-    {
-        contLoop = false;
-    }
-    if(temperatureInnerIteration<minTemperatureIterations)
+    bool contLoop = false;
+    if(temperatureInnerIteration==0)
     {
         contLoop = true;
+    }
+    else if(delayedInitialConvergence && temperatureInnerIteration>timeIteration)
+    {
+        contLoop = false;
+        Info<< "delayedInitialConvergence"<<nl;
+    }
+    else if(temperatureInnerIteration > minTemperatureIterations)
+    {
+        contLoop = false;
+        Info<< "minTemperatureIterations limit"<<nl;
     }
     else
     {        

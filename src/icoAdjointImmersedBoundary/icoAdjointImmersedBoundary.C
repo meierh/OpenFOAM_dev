@@ -5,8 +5,8 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
     fvMesh& mesh,
     Time& time
 ):
-icoImmersedBoundary(mesh,time),
 adjPimpleCtlr(incompressibleFluid::pimple,time),
+icoImmersedBoundary(mesh,time,adjPimpleCtlr),
 adj_U_
 (
     IOobject
@@ -27,7 +27,7 @@ adj_p_
     create_AdjointVelocityForcing();
     create_AdjointTemperature();
     create_AdjointTemperatureForcing();
-
+    
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
@@ -385,11 +385,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
-    // Update PIMPLE outer-loop parameters if changed
-    adjPimpleCtlr.read();
-
     adj_preSolve(adjPimpleCtlr);
-    // PIMPLE corrector loop
     while (adjPimpleCtlr.adjMomentumLoop())
     {
         adj_moveMesh();
@@ -411,9 +407,25 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
 
 void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
 {
-    while (pimpleCtlr.run(time))
+    while (adjPimpleCtlr.run(time))
     {
+        
+        Info<<"-------------------------------------- Presolve Time = "<<runTime.userTimeName()<<" --------------------------------------"<<nl;
+        adjPimpleCtlr.read();
+        preSolve(adjPimpleCtlr);
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+        time++;
+        Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;        
+        
         icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
-        oneAdjSteadyTimestep(adjPimpleCtlr);
+        //oneAdjSteadyTimestep(adjPimpleCtlr);
+        
+        write_Analysis();
+        runTime.write();
+        
+        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    
+        Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
 }

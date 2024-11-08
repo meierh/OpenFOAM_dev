@@ -7,7 +7,84 @@ Foam::solvers::icoImmersedBoundary::icoImmersedBoundary
 ):
 incompressibleFluid(mesh),
 time(time),
-pimpleCtlr(incompressibleFluid::pimple,time),
+transportProperties
+(
+    IOobject
+    (
+        "transportProperties",runTime.constant(),mesh,IOobject::MUST_READ_IF_MODIFIED,IOobject::NO_WRITE
+    )
+),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),transportProperties.lookup("nu")),
+alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
+{
+    pimpleCtlr = std::make_unique<pimpleIBControl>(incompressibleFluid::pimple,time);
+    
+    IOobject structureIO("structureDict","constant",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    Info<<"structureIO:"<<structureIO.name()<<Foam::endl;
+    if(!structureIO.filePath("",true).empty())
+    {
+        structureDict = std::make_shared<IOdictionary>(structureIO);
+        ITstream rodTypeStream = structureDict->lookup("rodType");
+        token rodTypeToken;
+        rodTypeStream.read(rodTypeToken);
+        if(!rodTypeToken.isWord())
+        {
+            Info<<"rodTypeToken:"<<rodTypeToken<<Foam::endl;
+            Info<<"rodTypeToken:"<<rodTypeToken.typeName()<<Foam::endl;
+            FatalErrorInFunction<<"Invalid entry in constant/structureDict/rodType -- must be string"<<exit(FatalError);
+        }
+        word rodTypeWord = rodTypeToken.wordToken();
+        if(rodTypeWord == "Line")
+        {
+            structure = std::make_unique<LineStructure>(mesh,structureDict);
+            useStructure = true;
+        }
+        else if(rodTypeWord == "CrossSection")
+        {
+            structure = std::make_unique<CrossSectionStructure>(mesh,structureDict);
+            useStructure = true;
+        }
+        else if(rodTypeWord == "None")
+        {
+            useStructure = false;
+        }
+        else
+            FatalErrorInFunction<<"Invalid entry in constant/structureDict/rodType -- valid {Line,CrossSection,Empty}"<<exit(FatalError);
+    }
+    else
+    {
+        useStructure = false;
+    }
+    
+    create_Refiner(mesh);
+    create_VelocityForcing();
+    create_Temperature();
+    create_TemperatureForcing();
+    
+    setDeltaT(time,*this);
+    
+    pimpleCtlr->setVelocityPerformance(&UEqn_res);
+    pimpleCtlr->setPressurePerformance(&PEqn_res);
+    
+    Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
+    Info<<"useStructure:"<<useStructure<<Foam::endl;
+    Info<<"useRefinement:"<<useRefinement<<Foam::endl;
+    Info<<"useVelocityForcing:"<<useVelocityForcing<<Foam::endl;
+    Info<<"useTemperature:"<<useTemperature<<Foam::endl;
+    Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
+    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
+    
+    create_Analysis();
+}
+
+Foam::solvers::icoImmersedBoundary::icoImmersedBoundary
+(
+    fvMesh& mesh,
+    Time& time,
+    pimpleIBControl& pimpleCtlr
+):
+incompressibleFluid(mesh),
+time(time),
 transportProperties
 (
     IOobject
@@ -57,7 +134,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     
     create_Refiner(mesh);
     create_VelocityForcing();
-    create_Temperature();
+    create_Temperature(pimpleCtlr);
     create_TemperatureForcing();
     
     setDeltaT(time,*this);
@@ -119,7 +196,10 @@ void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
         useVelocityForcing = false;
 }
 
-void Foam::solvers::icoImmersedBoundary::create_Temperature()
+void Foam::solvers::icoImmersedBoundary::create_Temperature
+(
+    pimpleIBControl& pimpleCtlr
+)
 {
     IOobject T_IOobj
     (
@@ -139,6 +219,11 @@ void Foam::solvers::icoImmersedBoundary::create_Temperature()
     {
         useTemperature = false;
     }
+}
+
+void Foam::solvers::icoImmersedBoundary::create_Temperature()
+{
+    create_Temperature(*pimpleCtlr);
 }
 
 void Foam::solvers::icoImmersedBoundary::create_TemperatureForcing()
@@ -455,7 +540,6 @@ void Foam::solvers::icoImmersedBoundary::postSolve
             {
                 volScalarField& fT = *fT_;
                 TEqn_res = solve(TEqn==fT);
-                
                 interaction_fT->solve();
             }
             else
@@ -509,16 +593,9 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
     pimpleIBControl& pimpleCtlr
 )
 {
-    pimpleCtlr.read();
-    preSolve(pimpleCtlr);
-
-    // Adjust the time-step according to the solver maxDeltaT
-    adjustDeltaT(time, *this);
-
-    time++;
-    Info<< "Time = " << runTime.userTimeName() << nl << endl;
-
-    preMove(pimpleCtlr);                    
+    Info<<nl;
+    preMove(pimpleCtlr);
+    Info<<nl;
     while (pimpleCtlr.momentumLoop())
     {
         moveMesh(pimpleCtlr);
@@ -530,22 +607,32 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
         pressureCorrector();
         postCorrector(pimpleCtlr);
     }
+    Info<<nl;
     postSolve(pimpleCtlr);
 }
 
 void Foam::solvers::icoImmersedBoundary::oneTimestep()
 {
-    oneTimestep(pimpleCtlr);
+    oneTimestep(*pimpleCtlr);
 }
 
 void Foam::solvers::icoImmersedBoundary::Solve()
 {
-    while (pimpleCtlr.run(time))
+    while (pimpleCtlr->run(time))
     {
         Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
+        pimpleCtlr->read();
+        preSolve(*pimpleCtlr);
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+        time++;
+        Info<< "Time = " << runTime.userTimeName() << nl << endl;
+            
         oneTimestep();
+        
         write_Analysis();
         runTime.write();
+    
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
 }

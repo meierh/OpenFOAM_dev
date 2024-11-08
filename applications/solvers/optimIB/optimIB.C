@@ -90,8 +90,7 @@ int main(int argc, char *argv[])
 
     // Instantiate the solver
     Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime);
-    solver.solvePrimal();
-    solver.solveAdjoint();
+    solver.SolveSteadyAdjoint();
   
     
     //label optimCoeffsNbr=1;
