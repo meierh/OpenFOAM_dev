@@ -100,7 +100,7 @@ class pimpleAdjIBControl : public pimpleIBControl
         void setAdjTemperaturePerformance(SolverPerformance<scalar>* adjTEqn);
         
     private:
-        void readFromDict();
+        void readFromFvSolution();
         
         // Momentum system
         SolverPerformance<vector>* adjVelocityEqns=nullptr;

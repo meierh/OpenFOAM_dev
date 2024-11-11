@@ -7,12 +7,12 @@ Foam::solvers::pimpleAdjIBControl::pimpleAdjIBControl
 ):
 pimpleIBControl(pimple,runTime)
 {
-    readFromDict();
+    readFromFvSolution();
 }
 
-void Foam::solvers::pimpleAdjIBControl::readFromDict()
+void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
 {
-    pimpleIBControl::readFromDict();
+    pimpleIBControl::readFromFvSolution();
     
     IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
     if(!fvSolutionIO.filePath("",true).empty())
@@ -134,37 +134,57 @@ void Foam::solvers::pimpleAdjIBControl::readFromDict()
 
 bool Foam::solvers::pimpleAdjIBControl::run(Time& time)
 {
+    adjMomentumInnerIteration = 0;
+    adjTemperatureInnerIteration = 0;
     return pimpleIBControl::run(time);
 }
 
 bool Foam::solvers::pimpleAdjIBControl::adjMomentumLoop()
 {    
+    Info<<"pimpleAdjIBControl::adjMomentumLoop"<<Foam::nl;
+    
     bool contLoop;
-    if(adjDelayedInitialConvergence && adjMomentumInnerIteration>timeIteration)
+    Info<<"||--adjMomentumInnerIteration:"<<adjMomentumInnerIteration<<" timeIteration:"<<timeIteration<<" adjMinMomentumIterations:"<<adjMinMomentumIterations<<" adjDelayedInitialConvergence:"<<adjDelayedInitialConvergence<<Foam::nl;
+    if(adjMomentumInnerIteration==0)
+    {
+        contLoop = true;
+        Info<<"||--First iteration"<<Foam::nl;
+    }
+    else if(adjDelayedInitialConvergence && adjMomentumInnerIteration>timeIteration)
     {
         contLoop = false;
+        Info<<"||--Delayed stop"<<Foam::nl;
     }
     else if(adjMomentumInnerIteration<adjMinMomentumIterations)
     {
         contLoop = true;
+        Info<<"||--Lower than minimum"<<Foam::nl;
+    }
+    else if(steady)
+    {
+        contLoop = false;
+        Info<<"||--Steady"<<Foam::nl;        
     }
     else
     {
         if(adjVelocityEqns==nullptr)
             FatalErrorInFunction<<"adjVelocityEqns not set!"<<exit(FatalError);
         bool adjUEqnConverged = adjVelocityEqns->converged();
-        vector adjUInitialRes = adjVelocityEqns->initialResidual();
-        bool adjUIterationConverged = true;
-        for(label d=0; d<3; d++)
-           adjUIterationConverged &= (adjUInitialRes[d] < adjVelocityTolerance*adjMomentumIterTolFrac);
+        Vector<label> adjUIterations = adjVelocityEqns->nIterations();
+        bool adjUIterationConverged = (adjUIterations[0]<1) && (adjUIterations[1]<1) && (adjUIterations[2]<1);
         
         if(adjPressureEqns==nullptr)
             FatalErrorInFunction<<"adjPressureEqns not set!"<<exit(FatalError);
         bool adjPEqnConverged = adjPressureEqns->converged();
-        scalar adjPInitialRes = adjPressureEqns->initialResidual();
-        bool adjPIterationConverged = (adjPInitialRes < adjPressureTolerance*adjMomentumIterTolFrac);
+        label adjPIterations = adjPressureEqns->nIterations();
+        bool adjPIterationConverged = (adjPIterations<1);
         
-        contLoop = adjUEqnConverged && adjUIterationConverged && adjPEqnConverged && adjPIterationConverged;
+        contLoop = !(adjUEqnConverged && adjUIterationConverged && adjPEqnConverged && adjPIterationConverged);
+        
+        if(contLoop)
+            Info<<"||--Not Converged  adjUIterations:"<<adjUIterations<<" adjPIterations:"<<adjPIterations<<Foam::nl;
+        else
+            Info<<"||--Converged  adjUIterations:"<<adjUIterations<<" adjPIterations:"<<adjPIterations<<Foam::nl;
     }
     
     adjMomentumInnerIteration++;

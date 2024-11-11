@@ -10,10 +10,10 @@ pimple(pimple),
 runTime(runTime),
 timeIteration(0)
 {
-    readFromDict();
+    readFromFvSolution();
 }
 
-void Foam::solvers::pimpleIBControl::readFromDict()
+void Foam::solvers::pimpleIBControl::readFromFvSolution()
 {
     IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
     if(!fvSolutionIO.filePath("",true).empty())
@@ -129,6 +129,19 @@ void Foam::solvers::pimpleIBControl::readFromDict()
             else
                 FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/delayedInitialIterations -- must be {yes,no}"<<exit(FatalError);
         }
+        
+        ITstream solutionTypeStream = pimpleDict.lookup("solutionType");
+        token solutionTypeToken;
+        solutionTypeStream.read(solutionTypeToken);
+        if(!solutionTypeToken.isWord())
+            FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/solutionType -- must be label"<<exit(FatalError);
+        word solutionTypeWord = solutionTypeToken.wordToken();
+        if(solutionTypeWord=="steady")
+            steady = true;
+        else if(solutionTypeWord=="unsteady")
+            steady = false;
+        else
+            FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/solutionType -- must be {steady,unsteady}"<<exit(FatalError);
     }
     else
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
@@ -145,35 +158,47 @@ bool Foam::solvers::pimpleIBControl::run(Time& time)
 bool Foam::solvers::pimpleIBControl::momentumLoop()
 {    
     bool contLoop;
+    Info<<"||--momentumInnerIteration:"<<momentumInnerIteration<<" timeIteration:"<<timeIteration<<" minMomentumIterations:"<<minMomentumIterations<<" delayedInitialConvergence:"<<delayedInitialConvergence<<Foam::nl;
     if(momentumInnerIteration==0)
     {
         contLoop = true;
+        Info<<"||--First iteration"<<Foam::nl;
     }
     else if(delayedInitialConvergence && momentumInnerIteration>timeIteration)
     {
         contLoop = false;
+        Info<<"||--Delayed stop"<<Foam::nl;
     }
     else if(momentumInnerIteration<minMomentumIterations)
     {
         contLoop = true;
+        Info<<"||--Lower than minimum"<<Foam::nl;
+    }
+    else if(steady)
+    {
+        contLoop = false;
+        Info<<"||--Steady"<<Foam::nl;        
     }
     else
     {
         if(velocityEqns==nullptr)
             FatalErrorInFunction<<"velocityEqns not set!"<<exit(FatalError);
         bool uEqnConverged = velocityEqns->converged();
-        vector uInitialRes = velocityEqns->initialResidual();
-        bool uIterationConverged = true;
-        for(label d=0; d<3; d++)
-           uIterationConverged &= (uInitialRes[d] < velocityTolerance*momentumIterTolFrac);
+        Vector<label> uIterations = velocityEqns->nIterations();
+        bool uIterationConverged = (uIterations[0]<1) && (uIterations[1]<1) && (uIterations[2]<1);
         
         if(pressureEqns==nullptr)
             FatalErrorInFunction<<"pressureEqns not set!"<<exit(FatalError);
         bool pEqnConverged = pressureEqns->converged();
-        scalar pInitialRes = pressureEqns->initialResidual();
-        bool pIterationConverged = (pInitialRes < pressureTolerance*momentumIterTolFrac);
+        label pIterations = pressureEqns->nIterations();
+        bool pIterationConverged = (pIterations<1);
         
-        contLoop = uEqnConverged && uIterationConverged && pEqnConverged && pIterationConverged;
+        contLoop = !(uEqnConverged && uIterationConverged && pEqnConverged && pIterationConverged);
+        
+        if(contLoop)
+            Info<<"||--Not Converged  uIterations:"<<uIterations<<" pIterations:"<<pIterations<<Foam::nl;
+        else
+            Info<<"||--Converged  uIterations:"<<uIterations<<" pIterations:"<<pIterations<<Foam::nl;
     }
     
     momentumInnerIteration++;   
@@ -199,7 +224,6 @@ bool Foam::solvers::pimpleIBControl::correct()
 {
     return pimple.correct();
 }
-
 
 bool Foam::solvers::pimpleIBControl::correctNonOrthogonal()
 {

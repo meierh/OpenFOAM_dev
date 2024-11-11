@@ -92,8 +92,6 @@ class icoImmersedBoundary : public incompressibleFluid
     public:
         //- Construct from region mesh
         icoImmersedBoundary(fvMesh& mesh, Time& time);
-        //- Construct from region mesh
-        icoImmersedBoundary(fvMesh& mesh, Time& time, pimpleIBControl& pimpleCtlr);
         //- Disallow default bitwise copy construction
         icoImmersedBoundary(const icoImmersedBoundary&) = delete;
         //- Destructor
@@ -106,7 +104,9 @@ class icoImmersedBoundary : public incompressibleFluid
         
     protected:
         Time& time;
-        std::unique_ptr<pimpleIBControl> pimpleCtlr;
+    private:
+        pimpleIBControl pimpleCtlr;
+    protected:
         IOdictionary transportProperties;
         dimensionedScalar nu;
         
@@ -146,6 +146,7 @@ class icoImmersedBoundary : public incompressibleFluid
         SolverPerformance<vector> UEqn_res;
         SolverPerformance<scalar> PEqn_res;
         SolverPerformance<scalar> TEqn_res;
+        void connectSolverPerformance(pimpleIBControl& pimpleCtlr);
         
         //Storage
         std::map<scalar,fvMesh> storage_Mesh;

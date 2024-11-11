@@ -5,8 +5,8 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
     fvMesh& mesh,
     Time& time
 ):
+icoImmersedBoundary(mesh,time),
 adjPimpleCtlr(incompressibleFluid::pimple,time),
-icoImmersedBoundary(mesh,time,adjPimpleCtlr),
 adj_U_
 (
     IOobject
@@ -23,12 +23,20 @@ adj_p_
     ),
     mesh
 )
-{
+{    
     create_AdjointVelocityForcing();
     create_AdjointTemperature();
     create_AdjointTemperatureForcing();
     
+    connectSolverPerformance(adjPimpleCtlr);
+    
+    steadyStateAdjoint = adjPimpleCtlr.isSteady();
+    
+    if(!steadyStateAdjoint)
+        FatalErrorInFunction<<"Unsteady adjoint not implemented"<<exit(FatalError);
+    
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
+    Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::endl;
     Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
     Info<<"useAdjointTemperatureForcing:"<<useAdjointTemperatureForcing<<Foam::endl;
@@ -37,7 +45,7 @@ adj_p_
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
 {
-    if(useVelocityForcing)
+    if(false && useVelocityForcing)
     {
         Info<<"create_AdjointVelocityForcing"<<Foam::endl;
         useAdjointVelocityForcing = true;
@@ -49,8 +57,31 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
         );
-        if(adj_fU_IOobj.filePath("",true).empty())
+        if(!adj_fU_IOobj.filePath("",true).empty())
             adj_fU_ = std::make_unique<volVectorField>(adj_fU_IOobj,mesh);
+        else
+            FatalErrorInFunction<<"Missing adj_fU file"<<exit(FatalError);
+        
+        ITstream rodMovementStream = structureDict->lookup("rodMovement");
+        token rodMovementToken;
+        rodMovementStream.read(rodMovementToken);
+        if(!rodMovementToken.isWord())
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodType -- must be string"<<exit(FatalError);
+        word rodMovementWord = rodMovementToken.wordToken();
+        if(rodMovementWord == "StaticRod")
+        {
+            interaction_fU = std::make_unique<StaticVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict,refinement_);
+        }
+        else if(rodMovementWord == "MovedRod")
+        {
+            interaction_fU = std::make_unique<ForcedMovementVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict,refinement_);
+        }
+        else if(rodMovementWord == "FluidStructureRod")
+        {
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+        }
+        else
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodMovement -- valid {StaticRod,MovedRod,FluidStructureRod}"<<exit(FatalError);
     }
     else
         useAdjointVelocityForcing = false;
@@ -81,7 +112,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperature()
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing()
 {
-    if(useTemperatureForcing)
+    if(false && useTemperatureForcing)
     {
         Info<<"create_AdjointTemperatureForcing"<<Foam::endl;
         useAdjointTemperatureForcing = true;        
@@ -93,11 +124,25 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE
         );
-        if(adj_fT_IOobj.filePath("",true).empty())
+        if(!adj_fT_IOobj.filePath("",true).empty())
             adj_fT_ = std::make_unique<volScalarField>(adj_fT_IOobj,mesh);
+        else
+            FatalErrorInFunction<<"Missing adj_fT file"<<exit(FatalError);
     }
     else
         useAdjointTemperatureForcing = false;
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::connectSolverPerformance
+(
+    pimpleAdjIBControl& pimpleCtlr
+)
+{
+    icoImmersedBoundary::connectSolverPerformance(pimpleCtlr);
+    pimpleCtlr.setAdjVelocityPerformance(&adjUEqn_res);
+    pimpleCtlr.setAdjPressurePerformance(&adjPEqn_res);
+    if(useAdjointTemperature)
+        pimpleCtlr.setAdjTemperaturePerformance(&adjTEqn_res);
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
@@ -105,6 +150,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {   
+    Info<<"adj_preSolve"<<Foam::nl;
     if(useAdjointTemperature)
     {        
         volScalarField& adj_T = *adj_T_;
@@ -139,11 +185,21 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     volVectorField& U(U_);
     volVectorField& adj_U(adj_U_);
     surfaceScalarField& phi(phi_);
+    
+    Info<<"adj_momentumPredictor:"<<" - "<<steadyStateAdjoint<<" - "<<useTemperature<<" - "<<useAdjointTemperature<<" - "<<useAdjointVelocityForcing<<Foam::nl;
 
     volVectorField adjointTransposeConvection((fvc::grad(adj_U) & U));
     
+    Info<<"adjointTransposeConvection"<<Foam::nl;
+    Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::nl;
+    Info<<"useTemperature:"<<useTemperature<<Foam::nl;
+    Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::nl;
+    Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::nl;
+
+    
     if(steadyStateAdjoint)
     {
+        Info<<"if 1"<<Foam::nl;
         if(useTemperature && useAdjointTemperature)
         {
             volScalarField& adj_T = *adj_T_;
@@ -169,8 +225,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         }
         else
         {
+            Info<<"else 2"<<Foam::nl;
             if(useAdjointVelocityForcing)
             {
+                Info<<"if 2"<<Foam::nl;
                 volVectorField& adj_fU = *adj_fU_;
                 tadj_UEqn = 
                 (
@@ -189,6 +247,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     }
     else
     {
+        Info<<"else 1"<<Foam::nl;
         if(useTemperature && useAdjointTemperature)
         {
             volScalarField& adj_T = *adj_T_;
@@ -216,8 +275,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         }
         else
         {
+            Info<<"else 2"<<Foam::nl;
             if(useAdjointVelocityForcing)
             {
+                Info<<"Create equation"<<Foam::nl;
                 volVectorField& adj_fU = *adj_fU_;
                 tadj_UEqn = 
                 (
@@ -247,7 +308,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         if(useAdjointVelocityForcing)
         {
             adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
-           interaction_adj_fU->solve();
+            Info<<"adj_UEqn solved"<<Foam::nl;
+            interaction_adj_fU->solve();
+            Info<<"interaction_adj_fU solved"<<Foam::nl;
         }
         else
         {
@@ -255,6 +318,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         }
         fvConstraints().constrain(adj_U_);
     }
+    
+    Info<<"adj_momentumPredictor done"<<Foam::nl;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_thermophysicalPredictor()
@@ -385,6 +450,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
+    Info<<"oneAdjSteadyTimestep"<<Foam::nl;
     adj_preSolve(adjPimpleCtlr);
     while (adjPimpleCtlr.adjMomentumLoop())
     {
@@ -407,6 +473,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
 
 void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
 {
+    
     while (adjPimpleCtlr.run(time))
     {
         
@@ -419,13 +486,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
         Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;        
         
         icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
-        //oneAdjSteadyTimestep(adjPimpleCtlr);
+        oneAdjSteadyTimestep(adjPimpleCtlr);
         
         write_Analysis();
         runTime.write();
-        
-        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
-    
+            
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
 }

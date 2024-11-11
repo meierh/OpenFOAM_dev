@@ -97,10 +97,13 @@ class pimpleIBControl : public pimpleSingleRegionControl
         void setPressurePerformance(SolverPerformance<scalar>* pEqn);
         void setTemperaturePerformance(SolverPerformance<scalar>* tEqn);
         
+        bool isSteady(){return steady;}
+                
     protected:
         pimpleNoLoopControl& pimple;        
-        void readFromDict();
-        Time& runTime;        
+        void readFromFvSolution();
+        Time& runTime;
+        bool steady;
         label timeIteration;
         
     private:
