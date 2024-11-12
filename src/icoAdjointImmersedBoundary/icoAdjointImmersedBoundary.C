@@ -35,6 +35,12 @@ adj_p_
     if(!steadyStateAdjoint)
         FatalErrorInFunction<<"Unsteady adjoint not implemented"<<exit(FatalError);
     
+    checkDimensions();
+    
+    setAdjUBC();
+    
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::endl;
     Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
@@ -133,6 +139,24 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing
         useAdjointTemperatureForcing = false;
 }
 
+void Foam::solvers::icoAdjointImmersedBoundary::checkDimensions()
+{
+    //check adj_U
+    if(adj_U_.dimensions() != dimensionSet(0,1,-1,0,0,0,0))
+        FatalErrorInFunction<<"Wrong dimensions of adjU, given:"<<adj_U_.dimensions()<<" necessary:"<<dimensionSet(0,1,-1,0,0,0,0)<<exit(FatalError);
+    
+    //check adj_p
+    if(adj_p_.dimensions() != dimensionSet(0,2,-2,0,0,0,0))
+        FatalErrorInFunction<<"Wrong dimensions of adjP, given:"<<adj_p_.dimensions()<<" necessary:"<<dimensionSet(0,2,-2,0,0,0,0)<<exit(FatalError);
+
+    //check adj_T_
+    if(adj_T_)
+    {
+        if(adj_T_->dimensions() != dimensionSet(0,2,-2,-1,0,0,0))
+            FatalErrorInFunction<<"Wrong dimensions of adjT, given:"<<adj_T_->dimensions()<<" necessary:"<<dimensionSet(0,2,-2,-1,0,0,0)<<exit(FatalError);
+    }
+}
+
 void Foam::solvers::icoAdjointImmersedBoundary::connectSolverPerformance
 (
     pimpleAdjIBControl& pimpleCtlr
@@ -150,7 +174,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {   
-    Info<<"adj_preSolve"<<Foam::nl;
+    Info<<"adj_preSolve  useAdjointTemperature:"<<useAdjointTemperature<<Foam::nl;
     if(useAdjointTemperature)
     {        
         volScalarField& adj_T = *adj_T_;
@@ -186,20 +210,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     volVectorField& adj_U(adj_U_);
     surfaceScalarField& phi(phi_);
     
-    Info<<"adj_momentumPredictor:"<<" - "<<steadyStateAdjoint<<" - "<<useTemperature<<" - "<<useAdjointTemperature<<" - "<<useAdjointVelocityForcing<<Foam::nl;
-
     volVectorField adjointTransposeConvection((fvc::grad(adj_U) & U));
-    
-    Info<<"adjointTransposeConvection"<<Foam::nl;
-    Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::nl;
-    Info<<"useTemperature:"<<useTemperature<<Foam::nl;
-    Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::nl;
-    Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::nl;
-
-    
+        
     if(steadyStateAdjoint)
     {
-        Info<<"if 1"<<Foam::nl;
         if(useTemperature && useAdjointTemperature)
         {
             volScalarField& adj_T = *adj_T_;
@@ -225,10 +239,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         }
         else
         {
-            Info<<"else 2"<<Foam::nl;
             if(useAdjointVelocityForcing)
             {
-                Info<<"if 2"<<Foam::nl;
                 volVectorField& adj_fU = *adj_fU_;
                 tadj_UEqn = 
                 (
@@ -247,7 +259,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     }
     else
     {
-        Info<<"else 1"<<Foam::nl;
         if(useTemperature && useAdjointTemperature)
         {
             volScalarField& adj_T = *adj_T_;
@@ -275,10 +286,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         }
         else
         {
-            Info<<"else 2"<<Foam::nl;
             if(useAdjointVelocityForcing)
             {
-                Info<<"Create equation"<<Foam::nl;
                 volVectorField& adj_fU = *adj_fU_;
                 tadj_UEqn = 
                 (
@@ -308,18 +317,14 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         if(useAdjointVelocityForcing)
         {
             adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
-            Info<<"adj_UEqn solved"<<Foam::nl;
             interaction_adj_fU->solve();
-            Info<<"interaction_adj_fU solved"<<Foam::nl;
         }
         else
         {
             adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
         }
         fvConstraints().constrain(adj_U_);
-    }
-    
-    Info<<"adj_momentumPredictor done"<<Foam::nl;
+    }    
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_thermophysicalPredictor()
@@ -450,7 +455,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
-    Info<<"oneAdjSteadyTimestep"<<Foam::nl;
+    Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
     adj_preSolve(adjPimpleCtlr);
     while (adjPimpleCtlr.adjMomentumLoop())
     {
@@ -493,4 +498,113 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
             
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC()
+{
+    const fvBoundaryMesh& boundaryMesh = mesh.boundary();
+    const faceList& faces = mesh.faces();
+    const pointField& points = mesh.points();
+    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundary = adj_U_.boundaryFieldRef();
+    
+    
+    //Inlet
+    label inletInd = boundaryMesh.findIndex("inlet");
+    if(inletInd==-1)
+        FatalErrorInFunction<<"Not found inlet patch"<<exit(FatalError);
+    fvPatchField<vector>& inletBoundary = boundary[inletInd];
+    const fvPatch& inletPatch = inletBoundary.patch();
+    const labelList& patchFaceCells = inletPatch.faceCells();
+    vectorField inletAdjU(inletPatch.size(), vector(0,0,0));
+    if(!dJgdp)
+        FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
+    for(label patchFaceI=0; patchFaceI<inletPatch.size(); patchFaceI++)
+    {
+        label faceInd = patchFaceI+inletPatch.start();
+        vector faceNormal = faces[faceInd].normal(points);
+        label cellInd = patchFaceCells[patchFaceI];
+        vector u = U_[cellInd];
+        scalar p = p_[cellInd];
+        scalar T = 0;
+        if(T_)
+            T = (*T_)[cellInd];
+        inletAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
+    }
+    inletBoundary = inletAdjU;
+    
+    //Outlet
+    label outletInd = boundaryMesh.findIndex("outlet");
+    if(outletInd==-1)
+        FatalErrorInFunction<<"Not found outlet patch"<<exit(FatalError);
+    fvPatchField<vector>& inletBoundary = boundary[inletInd];
+    const fvPatch& inletPatch = inletBoundary.patch();
+    const labelList& patchFaceCells = inletPatch.faceCells();
+    vectorField inletAdjU(inletPatch.size(), vector(0,0,0));
+    if(!dJgdp)
+        FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
+    for(label patchFaceI=0; patchFaceI<inletPatch.size(); patchFaceI++)
+    {
+        label faceInd = patchFaceI+inletPatch.start();
+        vector faceNormal = faces[faceInd].normal(points);
+        label cellInd = patchFaceCells[patchFaceI];
+        vector u = U_[cellInd];
+        scalar p = p_[cellInd];
+        scalar T = 0;
+        if(T_)
+            T = (*T_)[cellInd];
+        inletAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
+    }
+    inletBoundary = inletAdjU;
+    
+    //Wall
+    for(label patchI=0; patchI<boundary.types().size(); patchI++)
+    {
+        if(boundary.types()[patchI]=="noSlip")
+            Info<<"noSlip:"<<patchI<<Foam::nl;            
+    }
+    
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::setAdjPBC()
+{
+    const fvBoundaryMesh& boundaryMesh = mesh.boundary();
+    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundary = adj_U_.boundaryFieldRef();
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::setAdjTBC()
+{
+    const fvBoundaryMesh& boundaryMesh = mesh.boundary();
+    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundary = adj_U_.boundaryFieldRef();
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDp
+(
+    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdp
+)
+{
+    this->dJgdp=dJgdp;
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDun
+(
+    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdun
+)
+{
+    this->dJgdun=dJgdun;
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDut
+(
+    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdut
+)
+{
+    this->dJgdut=dJgdut;
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDT
+(
+    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdT
+)
+{
+    this->dJgdT=dJgdT;
 }

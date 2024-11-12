@@ -64,6 +64,8 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     
     connectSolverPerformance(pimpleCtlr);
     
+    checkDimensions();
+    
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"useStructure:"<<useStructure<<Foam::endl;
     Info<<"useRefinement:"<<useRefinement<<Foam::endl;
@@ -73,6 +75,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
     
     create_Analysis();
+    
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
@@ -270,6 +273,24 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner
     }
     else
         useRefinement = false;    
+}
+
+void Foam::solvers::icoImmersedBoundary::checkDimensions()
+{
+    //check adj_U
+    if(U_.dimensions() != dimensionSet(0,1,-1,0,0,0,0))
+        FatalErrorInFunction<<"Wrong dimensions of U_, given:"<<U_.dimensions()<<" necessary:"<<dimensionSet(0,1,-1,0,0,0,0)<<exit(FatalError);
+    
+    //check adj_p
+    if(p_.dimensions() != dimensionSet(0,2,-2,0,0,0,0))
+        FatalErrorInFunction<<"Wrong dimensions of p, given:"<<p_.dimensions()<<" necessary:"<<dimensionSet(0,2,-2,0,0,0,0)<<exit(FatalError);
+
+    //check adj_T_
+    if(T_)
+    {
+        if(T_->dimensions() != dimensionSet(0,0,0,1,0,0,0))
+            FatalErrorInFunction<<"Wrong dimensions of T, given:"<<T_->dimensions()<<" necessary:"<<dimensionSet(0,0,0,1,0,0,0)<<exit(FatalError);
+    }
 }
 
 void Foam::solvers::icoImmersedBoundary::connectSolverPerformance
@@ -527,8 +548,8 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
     pimpleIBControl& pimpleCtlr
 )
 {
+    Info<<"--------------------------------------- Solve Primal ---------------------------------------"<<Foam::nl;
     preMove(pimpleCtlr);
-    Info<<nl;
     while (pimpleCtlr.momentumLoop())
     {
         moveMesh(pimpleCtlr);
@@ -540,7 +561,6 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
         pressureCorrector();
         postCorrector(pimpleCtlr);
     }
-    Info<<nl;
     postSolve(pimpleCtlr);
 }
 

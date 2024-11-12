@@ -63,11 +63,11 @@
 	Navier Stokes Equations:
 \end{flushleft}
 	$ \text{NS}_{\text{conti}} =- \nabla \cdot \vec{u} = 0$\\
-	$ \text{NS}_{\text{mom}} = \frac{\partial \vec{u}}{\partial t} + (\vec{u} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} + \frac{1}{\rho} \nabla p - f_u = 0$\\
+	$ \text{NS}_{\text{mom}} = \frac{\partial \vec{u}}{\partial t} + (\vec{u} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} + \frac{1}{\rho} \nabla p - \frac{1}{\rho} f_u = 0$\\
 	$\text{NS}_{\text{f}_u} = f_u (\vec{x}) - \sum_{X} F_u (X) \delta (\vec{x}-\vec{X}) = 0$\\
 	$\text{NS}_{\text{F}_u} = F_u (\vec{X}) - \frac{\vec{U}_\text{structure} (\vec{X}) - U_M(\vec{X})}{\Delta t} = 0$\\
 	$\text{NS}_{\text{U}_M} = U_M (\vec{X}) - \int u(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega= 0$\\
-	$\text{NS}_{\text{T}_{\text{fluid}}} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} - f_{\text{T}_{\text{fluid}}} = 0$\\
+	$\text{NS}_{\text{T}_{\text{fluid}}} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} - \frac{1}{\rho} f_{\text{T}_{\text{fluid}}} = 0$\\
 	$\text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = f_{\text{T}_{\text{fluid}}} (\vec{x}) - \sum_{X} F_{\text{T}_{\text{fluid}}} (X) \delta (\vec{x}-\vec{X}) = 0$\\
 	$\text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = F_{\text{T}_{\text{fluid}}} (\vec{X}) - \frac{T_{\text{structure}} (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t} = 0$\\
 	$\text{NS}_{\text{T}_{\text{fluid}_M}} = \text{T}_{\text{fluid}_M} (\vec{X}) - \int {\text{T}_{\text{fluid}}}(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega= 0$\\
@@ -109,7 +109,7 @@
 	{
 		\While{not converged}
 		{
-			Solve for $\vec{u}$: $\frac{\partial \vec{u}}{\partial t} + (\vec{u} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} = - \frac{1}{\rho} \nabla p + f_u$ \quad on $\Omega$\\
+			Solve for $\vec{u}$: $\frac{\partial \vec{u}}{\partial t} + (\vec{u} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} = - \frac{1}{\rho} \nabla p + \frac{1}{\rho}f_u$ \quad on $\Omega$\\
 			Compute : $U_M (\vec{X}) = \int u(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$ \quad on $X$\\
 			Compute : $U_{\text{structure}} (\vec{X}) = \frac{d \vec{X}_{\text{structure}}}{dt}$ \quad on $X$\\
 			Compute : $F_u (\vec{X}) = \frac{\vec{U}_\text{structure} (\vec{X}) - U_M(\vec{X})}{\Delta t}$ \quad on $X$\\
@@ -119,7 +119,7 @@
 		}
 		\While{not converged}
 		{
-			Solve for $T_{\text{fluid}}$: $\frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} = f_{\text{T}_{\text{fluid}}}$ \quad on $\Omega$\\
+			Solve for $T_{\text{fluid}}$: $\frac{\partial T_{\text{fluid}}}{\partial t} + \vec{u} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}} = \frac{1}{\rho} f_{\text{T}_{\text{fluid}}}$ \quad on $\Omega$\\
 			Compute : $\text{T}_{\text{fluid}_M} (\vec{X}) = \int {\text{T}_{\text{fluid}}}(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$  \quad on $X$\\
 			Compute : $F_{\text{T}_{\text{fluid}}} (\vec{X}) = \frac{T_{\text{structure}} (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t}$ \quad on $X$\\
 			Solve for $T_\text{structure}$: $\text{StructureHeatSolver}(F_{\text{T}_{\text{fluid}}})$ \quad on $X$\\
@@ -137,7 +137,7 @@
 	{
 		\While{not converged}
 		{
-			Set: $\text{UEqn} = \frac{\partial \vec{u}}{\partial t} + (\vec{\phi} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} - f_u$\\
+			Set: $\text{UEqn} = \frac{\partial \vec{u}}{\partial t} + (\vec{\phi} \cdot \nabla) \vec{u} - \frac{\mu}{\rho} \nabla \cdot \nabla \vec{u} - \frac{1}{\rho}f_u$\\
 			Compute: Equation under-relaxation($\text{UEqn}$) (Notes on Computational Fluid Dynamics p.157)\\
 			Constrain $(\text{UEqn})$\\
 			Solve for $\vec{u}$: $\text{UEqn} = - \frac{1}{\rho} \nabla p $ \quad on $\Omega$\\
@@ -184,7 +184,7 @@
 		\While{not converged}
 		{
 			Set: $\text{TEqn} = \frac{\partial T_{\text{fluid}}}{\partial t} + \vec{\phi} \cdot \nabla T_{\text{fluid}} - \frac{\kappa}{\rho c_p} \nabla \cdot \nabla T_{\text{fluid}}$\\
-			Solve for $T_{\text{fluid}}$: $\text{TEqn} = f_{\text{T}_{\text{fluid}}}$ \quad on $\Omega$\\
+			Solve for $T_{\text{fluid}}$: $\text{TEqn} = \frac{1}{\rho}f_{\text{T}_{\text{fluid}}}$ \quad on $\Omega$\\
 			\quad \\
 			Compute : $\text{T}_{\text{fluid}_M} (\vec{X}) = \int {\text{T}_{\text{fluid}}}(\vec{x}) \delta(\vec{x}-\vec{X}) d \Omega$  \quad on $X$\\
 			Compute : $F_{\text{T}_{\text{fluid}}} (\vec{X}) = \frac{T_{\text{structure}} (\vec{X}) - {\text{T}_{\text{fluid}}}_M(\vec{X})}{\Delta t}$ \quad on $X$\\
@@ -242,7 +242,7 @@
 \begin{flushleft}
 	$\delta f_u \text{NS}:$
 \end{flushleft}
-	$\delta f_u \text{NS}_{\text{mom}} =  -\delta f_u$\\
+	$\delta f_u \text{NS}_{\text{mom}} =  -\frac{1}{\rho}\delta f_u$\\
 	$\delta f_u \text{NS}_{\text{conti}} = 0$\\
 	$\delta f_u \text{NS}_{\text{f}_u} = \delta f_u$\\
 	$\delta f_u \text{NS}_{\text{F}_u} = 0$\\
@@ -303,7 +303,7 @@
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_u} = 0$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_u} = 0$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{U}_M} = 0$\\
-	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}}} = -\delta f_{\text{T}_{\text{fluid}}}$\\
+	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}}} = -\frac{1}{\rho}\delta f_{\text{T}_{\text{fluid}}}$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{f}_{\text{T}_{\text{fluid}}}} = \delta f_{\text{T}_{\text{fluid}}}$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{F}_{\text{T}_{\text{fluid}}}} = 0$\\
 	$\delta f_{\text{T}_{\text{fluid}}} \text{NS}_{\text{T}_{\text{fluid}_M}} = 0$\\
@@ -871,7 +871,7 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 	\end{pmatrix}
 	\cdot
 	\begin{pmatrix}
-		-\delta f_u \\
+		-\frac{1}{\rho}\delta f_u \\
 		0\\
 		\delta f_u \\
 		0 \\
@@ -956,7 +956,7 @@ $\delta_\phi L = \delta \vec{u} J + \delta p J + \delta f_u J + \delta F_u J + \
 		0 \\
 		0 \\
 		0 \\
-		-\delta f_{\text{T}_{\text{fluid}}} \\
+		-\frac{1}{\rho}\delta f_{\text{T}_{\text{fluid}}} \\
 		\delta f_{\text{T}_{\text{fluid}}}\\
 		0\\
 		0\\
@@ -1552,8 +1552,6 @@ Boundary terms:\\
 \begin{flushleft}
 	Adjoint Immersed Boundary Navier Stokes system Solution algorithm
 \end{flushleft}
-
-
 	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} - f_{\lambda_{U_M}} = 0$ \quad on $\Omega,X$\\
 	$f_{\lambda_{U_M}} - \sum_X \lambda_{U_M}(X) \delta(\vec{x}-\vec{X}) = 0$\\
 	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
@@ -1578,6 +1576,26 @@ Boundary terms:\\
 	$\lambda_{\vec{u}} = \lambda_{f_u} $ \quad on $\Omega$\\
 	$\lambda_{F_u} = \int_{\Omega} \lambda_{f_u} \delta (\vec{x}-\vec{X}) d\Omega$ \quad on $\Omega,X$\\
 	$\lambda_{U_M} + \frac{\lambda_{F_u}}{\Delta t}=0$ \quad on $X$\\
+
+\begin{flushleft}
+	Adjoint Immersed Boundary Navier Stokes system Solution algorithm without marker interaction
+\end{flushleft}
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} = 0$ \quad on $\Omega,X$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} = 0$ \quad on $\Omega,X$\\
+	\quad\\
+	$\vec{u}: \left[ \frac{m}{s} \right]$\\
+	$\lambda_{\vec{u}}: \left[ \frac{m}{s} \right], \nabla \lambda_{\vec{u}}: \left[ \frac{1}{s} \right], \Delta \lambda_{\vec{u}}: \left[ \frac{1}{m \cdot s} \right]$\\
+	$\frac{\mu}{\rho}: \left[ \frac{m^2}{s} \right]$\\
+	$\lambda_{p}: \left[ \frac{m^2}{s^2} \right], \nabla \lambda_{p}: \left[ \frac{m}{s^2} \right]$\\
+	$\lambda_{T_{\text{fluid}}}: \left[ \frac{m^2}{s^2K} \right], \nabla \lambda_{T_{\text{fluid}}}: \left[ \frac{m}{s^2 K} \right], \Delta \lambda_{T_{\text{fluid}}}: \left[ \frac{1}{s^2 K} \right]$\\
+	\quad\\
+	Einheiten\\
+	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} \left[ \frac{m}{s} \cdot \frac{1}{s} = \frac{m}{s^2} \right] - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) \left[ \frac{1}{s} \cdot \frac{m}{s} = \frac{m}{s^2} \right] + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}}  \left[ \frac{m^2}{s} \cdot \frac{1}{m\cdot s} = \frac{m}{s^2}\right] + \nabla\lambda_p \left[ \frac{m}{s^2} \right] - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} \left[K \cdot \frac{m}{K s^2} = \frac{m}{s^2} \right] = 0$\\
+	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} \left[ \frac{m^3}{kg} \cdot \frac{1}{s} \right] = 0$\\
+	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} \left[\frac{m}{s^2K}  \cdot \frac{m}{s}= \frac{m^2}{s^3 K}\right] + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}}\left[ \frac{m^2}{s} \cdot \frac{1}{s^2 K} = \frac{m^2}{s^3 K}\right] = 0$\\
+	
+
 \end{center}
 \newpage
 

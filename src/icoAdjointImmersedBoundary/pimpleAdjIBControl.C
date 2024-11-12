@@ -223,20 +223,28 @@ bool Foam::solvers::pimpleAdjIBControl::adjFinalNonOrthogonalIter()
 
 bool Foam::solvers::pimpleAdjIBControl::adjTemperatureLoop()
 {
+    Info<<"pimpleAdjIBControl::adjTemperatureLoop()"<<Foam::nl;
+    
     if(!adjTemperatureUsed)
-        FatalErrorInFunction<<"adjTemperature not used but temperature loop called"<<exit(FatalError);
+        FatalErrorInFunction<<"adjTemperatureUsed not used but temperature loop called"<<exit(FatalError);
     
     if(!adjTemperatureToleranceSet)
-        FatalErrorInFunction<<"adjTemperatureTolerance not set"<<exit(FatalError);
+        FatalErrorInFunction<<"adjTemperatureToleranceSet not set"<<exit(FatalError);
     
-    bool contLoop;
-    if(adjDelayedInitialConvergence && adjTemperatureInnerIteration>timeIteration)
-    {
-        contLoop = false;
-    }
-    if(adjTemperatureInnerIteration<adjMinTemperatureIterations)
+    bool contLoop = false;
+    if(adjTemperatureInnerIteration==0)
     {
         contLoop = true;
+    }
+    else if(adjDelayedInitialConvergence && adjTemperatureInnerIteration>timeIteration)
+    {
+        contLoop = false;
+        Info<< "adjDelayedInitialConvergence"<<nl;
+    }
+    else if(adjTemperatureInnerIteration > adjMinTemperatureIterations)
+    {
+        contLoop = false;
+        Info<< "minTemperatureIterations limit"<<nl;
     }
     else
     {        

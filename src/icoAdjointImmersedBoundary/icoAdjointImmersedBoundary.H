@@ -98,6 +98,11 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     
     // High level functions
         void SolveSteadyAdjoint();
+        
+        void set_DJgammaDp(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdp);
+        void set_DJgammaDun(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdun);
+        void set_DJgammaDut(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdut);
+        void set_DJgammaDT(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdT);
     
     protected:
         pimpleAdjIBControl adjPimpleCtlr;
@@ -106,11 +111,13 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         
         // Adjoint Veclocity
         volVectorField adj_U_;
+        void setAdjUBC();
         
         // Adjoint Pressure
         volScalarField adj_p_;
+        void setAdjPBC();
             
-        //- Adjnout Velocity forcing
+        //- Adjoint Velocity forcing
         bool useAdjointVelocityForcing;
         std::unique_ptr<volVectorField> adj_fU_;
         std::unique_ptr<SensitivityVelocityPressureForceInteraction> interaction_adj_fU;
@@ -120,6 +127,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         bool useAdjointTemperature;
         std::unique_ptr<volScalarField> adj_T_;
         void create_AdjointTemperature();
+        void setAdjTBC();
         
         //- Adjoint Temperature forcing
         bool useAdjointTemperatureForcing;
@@ -127,8 +135,17 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         std::unique_ptr<SensitivityTemperatureInteraction> interaction_ajd_fT;
         void create_AdjointTemperatureForcing();
         
+        //Set objective function boundary part derivatives
+        std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdp;
+        std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdun;
+        std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdut;
+        std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdT;
+        
+        // Check adjoint field dimension
+        void checkDimensions();
+        
         // Adjoint U equation
-        tmp<fvVectorMatrix> tadj_UEqn;    
+        tmp<fvVectorMatrix> tadj_UEqn;
         
         //- Solver Performances
         SolverPerformance<vector> adjUEqn_res;

@@ -237,6 +237,8 @@ bool Foam::solvers::pimpleIBControl::finalNonOrthogonalIter()
 
 bool Foam::solvers::pimpleIBControl::temperatureLoop()
 {
+    Info<<"pimpleIBControl::temperatureLoop()"<<Foam::nl;
+    
     if(!temperatureUsed)
         FatalErrorInFunction<<"Temperature not used but temperature loop called"<<exit(FatalError);
     

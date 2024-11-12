@@ -142,6 +142,9 @@ class icoImmersedBoundary : public incompressibleFluid
         std::unique_ptr<volScalarField> refine_;
         void create_Refiner(fvMesh& mesh);
         
+        // Check field dimension
+        void checkDimensions();
+        
         //- Solver Performances
         SolverPerformance<vector> UEqn_res;
         SolverPerformance<scalar> PEqn_res;
