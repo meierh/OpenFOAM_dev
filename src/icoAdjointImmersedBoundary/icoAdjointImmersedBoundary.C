@@ -514,7 +514,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC()
         FatalErrorInFunction<<"Not found inlet patch"<<exit(FatalError);
     fvPatchField<vector>& inletBoundary = boundary[inletInd];
     const fvPatch& inletPatch = inletBoundary.patch();
-    const labelList& patchFaceCells = inletPatch.faceCells();
+    const labelList& inletPatchFaceCells = inletPatch.faceCells();
     vectorField inletAdjU(inletPatch.size(), vector(0,0,0));
     if(!dJgdp)
         FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
@@ -522,31 +522,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC()
     {
         label faceInd = patchFaceI+inletPatch.start();
         vector faceNormal = faces[faceInd].normal(points);
-        label cellInd = patchFaceCells[patchFaceI];
-        vector u = U_[cellInd];
-        scalar p = p_[cellInd];
-        scalar T = 0;
-        if(T_)
-            T = (*T_)[cellInd];
-        inletAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
-    }
-    inletBoundary = inletAdjU;
-    
-    //Outlet
-    label outletInd = boundaryMesh.findIndex("outlet");
-    if(outletInd==-1)
-        FatalErrorInFunction<<"Not found outlet patch"<<exit(FatalError);
-    fvPatchField<vector>& inletBoundary = boundary[inletInd];
-    const fvPatch& inletPatch = inletBoundary.patch();
-    const labelList& patchFaceCells = inletPatch.faceCells();
-    vectorField inletAdjU(inletPatch.size(), vector(0,0,0));
-    if(!dJgdp)
-        FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
-    for(label patchFaceI=0; patchFaceI<inletPatch.size(); patchFaceI++)
-    {
-        label faceInd = patchFaceI+inletPatch.start();
-        vector faceNormal = faces[faceInd].normal(points);
-        label cellInd = patchFaceCells[patchFaceI];
+        label cellInd = inletPatchFaceCells[patchFaceI];
         vector u = U_[cellInd];
         scalar p = p_[cellInd];
         scalar T = 0;
@@ -560,9 +536,52 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC()
     for(label patchI=0; patchI<boundary.types().size(); patchI++)
     {
         if(boundary.types()[patchI]=="noSlip")
-            Info<<"noSlip:"<<patchI<<Foam::nl;            
+        {
+            fvPatchField<vector>& wallBoundary = boundary[inletInd];
+            const fvPatch& wallPatch = outletBoundary.patch();
+            const labelList& wallPatchFaceCells = wallPatch.faceCells();
+            vectorField wallAdjU(wallPatch.size(), vector(0,0,0));
+            if(!dJgdp)
+                FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
+            for(label patchFaceI=0; patchFaceI<wallPatch.size(); patchFaceI++)
+            {
+                label faceInd = patchFaceI+wallPatch.start();
+                vector faceNormal = faces[faceInd].normal(points);
+                label cellInd = wallPatchFaceCells[patchFaceI];
+                vector u = U_[cellInd];
+                scalar p = p_[cellInd];
+                scalar T = 0;
+                if(T_)
+                    T = (*T_)[cellInd];
+                wallAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
+            }
+            outletBoundary = outletAdjU;
+        }
     }
     
+    //Outlet
+    label outletInd = boundaryMesh.findIndex("outlet");
+    if(outletInd==-1)
+        FatalErrorInFunction<<"Not found outlet patch"<<exit(FatalError);
+    fvPatchField<vector>& outletBoundary = boundary[inletInd];
+    const fvPatch& outletPatch = outletBoundary.patch();
+    const labelList& outletPatchFaceCells = outletPatch.faceCells();
+    vectorField outletAdjU(outletPatch.size(), vector(0,0,0));
+    if(!dJgdp)
+        FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
+    for(label patchFaceI=0; patchFaceI<outletPatch.size(); patchFaceI++)
+    {
+        label faceInd = patchFaceI+outletPatch.start();
+        vector faceNormal = faces[faceInd].normal(points);
+        label cellInd = outletPatchFaceCells[patchFaceI];
+        vector u = U_[cellInd];
+        scalar p = p_[cellInd];
+        scalar T = 0;
+        if(T_)
+            T = (*T_)[cellInd];
+        outletAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
+    }
+    outletBoundary = outletAdjU;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::setAdjPBC()
