@@ -1583,14 +1583,27 @@ Boundary terms:\\
 	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}} + \nabla\lambda_p - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} = 0$ \quad on $\Omega,X$\\
 	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} = 0$ \quad on $\Omega$\\
 	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}} = 0$ \quad on $\Omega,X$\\
+\begin{flushleft}
+	Inlet \& Wall:
+\end{flushleft}
+	adjVelocity: $\lambda_{u_t} = 0$ \quad $\lambda_{u_n} = -\frac{\partial J_{\Gamma}}{\partial p}$\\
+	adjPressure: $\vec{n} \cdot \nabla \lambda_p = 0$\\
+	adjTemperature: $\lambda_{T_{\text{fluid}}} = 0$
+\begin{flushleft}
+	Outlet:
+\end{flushleft}
+	adjVelocity: $u_n \lambda_{u_t} + \frac{\mu}{\rho} \nabla_n\lambda_{u_t} = - \frac{\partial J_{\Gamma}}{\partial u_t}$ \quad $\nabla_n \lambda_{u_n} = - \nabla_t \lambda_{u_t}$\\
+	adjPressure: $\lambda_p = u_n \lambda_{u_n} + \vec{u} \cdot \lambda_{\vec{u}} + \frac{\mu}{\rho} \left(\vec{n}\cdot \nabla\right)\lambda_{u_n} + T_{\text{fluid}} \lambda_{T_{\text{fluid}}} + \frac{\partial J_{\Gamma}}{\partial u_n}$ \\ 
+	adjTemperature: $ u_n \lambda_{T_{\text{fluid}}} + \frac{\kappa}{\rho c_p} \nabla_n  \lambda_{T_{\text{fluid}}} = - \frac{\partial J_{\Gamma}}{\partial T_{\text{fluid}}}$\\
 	\quad\\
+	\quad\\
+	Einheiten\\
 	$\vec{u}: \left[ \frac{m}{s} \right]$\\
 	$\lambda_{\vec{u}}: \left[ \frac{m}{s} \right], \nabla \lambda_{\vec{u}}: \left[ \frac{1}{s} \right], \Delta \lambda_{\vec{u}}: \left[ \frac{1}{m \cdot s} \right]$\\
 	$\frac{\mu}{\rho}: \left[ \frac{m^2}{s} \right]$\\
 	$\lambda_{p}: \left[ \frac{m^2}{s^2} \right], \nabla \lambda_{p}: \left[ \frac{m}{s^2} \right]$\\
 	$\lambda_{T_{\text{fluid}}}: \left[ \frac{m^2}{s^2K} \right], \nabla \lambda_{T_{\text{fluid}}}: \left[ \frac{m}{s^2 K} \right], \Delta \lambda_{T_{\text{fluid}}}: \left[ \frac{1}{s^2 K} \right]$\\
 	\quad\\
-	Einheiten\\
 	$-(\vec{u}\cdot\nabla) \lambda_{\vec{u}} \left[ \frac{m}{s} \cdot \frac{1}{s} = \frac{m}{s^2} \right] - \left(\nabla \lambda_{\vec{u}} \cdot \vec{u}\right) \left[ \frac{1}{s} \cdot \frac{m}{s} = \frac{m}{s^2} \right] + \frac{\mu}{\rho} \Delta \lambda_{\vec{u}}  \left[ \frac{m^2}{s} \cdot \frac{1}{m\cdot s} = \frac{m}{s^2}\right] + \nabla\lambda_p \left[ \frac{m}{s^2} \right] - T_{\text{fluid}} \nabla \lambda_{T_{\text{fluid}}} \left[K \cdot \frac{m}{K s^2} = \frac{m}{s^2} \right] = 0$\\
 	$-\frac{1}{\rho} \nabla \cdot \lambda_{\vec{u}} \left[ \frac{m^3}{kg} \cdot \frac{1}{s} \right] = 0$\\
 	$-\nabla \lambda_{T_{\text{fluid}}} \cdot \vec{u} \left[\frac{m}{s^2K}  \cdot \frac{m}{s}= \frac{m^2}{s^3 K}\right] + \frac{\kappa}{\rho c_p} \Delta  \lambda_{T_{\text{fluid}}}\left[ \frac{m^2}{s} \cdot \frac{1}{s^2 K} = \frac{m^2}{s^3 K}\right] = 0$\\

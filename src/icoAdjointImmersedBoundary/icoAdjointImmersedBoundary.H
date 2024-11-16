@@ -70,6 +70,11 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
+#include "icoAdjointVelocityInletWallBC.H"
+#include "icoAdjointVelocityOutletBC.H"
+#include "icoAdjointPressureOutletBC.H"
+#include "icoAdjointTemperatureOutletBC.H"
+
 #include "pimpleAdjIBControl.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -88,7 +93,15 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     public:
     // Constructors
         //- Construct from region mesh
-        icoAdjointImmersedBoundary(fvMesh& mesh, Time& time);
+        icoAdjointImmersedBoundary
+        (
+            fvMesh& mesh,
+            Time& time,
+            std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
+            std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet,
+            std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet,
+            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet
+        );
         //- Disallow default bitwise copy construction
         icoAdjointImmersedBoundary(const icoImmersedBoundary&) = delete;
         //- Destructor
@@ -98,11 +111,6 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     
     // High level functions
         void SolveSteadyAdjoint();
-        
-        void set_DJgammaDp(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdp);
-        void set_DJgammaDun(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdun);
-        void set_DJgammaDut(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdut);
-        void set_DJgammaDT(std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdT);
     
     protected:
         pimpleAdjIBControl adjPimpleCtlr;
@@ -111,11 +119,18 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         
         // Adjoint Veclocity
         volVectorField adj_U_;
-        void setAdjUBC();
+        void setAdjUBC
+        (
+            std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
+            std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet
+        );
         
         // Adjoint Pressure
         volScalarField adj_p_;
-        void setAdjPBC();
+        void setAdjPBC
+        (
+            std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet
+        );
             
         //- Adjoint Velocity forcing
         bool useAdjointVelocityForcing;
@@ -127,7 +142,10 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         bool useAdjointTemperature;
         std::unique_ptr<volScalarField> adj_T_;
         void create_AdjointTemperature();
-        void setAdjTBC();
+        void setAdjTBC
+        (
+            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet
+        );
         
         //- Adjoint Temperature forcing
         bool useAdjointTemperatureForcing;

@@ -88,8 +88,13 @@ int main(int argc, char *argv[])
     #include "createTime.H"
     #include "createMesh.H"
 
+    std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall;
+    std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
+    std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
+    std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
+    
     // Instantiate the solver
-    Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime);
+    Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime,dJdp_InletWall,dJdu_uOutlet,dJdu_pOutlet,dJdT_Outlet);
     solver.SolveSteadyAdjoint();
   
     

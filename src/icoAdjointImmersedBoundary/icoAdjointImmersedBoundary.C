@@ -3,7 +3,11 @@
 Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
 (
     fvMesh& mesh,
-    Time& time
+    Time& time,
+    std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
+    std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet,
+    std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet,
+    std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet
 ):
 icoImmersedBoundary(mesh,time),
 adjPimpleCtlr(incompressibleFluid::pimple,time),
@@ -37,9 +41,9 @@ adj_p_
     
     checkDimensions();
     
-    setAdjUBC();
-    
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    setAdjUBC(dJdp_InletWall,dJdu_uOutlet);
+    setAdjPBC(dJdu_pOutlet);
+    setAdjTBC(dJdT_Outlet);
     
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::endl;
@@ -47,6 +51,8 @@ adj_p_
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
     Info<<"useAdjointTemperatureForcing:"<<useAdjointTemperatureForcing<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
+    
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
@@ -500,130 +506,107 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
     }
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC()
+void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
+(
+    std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
+    std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet
+)
 {
-    const fvBoundaryMesh& boundaryMesh = mesh.boundary();
-    const faceList& faces = mesh.faces();
-    const pointField& points = mesh.points();
-    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundary = adj_U_.boundaryFieldRef();
-    
-    
-    //Inlet
-    label inletInd = boundaryMesh.findIndex("inlet");
-    if(inletInd==-1)
-        FatalErrorInFunction<<"Not found inlet patch"<<exit(FatalError);
-    fvPatchField<vector>& inletBoundary = boundary[inletInd];
-    const fvPatch& inletPatch = inletBoundary.patch();
-    const labelList& inletPatchFaceCells = inletPatch.faceCells();
-    vectorField inletAdjU(inletPatch.size(), vector(0,0,0));
-    if(!dJgdp)
-        FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
-    for(label patchFaceI=0; patchFaceI<inletPatch.size(); patchFaceI++)
+    DynamicList<label> inletWall;
+    DynamicList<label> outlet;
+    const fvBoundaryMesh& boundary = mesh.boundary();
+    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundaryField = adj_U_.boundaryFieldRef();
+    for(label patchI=0; patchI<boundary.size(); patchI++)
     {
-        label faceInd = patchFaceI+inletPatch.start();
-        vector faceNormal = faces[faceInd].normal(points);
-        label cellInd = inletPatchFaceCells[patchFaceI];
-        vector u = U_[cellInd];
-        scalar p = p_[cellInd];
-        scalar T = 0;
-        if(T_)
-            T = (*T_)[cellInd];
-        inletAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
-    }
-    inletBoundary = inletAdjU;
-    
-    //Wall
-    for(label patchI=0; patchI<boundary.types().size(); patchI++)
-    {
-        if(boundary.types()[patchI]=="noSlip")
+        fvPatch const& patch = boundary[patchI];
+        if(patch.name()=="inlet")
         {
-            fvPatchField<vector>& wallBoundary = boundary[inletInd];
-            const fvPatch& wallPatch = outletBoundary.patch();
-            const labelList& wallPatchFaceCells = wallPatch.faceCells();
-            vectorField wallAdjU(wallPatch.size(), vector(0,0,0));
-            if(!dJgdp)
-                FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
-            for(label patchFaceI=0; patchFaceI<wallPatch.size(); patchFaceI++)
-            {
-                label faceInd = patchFaceI+wallPatch.start();
-                vector faceNormal = faces[faceInd].normal(points);
-                label cellInd = wallPatchFaceCells[patchFaceI];
-                vector u = U_[cellInd];
-                scalar p = p_[cellInd];
-                scalar T = 0;
-                if(T_)
-                    T = (*T_)[cellInd];
-                wallAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
-            }
-            outletBoundary = outletAdjU;
+            inletWall.append(patchI);
+            continue;
+        }
+        else if(patch.name()=="outlet")
+        {
+            outlet.append(patchI);
+            continue;
+        }
+        else
+            inletWall.append(patchI);
+    }
+    for(label patchI : inletWall)
+    {
+        fvPatchField<vector>& inletWallPatch = boundaryField[patchI];
+        fvPatchField<vector>* inletWallPatchPtr = &inletWallPatch;
+        icoAdjointVelocityInletWallBC* cast_inletWallPatchPtr = dynamic_cast<icoAdjointVelocityInletWallBC*>(inletWallPatchPtr);
+        if(cast_inletWallPatchPtr==nullptr)
+            FatalErrorInFunction<<"Patch is not icoAdjointVelocityInletWallBC"<<exit(FatalError);
+        cast_inletWallPatchPtr->set_dJdp_InletWall(dJdp_InletWall);
+    }
+    for(label patchI : outlet)
+    {
+        fvPatchField<vector>& outletPatch = boundaryField[patchI];
+        fvPatchField<vector>* outletPatchPtr = &outletPatch;
+        icoAdjointVelocityOutletBC* cast_outletPatchPtr = dynamic_cast<icoAdjointVelocityOutletBC*>(outletPatchPtr);
+        if(cast_outletPatchPtr==nullptr)
+            FatalErrorInFunction<<"Patch is not icoAdjointVelocityOutletBC"<<exit(FatalError);
+        cast_outletPatchPtr->set_dJdu_Outlet(dJdu_uOutlet);
+    }
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::setAdjPBC
+(
+    std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet
+)
+{
+    DynamicList<label> outlet;
+    const fvBoundaryMesh& boundary = mesh.boundary();
+    GeometricBoundaryField<scalar,fvPatchField,volMesh>& boundaryField = adj_p_.boundaryFieldRef();
+    for(label patchI=0; patchI<boundary.size(); patchI++)
+    {
+        fvPatch const& patch = boundary[patchI];
+        if(patch.name()=="outlet")
+        {
+            outlet.append(patchI);
+            continue;
         }
     }
-    
-    //Outlet
-    label outletInd = boundaryMesh.findIndex("outlet");
-    if(outletInd==-1)
-        FatalErrorInFunction<<"Not found outlet patch"<<exit(FatalError);
-    fvPatchField<vector>& outletBoundary = boundary[inletInd];
-    const fvPatch& outletPatch = outletBoundary.patch();
-    const labelList& outletPatchFaceCells = outletPatch.faceCells();
-    vectorField outletAdjU(outletPatch.size(), vector(0,0,0));
-    if(!dJgdp)
-        FatalErrorInFunction<<"Objective function derivative dJgdp missing"<<exit(FatalError);
-    for(label patchFaceI=0; patchFaceI<outletPatch.size(); patchFaceI++)
+    for(label patchI : outlet)
     {
-        label faceInd = patchFaceI+outletPatch.start();
-        vector faceNormal = faces[faceInd].normal(points);
-        label cellInd = outletPatchFaceCells[patchFaceI];
-        vector u = U_[cellInd];
-        scalar p = p_[cellInd];
-        scalar T = 0;
-        if(T_)
-            T = (*T_)[cellInd];
-        outletAdjU[patchFaceI] = -1*faceNormal*dJgdp(faceNormal,u,p,T);
+        fvPatchField<scalar>& outletPatch = boundaryField[patchI];
+        fvPatchField<scalar>* outletPatchPtr = &outletPatch;
+        icoAdjointPressureOutletBC* cast_outletPatchPtr = dynamic_cast<icoAdjointPressureOutletBC*>(outletPatchPtr);
+        if(cast_outletPatchPtr==nullptr)
+            FatalErrorInFunction<<"Patch is not icoAdjointPressureOutletBC"<<exit(FatalError);
+        cast_outletPatchPtr->set_dJdu_Outlet(dJdu_pOutlet);
     }
-    outletBoundary = outletAdjU;
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::setAdjPBC()
-{
-    const fvBoundaryMesh& boundaryMesh = mesh.boundary();
-    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundary = adj_U_.boundaryFieldRef();
-}
-
-void Foam::solvers::icoAdjointImmersedBoundary::setAdjTBC()
-{
-    const fvBoundaryMesh& boundaryMesh = mesh.boundary();
-    GeometricBoundaryField<vector,fvPatchField,volMesh>& boundary = adj_U_.boundaryFieldRef();
-}
-
-void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDp
+void Foam::solvers::icoAdjointImmersedBoundary::setAdjTBC
 (
-    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdp
+    std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet
 )
 {
-    this->dJgdp=dJgdp;
-}
-
-void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDun
-(
-    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdun
-)
-{
-    this->dJgdun=dJgdun;
-}
-
-void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDut
-(
-    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdut
-)
-{
-    this->dJgdut=dJgdut;
-}
-
-void Foam::solvers::icoAdjointImmersedBoundary::set_DJgammaDT
-(
-    std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdT
-)
-{
-    this->dJgdT=dJgdT;
+    if(adj_T_)
+    {
+        DynamicList<label> outlet;
+        const fvBoundaryMesh& boundary = mesh.boundary();
+        GeometricBoundaryField<scalar,fvPatchField,volMesh>& boundaryField = adj_T_->boundaryFieldRef();
+        for(label patchI=0; patchI<boundary.size(); patchI++)
+        {
+            fvPatch const& patch = boundary[patchI];
+            if(patch.name()=="outlet")
+            {
+                outlet.append(patchI);
+                continue;
+            }
+        }
+        for(label patchI : outlet)
+        {
+            fvPatchField<scalar>& outletPatch = boundaryField[patchI];
+            fvPatchField<scalar>* outletPatchPtr = &outletPatch;
+            icoAdjointTemperatureOutletBC* cast_outletPatchPtr = dynamic_cast<icoAdjointTemperatureOutletBC*>(outletPatchPtr);
+            if(cast_outletPatchPtr==nullptr)
+                FatalErrorInFunction<<"Patch is not icoAdjointTemperatureOutletBC"<<exit(FatalError);
+            cast_outletPatchPtr->set_dJdT_Outlet(dJdT_Outlet);
+        }
+    }
 }

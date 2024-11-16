@@ -33,6 +33,7 @@ EXE_INC = \
 EXE_LIBS = \
     -lincompressibleFluid \
     -lmeshTools \
+    -lfiniteVolume \
     $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
     $(WM_THIRD_PARTY_DIR)/gsl-2.8/build/lib/libgsl.a \
     -L$(FOAM_USER_LIBBIN) \
