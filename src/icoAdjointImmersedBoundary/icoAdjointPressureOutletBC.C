@@ -42,7 +42,38 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
     {
         return;
     }
+    
+    const fvPatch& thisPatch = patch();
+    
+    const fvsPatchField<scalar>& u_n = thisPatch.lookupPatchField<surfaceScalarField, scalar>("phi");
+    const fvsPatchField<scalar>& adj_u_n = thisPatch.lookupPatchField<surfaceScalarField, scalar>("adj_phi");
+    Field<scalar> u_n_adj_u_n = u_n*adj_u_n;
+    
+    const fvPatchField<vector>& u = thisPatch.lookupPatchField<volVectorField, vector>("U");
+    const fvPatchField<vector>& adj_u = thisPatch.lookupPatchField<volVectorField, vector>("adj_U");
+    Field<scalar> u_dot_adj_u = u&adj_u;    
 
+    tmp<Field<vector>> gradU = u.snGrad();
+    vectorField n = thisPatch.nf();
+    Field<scalar> gradUn = gradU&n;    
+    
+    Field<scalar> dJdun = dJdu_Outlet(*this)&n;
+    
+    if(temperatureUsed)
+    {
+        const fvPatchField<scalar>& T = thisPatch.lookupPatchField<volScalarField, scalar>("T");
+        const fvPatchField<scalar>& adj_T = thisPatch.lookupPatchField<volScalarField, scalar>("adj_T");
+        Field<scalar> T_adj_T = T*adj_T;
+        Field<scalar> adj_p_patch = u_n_adj_u_n+u_dot_adj_u+gradUn+dJdun+T_adj_T;
+        scalarField::operator==(adj_p_patch);
+    }
+    else
+    {
+        Field<scalar> adj_p_patch = u_n_adj_u_n+u_dot_adj_u+gradUn+dJdun;
+        scalarField::operator==(adj_p_patch);
+    }
+
+    fixedValueFvPatchField<scalar>::updateCoeffs();
 }
 
 void Foam::icoAdjointPressureOutletBC::set_dJdu_Outlet
@@ -50,8 +81,25 @@ void Foam::icoAdjointPressureOutletBC::set_dJdu_Outlet
     std::function<Field<vector>(const icoAdjointPressureOutletBC&)> expr
 )
 {
-    Info<<"Set dJdu_pOutlet"<<Foam::nl;
     dJdu_Outlet = expr;
+}
+
+void Foam::icoAdjointPressureOutletBC::set_nu
+(
+    dimensionedScalar nu
+)
+{
+    nu_set = true;
+    this->nu=nu;
+}
+
+void Foam::icoAdjointPressureOutletBC::set_temperatureUsed
+(
+    bool temperatureUsed
+)
+{
+    temperatureUsed_set = true;
+    this->temperatureUsed=temperatureUsed;
 }
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

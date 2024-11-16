@@ -69,6 +69,12 @@ using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+objectiveFunction createTotalPressureLoss()
+{
+    objectiveFunction obj;
+    return obj;
+}
+
 double objFunc(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data)
 {
     Foam::solvers::icoAdjointImmersedBoundary* solver = static_cast<Foam::solvers::icoAdjointImmersedBoundary*>(my_func_data);
@@ -88,16 +94,10 @@ int main(int argc, char *argv[])
     #include "createTime.H"
     #include "createMesh.H"
 
-    std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall;
-    std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
-    std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
-    std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
-    
     // Instantiate the solver
-    Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime,dJdp_InletWall,dJdu_uOutlet,dJdu_pOutlet,dJdT_Outlet);
+    Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime,createTotalPressureLoss());
     solver.SolveSteadyAdjoint();
   
-    
     //label optimCoeffsNbr=1;
   
     //Optimizer

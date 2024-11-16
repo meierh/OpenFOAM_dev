@@ -4,10 +4,7 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
 (
     fvMesh& mesh,
     Time& time,
-    std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
-    std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet,
-    std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet,
-    std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet
+    objectiveFunction obj
 ):
 icoImmersedBoundary(mesh,time),
 adjPimpleCtlr(incompressibleFluid::pimple,time),
@@ -41,9 +38,9 @@ adj_p_
     
     checkDimensions();
     
-    setAdjUBC(dJdp_InletWall,dJdu_uOutlet);
-    setAdjPBC(dJdu_pOutlet);
-    setAdjTBC(dJdT_Outlet);
+    setAdjUBC(obj.dJdp_InletWall,obj.dJdu_uOutlet);
+    setAdjPBC(obj.dJdu_pOutlet);
+    setAdjTBC(obj.dJdT_Outlet);
     
     Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::endl;
@@ -549,6 +546,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
         if(cast_outletPatchPtr==nullptr)
             FatalErrorInFunction<<"Patch is not icoAdjointVelocityOutletBC"<<exit(FatalError);
         cast_outletPatchPtr->set_dJdu_Outlet(dJdu_uOutlet);
+        cast_outletPatchPtr->set_nu(nu);
     }
 }
 
@@ -577,6 +575,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjPBC
         if(cast_outletPatchPtr==nullptr)
             FatalErrorInFunction<<"Patch is not icoAdjointPressureOutletBC"<<exit(FatalError);
         cast_outletPatchPtr->set_dJdu_Outlet(dJdu_pOutlet);
+        cast_outletPatchPtr->set_nu(nu);
+        cast_outletPatchPtr->set_temperatureUsed(useAdjointTemperature & useTemperature);
     }
 }
 
@@ -607,6 +607,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjTBC
             if(cast_outletPatchPtr==nullptr)
                 FatalErrorInFunction<<"Patch is not icoAdjointTemperatureOutletBC"<<exit(FatalError);
             cast_outletPatchPtr->set_dJdT_Outlet(dJdT_Outlet);
+            cast_outletPatchPtr->set_alpha(alpha);
         }
     }
 }

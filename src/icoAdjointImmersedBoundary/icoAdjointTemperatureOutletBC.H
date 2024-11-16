@@ -96,9 +96,13 @@ class icoAdjointTemperatureOutletBC : public robinFvScalarPatchField
         virtual void updateCoeffs();
 
         void set_dJdT_Outlet(std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> expr);
+        void set_alpha(dimensionedScalar alpha);
 
     private:
         std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
+        
+        bool alpha_set=false;
+        dimensionedScalar alpha;
         
         void write_a() override;
         void write_b() override;

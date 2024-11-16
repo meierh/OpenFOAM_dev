@@ -97,9 +97,13 @@ class icoAdjointVelocityOutletBC : public robinFvVectorPatchField
         virtual void updateCoeffs();
         
         void set_dJdu_Outlet(std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> expr);
+        void set_nu(dimensionedScalar nu);
 
     private:
         std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_Outlet;
+        
+        bool nu_set=false;
+        dimensionedScalar nu;
         
         void write_a() override;
         void write_b() override;

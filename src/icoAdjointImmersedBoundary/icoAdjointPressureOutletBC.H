@@ -86,9 +86,17 @@ class icoAdjointPressureOutletBC : public fixedValueFvPatchField<scalar>
         
         
         void set_dJdu_Outlet(std::function<Field<vector>(const icoAdjointPressureOutletBC&)> expr);
+        void set_nu(dimensionedScalar nu);
+        void set_temperatureUsed(bool temperatureUsed);
 
     private:
         std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_Outlet;
+        
+        bool nu_set=false;
+        dimensionedScalar nu;
+        
+        bool temperatureUsed_set=false;
+        bool temperatureUsed;
 };
 
 

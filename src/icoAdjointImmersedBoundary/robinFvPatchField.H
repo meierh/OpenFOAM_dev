@@ -91,12 +91,12 @@ class robinFvPatchField : public fixedValueFvPatchField<Type>
         //- Update the coefficients associated with the patch field
         virtual void updateCoeffs()
         {
-            if (updated())
+            if (fixedValueFvPatchField<Type>::updated())
             {
                 return;
             }
             
-            tmp<Field<Type>> cellValues = patch().patchInternalField();
+            tmp<Field<Type>> cellValues = fixedValueFvPatchField<Type>::patchInternalField();
             
             scalarField dx = computeFaceCellDist();
             
@@ -110,16 +110,15 @@ class robinFvPatchField : public fixedValueFvPatchField<Type>
             
             Field<Type>::operator=(inv_a_min_b_div_dx * c_min_b_div_dx_mul_val);
             
-            fixedValueFvPatchField<vector>::updateCoeffs(); // sets updated_ to true
+            fixedValueFvPatchField<Type>::updateCoeffs(); // sets updated_ to true
         }
         
         scalarField computeFaceCellDist()
         {
-            const vectorField& faceCentres = patch().Cf();
-            tmp<vectorField> cellCentres = patch().Cn();
-            tmp<vectorField> faceNormals = patch().nf();
-            vectorField centreToFace = faceCentres-cellCentres;
-            scalarField centreToFaceDist = centreToFace & faceNormals;
+            const fvPatch& patch = fixedValueFvPatchField<Type>::patch();
+            tmp<vectorField> centreToFaceNormal = patch.delta();
+            tmp<vectorField> faceNormals = patch.nf();
+            scalarField centreToFaceDist = centreToFaceNormal & faceNormals;
             return centreToFaceDist;
         }
 

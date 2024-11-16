@@ -44,8 +44,7 @@ void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
     
     write_a();
     write_b();
-    write_c();
-    
+    write_c();    
     robinFvPatchField<vector>::updateCoeffs();
     
     const fvPatch& thisPatch = icoAdjointVelocityOutletBC::patch();
@@ -62,27 +61,36 @@ void Foam::icoAdjointVelocityOutletBC::set_dJdu_Outlet
     std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> expr
 )
 {
-    Info<<"Set dJdu_uOutlet"<<Foam::nl;
     dJdu_Outlet = expr;
+}
+
+void Foam::icoAdjointVelocityOutletBC::set_nu
+(
+    dimensionedScalar nu
+)
+{
+    nu_set = true;
+    this->nu=nu;
 }
 
 void Foam::icoAdjointVelocityOutletBC::write_a()
 {
     const fvPatchField<vector>& u = patch().lookupPatchField<volVectorField,vector>("U");
     const tmp<vectorField> n = patch().nf();
-    //a = u&n; // u_n
+    a = u&n; // u_n
 }
 
 void Foam::icoAdjointVelocityOutletBC::write_b()
 {
-    //b = 1;
+    b = nu.value();
 }
 
 void Foam::icoAdjointVelocityOutletBC::write_c()
 {
-    //c = vector(0,0,0);
+    if(!dJdu_Outlet)
+        FatalErrorInFunction<<"dJdu_Outlet not set"<<exit(FatalError);
+    c = dJdu_Outlet(*this);
 }
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

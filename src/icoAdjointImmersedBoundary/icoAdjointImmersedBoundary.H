@@ -91,16 +91,22 @@ namespace solvers
 class icoAdjointImmersedBoundary : public icoImmersedBoundary
 {
     public:
+    // Objective function structure
+        typedef struct
+        {
+            std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall;
+            std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
+            std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
+            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;            
+        } objectiveFunction;
+        
     // Constructors
         //- Construct from region mesh
         icoAdjointImmersedBoundary
         (
             fvMesh& mesh,
             Time& time,
-            std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
-            std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet,
-            std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet,
-            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet
+            objectiveFunction obj
         );
         //- Disallow default bitwise copy construction
         icoAdjointImmersedBoundary(const icoImmersedBoundary&) = delete;
