@@ -69,9 +69,33 @@ using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-objectiveFunction createTotalPressureLoss()
+Foam::solvers::icoAdjointImmersedBoundary::objectiveFunction createTotalPressureLoss()
 {
-    objectiveFunction obj;
+    Foam::solvers::icoAdjointImmersedBoundary::objectiveFunction obj;
+    
+    // J = int_in (p+0.5*u²) dS - int_out (p+0.5*u²) dS
+    
+    /* 
+     * dJdp = int_in 1 dS - int_out 1 dS
+     * dJdu = int_in u dS - int_out u dS
+     * dJdT = 0
+     */
+    
+    obj.dJdp_InletWall = [](const icoAdjointVelocityInletWallBC& bc)
+    {
+        return Field<scalar>(bc.patch().size(),1);
+    };
+    obj.dJdu_uOutlet = [](const icoAdjointVelocityOutletBC& bc)
+    {
+        const fvPatchField<vector>& u = bc.patch().lookupPatchField<volVectorField,vector>("U");
+        return Field<vector>(-u);
+    };
+    obj.dJdu_pOutlet = [](const icoAdjointPressureOutletBC& bc)
+    {
+        const fvPatchField<vector>& u = bc.patch().lookupPatchField<volVectorField,vector>("U");
+        return Field<vector>(-u);
+    };
+    
     return obj;
 }
 
