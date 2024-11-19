@@ -590,6 +590,17 @@ void Foam::solvers::icoImmersedBoundary::Solve()
     }
 }
 
+Foam::scalar Foam::solvers::icoImmersedBoundary::minDeltaT() const
+{
+    const IOdictionary& controlDict = runTime.controlDict();
+    scalar minDeltaT = std::numeric_limits<scalar>::min();
+    if(controlDict.found("minDeltaT"))
+    {
+        minDeltaT = controlDict.lookup<scalar>("minDeltaT");
+    }
+    return minDeltaT;
+}
+
 void Foam::solvers::icoImmersedBoundary::create_Analysis()
 {
     IOobject cellSizes_IOobj

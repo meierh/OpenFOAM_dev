@@ -24,6 +24,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "setDeltaT.H"
+#include "icoImmersedBoundary.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -56,8 +57,15 @@ void Foam::adjustDeltaT(Time& runTime, const solver& solver)
      && solver.transient()
     )
     {
-        const scalar deltaT =
-            min(solver.maxDeltaT(), runTime.functionObjects().maxDeltaT());
+        const scalar deltaTNew = min(solver.maxDeltaT(), runTime.functionObjects().maxDeltaT());
+        const Foam::solvers::icoImmersedBoundary* solIcoIB = dynamic_cast<const Foam::solvers::icoImmersedBoundary*>(&solver);
+        if(solIcoIB==nullptr)
+            FatalErrorInFunction<<"Failed casting to icoImmersedBoundary"<<exit(FatalError);
+        
+        const scalar minDeltaTLim = solIcoIB->minDeltaT();
+        if(solver.maxDeltaT()<minDeltaTLim)
+            FatalErrorInFunction<<"maxDeltaT is smaller than minDeltaT"<<exit(FatalError);
+        const scalar deltaT = (deltaTNew<minDeltaTLim) ? minDeltaTLim : deltaTNew;
 
         if (deltaT < rootVGreat)
         {

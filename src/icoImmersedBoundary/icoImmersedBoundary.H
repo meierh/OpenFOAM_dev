@@ -101,7 +101,8 @@ class icoImmersedBoundary : public incompressibleFluid
         
         void Solve();
         
-        
+        scalar minDeltaT() const;        
+
     protected:
         Time& time;
     private:
