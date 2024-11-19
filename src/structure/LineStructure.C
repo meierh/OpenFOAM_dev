@@ -1,4 +1,5 @@
 #include "LineStructure.H"
+#include <Structure.H>
 
 Foam::LineStructure::LineStructure
 (
@@ -711,7 +712,7 @@ void Foam::LineStructure::collectHaloMarkers()
 void Foam::LineStructure::exchangeHaloMarkersData()
 {
     status.execValid(status.markersHaloExchange);
-    
+
     globHaloMarkers = GlobalHaloMarkers(this,haloCellsRodMarkersList);
     for(uint haloCellInd=0; haloCellInd<haloCellsRodMarkersList.size(); haloCellInd++)
     {
@@ -753,7 +754,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
         }
     }
     globHaloMarkers.communicate();
-    
+
     status.executed(status.markersHaloExchange);
 }
 
@@ -1435,6 +1436,7 @@ Foam::LineStructure::GlobalHaloMarkers::GlobalHaloMarkers
 ):
 structure(structure),
 selfhaloCellsRodMarkersList(&selfhaloCellsRodMarkersList),
+nProcs(Pstream::nProcs()),
 broadcasted(false),
 broadcastedWeights(false)
 {
@@ -1504,16 +1506,18 @@ broadcastedWeights(false)
     globalHaloCellsMarkerRadiusFrac.setSize(Pstream::nProcs());
     globalHaloCellsMarkerRadiusFrac[Pstream::myProcNo()].clear();
     globalHaloCellsMarkerRadiusFrac[Pstream::myProcNo()].setSize(selfHaloCellSize);
-    
-    nProcs = Pstream::nProcs();
-    
+
     procHaloCellsSize.setSize(nProcs);
     procHaloCellsSize[Pstream::myProcNo()] = selfHaloCellSize;
     structure->exchangeBetweenAll(procHaloCellsSize);
-    
+
     procHaloCellMarkerSize.setSize(nProcs);
+    const std::unordered_set<label>& neighbours = structure->getNeighbourProcesses();
     for(label proc=0; proc<nProcs; proc++)
-        procHaloCellMarkerSize[proc].setSize(procHaloCellsSize[proc],0);    
+    {
+        if(neighbours.find(proc)!=neighbours.end() || proc==Pstream::myProcNo())
+            procHaloCellMarkerSize[proc].setSize(procHaloCellsSize[proc],0);
+    }
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::appendMarkerData
@@ -1666,6 +1670,8 @@ Foam::label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
 {
     if(structure==nullptr)
         FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
+    if(!(structure->neighbourDataExists(process)))
+        FatalErrorInFunction<<"Tried to access non neighbour"<<exit(FatalError);
     return procHaloCellMarkerSize[process][haloCellInd];
 }
 
