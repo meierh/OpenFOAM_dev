@@ -711,6 +711,7 @@ void Foam::LineStructure::collectHaloMarkers()
 
 void Foam::LineStructure::exchangeHaloMarkersData()
 {
+    Pout<<"exchangeHaloMarkersData"<< Foam::nl;
     status.execValid(status.markersHaloExchange);
 
     globHaloMarkers = GlobalHaloMarkers(this,haloCellsRodMarkersList);
@@ -756,6 +757,7 @@ void Foam::LineStructure::exchangeHaloMarkersData()
     globHaloMarkers.communicate();
 
     status.executed(status.markersHaloExchange);
+    Pout<<"exchangeHaloMarkersData done"<< Foam::nl;
 }
 
 void Foam::LineStructure::computeMarkerCellWeights()
@@ -1516,7 +1518,14 @@ broadcastedWeights(false)
     for(label proc=0; proc<nProcs; proc++)
     {
         if(neighbours.find(proc)!=neighbours.end() || proc==Pstream::myProcNo())
+        {
+            if(procHaloCellsSize[proc]<0)
+            {
+                Info<<"procHaloCellsSize["<<proc<<"]:"<<procHaloCellsSize[proc]<<Foam::nl;
+                FatalErrorInFunction<<"Invalid procHaloCellsSize size"<<exit(FatalError);
+            }
             procHaloCellMarkerSize[proc].setSize(procHaloCellsSize[proc],0);
+        }
     }
 }
 
@@ -1677,6 +1686,8 @@ Foam::label Foam::LineStructure::GlobalHaloMarkers::size_cellMarkers
 
 void Foam::LineStructure::GlobalHaloMarkers::communicate()
 {
+    Pout<<"LineStructure::GlobalHaloMarkers::communicate"<< Foam::nl;
+    
     if(structure==nullptr)
         FatalErrorInFunction<<"Structure nullptr"<<exit(FatalError);
     
@@ -1699,6 +1710,7 @@ void Foam::LineStructure::GlobalHaloMarkers::communicate()
     structure->exchangeBetweenAll(procHaloCellMarkerSize);
 
     //check();
+    Pout<<"LineStructure::GlobalHaloMarkers::communicate done"<< Foam::nl;
 }
 
 void Foam::LineStructure::GlobalHaloMarkers::communicateWeight()

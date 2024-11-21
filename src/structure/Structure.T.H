@@ -62,6 +62,8 @@ void Foam::Structure::exchangeBetweenAll
     List<T>& globalData
 ) const
 {
+    //Pout<<"Structure::exchangeBetweenAll"<< Foam::nl;
+
     if(exchangeSpecific)
     {
         for(label comm : orderedComms)
@@ -74,4 +76,5 @@ void Foam::Structure::exchangeBetweenAll
         Pstream::gatherList(globalData);
         Pstream::scatterList(globalData);
     }
+    //Pout<<"Structure::exchangeBetweenAll done"<< Foam::nl;
 }

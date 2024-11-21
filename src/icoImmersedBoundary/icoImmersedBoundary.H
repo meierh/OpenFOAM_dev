@@ -122,6 +122,10 @@ class icoImmersedBoundary : public incompressibleFluid
         bool useVelocityForcing;
         std::unique_ptr<volVectorField> fU_;
         std::unique_ptr<VelocityPressureForceInteraction> interaction_fU;
+        scalar velocityForcingFactor=1;
+        bool delayedVelocityForcing=false;
+        scalar velocityForcingStartTime=0;
+        scalar velocityForcingRampUpTime=0;
         void create_VelocityForcing();
         
         //- Temperature
@@ -135,6 +139,10 @@ class icoImmersedBoundary : public incompressibleFluid
         bool useTemperatureForcing;
         std::unique_ptr<volScalarField> fT_;
         std::unique_ptr<TemperatureInteraction> interaction_fT;
+        scalar temperatureForcingFactor=1;
+        bool delayedTemperatureForcing=false;
+        scalar temperatureForcingStartTime=0;
+        scalar temperatureForcingRampUpTime=0;
         void create_TemperatureForcing();
         
         //- Refinement

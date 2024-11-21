@@ -86,9 +86,9 @@ void Foam::solvers::pimpleIBControl::readFromFvSolution()
             ITstream momentumIterTolFracStream = pimpleDict.lookup("momentumIterTolFrac");
             token momentumIterTolFracToken;
             momentumIterTolFracStream.read(momentumIterTolFracToken);
-            if(!momentumIterTolFracToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/momentumIterTolFrac -- must be label"<<exit(FatalError);
-            momentumIterTolFrac = momentumIterTolFracToken.labelToken();
+            if(!momentumIterTolFracToken.isScalar())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/momentumIterTolFrac -- must be scalar"<<exit(FatalError);
+            momentumIterTolFrac = momentumIterTolFracToken.scalarToken();
         }
         
         // Read momentumIterTolFrac
@@ -109,25 +109,25 @@ void Foam::solvers::pimpleIBControl::readFromFvSolution()
             ITstream temperatureIterTolFracStream = pimpleDict.lookup("temperatureIterTolFrac");
             token temperatureIterTolFracToken;
             temperatureIterTolFracStream.read(temperatureIterTolFracToken);
-            if(!temperatureIterTolFracToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/temperatureIterTolFrac -- must be label"<<exit(FatalError);
-            temperatureIterTolFrac = temperatureIterTolFracToken.labelToken();
+            if(!temperatureIterTolFracToken.isScalar())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/temperatureIterTolFrac -- must be scalar"<<exit(FatalError);
+            temperatureIterTolFrac = temperatureIterTolFracToken.scalarToken();
         }
         
-        if(pimpleDict.found("delayedInitialIterations"))
+        if(pimpleDict.found("advancedInitialConvergence"))
         {
-            ITstream delayedInitialIterationsStream = pimpleDict.lookup("delayedInitialIterations");
-            token delayedInitialIterationsToken;
-            delayedInitialIterationsStream.read(delayedInitialIterationsToken);
-            if(!delayedInitialIterationsToken.isWord())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/delayedInitialIterations -- must be label"<<exit(FatalError);
-            word delayedInitialIterationsWord = delayedInitialIterationsToken.wordToken();
-            if(delayedInitialIterationsWord=="yes")
-                delayedInitialConvergence = true;
-            else if(delayedInitialIterationsWord=="no")
-                delayedInitialConvergence = false;
+            ITstream advancedInitialConvergenceStream = pimpleDict.lookup("advancedInitialConvergence");
+            token advancedInitialConvergenceToken;
+            advancedInitialConvergenceStream.read(advancedInitialConvergenceToken);
+            if(!advancedInitialConvergenceToken.isWord())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/advancedInitialConvergence -- must be word"<<exit(FatalError);
+            word advancedInitialConvergenceWord = advancedInitialConvergenceToken.wordToken();
+            if(advancedInitialConvergenceWord=="yes")
+                advancedInitialConvergence = true;
+            else if(advancedInitialConvergenceWord=="no")
+                advancedInitialConvergence = false;
             else
-                FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/delayedInitialIterations -- must be {yes,no}"<<exit(FatalError);
+                FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/advancedInitialConvergence -- must be {yes,no}"<<exit(FatalError);
         }
         
         ITstream solutionTypeStream = pimpleDict.lookup("solutionType");
@@ -142,6 +142,19 @@ void Foam::solvers::pimpleIBControl::readFromFvSolution()
             steady = false;
         else
             FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/solutionType -- must be {steady,unsteady}"<<exit(FatalError);
+        
+        if(pimpleDict.found("convergenceDelay"))
+        {
+            ITstream convergenceDelayStream = pimpleDict.lookup("convergenceDelay");
+            token convergenceDelayToken;
+            convergenceDelayStream.read(convergenceDelayToken);
+            if(!convergenceDelayToken.isScalar())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/convergenceDelay -- must be scalar"<<exit(FatalError);
+            convergenceDelay = convergenceDelayToken.scalarToken();            
+            convergenceDelaySet = true;
+        }
+        else
+            convergenceDelaySet = false;
     }
     else
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
@@ -158,16 +171,16 @@ bool Foam::solvers::pimpleIBControl::run(Time& time)
 bool Foam::solvers::pimpleIBControl::momentumLoop()
 {    
     bool contLoop;
-    Info<<"||--momentumInnerIteration:"<<momentumInnerIteration<<" timeIteration:"<<timeIteration<<" minMomentumIterations:"<<minMomentumIterations<<" delayedInitialConvergence:"<<delayedInitialConvergence<<Foam::nl;
+    Info<<"||--momentumInnerIteration:"<<momentumInnerIteration<<" timeIteration:"<<timeIteration<<" minMomentumIterations:"<<minMomentumIterations<<" advancedInitialConvergence:"<<advancedInitialConvergence<<Foam::nl;
     if(momentumInnerIteration==0)
     {
         contLoop = true;
         Info<<"||--First iteration"<<Foam::nl;
     }
-    else if(delayedInitialConvergence && momentumInnerIteration>timeIteration)
+    else if(advancedInitialConvergence && momentumInnerIteration>timeIteration)
     {
         contLoop = false;
-        Info<<"||--Delayed stop"<<Foam::nl;
+        Info<<"||--Advanced stop"<<Foam::nl;
     }
     else if(momentumInnerIteration<minMomentumIterations)
     {
@@ -178,6 +191,11 @@ bool Foam::solvers::pimpleIBControl::momentumLoop()
     {
         contLoop = false;
         Info<<"||--Steady"<<Foam::nl;        
+    }
+    else if(convergenceDelaySet && convergenceDelay < runTime.value())
+    {
+        contLoop = false;
+        Info<<"||--Convergence delay"<<Foam::nl;   
     }
     else
     {
@@ -249,16 +267,27 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
     if(temperatureInnerIteration==0)
     {
         contLoop = true;
+        Info<<"||--First iteration"<<Foam::nl;
     }
-    else if(delayedInitialConvergence && temperatureInnerIteration>timeIteration)
+    else if(advancedInitialConvergence && temperatureInnerIteration>timeIteration)
     {
         contLoop = false;
-        Info<< "delayedInitialConvergence"<<nl;
+        Info<<"||--Advanced stop"<<Foam::nl;
     }
-    else if(temperatureInnerIteration > minTemperatureIterations)
+    else if(temperatureInnerIteration<minTemperatureIterations)
+    {
+        contLoop = true;
+        Info<<"||--Lower than minimum"<<Foam::nl;
+    }
+    else if(steady)
     {
         contLoop = false;
-        Info<< "minTemperatureIterations limit"<<nl;
+        Info<<"||--Steady"<<Foam::nl;        
+    }
+    else if(convergenceDelaySet && convergenceDelay < runTime.value())
+    {
+        contLoop = false;
+        Info<<"||--Convergence delay"<<Foam::nl;   
     }
     else
     {        

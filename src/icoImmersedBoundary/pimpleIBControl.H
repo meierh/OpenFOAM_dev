@@ -127,7 +127,9 @@ class pimpleIBControl : public pimpleSingleRegionControl
         
         //Full system
         label minOuterIterations=1; // nOuterCorrectors
-        bool delayedInitialConvergence = true;
+        bool advancedInitialConvergence = true;
+        scalar convergenceDelay;
+        bool convergenceDelaySet;
 };
 
 

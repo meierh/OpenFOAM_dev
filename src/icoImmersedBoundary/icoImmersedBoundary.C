@@ -116,6 +116,55 @@ void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
         }
         else
             FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodMovement -- valid {StaticRod,MovedRod,FluidStructureRod}"<<exit(FatalError);
+        
+        IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+        if(!fvSolutionIO.filePath("",true).empty())
+        {            
+            IOdictionary fvSolutionDict(fvSolutionIO);
+            dictionary& pimpleDict = fvSolutionDict.subDict("PIMPLE");
+            
+            // Read delayedForcing
+            if(pimpleDict.found("delayedForcing"))
+            {
+                ITstream delayedForcingStream = pimpleDict.lookup("delayedForcing");
+                token delayedForcingToken;
+                delayedForcingStream.read(delayedForcingToken);
+                if(!delayedForcingToken.isWord())
+                    FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/delayedForcing -- must be word"<<exit(FatalError);
+                word delayedForcingTokenWord = delayedForcingToken.wordToken();
+                if(delayedForcingTokenWord=="yes")
+                {
+                    delayedVelocityForcing = true;
+                    delayedTemperatureForcing = true;
+                }
+                else if(delayedForcingTokenWord=="no")
+                {
+                    delayedVelocityForcing = false;
+                    delayedTemperatureForcing = false;                    
+                }
+                else
+                    FatalErrorInFunction<<"Invalid word in system/fvSolution/PIMPLE/delayedForcing -- must be {yes,no}"<<exit(FatalError);
+                
+                if(delayedForcingTokenWord=="yes")
+                {
+                    ITstream forcingStartStream = pimpleDict.lookup("forcingStart");
+                    token forcingStartToken;
+                    forcingStartStream.read(forcingStartToken);
+                    if(!forcingStartToken.isScalar())
+                        FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/forcingStart -- must be scalar"<<exit(FatalError);
+                    velocityForcingStartTime = temperatureForcingStartTime = forcingStartToken.scalarToken();
+                    
+                    ITstream forcingRampUpStream = pimpleDict.lookup("forcingRampUp");
+                    token forcingRampUpToken;
+                    forcingRampUpStream.read(forcingRampUpToken);
+                    if(!forcingRampUpToken.isScalar())
+                        FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/forcingRampUp -- must be scalar"<<exit(FatalError);
+                    velocityForcingRampUpTime = temperatureForcingRampUpTime = forcingRampUpToken.scalarToken();
+                }
+            }
+        }
+        else
+            FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
     }
     else
         useVelocityForcing = false;
@@ -322,6 +371,36 @@ void Foam::solvers::icoImmersedBoundary::preMove
         interaction_fU->preSolveMovement();
         interaction_fU->preSolveMarkerMeshAdaption();
     }
+    if(delayedVelocityForcing)
+    {
+        if(velocityForcingStartTime+velocityForcingRampUpTime < runTime.value())
+        {
+            velocityForcingFactor = 1;
+        }
+        else if(velocityForcingStartTime < runTime.value())
+        {
+            scalar timeSinceForcingStart = runTime.value()-velocityForcingStartTime;
+            velocityForcingFactor = timeSinceForcingStart/velocityForcingRampUpTime;
+            Info<<"Ramp up velocityForcingFactor:"<<velocityForcingFactor<<Foam::nl;
+        }
+        else
+            velocityForcingFactor = 0;
+    }
+    if(delayedTemperatureForcing)
+    {
+        if(temperatureForcingStartTime+temperatureForcingRampUpTime < runTime.value())
+        {
+            temperatureForcingFactor = 1;
+        }
+        else if(temperatureForcingStartTime < runTime.value())
+        {
+            scalar timeSinceForcingStart = runTime.value()-temperatureForcingStartTime;
+            temperatureForcingFactor = timeSinceForcingStart/temperatureForcingRampUpTime;
+            Info<<"Ramp up temperatureForcingFactor:"<<temperatureForcingFactor<<Foam::nl;
+        }
+        else
+            temperatureForcingFactor = 0;
+    }
 }
 
 void Foam::solvers::icoImmersedBoundary::moveMesh
@@ -356,7 +435,7 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor
     if(useVelocityForcing)
     {
         volVectorField& fU = *fU_;
-        tUEqn = (fvm::ddt(U)+fvm::div(phi,U)-fvm::laplacian(nu,U)-fU);
+        tUEqn = (fvm::ddt(U)+fvm::div(phi,U)-fvm::laplacian(nu,U)-velocityForcingFactor*fU);
     }
     else
     {
@@ -494,7 +573,7 @@ void Foam::solvers::icoImmersedBoundary::postSolve
             if(useTemperatureForcing)
             {
                 volScalarField& fT = *fT_;
-                TEqn_res = solve(TEqn==fT);
+                TEqn_res = solve(TEqn==temperatureForcingFactor*fT);
                 interaction_fT->solve();
             }
             else

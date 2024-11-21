@@ -63,9 +63,15 @@ void Foam::adjustDeltaT(Time& runTime, const solver& solver)
             FatalErrorInFunction<<"Failed casting to icoImmersedBoundary"<<exit(FatalError);
         
         const scalar minDeltaTLim = solIcoIB->minDeltaT();
-        if(solver.maxDeltaT()<minDeltaTLim)
+        if(runTime.functionObjects().maxDeltaT()<minDeltaTLim)
+        {
+            Info<<"runTime.functionObjects().maxDeltaT():"<<runTime.functionObjects().maxDeltaT()<<Foam::nl;
+            Info<<"solIcoIB->minDeltaT():"<<solIcoIB->minDeltaT()<<Foam::nl;
             FatalErrorInFunction<<"maxDeltaT is smaller than minDeltaT"<<exit(FatalError);
+        }
         const scalar deltaT = (deltaTNew<minDeltaTLim) ? minDeltaTLim : deltaTNew;
+        if(deltaTNew<minDeltaTLim)
+            Info<<"Timestep limited to:"<<deltaT<<" {deltaTNew:"<<deltaTNew<<", minDeltaTLim:"<<minDeltaTLim<<"}"<<Foam::nl;
 
         if (deltaT < rootVGreat)
         {
