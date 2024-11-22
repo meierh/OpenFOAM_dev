@@ -174,20 +174,26 @@ class icoImmersedBoundary : public incompressibleFluid
         
         //- Called at the start of the time-step, before the PIMPLE loop
         void preSolve(pimpleIBControl& pimpleCtlr);
+        void preSolve()override{};
         
         void preMove(pimpleIBControl& pimpleCtlr);
+        //void preMove()override{};
         
         //- Called at the start of the PIMPLE loop to move the mesh
         void moveMesh(pimpleIBControl& pimpleCtlr);
+        void moveMesh()override{};
 
         //- Corrections that follow mesh motion
         void motionCorrector(pimpleIBControl& pimpleCtlr);
+        void motionCorrector()override{};
 
         //- Called at the start of the PIMPLE loop
         void prePredictor(pimpleIBControl& pimpleCtlr);
-        
+        void prePredictor()override{};
+
         //- Construct and optionally solve the momentum equation
         void momentumPredictor(pimpleIBControl& pimpleCtlr);
+        void momentumPredictor()override{};
 
     /*
         //- Construct and solve the energy equation,
@@ -199,12 +205,15 @@ class icoImmersedBoundary : public incompressibleFluid
         virtual void pressureCorrector();
     */       
         void correctPressure(pimpleIBControl& pimpleCtlr);
+        void correctPressure()override{};
       
         //- Correct the momentum and thermophysical transport modelling
         void postCorrector(pimpleIBControl& pimpleCtlr);
+        void postCorrector()override{};
         
         //- Solve temperature equation after one timestep pimple loop
         void postSolve(pimpleIBControl& pimpleCtlr);
+        void postSolve()override{};
         
     // High level functions
         void oneTimestep(pimpleIBControl& pimpleCtlr);

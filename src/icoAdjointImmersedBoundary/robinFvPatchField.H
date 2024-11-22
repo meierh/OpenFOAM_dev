@@ -122,6 +122,11 @@ class robinFvPatchField : public fixedValueFvPatchField<Type>
             return centreToFaceDist;
         }
 
+        void operator=(const fvPatchField<Type>&)override{FatalErrorInFunction<<"Invalid"<<exit(FatalError);};
+        void operator=(const UList<Type>&)override{FatalErrorInFunction<<"Invalid"<<exit(FatalError);};
+        void operator=(const Type&)override{FatalErrorInFunction<<"Invalid"<<exit(FatalError);};
+
+
         //- Write
         //virtual void write(Ostream&) const;
         

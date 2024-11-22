@@ -112,7 +112,7 @@ void Foam::FieldMarkerStructureInteraction::integrateFieldOverMarker
             {
                 Pout<<"proc:"<<proc<<Foam::nl;
                 Pout<<"cellInd:"<<cellInd<<Foam::nl;
-                Pout<<"iterIndex->second:"<<iterIndex->second<<Foam::nl;
+                //Pout<<"iterIndex->second:"<<iterIndex->second<<Foam::nl;
                 Pout<<"haloFields.size():"<<haloFields.size()<<Foam::nl;
                 Pout<<"haloFields["<<proc<<"].size():"<<haloFields[proc].size()<<Foam::nl;
                 FatalErrorInFunction<<"Halo cell does not exist"<<exit(FatalError);

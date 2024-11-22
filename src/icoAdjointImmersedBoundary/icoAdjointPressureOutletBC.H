@@ -79,6 +79,8 @@ class icoAdjointPressureOutletBC : public fixedValueFvPatchField<scalar>
             const DimensionedField<scalar,volMesh>&
         );
 
+        //void operator=(const scalar&)override{};
+
     // Member Functions
 
         //- Update the coefficients associated with the patch field
