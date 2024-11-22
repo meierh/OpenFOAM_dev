@@ -61,6 +61,8 @@ Foam::scalar Foam::Optimizer::run()
         try
         {
             result = opt.optimize(x_initial, minf);
+            if(result<0)
+                Info<<"Some error appeared"<<Foam::nl;
         }
         catch(std::exception &e)
         {
