@@ -24,7 +24,8 @@ adj_p_
     ),
     mesh
 )
-{    
+{
+    setupAdjoint();
     create_AdjointVelocityForcing();
     create_AdjointTemperature();
     create_AdjointTemperatureForcing();
@@ -50,6 +51,41 @@ adj_p_
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
     
     FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
+{
+    IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    if(!fvSolutionIO.filePath("",true).empty())
+    {
+        IOdictionary fvSolutionDict(fvSolutionIO);
+        dictionary& adj_pimpleDict = fvSolutionDict.subDict("adj_PIMPLE");
+
+        if(adj_pimpleDict.found("delayedSolution"))
+        {
+            ITstream delayedSolutionStream = adj_pimpleDict.lookup("delayedSolution");
+            token delayedSolutionToken;
+            delayedSolutionStream.read(delayedSolutionToken);
+            if(!delayedSolutionToken.isWord())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/delayedSolution -- must be word"<<exit(FatalError);
+            word delayedSolutionWord = delayedSolutionToken.wordToken();
+            if(delayedSolutionWord=="yes")
+                delayedSolution = true;
+            else if(delayedSolutionWord=="no")
+                delayedSolution = false;
+            else
+                FatalErrorInFunction<<"Invalid word in system/fvSolution/adj_PIMPLE/delayedSolution -- must be {yes,no}"<<exit(FatalError);
+
+            ITstream solutionStartTimeStream = adj_pimpleDict.lookup("solutionStartTime");
+            token solutionStartTimeToken;
+            solutionStartTimeStream.read(solutionStartTimeToken);
+            if(!solutionStartTimeToken.isScalar())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/solutionStartTime -- must be scalar"<<exit(FatalError);
+            solutionStartTime = solutionStartTimeToken.scalarToken();
+        }
+    }
+    else
+        FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
@@ -481,7 +517,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
 
 void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
 {
-    
     while (adjPimpleCtlr.run(time))
     {
         
@@ -494,7 +529,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
         Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;        
         
         icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
-        oneAdjSteadyTimestep(adjPimpleCtlr);
+        if(!delayedSolution || time.value()>=solutionStartTime)
+        {
+            oneAdjSteadyTimestep(adjPimpleCtlr);
+        }
         
         write_Analysis();
         runTime.write();

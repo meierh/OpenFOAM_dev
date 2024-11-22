@@ -120,8 +120,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     
     protected:
         pimpleAdjIBControl adjPimpleCtlr;
-        
         bool steadyStateAdjoint;
+        void setupAdjoint();
         
         // Adjoint Veclocity
         volVectorField adj_U_;
@@ -167,7 +167,11 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         
         // Check adjoint field dimension
         void checkDimensions();
-        
+
+        //Solution process
+        bool delayedSolution = false;
+        scalar solutionStartTime = 0;
+
         // Adjoint U equation
         tmp<fvVectorMatrix> tadj_UEqn;
         
@@ -179,8 +183,6 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         
         //Gradient Computation
         std::vector<std::pair<Parameter,scalar>> gradient;
-        
-
 
     // Member Functions
 
