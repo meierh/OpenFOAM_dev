@@ -12,7 +12,8 @@ Foam::icoAdjointTemperatureOutletBC::icoAdjointTemperatureOutletBC
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
-:robinFvScalarPatchField(p, iF, dict)
+:robinFvScalarPatchField(p, iF, dict),
+alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {
     Info<<"icoAdjointTemperatureOutletBC-------------------------------------------------------------"<<Foam::nl;
 }
@@ -24,7 +25,8 @@ Foam::icoAdjointTemperatureOutletBC::icoAdjointTemperatureOutletBC
     const DimensionedField<scalar, volMesh>& iF,
     const fieldMapper& mapper
 )
-:robinFvScalarPatchField(ptf, p, iF, mapper)
+:robinFvScalarPatchField(ptf, p, iF, mapper),
+alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {
     Info<<"icoAdjointTemperatureOutletBC-------------------------------------------------------------"<<Foam::nl;
 }
@@ -35,7 +37,8 @@ Foam::icoAdjointTemperatureOutletBC::icoAdjointTemperatureOutletBC
     const icoAdjointTemperatureOutletBC& pivpvf,
     const DimensionedField<scalar, volMesh>& iF
 )
-:robinFvScalarPatchField(pivpvf, iF)
+:robinFvScalarPatchField(pivpvf, iF),
+alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {
     Info<<"icoAdjointTemperatureOutletBC-------------------------------------------------------------"<<Foam::nl;
 }
@@ -84,11 +87,15 @@ void Foam::icoAdjointTemperatureOutletBC::write_a()
 
 void Foam::icoAdjointTemperatureOutletBC::write_b()
 {
+    if(!alpha_set)
+        FatalErrorInFunction<<"alpha_set not set"<<exit(FatalError);
     b = alpha.value();
 }
 
 void Foam::icoAdjointTemperatureOutletBC::write_c()
 {
+    if(!dJdT_Outlet)
+        FatalErrorInFunction<<"dJdT_Outlet not set"<<exit(FatalError);
     c = -dJdT_Outlet(*this);
 }
 

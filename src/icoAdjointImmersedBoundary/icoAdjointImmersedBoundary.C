@@ -42,15 +42,14 @@ adj_p_
     setAdjUBC(obj.dJdp_InletWall,obj.dJdu_uOutlet);
     setAdjPBC(obj.dJdu_pOutlet);
     setAdjTBC(obj.dJdT_Outlet);
+    J = obj.J;
     
-    Info<<"--------------------------icoImmersedBoundary--------------------------"<<Foam::endl;
+    Info<<"--------------------------icoAdjointImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::endl;
     Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
     Info<<"useAdjointTemperatureForcing:"<<useAdjointTemperatureForcing<<Foam::endl;
-    Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
-    
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    Info<<"||||||||||||||||||||||||||icoAdjointImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
@@ -222,8 +221,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
             adjTEqnPtr = std::make_unique<fvScalarMatrix>(-fvm::div(phi,adj_T)+fvm::laplacian(alpha,adj_T));
         else
             adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::ddt(adj_T)-fvm::div(phi,adj_T)+fvm::laplacian(alpha,adj_T));
+        
         fvScalarMatrix& adjTEqn = *adjTEqnPtr;
-
         while(adjPimpleCtlr.adjTemperatureLoop())
         {
             if(useTemperatureForcing)

@@ -97,7 +97,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
             std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall;
             std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
             std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
-            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;            
+            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
+            std::function<scalar(const icoAdjointImmersedBoundary&)> J;
         } objectiveFunction;
         
     // Constructors
@@ -183,6 +184,9 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         
         //Gradient Computation
         std::vector<std::pair<Parameter,scalar>> gradient;
+        
+        //Objective function
+        std::function<scalar(const icoAdjointImmersedBoundary&)> J;
 
     // Member Functions
 

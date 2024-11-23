@@ -11,7 +11,8 @@ Foam::icoAdjointPressureOutletBC::icoAdjointPressureOutletBC
     const DimensionedField<scalar,volMesh>& iF,
     const dictionary& dict
 )
-:fixedValueFvPatchField<scalar>(p, iF, dict, false)
+:fixedValueFvPatchField<scalar>(p, iF, dict, false),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
 Foam::icoAdjointPressureOutletBC::icoAdjointPressureOutletBC
@@ -21,7 +22,8 @@ Foam::icoAdjointPressureOutletBC::icoAdjointPressureOutletBC
     const DimensionedField<scalar,volMesh>& iF,
     const fieldMapper& mapper
 )
-:fixedValueFvPatchField<scalar>(ptf, p, iF, mapper)
+:fixedValueFvPatchField<scalar>(ptf, p, iF, mapper),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
 Foam::icoAdjointPressureOutletBC::icoAdjointPressureOutletBC
@@ -29,7 +31,8 @@ Foam::icoAdjointPressureOutletBC::icoAdjointPressureOutletBC
     const icoAdjointPressureOutletBC& pivpvf,
     const DimensionedField<scalar,volMesh>& iF
 )
-:fixedValueFvPatchField<scalar>(pivpvf, iF)
+:fixedValueFvPatchField<scalar>(pivpvf, iF),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
 
@@ -43,20 +46,28 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
         return;
     }
     
+    if(!nu_set)
+        FatalErrorInFunction<<"nu not set"<<exit(FatalError);    
+    if(!dJdu_Outlet)
+        FatalErrorInFunction<<"dJdu_Outlet not set"<<exit(FatalError);
+    
     const fvPatch& thisPatch = patch();
     
+    //u_n * adj_u_n
     const fvsPatchField<scalar>& u_n = thisPatch.lookupPatchField<surfaceScalarField, scalar>("phi");
     const fvsPatchField<scalar>& adj_u_n = thisPatch.lookupPatchField<surfaceScalarField, scalar>("adj_phi");
     Field<scalar> u_n_adj_u_n = u_n*adj_u_n;
     
+    //u & adj_u
     const fvPatchField<vector>& u = thisPatch.lookupPatchField<volVectorField, vector>("U");
     const fvPatchField<vector>& adj_u = thisPatch.lookupPatchField<volVectorField, vector>("adj_U");
     Field<scalar> u_dot_adj_u = u&adj_u;    
 
     tmp<Field<vector>> gradU = u.snGrad();
     vectorField n = thisPatch.nf();
-    Field<scalar> gradUn = gradU&n;    
-    
+    Field<scalar> gradUn = gradU&n;
+    Field<scalar> nu_gradUn = nu.value()*gradUn;
+
     Field<scalar> dJdun = dJdu_Outlet(*this)&n;
     
     if(temperatureUsed)
@@ -64,12 +75,12 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
         const fvPatchField<scalar>& T = thisPatch.lookupPatchField<volScalarField, scalar>("T");
         const fvPatchField<scalar>& adj_T = thisPatch.lookupPatchField<volScalarField, scalar>("adj_T");
         Field<scalar> T_adj_T = T*adj_T;
-        Field<scalar> adj_p_patch = u_n_adj_u_n+u_dot_adj_u+gradUn+dJdun+T_adj_T;
+        Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u + nu_gradUn + dJdun+T_adj_T;
         scalarField::operator==(adj_p_patch);
     }
     else
     {
-        Field<scalar> adj_p_patch = u_n_adj_u_n+u_dot_adj_u+gradUn+dJdun;
+        Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u + nu_gradUn + dJdun;
         scalarField::operator==(adj_p_patch);
     }
 

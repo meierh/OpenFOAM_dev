@@ -96,20 +96,26 @@ class robinFvPatchField : public fixedValueFvPatchField<Type>
                 return;
             }
             
-            tmp<Field<Type>> cellValues = fixedValueFvPatchField<Type>::patchInternalField();
+            if(a.size()!=this->size())
+                FatalErrorInFunction<<"Invalid size for a"<<exit(FatalError);
+            if(b.size()!=this->size())
+                FatalErrorInFunction<<"Invalid size for b"<<exit(FatalError);
+            if(c.size()!=this->size())
+                FatalErrorInFunction<<"Invalid size for c"<<exit(FatalError);
             
+            /*
+             * a phi + b dphi/dn = c
+             * -> [a - b/dx] phi = c - b/dx * phi_c 
+             */
+            
+            tmp<Field<Type>> Phi_c = fixedValueFvPatchField<Type>::patchInternalField();
             scalarField dx = computeFaceCellDist();
-            
-            scalarField b_div_dx = b/dx;
-            
+            scalarField b_div_dx = b/dx;            
             scalarField a_min_b_div_dx = a-b_div_dx;
             scalarField inv_a_min_b_div_dx = 1/a_min_b_div_dx;
-            
-            Field<Type> b_div_dx_mul_val = b_div_dx*cellValues;
+            Field<Type> b_div_dx_mul_val = b_div_dx * Phi_c;
             Field<Type> c_min_b_div_dx_mul_val = c-b_div_dx_mul_val;
-            
             Field<Type>::operator=(inv_a_min_b_div_dx * c_min_b_div_dx_mul_val);
-            
             fixedValueFvPatchField<Type>::updateCoeffs(); // sets updated_ to true
         }
         

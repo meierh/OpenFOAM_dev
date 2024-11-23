@@ -11,7 +11,8 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
-:robinFvVectorPatchField(p, iF, dict)
+:robinFvVectorPatchField(p, iF, dict),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
 Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
@@ -21,7 +22,8 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
     const DimensionedField<vector, volMesh>& iF,
     const fieldMapper& mapper
 )
-:robinFvVectorPatchField(ptf, p, iF, mapper)
+:robinFvVectorPatchField(ptf, p, iF, mapper),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
 Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
@@ -29,7 +31,8 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
     const icoAdjointVelocityOutletBC& pivpvf,
     const DimensionedField<vector, volMesh>& iF
 )
-:robinFvVectorPatchField(pivpvf, iF)
+:robinFvVectorPatchField(pivpvf, iF),
+nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -37,6 +40,7 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
 // Update the coefficients associated with the patch field
 void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
 {
+    Info<<"icoAdjointVelocityOutletBC::updateCoeffs"<<Foam::nl;
     if (updated())
     {
         return;
@@ -45,14 +49,13 @@ void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
     write_a();
     write_b();
     write_c();    
-    robinFvPatchField<vector>::updateCoeffs();
+    robinFvPatchField<vector>::updateCoeffs();    
     
     const fvPatch& thisPatch = icoAdjointVelocityOutletBC::patch();
-    const tmp<vectorField> n = thisPatch.nf();
+    const vectorField n = thisPatch.nf().ref();
     
-    const tmp<scalarField> adjU_n = (*this) & n;
-    const tmp<vectorField> adjU_tt = (*this) - adjU_n*n;
-    
+    const scalarField adjU_n = (*this) & n;
+    const vectorField adjU_tt = (*this) - adjU_n*n;
     vectorField::operator=(adjU_tt);
 }
 
@@ -82,7 +85,7 @@ void Foam::icoAdjointVelocityOutletBC::write_a()
 
 void Foam::icoAdjointVelocityOutletBC::write_b()
 {
-    b = nu.value();
+    b = Field<scalar>(this->size(),nu.value());
 }
 
 void Foam::icoAdjointVelocityOutletBC::write_c()
