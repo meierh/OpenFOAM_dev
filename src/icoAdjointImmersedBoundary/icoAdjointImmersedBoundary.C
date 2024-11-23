@@ -16,6 +16,18 @@ adj_U_
     ),
     mesh
 ),
+adj_phi_
+(
+    IOobject
+    (
+        "adj_phi",
+        runTime.name(),
+        mesh,
+        IOobject::READ_IF_PRESENT,
+        IOobject::AUTO_WRITE
+    ),
+    linearInterpolate(adj_U_) & mesh.Sf()
+),
 adj_p_
 (
     IOobject
@@ -451,12 +463,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure
 
         adj_pEqn.solve();
 
-        /*
         if (pimple.finalNonOrthogonalIter())
         {
-            phi = adj_phiHbyA - adj_pEqn.flux();
+            adj_phi_ = adj_phiHbyA - adj_pEqn.flux();
         }
-        */
     }
 
     //continuityErrors();

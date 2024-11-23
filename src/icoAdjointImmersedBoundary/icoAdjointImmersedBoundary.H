@@ -131,6 +131,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
             std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
             std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet
         );
+        surfaceScalarField adj_phi_;
         
         // Adjoint Pressure
         volScalarField adj_p_;
