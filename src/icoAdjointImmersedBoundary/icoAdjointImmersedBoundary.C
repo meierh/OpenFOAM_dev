@@ -66,6 +66,7 @@ adj_p_
 
 void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
 {
+    /*
     IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
     if(!fvSolutionIO.filePath("",true).empty())
     {
@@ -97,6 +98,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
     }
     else
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
+    */
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
@@ -535,19 +537,15 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
         // Adjust the time-step according to the solver maxDeltaT
         adjustDeltaT(time, *this);
         time++;
-        Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;        
-        
+        Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;
         icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
-        if(!delayedSolution || time.value()>=solutionStartTime)
-        {
-            oneAdjSteadyTimestep(adjPimpleCtlr);
-        }
-        
+
         write_Analysis();
         runTime.write();
             
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
+    oneAdjSteadyTimestep(adjPimpleCtlr);
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
@@ -573,7 +571,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
             outlet.append(patchI);
             continue;
         }
-        else
+        else if(patch.name().substr(0,12)!="procBoundary")
             inletWall.append(patchI);
     }
     for(label patchI : inletWall)
@@ -582,7 +580,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
         fvPatchField<vector>* inletWallPatchPtr = &inletWallPatch;
         icoAdjointVelocityInletWallBC* cast_inletWallPatchPtr = dynamic_cast<icoAdjointVelocityInletWallBC*>(inletWallPatchPtr);
         if(cast_inletWallPatchPtr==nullptr)
-            FatalErrorInFunction<<"Patch is not icoAdjointVelocityInletWallBC"<<exit(FatalError);
+        {
+            const fvPatch& patch = inletWallPatch.patch();
+            Pout<<"patch.name:"<<patch.name()<<Foam::nl;
+            FatalErrorInFunction<<"Inlet Patch is not icoAdjointVelocityInletWallBC"<<exit(FatalError);
+        }
         cast_inletWallPatchPtr->set_dJdp_InletWall(dJdp_InletWall);
     }
     for(label patchI : outlet)
@@ -591,7 +593,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
         fvPatchField<vector>* outletPatchPtr = &outletPatch;
         icoAdjointVelocityOutletBC* cast_outletPatchPtr = dynamic_cast<icoAdjointVelocityOutletBC*>(outletPatchPtr);
         if(cast_outletPatchPtr==nullptr)
-            FatalErrorInFunction<<"Patch is not icoAdjointVelocityOutletBC"<<exit(FatalError);
+        {
+            const fvPatch& patch = outletPatch.patch();
+            Pout<<"patch.name:"<<patch.name()<<Foam::nl;
+            FatalErrorInFunction<<"Outlet Patch is not icoAdjointVelocityOutletBC"<<exit(FatalError);
+        }
         cast_outletPatchPtr->set_dJdu_Outlet(dJdu_uOutlet);
         cast_outletPatchPtr->set_nu(nu);
     }

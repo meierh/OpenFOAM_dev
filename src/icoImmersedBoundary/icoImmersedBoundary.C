@@ -465,6 +465,7 @@ void Foam::solvers::icoImmersedBoundary::correctPressure
     pimpleIBControl& pimpleCtlr
 )
 {   
+    Info<<"icoImmersedBoundary::correctPressure"<<Foam::nl;
     volScalarField& p(p_);
     volVectorField& U(U_);
     surfaceScalarField& phi(phi_);
