@@ -460,6 +460,18 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor
     }
 }
 
+void Foam::solvers::icoImmersedBoundary::pressureCorrector
+(
+    pimpleIBControl& pimpleCtlr
+)
+{
+    while (pimpleCtlr.correct())
+    {
+        correctPressure(pimpleCtlr);
+    }
+    tUEqn.clear();
+}
+
 void Foam::solvers::icoImmersedBoundary::correctPressure
 (
     pimpleIBControl& pimpleCtlr
@@ -638,7 +650,7 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
         prePredictor(pimpleCtlr);
         momentumPredictor(pimpleCtlr);
         thermophysicalPredictor();
-        pressureCorrector();
+        pressureCorrector(pimpleCtlr);
         postCorrector(pimpleCtlr);
     }
     postSolve(pimpleCtlr);

@@ -174,46 +174,47 @@ class icoImmersedBoundary : public incompressibleFluid
         
         //- Called at the start of the time-step, before the PIMPLE loop
         void preSolve(pimpleIBControl& pimpleCtlr);
-        void preSolve()override{};
+        void preSolve()override{FatalErrorInFunction<<"Invalid call preSolve"<<exit(FatalError);};
         
         void preMove(pimpleIBControl& pimpleCtlr);
         //void preMove()override{};
         
         //- Called at the start of the PIMPLE loop to move the mesh
         void moveMesh(pimpleIBControl& pimpleCtlr);
-        void moveMesh()override{};
+        void moveMesh()override{FatalErrorInFunction<<"Invalid call moveMesh"<<exit(FatalError);};
 
         //- Corrections that follow mesh motion
         void motionCorrector(pimpleIBControl& pimpleCtlr);
-        void motionCorrector()override{};
+        void motionCorrector()override{FatalErrorInFunction<<"Invalid call motionCorrector"<<exit(FatalError);};
 
         //- Called at the start of the PIMPLE loop
         void prePredictor(pimpleIBControl& pimpleCtlr);
-        void prePredictor()override{};
+        void prePredictor()override{FatalErrorInFunction<<"Invalid call prePredictor"<<exit(FatalError);};
 
         //- Construct and optionally solve the momentum equation
         void momentumPredictor(pimpleIBControl& pimpleCtlr);
-        void momentumPredictor()override{};
+        void momentumPredictor()override{FatalErrorInFunction<<"Invalid call momentumPredictor"<<exit(FatalError);};
 
     /*
         //- Construct and solve the energy equation,
         //  convert to temperature
         //  and update thermophysical and transport properties
         virtual void thermophysicalPredictor();
-
+    */
         //- Construct and solve the pressure equation in the PISO loop
-        virtual void pressureCorrector();
-    */       
+        void pressureCorrector(pimpleIBControl& pimpleCtlr);
+        void pressureCorrector()override{FatalErrorInFunction<<"Invalid call pressureCorrector"<<exit(FatalError);};
+           
         void correctPressure(pimpleIBControl& pimpleCtlr);
-        void correctPressure()override{};
+        void correctPressure()override{FatalErrorInFunction<<"Invalid call correctPressure"<<exit(FatalError);};
       
         //- Correct the momentum and thermophysical transport modelling
         void postCorrector(pimpleIBControl& pimpleCtlr);
-        void postCorrector()override{};
+        void postCorrector()override{FatalErrorInFunction<<"Invalid call postCorrector"<<exit(FatalError);};
         
         //- Solve temperature equation after one timestep pimple loop
         void postSolve(pimpleIBControl& pimpleCtlr);
-        void postSolve()override{};
+        void postSolve()override{FatalErrorInFunction<<"Invalid call postSolve"<<exit(FatalError);};
         
     // High level functions
         void oneTimestep(pimpleIBControl& pimpleCtlr);

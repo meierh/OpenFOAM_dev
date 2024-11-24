@@ -240,12 +240,14 @@ Foam::label Foam::solvers::pimpleIBControl::nCorrPiso()
 
 bool Foam::solvers::pimpleIBControl::correct()
 {
-    return pimple.correct();
+    bool pimpleCorrect = pimple.correct();
+    return pimpleCorrect;
 }
 
 bool Foam::solvers::pimpleIBControl::correctNonOrthogonal()
 {
-    return pimple.correctNonOrthogonal();
+    bool pimpleCorrectNonOrthogonal = pimple.correctNonOrthogonal();
+    return pimpleCorrectNonOrthogonal;
 }
 
 bool Foam::solvers::pimpleIBControl::finalNonOrthogonalIter()
