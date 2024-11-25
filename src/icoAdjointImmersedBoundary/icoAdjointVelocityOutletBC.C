@@ -73,6 +73,7 @@ void Foam::icoAdjointVelocityOutletBC::set_nu
 )
 {
     nu_set = true;
+    nu.value()=0;
     this->nu=nu;
 }
 

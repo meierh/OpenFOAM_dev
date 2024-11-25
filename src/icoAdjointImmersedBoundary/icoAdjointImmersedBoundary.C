@@ -545,6 +545,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
             
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
+    Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
+
     oneAdjSteadyTimestep(adjPimpleCtlr);
 }
 

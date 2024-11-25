@@ -75,6 +75,7 @@ void Foam::icoAdjointTemperatureOutletBC::set_alpha
 )
 {
     alpha_set = true;
+    alpha.value()=0;
     this->alpha=alpha;
 }
 
