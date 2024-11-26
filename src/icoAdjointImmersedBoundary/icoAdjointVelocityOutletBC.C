@@ -11,7 +11,7 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
     const DimensionedField<vector, volMesh>& iF,
     const dictionary& dict
 )
-:robinFvVectorPatchField(p, iF, dict),
+: fixedValueFvPatchField<vector>(p, iF, dict),
 nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
@@ -22,7 +22,7 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
     const DimensionedField<vector, volMesh>& iF,
     const fieldMapper& mapper
 )
-:robinFvVectorPatchField(ptf, p, iF, mapper),
+: fixedValueFvPatchField<vector>(ptf, p, iF, mapper),
 nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
@@ -31,7 +31,7 @@ Foam::icoAdjointVelocityOutletBC::icoAdjointVelocityOutletBC
     const icoAdjointVelocityOutletBC& pivpvf,
     const DimensionedField<vector, volMesh>& iF
 )
-:robinFvVectorPatchField(pivpvf, iF),
+: fixedValueFvPatchField<vector>(pivpvf, iF),
 nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 {}
 
@@ -40,23 +40,50 @@ nu("nu",dimensionSet(0,2,-1,0,0,0,0),0)
 // Update the coefficients associated with the patch field
 void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
 {
-    Info<<"icoAdjointVelocityOutletBC::updateCoeffs"<<Foam::nl;
     if (updated())
     {
         return;
     }
-    
+    /*
     write_a();
     write_b();
     write_c();    
     robinFvPatchField<vector>::updateCoeffs();    
+    */
     
-    const fvPatch& thisPatch = icoAdjointVelocityOutletBC::patch();
-    const vectorField n = thisPatch.nf().ref();
+    //const fvPatchField<scalar>& adj_phi = patch().lookupPatchField<surfaceScalarField,scalar>("adj_phi"); // Here not set
+    const fvPatchField<vector>& u = patch().lookupPatchField<volVectorField,vector>("U");
+    scalarField u_n(mag(patch().nf() & u));
+    vectorField adj_U;
+    patchInternalField(adj_U);
+    vectorField adj_U_n = patch().nf()*(patch().nf() & adj_U);
     
-    const scalarField adjU_n = (*this) & n;
-    const vectorField adjU_tt = (*this) - adjU_n*n;
-    vectorField::operator=(adjU_tt);
+    vectorField dJdu = dJdu_Outlet(*this);
+    vectorField dJdu_n = (dJdu & patch().nf())*patch().nf();
+    vectorField dJdu_t = dJdu-dJdu_n;
+    
+    scalar epsilon = 1e-10;
+    vectorField adj_U_t = dJdu_t/(u_n+epsilon);
+    
+    vectorField::operator=(adj_U_t + adj_U_n);
+    //vectorField::operator=(adj_U_t + (adj_phi*patch().Sf() / sqr(patch().magSf())));
+    
+    fixedValueFvPatchField<vector>::updateCoeffs(); // sets updated_ to true
+    /*
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||u_n:"<<u_n.size()<<Foam::nl;
+    //Info<<u_n<<Foam::nl;
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||adj_U:"<<adj_U.size()<<Foam::nl;
+    Info<<"adj_U:"<<adj_U<<Foam::nl;
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||adj_U_n:"<<adj_U_n.size()<<Foam::nl;
+    Info<<adj_U_n<<Foam::nl;
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||dJdu:"<<dJdu.size()<<Foam::nl;
+    //Info<<dJdu<<Foam::nl;
+        
+    Info<<"icoAdjointVelocityOutletBC::updateCoeffs done"<<Foam::nl;
+    Info<<(*this)<<Foam::nl;
+    
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    */
 }
 
 void Foam::icoAdjointVelocityOutletBC::set_dJdu_Outlet
@@ -77,11 +104,12 @@ void Foam::icoAdjointVelocityOutletBC::set_nu
     this->nu=nu;
 }
 
+/*
 void Foam::icoAdjointVelocityOutletBC::write_a()
 {
     const fvPatchField<vector>& u = patch().lookupPatchField<volVectorField,vector>("U");
     const tmp<vectorField> n = patch().nf();
-    a = u&n; // u_n
+    a = mag(u&n); // u_n
 }
 
 void Foam::icoAdjointVelocityOutletBC::write_b()
@@ -95,6 +123,7 @@ void Foam::icoAdjointVelocityOutletBC::write_c()
         FatalErrorInFunction<<"dJdu_Outlet not set"<<exit(FatalError);
     c = dJdu_Outlet(*this);
 }
+*/
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

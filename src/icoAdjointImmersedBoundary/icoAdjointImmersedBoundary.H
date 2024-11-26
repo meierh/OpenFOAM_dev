@@ -70,7 +70,8 @@ See also
 #include "fvcSnGrad.H"
 #include "fvmLaplacian.H"
 
-#include "icoAdjointVelocityInletWallBC.H"
+#include "icoAdjointVelocityInletBC.H"
+#include "icoAdjointVelocityWallBC.H"
 #include "icoAdjointVelocityOutletBC.H"
 #include "icoAdjointPressureOutletBC.H"
 #include "icoAdjointTemperatureOutletBC.H"
@@ -94,7 +95,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     // Objective function structure
         typedef struct
         {
-            std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall;
+            std::function<Field<scalar>(const icoAdjointVelocityInletBC&)> dJdp_Inlet;
+            std::function<Field<scalar>(const icoAdjointVelocityWallBC&)> dJdp_Wall;
             std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
             std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
             std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
@@ -128,7 +130,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         volVectorField adj_U_;
         void setAdjUBC
         (
-            std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
+            std::function<Field<scalar>(const icoAdjointVelocityInletBC&)> dJdp_Inlet,
+            std::function<Field<scalar>(const icoAdjointVelocityWallBC&)> dJdp_Wall,
             std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet
         );
         surfaceScalarField adj_phi_;

@@ -12,7 +12,7 @@ Foam::icoAdjointTemperatureOutletBC::icoAdjointTemperatureOutletBC
     const DimensionedField<scalar, volMesh>& iF,
     const dictionary& dict
 )
-:robinFvScalarPatchField(p, iF, dict),
+:fixedValueFvPatchField<scalar>(p, iF, dict),
 alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {
     Info<<"icoAdjointTemperatureOutletBC-------------------------------------------------------------"<<Foam::nl;
@@ -25,7 +25,7 @@ Foam::icoAdjointTemperatureOutletBC::icoAdjointTemperatureOutletBC
     const DimensionedField<scalar, volMesh>& iF,
     const fieldMapper& mapper
 )
-:robinFvScalarPatchField(ptf, p, iF, mapper),
+:fixedValueFvPatchField<scalar>(ptf, p, iF, mapper),
 alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {
     Info<<"icoAdjointTemperatureOutletBC-------------------------------------------------------------"<<Foam::nl;
@@ -37,7 +37,7 @@ Foam::icoAdjointTemperatureOutletBC::icoAdjointTemperatureOutletBC
     const icoAdjointTemperatureOutletBC& pivpvf,
     const DimensionedField<scalar, volMesh>& iF
 )
-:robinFvScalarPatchField(pivpvf, iF),
+:fixedValueFvPatchField<scalar>(pivpvf, iF),
 alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
 {
     Info<<"icoAdjointTemperatureOutletBC-------------------------------------------------------------"<<Foam::nl;
@@ -54,10 +54,28 @@ void Foam::icoAdjointTemperatureOutletBC::updateCoeffs()
         return;
     }
     
+    /*
     write_a();
     write_b();
     write_c();    
     robinFvPatchField<scalar>::updateCoeffs();
+    */
+    
+    const fvPatchField<vector>& u = patch().lookupPatchField<volVectorField,vector>("U");
+    scalarField u_n(mag(patch().nf() & u));
+    
+    scalarField dJdT = dJdT_Outlet(*this);
+
+    scalar epsilon = 1e-10;
+    scalarField T_bc = -dJdT/(u_n+epsilon);
+    
+    scalarField::operator=(T_bc);
+    
+    fixedValueFvPatchField<scalar>::updateCoeffs(); // sets updated_ to true
+    /*
+    Info<<"icoAdjointTemperatureOutletBC::updateCoeffs done"<<Foam::nl;
+    Info<<(*this)<<Foam::nl;
+    */
 }
 
 
@@ -79,6 +97,7 @@ void Foam::icoAdjointTemperatureOutletBC::set_alpha
     this->alpha=alpha;
 }
 
+/*
 void Foam::icoAdjointTemperatureOutletBC::write_a()
 {
     const fvPatchField<vector>& u = patch().lookupPatchField<volVectorField,vector>("U");
@@ -99,6 +118,7 @@ void Foam::icoAdjointTemperatureOutletBC::write_c()
         FatalErrorInFunction<<"dJdT_Outlet not set"<<exit(FatalError);
     c = -dJdT_Outlet(*this);
 }
+*/
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

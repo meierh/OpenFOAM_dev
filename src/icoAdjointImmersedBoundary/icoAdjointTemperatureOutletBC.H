@@ -46,7 +46,7 @@ namespace Foam
                 Class adjointOutletVelocityFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
-class icoAdjointTemperatureOutletBC : public robinFvScalarPatchField
+class icoAdjointTemperatureOutletBC : public fixedValueFvPatchField<scalar>
 {
     public:
         //- Runtime type information
@@ -104,9 +104,11 @@ class icoAdjointTemperatureOutletBC : public robinFvScalarPatchField
         bool alpha_set=false;
         dimensionedScalar alpha;
         
+        /*
         void write_a() override;
         void write_b() override;
-        void write_c() override;        
+        void write_c() override;
+        */
 };
 
 

@@ -1,6 +1,7 @@
 icoAdjointImmersedBoundary.C
 pimpleAdjIBControl.C
-icoAdjointVelocityInletWallBC.C
+icoAdjointVelocityInletBC.C
+icoAdjointVelocityWallBC.C
 icoAdjointPressureInletWallBC.C
 icoAdjointTemperatureInletWallBC.C
 icoAdjointVelocityOutletBC.C

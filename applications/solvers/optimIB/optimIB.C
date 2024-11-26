@@ -81,9 +81,13 @@ Foam::solvers::icoAdjointImmersedBoundary::objectiveFunction createTotalPressure
      * dJdT = 0
      */
     
-    obj.dJdp_InletWall = [](const icoAdjointVelocityInletWallBC& bc)
+    obj.dJdp_Inlet = [](const icoAdjointVelocityInletBC& bc)
     {
         return Field<scalar>(bc.patch().size(),1);
+    };
+    obj.dJdp_Wall = [](const icoAdjointVelocityWallBC& bc)
+    {
+        return Field<scalar>(bc.patch().size(),0);
     };
     obj.dJdu_uOutlet = [](const icoAdjointVelocityOutletBC& bc)
     {

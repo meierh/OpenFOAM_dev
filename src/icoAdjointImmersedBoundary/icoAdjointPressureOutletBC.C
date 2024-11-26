@@ -63,11 +63,13 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
     const fvPatchField<vector>& adj_u = thisPatch.lookupPatchField<volVectorField, vector>("adj_U");
     Field<scalar> u_dot_adj_u = u&adj_u;    
 
+    // nu dadj_udn
     tmp<Field<vector>> gradU = u.snGrad();
     vectorField n = thisPatch.nf();
     Field<scalar> gradUn = gradU&n;
     Field<scalar> nu_gradUn = nu.value()*gradUn;
 
+    // dJdun
     Field<scalar> dJdun = dJdu_Outlet(*this)&n;
     
     if(temperatureUsed)
@@ -75,16 +77,27 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
         const fvPatchField<scalar>& T = thisPatch.lookupPatchField<volScalarField, scalar>("T");
         const fvPatchField<scalar>& adj_T = thisPatch.lookupPatchField<volScalarField, scalar>("adj_T");
         Field<scalar> T_adj_T = T*adj_T;
-        Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u + nu_gradUn + dJdun+T_adj_T;
+        Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u /*+ nu_gradUn*/ + dJdun + T_adj_T;
         scalarField::operator==(adj_p_patch);
     }
     else
     {
-        Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u + nu_gradUn + dJdun;
+        Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u /*+ nu_gradUn*/ + dJdun;
         scalarField::operator==(adj_p_patch);
     }
 
     fixedValueFvPatchField<scalar>::updateCoeffs();
+    
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||u_n_adj_u_n:"<<u_n_adj_u_n.size()<<Foam::nl;
+    Info<<"u_n_adj_u_n:"<<u_n_adj_u_n<<Foam::nl;
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||u_dot_adj_u:"<<u_dot_adj_u.size()<<Foam::nl;
+    Info<<"u_dot_adj_u:"<<u_dot_adj_u<<Foam::nl;
+    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||dJdun:"<<dJdun.size()<<Foam::nl;
+    Info<<dJdun<<Foam::nl;
+    
+    Info<<"icoAdjointPressureOutletBC::updateCoeffs done"<<Foam::nl;
+    Info<<(*this)<<Foam::nl;
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
 }
 
 void Foam::icoAdjointPressureOutletBC::set_dJdu_Outlet

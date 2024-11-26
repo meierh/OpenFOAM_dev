@@ -46,7 +46,7 @@ namespace Foam
                 Class adjointOutletVelocityFvPatch Declaration
 \*---------------------------------------------------------------------------*/
 
-class icoAdjointVelocityOutletBC : public robinFvVectorPatchField
+class icoAdjointVelocityOutletBC : public fixedValueFvPatchField<vector>
 {
     public:
 
@@ -105,9 +105,11 @@ class icoAdjointVelocityOutletBC : public robinFvVectorPatchField
         bool nu_set=false;
         dimensionedScalar nu;
         
+        /*
         void write_a() override;
         void write_b() override;
-        void write_c() override;        
+        void write_c() override;
+        */
 };
 
 

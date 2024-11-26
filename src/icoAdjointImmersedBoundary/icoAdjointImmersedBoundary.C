@@ -51,7 +51,7 @@ adj_p_
     
     checkDimensions();
     
-    setAdjUBC(obj.dJdp_InletWall,obj.dJdu_uOutlet);
+    setAdjUBC(obj.dJdp_Inlet,obj.dJdp_Wall,obj.dJdu_uOutlet);
     setAdjPBC(obj.dJdu_pOutlet);
     setAdjTBC(obj.dJdT_Outlet);
     J = obj.J;
@@ -506,6 +506,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
 )
 {
     Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
+    adj_U_ = Foam::zero();
+    adj_phi_ = Foam::zero();
+    adj_p_ = Foam::zero();
     adj_preSolve(adjPimpleCtlr);
     while (adjPimpleCtlr.adjMomentumLoop())
     {
@@ -548,15 +551,19 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
     Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
 
     oneAdjSteadyTimestep(adjPimpleCtlr);
+    adj_U_.write();
+    adj_p_.write();
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
 (
-    std::function<Field<scalar>(const icoAdjointVelocityInletWallBC&)> dJdp_InletWall,
+    std::function<Field<scalar>(const icoAdjointVelocityInletBC&)> dJdp_Inlet,
+    std::function<Field<scalar>(const icoAdjointVelocityWallBC&)> dJdp_Wall,
     std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet
 )
 {
-    DynamicList<label> inletWall;
+    DynamicList<label> inlet;
+    DynamicList<label> wall;
     DynamicList<label> outlet;
     const fvBoundaryMesh& boundary = mesh.boundary();
     GeometricBoundaryField<vector,fvPatchField,volMesh>& boundaryField = adj_U_.boundaryFieldRef();
@@ -565,7 +572,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
         fvPatch const& patch = boundary[patchI];
         if(patch.name()=="inlet")
         {
-            inletWall.append(patchI);
+            inlet.append(patchI);
             continue;
         }
         else if(patch.name()=="outlet")
@@ -574,20 +581,33 @@ void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC
             continue;
         }
         else if(patch.name().substr(0,12)!="procBoundary")
-            inletWall.append(patchI);
+            wall.append(patchI);
     }
-    for(label patchI : inletWall)
+    for(label patchI : inlet)
     {
-        fvPatchField<vector>& inletWallPatch = boundaryField[patchI];
-        fvPatchField<vector>* inletWallPatchPtr = &inletWallPatch;
-        icoAdjointVelocityInletWallBC* cast_inletWallPatchPtr = dynamic_cast<icoAdjointVelocityInletWallBC*>(inletWallPatchPtr);
-        if(cast_inletWallPatchPtr==nullptr)
+        fvPatchField<vector>& inletPatch = boundaryField[patchI];
+        fvPatchField<vector>* inletPatchPtr = &inletPatch;
+        icoAdjointVelocityInletBC* cast_inletPatchPtr = dynamic_cast<icoAdjointVelocityInletBC*>(inletPatchPtr);
+        if(cast_inletPatchPtr==nullptr)
         {
-            const fvPatch& patch = inletWallPatch.patch();
+            const fvPatch& patch = inletPatch.patch();
             Pout<<"patch.name:"<<patch.name()<<Foam::nl;
-            FatalErrorInFunction<<"Inlet Patch is not icoAdjointVelocityInletWallBC"<<exit(FatalError);
+            FatalErrorInFunction<<"Inlet Patch is not icoAdjointVelocityInletBC"<<exit(FatalError);
         }
-        cast_inletWallPatchPtr->set_dJdp_InletWall(dJdp_InletWall);
+        cast_inletPatchPtr->set_dJdp_Inlet(dJdp_Inlet);
+    }
+    for(label patchI : wall)
+    {
+        fvPatchField<vector>& wallPatch = boundaryField[patchI];
+        fvPatchField<vector>* wallPatchPtr = &wallPatch;
+        icoAdjointVelocityWallBC* cast_wallPatchPtr = dynamic_cast<icoAdjointVelocityWallBC*>(wallPatchPtr);
+        if(cast_wallPatchPtr==nullptr)
+        {
+            const fvPatch& patch = wallPatch.patch();
+            Pout<<"patch.name:"<<patch.name()<<Foam::nl;
+            FatalErrorInFunction<<"Inlet Patch is not icoAdjointVelocityWallBC"<<exit(FatalError);
+        }
+        cast_wallPatchPtr->set_dJdp_Wall(dJdp_Wall);
     }
     for(label patchI : outlet)
     {
