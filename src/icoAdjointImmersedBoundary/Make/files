@@ -2,10 +2,10 @@ icoAdjointImmersedBoundary.C
 pimpleAdjIBControl.C
 icoAdjointVelocityInletBC.C
 icoAdjointVelocityWallBC.C
-icoAdjointPressureInletWallBC.C
-icoAdjointTemperatureInletWallBC.C
 icoAdjointVelocityOutletBC.C
+icoAdjointPressureInletWallBC.C
 icoAdjointPressureOutletBC.C
+icoAdjointTemperatureInletWallBC.C
 icoAdjointTemperatureOutletBC.C
 
 LIB = $(FOAM_USER_LIBBIN)/libicoAdjointImmersedBoundary
