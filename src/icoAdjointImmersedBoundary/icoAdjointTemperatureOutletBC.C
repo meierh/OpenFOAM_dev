@@ -72,6 +72,16 @@ void Foam::icoAdjointTemperatureOutletBC::updateCoeffs()
     scalarField::operator=(T_bc);
     
     fixedValueFvPatchField<scalar>::updateCoeffs(); // sets updated_ to true
+    
+    Info<<"---------------------------------------------"<<Foam::nl;
+    Info<<"| icoAdjointTemperatureOutletBC::updateCoeffs done"<<Foam::nl;
+    scalar val = Foam::zero();
+    for(scalar const& v : *this)
+        val += v;
+    val /= this->size();
+    Info<<"| avg value: "<<val<<Foam::nl;
+    Info<<"| size: "<<this->size()<<Foam::nl;
+    Info<<"---------------------------------------------"<<Foam::nl;
     /*
     Info<<"icoAdjointTemperatureOutletBC::updateCoeffs done"<<Foam::nl;
     Info<<(*this)<<Foam::nl;

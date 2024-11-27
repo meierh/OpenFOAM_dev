@@ -69,21 +69,42 @@ void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
     //vectorField::operator=(adj_U_t + (adj_phi*patch().Sf() / sqr(patch().magSf())));
     
     fixedValueFvPatchField<vector>::updateCoeffs(); // sets updated_ to true
-    /*
-    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||u_n:"<<u_n.size()<<Foam::nl;
-    //Info<<u_n<<Foam::nl;
-    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||adj_U:"<<adj_U.size()<<Foam::nl;
-    Info<<"adj_U:"<<adj_U<<Foam::nl;
-    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||adj_U_n:"<<adj_U_n.size()<<Foam::nl;
-    Info<<adj_U_n<<Foam::nl;
-    Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||dJdu:"<<dJdu.size()<<Foam::nl;
-    //Info<<dJdu<<Foam::nl;
-        
-    Info<<"icoAdjointVelocityOutletBC::updateCoeffs done"<<Foam::nl;
-    Info<<(*this)<<Foam::nl;
     
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
-    */
+    Info<<"---------------------------------------------"<<Foam::nl;
+
+    vector avgU = Foam::zero();
+    for(vector const& v : u)
+        avgU += v;
+    avgU /= this->size();
+    Info<<" avgU: "<<avgU<<Foam::nl;
+    
+    scalar avg_u_n = Foam::zero();
+    for(scalar const& v : u_n)
+        avg_u_n += v;
+    avg_u_n /= this->size();
+    Info<<" avg_u_n: "<<avg_u_n<<Foam::nl;
+    
+    vector avg_adj_U_n = Foam::zero();
+    for(vector const& v : adj_U_n)
+        avg_adj_U_n += v;
+    avg_adj_U_n /= this->size();
+    Info<<" avg_adj_U_n: "<<avg_adj_U_n<<Foam::nl;
+    
+    vector avg_dJdu = Foam::zero();
+    for(vector const& v : dJdu)
+        avg_dJdu += v;
+    avg_dJdu /= this->size();
+    Info<<" avg_dJdu: "<<avg_dJdu<<Foam::nl;
+    
+    Info<<"---------------------------------------------"<<Foam::nl;
+    Info<<"| icoAdjointVelocityOutletBC::updateCoeffs done"<<Foam::nl;
+    vector val = Foam::zero();
+    for(vector const& v : *this)
+        val += v;
+    val /= this->size();
+    Info<<"| avg value: "<<val<<Foam::nl;
+    Info<<"| size: "<<this->size()<<Foam::nl;
+    Info<<"---------------------------------------------"<<Foam::nl;
 }
 
 void Foam::icoAdjointVelocityOutletBC::set_dJdu_Outlet

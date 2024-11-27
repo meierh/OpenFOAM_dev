@@ -262,8 +262,29 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     volVectorField& adj_U(adj_U_);
     surfaceScalarField& phi(phi_);
     
-    volVectorField adjointTransposeConvection((fvc::grad(adj_U) & U));
-        
+    volVectorField adjTranspConv((fvc::grad(adj_U) & U));
+    
+    if(!steadyStateAdjoint)
+        FatalErrorInFunction<<"SteadyStateAdjoint false"<<exit(FatalError);
+    
+    if(useAdjointTemperature)
+    {
+        Info<<"adj_mom temperature"<<Foam::nl;
+        if(!T_)
+            FatalErrorInFunction<<"T_ not a field"<<exit(FatalError);
+        if(!adj_T_)
+            FatalErrorInFunction<<"adj_T_ not a field"<<exit(FatalError);
+        volScalarField& adj_T = *adj_T_;
+        volScalarField& T = *T_;
+        tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U) - T*fvc::grad(adj_T);
+    }
+    else
+    {
+        Info<<"adj_mom non temperature"<<Foam::nl;
+        tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U);
+    }
+    
+    /*
     if(steadyStateAdjoint)
     {
         if(useTemperature && useAdjointTemperature)
@@ -272,6 +293,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
             volScalarField& T = *T_;
             if(useAdjointVelocityForcing)
             {
+                FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
                 volVectorField& adj_fU = *adj_fU_;
                 tadj_UEqn = 
                 (
@@ -293,6 +315,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         {
             if(useAdjointVelocityForcing)
             {
+                FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
                 volVectorField& adj_fU = *adj_fU_;
                 tadj_UEqn = 
                 (
@@ -311,6 +334,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     }
     else
     {
+        FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
         if(useTemperature && useAdjointTemperature)
         {
             volScalarField& adj_T = *adj_T_;
@@ -358,6 +382,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
             }
         }
     }
+    */
 
     fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
 
@@ -366,6 +391,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
 
     if (adjPimpleCtlr.momentumPredictor())
     {
+        adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
+        /*
         if(useAdjointVelocityForcing)
         {
             adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
@@ -375,6 +402,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         {
             adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
         }
+        */
         fvConstraints().constrain(adj_U_);
     }    
 }
@@ -510,15 +538,27 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     adj_phi_ = Foam::zero();
     adj_p_ = Foam::zero();
     adj_preSolve(adjPimpleCtlr);
+    
+    Info<<"U: "; printAvg(U_);
+    Info<<"phi: "; printAvg(phi_);
+    
+    Info<<"adj_U: "; printAvg(adj_U_);
+    Info<<"adj_p: "; printAvg(adj_p_);
     while (adjPimpleCtlr.adjMomentumLoop())
     {
+        //Info<<"adj_U_:"<<adj_U_<<Foam::nl;
         adj_moveMesh();
         adj_motionCorrector();
         //adj_fvModels().correct();
         adj_prePredictor();
         adj_momentumPredictor(adjPimpleCtlr);
+        Info<<"adj_U: "; printAvg(adj_U_);
+        Info<<"adj_p: "; printAvg(adj_p_);
+        adj_U_.write();
+        //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         adj_thermophysicalPredictor();
         adj_pressureCorrector(adjPimpleCtlr);
+        printAvg(adj_p_);
         adj_postCorrector();
     }
     adj_postSolve(adjPimpleCtlr);

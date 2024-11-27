@@ -53,16 +53,16 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
     
     const fvPatch& thisPatch = patch();
     
-    //u_n * adj_u_n
-    const fvsPatchField<scalar>& u_n = thisPatch.lookupPatchField<surfaceScalarField, scalar>("phi");
-    const fvsPatchField<scalar>& adj_u_n = thisPatch.lookupPatchField<surfaceScalarField, scalar>("adj_phi");
-    Field<scalar> u_n_adj_u_n = u_n*adj_u_n;
-    
     //u & adj_u
     const fvPatchField<vector>& u = thisPatch.lookupPatchField<volVectorField, vector>("U");
     const fvPatchField<vector>& adj_u = thisPatch.lookupPatchField<volVectorField, vector>("adj_U");
-    Field<scalar> u_dot_adj_u = u&adj_u;    
-
+    Field<scalar> u_dot_adj_u = u&adj_u;
+    
+    //u_n * adj_u_n
+    scalarField u_n = u & thisPatch.nf();
+    scalarField adj_u_n = adj_u & thisPatch.nf();
+    Field<scalar> u_n_adj_u_n = u_n*adj_u_n;
+    
     // nu dadj_udn
     tmp<Field<vector>> gradU = u.snGrad();
     vectorField n = thisPatch.nf();
@@ -70,7 +70,8 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
     Field<scalar> nu_gradUn = nu.value()*gradUn;
 
     // dJdun
-    Field<scalar> dJdun = dJdu_Outlet(*this)&n;
+    Field<vector> dJdu = dJdu_Outlet(*this);
+    Field<scalar> dJdun = dJdu & n;
     
     if(temperatureUsed)
     {
@@ -78,26 +79,68 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
         const fvPatchField<scalar>& adj_T = thisPatch.lookupPatchField<volScalarField, scalar>("adj_T");
         Field<scalar> T_adj_T = T*adj_T;
         Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u /*+ nu_gradUn*/ + dJdun + T_adj_T;
-        scalarField::operator==(adj_p_patch);
+        scalarField::operator=(adj_p_patch);
     }
     else
     {
         Field<scalar> adj_p_patch = u_n_adj_u_n + u_dot_adj_u /*+ nu_gradUn*/ + dJdun;
-        scalarField::operator==(adj_p_patch);
+        scalarField::operator=(adj_p_patch);
     }
 
     fixedValueFvPatchField<scalar>::updateCoeffs();
     
+    /*
     Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||u_n_adj_u_n:"<<u_n_adj_u_n.size()<<Foam::nl;
     Info<<"u_n_adj_u_n:"<<u_n_adj_u_n<<Foam::nl;
     Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||u_dot_adj_u:"<<u_dot_adj_u.size()<<Foam::nl;
     Info<<"u_dot_adj_u:"<<u_dot_adj_u<<Foam::nl;
     Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||dJdun:"<<dJdun.size()<<Foam::nl;
     Info<<dJdun<<Foam::nl;
+    */
     
-    Info<<"icoAdjointPressureOutletBC::updateCoeffs done"<<Foam::nl;
-    Info<<(*this)<<Foam::nl;
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    Info<<"---------------------------------------------temperatureUsed:"<<temperatureUsed<<Foam::nl;
+
+    scalar avg_u_n = Foam::zero();
+    for(scalar const& v : u_n)
+        avg_u_n += v;
+    avg_u_n /= this->size();
+    Info<<" avg_u_n: "<<avg_u_n<<Foam::nl;
+    
+    scalar avg_adj_u_n = Foam::zero();
+    for(scalar const& v : adj_u_n)
+        avg_adj_u_n += v;
+    avg_adj_u_n /= this->size();
+    Info<<" avg_adj_u_n: "<<avg_adj_u_n<<Foam::nl;
+    
+    vector avg_u = Foam::zero();
+    for(vector const& v : u)
+        avg_u += v;
+    avg_u /= this->size();
+    Info<<" avg_u: "<<avg_u<<Foam::nl;
+    
+    vector avg_adj_u = Foam::zero();
+    for(vector const& v : adj_u)
+        avg_adj_u += v;
+    avg_adj_u /= this->size();
+    Info<<" avg_adj_u: "<<avg_adj_u<<Foam::nl;
+    
+    vector avg_dJdu = Foam::zero();
+    for(vector const& v : dJdu)
+        avg_dJdu += v;
+    avg_dJdu /= this->size();
+    Info<<" avg_dJdu: "<<avg_dJdu<<Foam::nl;
+    
+    Info<<"---------------------------------------------"<<Foam::nl;
+    Info<<"| icoAdjointPressureOutletBC::updateCoeffs done"<<Foam::nl;
+    scalar val = Foam::zero();
+    for(scalar const& v : *this)
+        val += v;
+    val /= this->size();
+    Info<<"| avg value: "<<val<<Foam::nl;
+    Info<<"| size: "<<this->size()<<Foam::nl;
+    Info<<"---------------------------------------------"<<Foam::nl;
+    //Info<<(*this)<<Foam::nl;
+    //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
 }
 
 void Foam::icoAdjointPressureOutletBC::set_dJdu_Outlet

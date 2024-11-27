@@ -234,6 +234,37 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace solvers
+template<class Type,template<class> class PatchField,class Mesh>
+void printBCs(GeometricField<Type,PatchField,Mesh> const& field)
+{
+    GeometricBoundaryField<Type,PatchField,Mesh> const& boundary = field.boundaryField();
+    for(label i=0; i<boundary.size(); i++)
+    {
+        fvPatchField<Type> const& boundaryField = boundary[i];
+        Info<<"-------------------------"<<Foam::nl;
+        Info<<"| type: "<<boundaryField.type()<<Foam::nl;
+        Info<<"| size: "<<boundaryField.size()<<Foam::nl;
+        Info<<"| value: "<<dynamic_cast<List<Type> const&>(boundaryField)<<Foam::nl;
+        Type val = Foam::zero();
+        for(Type const& v : boundaryField)
+            val += v;
+        val /= boundaryField.size();
+        Info<<"| average value: "<<val<<Foam::nl;
+        Info<<"-------------------------"<<Foam::nl;
+    }
+}
+template<class Type,template<class> class PatchField,class Mesh>
+void printAvg(GeometricField<Type,PatchField,Mesh> const& field)
+{
+    Type val = Foam::zero();
+    for(label i=0; i<field.size(); i++)
+    {
+        val += field[i];
+    }
+    val /= field.size();
+    Info<<"Average: "<<val<<Foam::nl;
+}
+
 } // End namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
