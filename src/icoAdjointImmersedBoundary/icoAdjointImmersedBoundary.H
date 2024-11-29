@@ -258,11 +258,60 @@ void printAvg(GeometricField<Type,PatchField,Mesh> const& field)
 {
     Type val = Foam::zero();
     for(label i=0; i<field.size(); i++)
-    {
         val += field[i];
-    }
     val /= field.size();
-    Info<<"Average: "<<val<<Foam::nl;
+    Info<<"Average: "<<val;
+}
+
+template<class Type,template<class> class PatchField,class Mesh>
+void printMinMax(GeometricField<Type,PatchField,Mesh> const& field);
+
+template<>
+void printMinMax<scalar,fvsPatchField,surfaceMesh>(surfaceScalarField const& field)
+{
+    if(field.size()<1)
+        FatalErrorInFunction<<"Error"<<exit(FatalError);
+    scalar minVal = field[0];
+    scalar maxVal = field[0];
+    for(label i=0; i<field.size(); i++)
+    {
+        minVal = std::min(minVal,field[i]);
+        maxVal = std::max(maxVal,field[i]);
+    }
+    Info<<"  Min: "<<minVal<<" Max: "<<maxVal<<Foam::nl;
+}
+
+template<>
+void printMinMax<scalar,fvPatchField,volMesh>(volScalarField const& field)
+{
+    if(field.size()<1)
+        FatalErrorInFunction<<"Error"<<exit(FatalError);
+    scalar minVal = field[0];
+    scalar maxVal = field[0];
+    for(label i=0; i<field.size(); i++)
+    {
+        minVal = std::min(minVal,field[i]);
+        maxVal = std::max(maxVal,field[i]);
+    }
+    Info<<"  Min: "<<minVal<<" Max: "<<maxVal<<Foam::nl;
+}
+
+template<>
+void printMinMax<vector,fvPatchField,volMesh>(volVectorField const& field)
+{
+    if(field.size()<1)
+        FatalErrorInFunction<<"Error"<<exit(FatalError);
+    vector minVal = field[0];
+    vector maxVal = field[0];
+    for(label i=0; i<field.size(); i++)
+    {
+        for(label d=0; d<3; d++)
+        {
+            minVal[d] = std::min(minVal[d],field[i][d]);
+            maxVal[d] = std::max(maxVal[d],field[i][d]);
+        }
+    }
+    Info<<"  Min: "<<minVal<<" Max: "<<maxVal<<Foam::nl;
 }
 
 } // End namespace Foam

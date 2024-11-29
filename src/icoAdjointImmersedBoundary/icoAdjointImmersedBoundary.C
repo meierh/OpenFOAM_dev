@@ -258,11 +258,15 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
-    volVectorField& U(U_);
+    const volVectorField& U(U_);
     volVectorField& adj_U(adj_U_);
-    surfaceScalarField& phi(phi_);
+    volVectorField U_temp = U;
+    const surfaceScalarField phi = linearInterpolate(U_temp) & mesh.Sf();
     
     volVectorField adjTranspConv((fvc::grad(adj_U) & U));
+    const labelList& inletCells = mesh.boundary()["inlet"].faceCells();
+    for(label cellInd : inletCells)
+        adjTranspConv[cellInd] = Foam::zero();
     
     if(!steadyStateAdjoint)
         FatalErrorInFunction<<"SteadyStateAdjoint false"<<exit(FatalError);
@@ -283,106 +287,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
         Info<<"adj_mom non temperature"<<Foam::nl;
         tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U);
     }
-    
-    /*
-    if(steadyStateAdjoint)
-    {
-        if(useTemperature && useAdjointTemperature)
-        {
-            volScalarField& adj_T = *adj_T_;
-            volScalarField& T = *T_;
-            if(useAdjointVelocityForcing)
-            {
-                FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
-                volVectorField& adj_fU = *adj_fU_;
-                tadj_UEqn = 
-                (
-                    fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                    - T*fvc::grad(adj_T)
-                    - adj_fU
-                );
-            }
-            else
-            {
-                tadj_UEqn = 
-                (
-                    fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                    - T*fvc::grad(adj_T)
-                );
-            }
-        }
-        else
-        {
-            if(useAdjointVelocityForcing)
-            {
-                FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
-                volVectorField& adj_fU = *adj_fU_;
-                tadj_UEqn = 
-                (
-                    fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                    - adj_fU
-                );
-            }
-            else
-            {
-                tadj_UEqn = 
-                (
-                    fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                );
-            }
-        }
-    }
-    else
-    {
-        FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
-        if(useTemperature && useAdjointTemperature)
-        {
-            volScalarField& adj_T = *adj_T_;
-            volScalarField& T = *T_;
-            if(useAdjointVelocityForcing)
-            {
-                volVectorField& adj_fU = *adj_fU_;
-                tadj_UEqn = 
-                (
-                    fvm::ddt(adj_U)
-                    + fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                    - T*fvc::grad(adj_T)
-                    - adj_fU
-                );
-            }
-            else
-            {
-                tadj_UEqn = 
-                (
-                    fvm::ddt(adj_U)
-                    + fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                    - T*fvc::grad(adj_T)
-                );
-            }
-        }
-        else
-        {
-            if(useAdjointVelocityForcing)
-            {
-                volVectorField& adj_fU = *adj_fU_;
-                tadj_UEqn = 
-                (
-                    fvm::ddt(adj_U)
-                    + fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                    - adj_fU
-                );
-            }
-            else
-            {
-                tadj_UEqn = 
-                (
-                    fvm::ddt(adj_U)
-                    + fvm::div(-phi,adj_U) - adjointTransposeConvection + fvm::laplacian(nu,adj_U)
-                );
-            }
-        }
-    }
-    */
 
     fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
 
@@ -392,17 +296,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     if (adjPimpleCtlr.momentumPredictor())
     {
         adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
-        /*
-        if(useAdjointVelocityForcing)
-        {
-            adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
-            interaction_adj_fU->solve();
-        }
-        else
-        {
-            adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
-        }
-        */
         fvConstraints().constrain(adj_U_);
     }    
 }
@@ -430,7 +323,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure
 {
     //volScalarField& p(p_);
     //volVectorField& U(U_);
-    surfaceScalarField& phi(phi_);
+    const surfaceScalarField& phi(phi_);
     
     volScalarField& adj_p(adj_p_);
     volVectorField& adj_U(adj_U_);
@@ -539,11 +432,13 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     adj_p_ = Foam::zero();
     adj_preSolve(adjPimpleCtlr);
     
-    Info<<"U: "; printAvg(U_);
-    Info<<"phi: "; printAvg(phi_);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    Info<<"U: "; printAvg(U_); printMinMax(U_);
+    Info<<"phi: "; printAvg(phi_); printMinMax(phi_);    
+    Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
     
-    Info<<"adj_U: "; printAvg(adj_U_);
-    Info<<"adj_p: "; printAvg(adj_p_);
     while (adjPimpleCtlr.adjMomentumLoop())
     {
         //Info<<"adj_U_:"<<adj_U_<<Foam::nl;
@@ -552,13 +447,21 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
         //adj_fvModels().correct();
         adj_prePredictor();
         adj_momentumPredictor(adjPimpleCtlr);
-        Info<<"adj_U: "; printAvg(adj_U_);
-        Info<<"adj_p: "; printAvg(adj_p_);
-        adj_U_.write();
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    Info<<"U: "; printAvg(U_); printMinMax(U_);
+    Info<<"phi: "; printAvg(phi_); printMinMax(phi_);    
+    Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
         //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         adj_thermophysicalPredictor();
-        adj_pressureCorrector(adjPimpleCtlr);
-        printAvg(adj_p_);
+        //adj_pressureCorrector(adjPimpleCtlr);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    Info<<"U: "; printAvg(U_); printMinMax(U_);
+    Info<<"phi: "; printAvg(phi_); printMinMax(phi_);    
+    Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
         adj_postCorrector();
     }
     adj_postSolve(adjPimpleCtlr);
