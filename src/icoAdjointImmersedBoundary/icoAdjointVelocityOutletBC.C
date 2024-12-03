@@ -70,6 +70,7 @@ void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
     
     fixedValueFvPatchField<vector>::updateCoeffs(); // sets updated_ to true
     
+    /*
     Info<<"---------------------------------------------"<<Foam::nl;
 
     vector avgU = Foam::zero();
@@ -95,16 +96,19 @@ void Foam::icoAdjointVelocityOutletBC::updateCoeffs()
         avg_dJdu += v;
     avg_dJdu /= this->size();
     Info<<" avg_dJdu: "<<avg_dJdu<<Foam::nl;
+    */
     
-    Info<<"---------------------------------------------"<<Foam::nl;
-    Info<<"| icoAdjointVelocityOutletBC::updateCoeffs done"<<Foam::nl;
+    //Info<<"---------------------------------------------"<<Foam::nl;
+    //Info<<"| icoAdjointVelocityOutletBC::updateCoeffs done"<<Foam::nl;
+    /*
     vector val = Foam::zero();
     for(vector const& v : *this)
         val += v;
     val /= this->size();
-    Info<<"| avg value: "<<val<<Foam::nl;
-    Info<<"| size: "<<this->size()<<Foam::nl;
-    Info<<"---------------------------------------------"<<Foam::nl;
+    Info<<"outlet bc adj_U avg value: "<<val<<Foam::nl;
+    */
+    //Info<<"| size: "<<this->size()<<Foam::nl;
+    //Info<<"---------------------------------------------"<<Foam::nl;
 }
 
 void Foam::icoAdjointVelocityOutletBC::set_dJdu_Outlet

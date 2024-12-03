@@ -239,7 +239,7 @@ struct CrossSecCoeffHash
 class Parameter
 {
     public:
-        enum Type {Rod,CrossSection,None};   
+        enum Type {Rod=0,CrossSection=1,None=-1};   
         Parameter();
         
         Parameter(NurbsCoeffReference coeff);
@@ -256,6 +256,8 @@ class Parameter
         
         const std::vector<NurbsCoeffReference>& getNurbsCoeffs() const {return nurbsCoeffs;}
         const std::vector<CrossSectionCoeffReference>& getCrossSecCoeffs() const {return crossSecCoeffs;}
+        
+        std::string to_string() const;
         
     private:
         Type parameterType;

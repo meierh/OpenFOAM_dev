@@ -51,6 +51,7 @@ void Foam::icoAdjointVelocityWallBC::updateCoeffs()
     
     fixedValueFvPatchField<vector>::updateCoeffs(); // sets updated_ to true
 
+    /*
     Info<<"---------------------------------------------"<<Foam::nl;
     Info<<"| icoAdjointVelocityWallBC::updateCoeffs done"<<Foam::nl;
     vector val = Foam::zero();
@@ -60,6 +61,7 @@ void Foam::icoAdjointVelocityWallBC::updateCoeffs()
     Info<<"| avg value: "<<val<<Foam::nl;
     Info<<"| size: "<<this->size()<<Foam::nl;
     Info<<"---------------------------------------------"<<Foam::nl;
+    */
 }
 
 void Foam::icoAdjointVelocityWallBC::set_dJdp_Wall

@@ -84,7 +84,24 @@ namespace Foam
 {
 namespace solvers
 {
+    
+class icoAdjointImmersedBoundary;
 
+typedef struct
+{
+    std::function<Field<scalar>(const icoAdjointVelocityInletBC&)> dJdp_Inlet;
+    std::function<Field<scalar>(const icoAdjointVelocityWallBC&)> dJdp_Wall;
+    std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
+    std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
+    std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
+    std::function<scalar(const icoAdjointImmersedBoundary&)> J;
+    bool empty = true;
+} objectiveFunction;
+
+objectiveFunction createEmptyObjective();
+
+objectiveFunction createTotalPressureLoss();
+    
 /*---------------------------------------------------------------------------*\
                           Class incompressibleFluid Declaration
 \*---------------------------------------------------------------------------*/
@@ -92,29 +109,19 @@ namespace solvers
 class icoAdjointImmersedBoundary : public icoImmersedBoundary
 {
     public:
-    // Objective function structure
-        typedef struct
-        {
-            std::function<Field<scalar>(const icoAdjointVelocityInletBC&)> dJdp_Inlet;
-            std::function<Field<scalar>(const icoAdjointVelocityWallBC&)> dJdp_Wall;
-            std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
-            std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
-            std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
-            std::function<scalar(const icoAdjointImmersedBoundary&)> J;
-        } objectiveFunction;
-        
     // Constructors
         //- Construct from region mesh
         icoAdjointImmersedBoundary
         (
             fvMesh& mesh,
             Time& time,
-            objectiveFunction obj
+            List<Parameter> parameters,
+            objectiveFunction obj=createEmptyObjective()
         );
         //- Disallow default bitwise copy construction
         icoAdjointImmersedBoundary(const icoImmersedBoundary&) = delete;
         //- Destructor
-        virtual ~icoAdjointImmersedBoundary()=default;
+        ~icoAdjointImmersedBoundary() override;
         //- Disallow default bitwise assignment
         void operator=(const icoAdjointImmersedBoundary&) = delete;
     
@@ -125,6 +132,9 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         pimpleAdjIBControl adjPimpleCtlr;
         bool steadyStateAdjoint;
         void setupAdjoint();
+        
+        //Optimization
+        void create_Objective(objectiveFunction& obj);
         
         // Adjoint Veclocity
         volVectorField adj_U_;
@@ -161,7 +171,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         //- Adjoint Temperature forcing
         bool useAdjointTemperatureForcing;
         std::unique_ptr<volScalarField> adj_fT_;
-        std::unique_ptr<SensitivityTemperatureInteraction> interaction_ajd_fT;
+        std::unique_ptr<SensitivityTemperatureInteraction> interaction_adj_fT;
         void create_AdjointTemperatureForcing();
         
         //Set objective function boundary part derivatives
@@ -227,9 +237,10 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     
     // High level functions
         void oneAdjSteadyTimestep(pimpleAdjIBControl& adjPimpleCtlr);
-        void oneAdjSteadyTimestep();        
+        void oneAdjSteadyTimestep();
+        
+        void oneAdjSteadyTimestepBase(pimpleAdjIBControl& adjPimpleCtlr);
 };
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -263,56 +274,10 @@ void printAvg(GeometricField<Type,PatchField,Mesh> const& field)
     Info<<"Average: "<<val;
 }
 
-template<class Type,template<class> class PatchField,class Mesh>
-void printMinMax(GeometricField<Type,PatchField,Mesh> const& field);
+void printMinMax(surfaceScalarField const& field);
+void printMinMax(volScalarField const& field);
+void printMinMax(volVectorField const& field);
 
-template<>
-void printMinMax<scalar,fvsPatchField,surfaceMesh>(surfaceScalarField const& field)
-{
-    if(field.size()<1)
-        FatalErrorInFunction<<"Error"<<exit(FatalError);
-    scalar minVal = field[0];
-    scalar maxVal = field[0];
-    for(label i=0; i<field.size(); i++)
-    {
-        minVal = std::min(minVal,field[i]);
-        maxVal = std::max(maxVal,field[i]);
-    }
-    Info<<"  Min: "<<minVal<<" Max: "<<maxVal<<Foam::nl;
-}
-
-template<>
-void printMinMax<scalar,fvPatchField,volMesh>(volScalarField const& field)
-{
-    if(field.size()<1)
-        FatalErrorInFunction<<"Error"<<exit(FatalError);
-    scalar minVal = field[0];
-    scalar maxVal = field[0];
-    for(label i=0; i<field.size(); i++)
-    {
-        minVal = std::min(minVal,field[i]);
-        maxVal = std::max(maxVal,field[i]);
-    }
-    Info<<"  Min: "<<minVal<<" Max: "<<maxVal<<Foam::nl;
-}
-
-template<>
-void printMinMax<vector,fvPatchField,volMesh>(volVectorField const& field)
-{
-    if(field.size()<1)
-        FatalErrorInFunction<<"Error"<<exit(FatalError);
-    vector minVal = field[0];
-    vector maxVal = field[0];
-    for(label i=0; i<field.size(); i++)
-    {
-        for(label d=0; d<3; d++)
-        {
-            minVal[d] = std::min(minVal[d],field[i][d]);
-            maxVal[d] = std::max(maxVal[d],field[i][d]);
-        }
-    }
-    Info<<"  Min: "<<minVal<<" Max: "<<maxVal<<Foam::nl;
-}
 
 } // End namespace Foam
 

@@ -98,6 +98,7 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
     Info<<dJdun<<Foam::nl;
     */
     
+    /*
     Info<<"---------------------------------------------temperatureUsed:"<<temperatureUsed<<Foam::nl;
 
     scalar avg_u_n = Foam::zero();
@@ -129,16 +130,19 @@ void Foam::icoAdjointPressureOutletBC::updateCoeffs()
         avg_dJdu += v;
     avg_dJdu /= this->size();
     Info<<" avg_dJdu: "<<avg_dJdu<<Foam::nl;
+    */
     
-    Info<<"---------------------------------------------"<<Foam::nl;
-    Info<<"| icoAdjointPressureOutletBC::updateCoeffs done"<<Foam::nl;
+    //Info<<"---------------------------------------------"<<Foam::nl;
+    //Info<<"| icoAdjointPressureOutletBC::updateCoeffs done"<<Foam::nl;
+    /*
     scalar val = Foam::zero();
     for(scalar const& v : *this)
         val += v;
     val /= this->size();
-    Info<<"| avg value: "<<val<<Foam::nl;
-    Info<<"| size: "<<this->size()<<Foam::nl;
-    Info<<"---------------------------------------------"<<Foam::nl;
+    Info<<"outlet adj_p avg value: "<<val<<Foam::nl;
+    */
+    //Info<<"| size: "<<this->size()<<Foam::nl;
+    //Info<<"---------------------------------------------"<<Foam::nl;
     //Info<<(*this)<<Foam::nl;
     //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
 }

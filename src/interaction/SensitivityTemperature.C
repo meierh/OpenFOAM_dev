@@ -1,24 +1,20 @@
-#include "SensitivityTemperatureInteraction.H"
+#include "SensitivityTemperature.H"
 
-Foam::SensitivityTemperatureInteraction::SensitivityTemperatureInteraction
+Foam::SensitivityTemperature::SensitivityTemperature
 (
     const fvMesh& mesh,
     LineStructure& structure,
     const TemperatureInteraction& primalInteraction,
-    volScalarField& input_adj_T,
-    volScalarField& output_adj_Tf,
     const IOdictionary& structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
 SensitivityInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 primalInteraction(primalInteraction),
-heatingDerivativeField(primalInteraction.getTemperatureField()),
-input_adj_T(input_adj_T),
-output_adj_Tf(output_adj_Tf)
+heatingDerivativeField(primalInteraction.getTemperatureField())
 {}
 
-Foam::scalar Foam::SensitivityTemperatureInteraction::computeSensitivity
+Foam::scalar Foam::SensitivityTemperature::computeSensitivity
 (
     const Parameter& para
 )
@@ -28,43 +24,7 @@ Foam::scalar Foam::SensitivityTemperatureInteraction::computeSensitivity
     return sensitivity;
 }
 
-void Foam::SensitivityTemperatureInteraction::solve(scalar timeStep)
-{
-    interpolateAdjTemperatureToMarkers();
-    computeAdjCouplingHeatingOnMarkers(timeStep);
-    interpolateAdjHeatingField();
-}
-
-void Foam::SensitivityTemperatureInteraction::interpolateAdjTemperatureToMarkers()
-{
-    fieldToMarker<scalar>(input_adj_T,markerFluidAdjointTemperature);
-}
-
-void Foam::SensitivityTemperatureInteraction::computeAdjCouplingHeatingOnMarkers(scalar timeStep)
-{
-    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
-    
-    if(markerFluidAdjointTemperature.size()!=static_cast<label>(markers.size()))
-        FatalErrorInFunction<<"Mismatch in size of markerFluidAdjointTemperature and markers"<<exit(FatalError);
-    
-    Info<<"Foam::SensitivityTemperatureInteraction::computeAdjCouplingHeatingOnMarkers: "<<timeStep<<Foam::nl;
-    
-    makerCouplingAdjointHeating.resize(markers.size());
-    for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
-    {
-        //LagrangianMarker* oneMarkerPtr = markers[markerInd];
-        scalar markerAdjTemperature = 0;
-        scalar adj_temperature = markerFluidAdjointTemperature[markerInd];
-        makerCouplingAdjointHeating[markerInd] = (markerAdjTemperature-adj_temperature)/timeStep;
-    }
-}
-
-void Foam::SensitivityTemperatureInteraction::interpolateAdjHeatingField()
-{
-    markerToField<scalar>(makerCouplingAdjointHeating,output_adj_Tf);
-}
-
-Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureForcingSensitivity
+Foam::scalar Foam::SensitivityTemperature::integrateTemperatureForcingSensitivity
 (
     const Parameter& par
 )
@@ -86,7 +46,7 @@ Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureForcin
     return sumTemperatureForcingSensitivity;
 }
 
-Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureSensitivity
+Foam::scalar Foam::SensitivityTemperature::integrateTemperatureSensitivity
 (
     const Parameter& par
 )

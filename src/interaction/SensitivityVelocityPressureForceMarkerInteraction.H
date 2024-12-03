@@ -24,9 +24,20 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
         
         scalar computeSensitivity(const Parameter& para) override;
         
+        void solve(scalar timeStep);
+        void solve() override {};
+        
+        void store() override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
+        void setToTime(scalar time) override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
+        
     protected:
         const VelocityPressureForceInteraction& primalInteraction;
         volVectorField forcingDerivativeField;
+        
+        void interpolateAdjVelocityToMarkers();
+        void computeAdjCouplingForceOnMarkers(scalar timeStep);
+        void interpolateAdjFluidForceField();
+        
         vector integrateVelocityForcingSensitivity(const Parameter& par);
         vector integrateVelocitySensitivity(const Parameter& par);
         
@@ -35,8 +46,7 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
         volVectorField& output_adj_Uf;
         
         DynamicList<vector> markerFluidAdjointVelocity;
-        DynamicList<vector> makerCouplingAdjointForce;
-
+        DynamicList<vector> makerCouplingAdjointForce;        
 };
 }
 #endif

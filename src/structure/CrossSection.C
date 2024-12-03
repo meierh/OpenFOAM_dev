@@ -896,7 +896,6 @@ Foam::scalar Foam::CrossSection::evalFourierCoeffDerivNurbsCoeff
     return result;
 }
 
-
 void Foam::CrossSection::setFourierCoeffNurbsCoeff
 (
     label fourierCoeffNumber,

@@ -7,5 +7,7 @@ icoAdjointPressureInletWallBC.C
 icoAdjointPressureOutletBC.C
 icoAdjointTemperatureInletWallBC.C
 icoAdjointTemperatureOutletBC.C
+objectiveFunctionCreator.C
+icoAdjointImmersedBoundaryPrint.C
 
 LIB = $(FOAM_USER_LIBBIN)/libicoAdjointImmersedBoundary

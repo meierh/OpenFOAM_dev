@@ -4,6 +4,7 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
 (
     fvMesh& mesh,
     Time& time,
+    List<Parameter> parameters,
     objectiveFunction obj
 ):
 icoImmersedBoundary(mesh,time),
@@ -51,10 +52,14 @@ adj_p_
     
     checkDimensions();
     
+    create_Objective(obj);
     setAdjUBC(obj.dJdp_Inlet,obj.dJdp_Wall,obj.dJdu_uOutlet);
     setAdjPBC(obj.dJdu_pOutlet);
     setAdjTBC(obj.dJdT_Outlet);
     J = obj.J;
+    
+    for(const Parameter& onePara : parameters)
+        gradient.push_back({onePara,0});
     
     Info<<"--------------------------icoAdjointImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"steadyStateAdjoint:"<<steadyStateAdjoint<<Foam::endl;
@@ -62,6 +67,10 @@ adj_p_
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
     Info<<"useAdjointTemperatureForcing:"<<useAdjointTemperatureForcing<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoAdjointImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
+}
+
+Foam::solvers::icoAdjointImmersedBoundary::~icoAdjointImmersedBoundary()
+{
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
@@ -103,7 +112,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
 {
-    if(false && useVelocityForcing)
+    if(useVelocityForcing)
     {
         Info<<"create_AdjointVelocityForcing"<<Foam::endl;
         useAdjointVelocityForcing = true;
@@ -128,11 +137,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointVelocityForcing()
         word rodMovementWord = rodMovementToken.wordToken();
         if(rodMovementWord == "StaticRod")
         {
-            interaction_fU = std::make_unique<StaticVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict,refinement_);
+            interaction_adj_fU = std::make_unique<SensitivityVelocityPressureForceInteraction>(mesh,*structure,*interaction_fU,adj_U_,*adj_fU_,*structureDict);
         }
         else if(rodMovementWord == "MovedRod")
         {
-            interaction_fU = std::make_unique<ForcedMovementVelocityPressureAction>(mesh,*structure,U_,*fU_,*structureDict,refinement_);
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
         }
         else if(rodMovementWord == "FluidStructureRod")
         {
@@ -170,7 +179,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperature()
 
 void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing()
 {
-    if(false && useTemperatureForcing)
+    if(useTemperatureForcing)
     {
         Info<<"create_AdjointTemperatureForcing"<<Foam::endl;
         useAdjointTemperatureForcing = true;        
@@ -186,6 +195,27 @@ void Foam::solvers::icoAdjointImmersedBoundary::create_AdjointTemperatureForcing
             adj_fT_ = std::make_unique<volScalarField>(adj_fT_IOobj,mesh);
         else
             FatalErrorInFunction<<"Missing adj_fT file"<<exit(FatalError);
+        
+        ITstream rodHeatingStream = structureDict->lookup("rodHeating");
+        token rodHeatingToken;
+        rodHeatingStream.read(rodHeatingToken);
+        if(!rodHeatingToken.isWord())
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodHeating -- must be word"<<exit(FatalError);
+        word rodHeatingWord = rodHeatingToken.wordToken();
+        if(rodHeatingWord == "FixedTemperature")
+        {
+            interaction_adj_fT = std::make_unique<SensitivityTemperatureInteraction>(mesh,*structure,*interaction_fT,*adj_T_,*adj_fT_,*structureDict);
+        }
+        else if(rodHeatingWord == "VariableTemperature")
+        {
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+        }
+        else if(rodHeatingWord == "TemperatureInteractionRod")
+        {
+            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+        }
+        else
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/rodMovement -- valid {FixedTemperature,VariableTemperature,TemperatureInteractionRod}"<<exit(FatalError);
     }
     else
         useAdjointTemperatureForcing = false;
@@ -207,6 +237,42 @@ void Foam::solvers::icoAdjointImmersedBoundary::checkDimensions()
         if(adj_T_->dimensions() != dimensionSet(0,2,-2,-1,0,0,0))
             FatalErrorInFunction<<"Wrong dimensions of adjT, given:"<<adj_T_->dimensions()<<" necessary:"<<dimensionSet(0,2,-2,-1,0,0,0)<<exit(FatalError);
     }
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::create_Objective
+(
+    Foam::solvers::objectiveFunction& obj
+)
+{
+    IOobject optimizationDictIO("optimizationDict","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    if(!optimizationDictIO.filePath("",true).empty())
+    {
+        IOdictionary optimizationDict(optimizationDictIO);
+        if(optimizationDict.found("objectiveFunction"))
+        {
+            ITstream objectiveFunctionStream = optimizationDict.lookup("objectiveFunction");
+            token objectiveFunctionToken;
+            objectiveFunctionStream.read(objectiveFunctionToken);
+            if(!objectiveFunctionToken.isWord())
+                FatalErrorInFunction<<"Invalid entry in system/optimizationDict/objectiveFunction -- must be word"<<exit(FatalError);
+            word objectiveFunctionWord = objectiveFunctionToken.wordToken();
+            if(objectiveFunctionWord=="totalPressureLoss")
+                obj = createTotalPressureLoss();
+            else if(objectiveFunctionWord=="totalPressureLossEnergy")
+                FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
+            else if(objectiveFunctionWord=="heatGain")
+                FatalErrorInFunction<<"Not implemented"<<exit(FatalError);
+            else if(objectiveFunctionWord=="parameter")
+            {
+                if(obj.empty)
+                    FatalErrorInFunction<<"Given empty objective function"<<exit(FatalError);
+            }
+            else
+                FatalErrorInFunction<<"Invalid word in system/optimizationDict/objectiveFunction -- must be {totalPressureLoss,totalPressureLossEnergy,heatGain,parameter}"<<exit(FatalError);
+        }
+    }
+    else
+        FatalErrorInFunction<<"Missing file in system/optimizationDict"<<exit(FatalError);
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::connectSolverPerformance
@@ -232,24 +298,27 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
         volScalarField& adj_T = *adj_T_;
         std::unique_ptr<fvScalarMatrix> adjTEqnPtr;
         if(steadyStateAdjoint)
-            adjTEqnPtr = std::make_unique<fvScalarMatrix>(-fvm::div(phi,adj_T)+fvm::laplacian(alpha,adj_T));
+            adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::div(-phi,adj_T)-fvm::laplacian(alpha,adj_T));
         else
-            adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::ddt(adj_T)-fvm::div(phi,adj_T)+fvm::laplacian(alpha,adj_T));
+            adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::ddt(adj_T)+fvm::div(-phi,adj_T)-fvm::laplacian(alpha,adj_T));
         
         fvScalarMatrix& adjTEqn = *adjTEqnPtr;
-        while(adjPimpleCtlr.adjTemperatureLoop())
+        if(useAdjointTemperatureForcing)
         {
-            if(useTemperatureForcing)
+            volScalarField& adj_fT = *adj_fT_;
+            adjTEqn += (-adj_fT);
+        }
+        
+        do
+        {
+            adjTEqn_res = solve(adjTEqn);
+            if(useAdjointTemperatureForcing)
             {
-                volScalarField& adj_fT = *adj_fT_;
-                adjTEqn_res = solve(adjTEqn==adj_fT);
-                interaction_ajd_fT->solve();
-            }
-            else
-            {
-                adjTEqn_res = solve(adjTEqn); 
+                interaction_adj_fT->solve(1);
+                adjTEqn_res = solve(adjTEqn);
             }
         }
+        while(adjPimpleCtlr.adjTemperatureLoop());
     }
 }
 
@@ -273,7 +342,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     
     if(useAdjointTemperature)
     {
-        Info<<"adj_mom temperature"<<Foam::nl;
         if(!T_)
             FatalErrorInFunction<<"T_ not a field"<<exit(FatalError);
         if(!adj_T_)
@@ -284,8 +352,14 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     }
     else
     {
-        Info<<"adj_mom non temperature"<<Foam::nl;
         tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U);
+    }
+    
+    if(useAdjointVelocityForcing)
+    {
+        volVectorField& adj_fU = *adj_fU_;
+        fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
+        adj_UEqn += (-adj_fU);
     }
 
     fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
@@ -297,7 +371,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     {
         adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
         fvConstraints().constrain(adj_U_);
-    }    
+        if(useAdjointVelocityForcing)
+        {
+            interaction_adj_fU->solve(1);
+        }
+    }
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_thermophysicalPredictor()
@@ -321,6 +399,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
+    DynamicList<SolverPerformance<scalar>> pEqn_list;
+    
     //volScalarField& p(p_);
     //volVectorField& U(U_);
     const surfaceScalarField& phi(phi_);
@@ -384,8 +464,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure
             pressureReference.refValue()
         );
 
-        adj_pEqn.solve();
-
+        SolverPerformance<scalar> pEqn = adj_pEqn.solve();
+        pEqn_list.append(pEqn);
+        
         if (pimple.finalNonOrthogonalIter())
         {
             adj_phi_ = adj_phiHbyA - adj_pEqn.flux();
@@ -405,6 +486,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_correctPressure
 
     // Make the fluxes relative to the mesh motion
     //fvc::makeRelative(phi, U);
+    if(pEqn_list.size()<1)
+        FatalErrorInFunction<<"Must be more than one iteration"<<exit(FatalError);
+    adjPEqn_res = pEqn_list[0];
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
@@ -412,13 +496,18 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
+    Info<<Foam::nl<<"computeSensitivity"<<Foam::nl;
+    Info<<"gradient.size():"<<gradient.size()<<Foam::nl;
     for(std::pair<Parameter,scalar>& singleParameter : gradient)
     {
+        Info<<singleParameter.first.to_string()<<Foam::nl;
+        singleParameter.second = 0;
         if(interaction_adj_fU)
             singleParameter.second += interaction_adj_fU->computeSensitivity(singleParameter.first);
-        if(interaction_ajd_fT)
-            singleParameter.second += interaction_ajd_fT->computeSensitivity(singleParameter.first);
+        if(interaction_adj_fT)
+            singleParameter.second += interaction_adj_fT->computeSensitivity(singleParameter.first);
     }
+    Info<<Foam::nl<<"computeSensitivity done"<<Foam::nl;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
@@ -432,14 +521,16 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     adj_p_ = Foam::zero();
     adj_preSolve(adjPimpleCtlr);
     
+    /*
     Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
     Info<<"U: "; printAvg(U_); printMinMax(U_);
     Info<<"phi: "; printAvg(phi_); printMinMax(phi_);    
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
     Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    */
     
-    while (adjPimpleCtlr.adjMomentumLoop())
+    do
     {
         //Info<<"adj_U_:"<<adj_U_<<Foam::nl;
         adj_moveMesh();
@@ -447,22 +538,150 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
         //adj_fvModels().correct();
         adj_prePredictor();
         adj_momentumPredictor(adjPimpleCtlr);
+        /*
     Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
     Info<<"U: "; printAvg(U_); printMinMax(U_);
     Info<<"phi: "; printAvg(phi_); printMinMax(phi_);    
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
     Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    */
         //FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
         adj_thermophysicalPredictor();
-        //adj_pressureCorrector(adjPimpleCtlr);
+        adj_pressureCorrector(adjPimpleCtlr);
+        
+    /*
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    Info<<"|| U: "; printAvg(U_); printMinMax(U_);
+    Info<<"|| phi: "; printAvg(phi_); printMinMax(phi_);    
+    Info<<"|| adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"|| adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    */
+    
+        adj_postCorrector();
+        
+        //time += 1;
+        //runTime.write();
+        
+    }
+    while (adjPimpleCtlr.adjMomentumLoop());
+    Info<<"--------------------------------------- Solved Adjoint ---------------------------------------"<<Foam::nl;
+    adj_postSolve(adjPimpleCtlr);
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestepBase
+(
+    pimpleAdjIBControl& adjPimpleCtlr
+)
+{
+    Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
+    adj_U_ = Foam::zero();
+    adj_phi_ = Foam::zero();
+    adj_p_ = Foam::zero();
+    
+    label paRefCell = 0;
+    scalar paRefValue = 0.0;
+    scalar cumulativeAdjointContErr = 0;
+
+    
     Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
     Info<<"U: "; printAvg(U_); printMinMax(U_);
     Info<<"phi: "; printAvg(phi_); printMinMax(phi_);    
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
     Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
-        adj_postCorrector();
+    
+    const surfaceScalarField& phi(phi_);
+    volScalarField& adj_p(adj_p_);
+    volVectorField& adj_U(adj_U_);
+    
+    while (adjPimpleCtlr.adjMomentumLoop())
+    {
+        {
+            volVectorField adjointTransposeConvection((fvc::grad(adj_U) & U));
+            const labelList& inletCells = mesh.boundary()["inlet"].faceCells();
+            forAll(inletCells,i)
+                adjointTransposeConvection[inletCells[i]] = Foam::zero();
+
+            tmp<fvVectorMatrix> tUaEqn
+            (
+                fvm::div(-phi, adj_U)
+              - adjointTransposeConvection
+              - fvm::laplacian(nu,adj_U)
+              /*
+              + turbulence->divDevSigma(Ua)
+              + fvm::Sp(alpha, adj_U)
+             ==
+                fvModels.source
+                */
+            );
+            fvVectorMatrix& UaEqn = tUaEqn.ref();
+
+            UaEqn.relax();
+
+            fvConstraints().constrain(UaEqn);
+
+            solve(UaEqn == -fvc::grad(adj_p));
+
+            fvConstraints().constrain(adj_U);
+
+            volScalarField rAUa(1.0/UaEqn.A());
+            volVectorField HbyAa("HbyAa", adj_U);
+            HbyAa = rAUa*UaEqn.H();
+            tUaEqn.clear();
+            surfaceScalarField phiHbyAa("phiHbyAa", fvc::flux(HbyAa));
+            adjustPhi(phiHbyAa, adj_U, adj_p);
+
+            // Non-orthogonal pressure corrector loop
+            while (adjPimpleCtlr.correctNonOrthogonal())
+            {
+                fvScalarMatrix paEqn
+                (
+                    fvm::laplacian(rAUa, adj_p) == fvc::div(phiHbyAa)
+                );
+
+                paEqn.setReference(paRefCell, paRefValue);
+                paEqn.solve();
+
+                if (adjPimpleCtlr.finalNonOrthogonalIter())
+                {
+                    adj_phi_ = phiHbyAa - paEqn.flux();
+                }
+            }
+            
+            {
+                scalar sumLocalContErr = runTime.deltaTValue()*
+                    mag(fvc::div(adj_phi_))().weightedAverage(mesh.V()).value();
+
+                scalar globalContErr = runTime.deltaTValue()*
+                    fvc::div(adj_phi_)().weightedAverage(mesh.V()).value();
+                cumulativeAdjointContErr += globalContErr;
+
+                Info<< "Adjoint continuity errors : sum local = " << sumLocalContErr
+                    << ", global = " << globalContErr
+                    << ", cumulative = " << cumulativeAdjointContErr
+                    << endl;
+            }
+    
+            // Explicitly relax pressure for adjoint momentum corrector
+            adj_p.relax();
+
+            // Adjoint momentum corrector
+            adj_U = HbyAa - rAUa*fvc::grad(adj_p);
+            adj_U.correctBoundaryConditions();
+            fvConstraints().constrain(adj_U);
+        }
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+    Info<<"|| U: "; printAvg(U_); printMinMax(U_);
+    Info<<"|| phi: "; printAvg(phi_); printMinMax(phi_);    
+    Info<<"|| adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"|| adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+        
+        //time += 1;
+        //runTime.write();
+        
     }
     adj_postSolve(adjPimpleCtlr);
 }
@@ -494,8 +713,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
     Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
 
     oneAdjSteadyTimestep(adjPimpleCtlr);
+    //oneAdjSteadyTimestepBase(adjPimpleCtlr);
     adj_U_.write();
     adj_p_.write();
+    
+    Info<<"SolveSteadyAdjoint done"<<nl<< nl;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::setAdjUBC

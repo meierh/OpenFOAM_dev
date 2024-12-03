@@ -51,15 +51,18 @@ void Foam::icoAdjointVelocityInletBC::updateCoeffs()
     
     fixedValueFvPatchField<vector>::updateCoeffs(); // sets updated_ to true
     
-    Info<<"---------------------------------------------"<<Foam::nl;
-    Info<<"| icoAdjointVelocityInletBC::updateCoeffs done"<<Foam::nl;
+    
+    //Info<<"---------------------------------------------"<<Foam::nl;
+    //Info<<"| icoAdjointVelocityInletBC::updateCoeffs done"<<Foam::nl;
+    /*
     vector val = Foam::zero();
     for(vector const& v : *this)
         val += v;
     val /= this->size();
-    Info<<"| avg value: "<<val<<Foam::nl;
-    Info<<"| size: "<<this->size()<<Foam::nl;
-    Info<<"---------------------------------------------"<<Foam::nl;
+    Info<<"inlet bc adj_U avg value: "<<val<<Foam::nl;
+    */
+    //Info<<"| size: "<<this->size()<<Foam::nl;
+    //Info<<"---------------------------------------------"<<Foam::nl;
 }
 
 void Foam::icoAdjointVelocityInletBC::set_dJdp_Inlet

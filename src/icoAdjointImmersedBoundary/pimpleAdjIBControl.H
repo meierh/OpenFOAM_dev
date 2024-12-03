@@ -107,23 +107,13 @@ class pimpleAdjIBControl : public pimpleIBControl
         scalar adjVelocityTolerance;
         SolverPerformance<scalar>* adjPressureEqns=nullptr;
         scalar adjPressureTolerance;
-        label adjMomentumInnerIteration;
-        label adjMinMomentumIterations=1;
-        scalar adjMomentumIterTolFrac=1;
+        scalar adjMomentumTolerance;
+        label momentumIteration = 0;
         
         // Temperature system
         SolverPerformance<scalar>* adjTemperatureEqns;
         scalar adjTemperatureTolerance;
         bool adjTemperatureToleranceSet = false;
-        label adjTemperatureInnerIteration;
-        label adjMinTemperatureIterations=1;
-        scalar adjTemperatureIterTolFrac=1;
-        bool adjTemperatureUsed = false;
-        
-        //Full system
-        label adjMinOuterIterations=1; // nOuterCorrectors
-        label adjTimeIteration;
-        bool adjDelayedInitialConvergence = true;
 };
 
 

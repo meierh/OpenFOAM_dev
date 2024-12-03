@@ -1,12 +1,12 @@
-#ifndef SENSITIVITYTEMPERATUREINTERACTION_H
-#define SENSITIVITYTEMPERATUREINTERACTION_H
+#ifndef SENSITIVITYTEMPERATURE_H
+#define SENSITIVITYTEMPERATURE_H
 #include "TemperatureInteraction.H"
 #include "SensitivityInteraction.H"
 
 namespace Foam
 {
 
-class SensitivityTemperatureInteraction : public SensitivityInteraction
+class SensitivityTemperature : public SensitivityInteraction
 {
     public:
         explicit SensitivityTemperatureInteraction
@@ -14,8 +14,6 @@ class SensitivityTemperatureInteraction : public SensitivityInteraction
             const fvMesh& mesh,
             LineStructure& structure,
             const TemperatureInteraction& primalInteraction,
-            volScalarField& input_adj_T,
-            volScalarField& output_adj_Tf,
             const IOdictionary& structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
@@ -24,29 +22,11 @@ class SensitivityTemperatureInteraction : public SensitivityInteraction
         
         scalar computeSensitivity(const Parameter& para) override;
         
-        void solve(scalar timeStep);
-        void solve() override {};
-        
-        void store() override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
-        void setToTime(scalar time) override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
-        
     protected:
         const TemperatureInteraction& primalInteraction;
         volScalarField heatingDerivativeField;
-        
-        void interpolateAdjTemperatureToMarkers();
-        void computeAdjCouplingHeatingOnMarkers(scalar timeStep);
-        void interpolateAdjHeatingField();
-        
         scalar integrateTemperatureForcingSensitivity(const Parameter& par);
         scalar integrateTemperatureSensitivity(const Parameter& par);
-        
-    private:
-        volScalarField& input_adj_T;
-        volScalarField& output_adj_Tf;
-        
-        DynamicList<scalar> markerFluidAdjointTemperature;
-        DynamicList<scalar> makerCouplingAdjointHeating;
 };
 }
 #endif

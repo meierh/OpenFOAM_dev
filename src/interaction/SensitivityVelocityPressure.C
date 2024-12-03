@@ -1,24 +1,20 @@
-#include "SensitivityVelocityPressureForceMarkerInteraction.H"
+#include "SensitivityVelocityPressure.H"
 
-Foam::SensitivityVelocityPressureForceInteraction::SensitivityVelocityPressureForceInteraction
+Foam::SensitivityVelocityPressure::SensitivityVelocityPressure
 (
     const fvMesh& mesh,
     LineStructure& structure,
     const VelocityPressureForceInteraction& primalInteraction,
-    volVectorField& input_adj_U,
-    volVectorField& output_adj_Uf,
     const IOdictionary& structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
 SensitivityInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 primalInteraction(primalInteraction),
-forcingDerivativeField(primalInteraction.getReferenceInOutField()),
-input_adj_U(input_adj_U),
-output_adj_Uf(output_adj_Uf)
+forcingDerivativeField(primalInteraction.getReferenceInOutField())
 {}
 
-Foam::scalar Foam::SensitivityVelocityPressureForceInteraction::computeSensitivity
+Foam::scalar Foam::SensitivityVelocityPressure::computeSensitivity
 (
     const Parameter& para
 )
@@ -31,43 +27,7 @@ Foam::scalar Foam::SensitivityVelocityPressureForceInteraction::computeSensitivi
     return sensitivity;
 }
 
-void Foam::SensitivityVelocityPressureForceInteraction::solve(scalar timeStep)
-{
-    interpolateAdjVelocityToMarkers();
-    computeAdjCouplingForceOnMarkers(timeStep);
-    interpolateAdjFluidForceField();
-}
-
-void Foam::SensitivityVelocityPressureForceInteraction::interpolateAdjVelocityToMarkers()
-{
-    fieldToMarker<vector>(input_adj_U,markerFluidAdjointVelocity);
-}
-
-void Foam::SensitivityVelocityPressureForceInteraction::computeAdjCouplingForceOnMarkers(scalar timeStep)
-{
-    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
-    
-    if(markerFluidAdjointVelocity.size()!=static_cast<label>(markers.size()))
-        FatalErrorInFunction<<"Mismatch in size of markerFluidAdjointVelocity and markers"<<exit(FatalError);
-    
-    Info<<"Foam::SensitivityVelocityPressureForceInteraction::computeCouplingForceOnMarkers: "<<timeStep<<Foam::nl;
-    
-    makerCouplingAdjointForce.resize(markers.size());
-    for(std::size_t markerInd=0; markerInd<markers.size(); markerInd++)
-    {
-        //LagrangianMarker* oneMarkerPtr = markers[markerInd];
-        vector markerAdjVelocity = vector(0,0,0);
-        vector adj_velocity = markerFluidAdjointVelocity[markerInd];
-        makerCouplingAdjointForce[markerInd] = (markerAdjVelocity-adj_velocity)/timeStep;
-    }
-}
-
-void Foam::SensitivityVelocityPressureForceInteraction::interpolateAdjFluidForceField()
-{
-    markerToField<vector>(makerCouplingAdjointForce,output_adj_Uf);
-}
-
-Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocityForcingSensitivity
+Foam::vector Foam::SensitivityVelocityPressure::integrateVelocityForcingSensitivity
 (
     const Parameter& par
 )
@@ -90,7 +50,7 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
     return sumVelocityForcingSensitivity;
 }
 
-Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocitySensitivity
+Foam::vector Foam::SensitivityVelocityPressure::integrateVelocitySensitivity
 (
     const Parameter& par
 )

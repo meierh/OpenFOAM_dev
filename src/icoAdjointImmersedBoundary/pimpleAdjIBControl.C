@@ -51,82 +51,26 @@ void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
             adjTemperatureTolerance = adj_tDictToleranceToken.scalarToken();
             adjTemperatureToleranceSet = true;
         }
-        
+                
         dictionary& adj_pimpleDict = fvSolutionDict.subDict("adj_PIMPLE");
-        
-        // Read nOuterCorrectors
-        if(adj_pimpleDict.found("nOuterCorrectors"))
+
+        // Read adjointMomentum
+        if(adj_pimpleDict.found("adjointMomentum"))
         {
-            ITstream adjnOuterCorrectorsStream = adj_pimpleDict.lookup("nOuterCorrectors");
-            token adjnOuterCorrectorsToken;
-            adjnOuterCorrectorsStream.read(adjnOuterCorrectorsToken);
-            if(!adjnOuterCorrectorsToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/adjnOuterCorrectors -- must be label"<<exit(FatalError);
-            adjMinOuterIterations = adjnOuterCorrectorsToken.labelToken();
+            dictionary& adjointHeatDict = adj_pimpleDict.subDict("adjointMomentum");
+            ITstream toleranceStream = adjointHeatDict.lookup("tolerance");
+            token toleranceToken;
+            toleranceStream.read(toleranceToken);
+            if(!toleranceToken.isScalar())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/adjointMomentum/tolerance -- must be scalar"<<exit(FatalError);
+            adjMomentumTolerance = toleranceToken.scalarToken();
+            if(adjMomentumTolerance < adjVelocityTolerance)
+                FatalErrorInFunction<<"adjMomentumTolerance lower than adjVelocityTolerance: ("<<adjMomentumTolerance<<"<"<<adjVelocityTolerance<<")"<<exit(FatalError);
+            if(adjMomentumTolerance < adjPressureTolerance)
+                FatalErrorInFunction<<"adjMomentumTolerance lower than adjPressureTolerance: ("<<adjMomentumTolerance<<"<"<<adjPressureTolerance<<")"<<exit(FatalError);
         }
-        
-        // Read minMomentumIterations
-        if(adj_pimpleDict.found("minMomentumIterations"))
-        {
-            ITstream adjMinMomentumIterationsStream = adj_pimpleDict.lookup("minMomentumIterations");
-            token adjMinMomentumIterationsToken;
-            adjMinMomentumIterationsStream.read(adjMinMomentumIterationsToken);
-            if(!adjMinMomentumIterationsToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/adjMinMomentumIterations -- must be label"<<exit(FatalError);
-            adjMinMomentumIterations = adjMinMomentumIterationsToken.labelToken();
-            if(adjMinMomentumIterations<1)
-                FatalErrorInFunction<<"adjMinMomentumIterations must be >= 1"<<exit(FatalError);
-        }
-        
-        // Read momentumIterTolFrac
-        if(adj_pimpleDict.found("momentumIterTolFrac"))
-        {
-            ITstream adjMomentumIterTolFracStream = adj_pimpleDict.lookup("momentumIterTolFrac");
-            token adjMomentumIterTolFracToken;
-            adjMomentumIterTolFracStream.read(adjMomentumIterTolFracToken);
-            if(!adjMomentumIterTolFracToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/adjMomentumIterTolFrac -- must be label"<<exit(FatalError);
-            adjMomentumIterTolFrac = adjMomentumIterTolFracToken.labelToken();
-        }
-        
-        // Read momentumIterTolFrac
-        if(adj_pimpleDict.found("minTemperatureIterations"))
-        {
-            ITstream adjMinTemperatureIterationsStream = adj_pimpleDict.lookup("minTemperatureIterations");
-            token adjMinTemperatureIterationsToken;
-            adjMinTemperatureIterationsStream.read(adjMinTemperatureIterationsToken);
-            if(!adjMinTemperatureIterationsToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/adjMinTemperatureIterations -- must be label"<<exit(FatalError);
-            adjMinTemperatureIterations = adjMinTemperatureIterationsToken.labelToken();
-            if(adjMinTemperatureIterations<1)
-                FatalErrorInFunction<<"adjMinTemperatureIterations must be >= 1"<<exit(FatalError);
-        }
-        
-        if(adj_pimpleDict.found("temperatureIterTolFrac"))
-        {
-            ITstream adjTemperatureIterTolFracStream = adj_pimpleDict.lookup("temperatureIterTolFrac");
-            token adjTemperatureIterTolFracToken;
-            adjTemperatureIterTolFracStream.read(adjTemperatureIterTolFracToken);
-            if(!adjTemperatureIterTolFracToken.isLabel())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/adjTemperatureIterTolFrac -- must be label"<<exit(FatalError);
-            adjTemperatureIterTolFrac = adjTemperatureIterTolFracToken.labelToken();
-        }
-        
-        if(adj_pimpleDict.found("delayedInitialIterations"))
-        {
-            ITstream adjDelayedInitialIterationsStream = adj_pimpleDict.lookup("delayedInitialIterations");
-            token adjDelayedInitialIterationsToken;
-            adjDelayedInitialIterationsStream.read(adjDelayedInitialIterationsToken);
-            if(!adjDelayedInitialIterationsToken.isWord())
-                FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/delayedInitialIterations -- must be label"<<exit(FatalError);
-            word adjDelayedInitialIterationsWord = adjDelayedInitialIterationsToken.wordToken();
-            if(adjDelayedInitialIterationsWord=="yes")
-                adjDelayedInitialConvergence = true;
-            else if(adjDelayedInitialIterationsWord=="no")
-                adjDelayedInitialConvergence = false;
-            else
-                FatalErrorInFunction<<"Invalid word in system/fvSolution/adj_PIMPLE/adjDelayedInitialIterations -- must be {yes,no}"<<exit(FatalError);
-        }
+        else
+            adjMomentumTolerance = std::max<scalar>(adjPressureTolerance,adjVelocityTolerance);
     }
     else
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
@@ -134,13 +78,29 @@ void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
 
 bool Foam::solvers::pimpleAdjIBControl::run(Time& time)
 {
-    adjMomentumInnerIteration = 0;
-    adjTemperatureInnerIteration = 0;
     return pimpleIBControl::run(time);
 }
 
 bool Foam::solvers::pimpleAdjIBControl::adjMomentumLoop()
-{    
+{
+    if(adjVelocityEqns==nullptr)
+        FatalErrorInFunction<<"adjVelocityEqns not set"<<exit(FatalError);
+    if(adjPressureEqns==nullptr)
+        FatalErrorInFunction<<"adjPressureEqns not set"<<exit(FatalError);
+    
+    bool contLoop = false;
+    vector adj_u_iniTol = adjVelocityEqns->initialResidual();
+    scalar adj_p_iniTol = adjPressureEqns->initialResidual();
+    
+    for(label dim=0; dim<3; dim++)
+    {
+        if(adj_u_iniTol[dim]>=adjMomentumTolerance)
+            contLoop = true;
+    }
+    if(adj_p_iniTol>=adjMomentumTolerance)
+        contLoop = true;
+
+    /*
     Info<<"pimpleAdjIBControl::adjMomentumLoop"<<Foam::nl;
     
     bool contLoop;
@@ -188,6 +148,15 @@ bool Foam::solvers::pimpleAdjIBControl::adjMomentumLoop()
     }
     
     adjMomentumInnerIteration++;
+    */
+    
+    momentumIteration++;
+    
+    if(contLoop)
+        Info<<"momentum iteration:"<<momentumIteration<<" adj_U iniRes "<<adj_u_iniTol<<" adj_p iniRes:"<<adj_p_iniTol<<" limit:"<<adjMomentumTolerance<<" not converged"<<Foam::nl<<Foam::nl;
+    else
+        Info<<"momentum iteration:"<<momentumIteration<<" adj_U iniRes "<<adj_u_iniTol<<" adj_p iniRes:"<<adj_p_iniTol<<" limit:"<<adjMomentumTolerance<<" converged"<<Foam::nl<<Foam::nl;
+    
     return contLoop;
 }
 
@@ -223,42 +192,7 @@ bool Foam::solvers::pimpleAdjIBControl::adjFinalNonOrthogonalIter()
 
 bool Foam::solvers::pimpleAdjIBControl::adjTemperatureLoop()
 {
-    Info<<"pimpleAdjIBControl::adjTemperatureLoop()"<<Foam::nl;
-    
-    if(!adjTemperatureUsed)
-        FatalErrorInFunction<<"adjTemperatureUsed not used but temperature loop called"<<exit(FatalError);
-    
-    if(!adjTemperatureToleranceSet)
-        FatalErrorInFunction<<"adjTemperatureToleranceSet not set"<<exit(FatalError);
-    
-    bool contLoop = false;
-    if(adjTemperatureInnerIteration==0)
-    {
-        contLoop = true;
-    }
-    else if(adjDelayedInitialConvergence && adjTemperatureInnerIteration>timeIteration)
-    {
-        contLoop = false;
-        Info<< "adjDelayedInitialConvergence"<<nl;
-    }
-    else if(adjTemperatureInnerIteration > adjMinTemperatureIterations)
-    {
-        contLoop = false;
-        Info<< "minTemperatureIterations limit"<<nl;
-    }
-    else
-    {        
-        if(adjTemperatureEqns==nullptr)
-            FatalErrorInFunction<<"adjTemperatureEqns not set!"<<exit(FatalError);
-        bool adjTEqnConverged = adjTemperatureEqns->converged();
-        scalar adjTInitialRes = adjTemperatureEqns->initialResidual();
-        bool adjTIterationConverged = (adjTInitialRes < adjTemperatureTolerance*adjTemperatureIterTolFrac);
-        
-        contLoop = adjTEqnConverged && adjTIterationConverged;
-    }
-    
-    adjTemperatureInnerIteration++;
-    return contLoop;
+    return false;
 }
 
 void Foam::solvers::pimpleAdjIBControl::setAdjVelocityPerformance
@@ -283,5 +217,4 @@ void Foam::solvers::pimpleAdjIBControl::setAdjTemperaturePerformance
 )
 {
     adjTemperatureEqns = adjTEqn;
-    adjTemperatureUsed = true;
 }

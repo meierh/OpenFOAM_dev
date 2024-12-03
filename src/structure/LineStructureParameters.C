@@ -98,6 +98,40 @@ void Foam::Parameter::addCoeff
     crossSecCoeffs.push_back(coeffRef);
 }
 
+std::string Foam::Parameter::to_string() const
+{
+    std::string result = "Parameter type:";
+    switch (parameterType)
+    {
+        case Rod:
+        {
+            result+="Rod";
+            result+=" / dim:"+std::to_string(dimension)+" / ";
+            for(const NurbsCoeffReference& nurbsCoef : nurbsCoeffs)
+                result+="("+std::to_string(nurbsCoef.rodNumber)+","+std::to_string(nurbsCoef.coeffNumber)+","+std::to_string(nurbsCoef.dimension)+") ";
+            result+="/ valid:"+std::to_string(valid);
+            break;
+        }
+        case CrossSection:
+        {
+            result+="CrossSection";
+            result+=" / ";
+            for(const CrossSectionCoeffReference& crossSecCoef : crossSecCoeffs)
+                result+="("+std::to_string(crossSecCoef.rodNumber)+","+std::to_string(crossSecCoef.phase)+","+std::to_string(crossSecCoef.fourierCoeffNumber)+","+std::to_string(crossSecCoef.coeffNumber)+") ";
+            result+="/ valid:"+std::to_string(valid);
+            break;
+        }
+        case None:
+        {
+            result+="None";        
+            break;
+        }
+        default:
+            FatalErrorInFunction<<"Invalid"<<exit(FatalError);
+    }
+    return result;
+}
+
 void Foam::LineStructureParameters::collectParameters
 (
     const LineStructure* structure
