@@ -40,11 +40,15 @@ void Foam::SensitivityVelocityPressureForceInteraction::solve(scalar timeStep)
 
 void Foam::SensitivityVelocityPressureForceInteraction::interpolateAdjVelocityToMarkers()
 {
+    // lambda_Fu = int 1/rho lambda_u delta(x-X) dOmega
     fieldToMarker<vector>(input_adj_U,markerFluidAdjointVelocity);
+    //markerFluidAdjointVelocity /= rho;
 }
 
 void Foam::SensitivityVelocityPressureForceInteraction::computeAdjCouplingForceOnMarkers(scalar timeStep)
 {
+    // lambda_Um = - lambda_Fu / delta t
+    
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
     if(markerFluidAdjointVelocity.size()!=static_cast<label>(markers.size()))

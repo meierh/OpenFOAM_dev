@@ -37,11 +37,15 @@ void Foam::SensitivityTemperatureInteraction::solve(scalar timeStep)
 
 void Foam::SensitivityTemperatureInteraction::interpolateAdjTemperatureToMarkers()
 {
+    // lambda_F_Tfluid = int 1/rho lambda_T_fluid delta(x-X) dOmega
     fieldToMarker<scalar>(input_adj_T,markerFluidAdjointTemperature);
+    //markerFluidAdjointTemperature /= rho;
 }
 
 void Foam::SensitivityTemperatureInteraction::computeAdjCouplingHeatingOnMarkers(scalar timeStep)
 {
+    // lambda_T_fluidm = - lambda_F_Tfluid / delta t
+    
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
     if(markerFluidAdjointTemperature.size()!=static_cast<label>(markers.size()))

@@ -297,24 +297,33 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
     {        
         volScalarField& adj_T = *adj_T_;
         std::unique_ptr<fvScalarMatrix> adjTEqnPtr;
-        if(steadyStateAdjoint)
-            adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::div(-phi,adj_T)-fvm::laplacian(alpha,adj_T));
-        else
-            adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::ddt(adj_T)+fvm::div(-phi,adj_T)-fvm::laplacian(alpha,adj_T));
-        
-        fvScalarMatrix& adjTEqn = *adjTEqnPtr;
-        if(useAdjointTemperatureForcing)
+
+        auto generateTemperatureEqn = 
+        [&]()
         {
-            volScalarField& adj_fT = *adj_fT_;
-            adjTEqn += (-adj_fT);
-        }
+            if(steadyStateAdjoint)
+                adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::div(-phi,adj_T)-fvm::laplacian(alpha,adj_T));
+            else
+                adjTEqnPtr = std::make_unique<fvScalarMatrix>(fvm::ddt(adj_T)+fvm::div(-phi,adj_T)-fvm::laplacian(alpha,adj_T));
+            
+            fvScalarMatrix& adjTEqn = *adjTEqnPtr;
+            if(useAdjointTemperatureForcing)
+            {
+                volScalarField& adj_fT = *adj_fT_;
+                adjTEqn += (-adj_fT);
+            }
+        };
         
         do
         {
+            generateTemperatureEqn();
+            fvScalarMatrix& adjTEqn = *adjTEqnPtr;            
             adjTEqn_res = solve(adjTEqn);
+            
             if(useAdjointTemperatureForcing)
             {
                 interaction_adj_fT->solve(1);
+
                 adjTEqn_res = solve(adjTEqn);
             }
         }
@@ -329,52 +338,56 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
 {
     const volVectorField& U(U_);
     volVectorField& adj_U(adj_U_);
-    volVectorField U_temp = U;
-    const surfaceScalarField phi = linearInterpolate(U_temp) & mesh.Sf();
-    
-    volVectorField adjTranspConv((fvc::grad(adj_U) & U));
-    const labelList& inletCells = mesh.boundary()["inlet"].faceCells();
-    for(label cellInd : inletCells)
-        adjTranspConv[cellInd] = Foam::zero();
+    const surfaceScalarField phi = linearInterpolate(U) & mesh.Sf();
     
     if(!steadyStateAdjoint)
         FatalErrorInFunction<<"SteadyStateAdjoint false"<<exit(FatalError);
-    
-    if(useAdjointTemperature)
-    {
-        if(!T_)
-            FatalErrorInFunction<<"T_ not a field"<<exit(FatalError);
-        if(!adj_T_)
-            FatalErrorInFunction<<"adj_T_ not a field"<<exit(FatalError);
-        volScalarField& adj_T = *adj_T_;
-        volScalarField& T = *T_;
-        tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U) - T*fvc::grad(adj_T);
-    }
-    else
-    {
-        tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U);
-    }
-    
-    if(useAdjointVelocityForcing)
-    {
-        volVectorField& adj_fU = *adj_fU_;
-        fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
-        adj_UEqn += (-adj_fU);
-    }
 
+    auto generateMomentumEqn = 
+    [&]()
+    {
+        volVectorField adjTranspConv((fvc::grad(adj_U) & U));
+        const labelList& inletCells = mesh.boundary()["inlet"].faceCells();
+        for(label cellInd : inletCells)
+            adjTranspConv[cellInd] = Foam::zero();
+
+        if(useAdjointTemperature)
+        {
+            if(!T_)
+                FatalErrorInFunction<<"T_ not a field"<<exit(FatalError);
+            if(!adj_T_)
+                FatalErrorInFunction<<"adj_T_ not a field"<<exit(FatalError);
+            volScalarField& adj_T = *adj_T_;
+            volScalarField& T = *T_;
+            tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U) - T*fvc::grad(adj_T);
+        }
+        else
+        {
+            tadj_UEqn = fvm::div(-phi,adj_U) - adjTranspConv - fvm::laplacian(nu,adj_U);
+        }
+        
+        if(useAdjointVelocityForcing)
+        {
+            volVectorField& adj_fU = *adj_fU_;
+            fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
+            adj_UEqn += (-adj_fU);
+        }        
+    };
+
+    generateMomentumEqn();
     fvVectorMatrix& adj_UEqn = tadj_UEqn.ref();
-
     adj_UEqn.relax();
     fvConstraints().constrain(adj_UEqn);
 
     if (adjPimpleCtlr.momentumPredictor())
     {
         adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
-        fvConstraints().constrain(adj_U_);
         if(useAdjointVelocityForcing)
         {
             interaction_adj_fU->solve(1);
+            adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
         }
+        fvConstraints().constrain(adj_U_);
     }
 }
 
