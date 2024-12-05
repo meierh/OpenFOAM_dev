@@ -5,8 +5,8 @@ Foam::SensitivityVelocityPressureForceInteraction::SensitivityVelocityPressureFo
     const fvMesh& mesh,
     LineStructure& structure,
     const VelocityPressureForceInteraction& primalInteraction,
-    volVectorField& input_adj_U,
-    volVectorField& output_adj_Uf,
+    volVectorField& adj_U,
+    volVectorField& adj_fU,
     const IOdictionary& structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -14,8 +14,8 @@ Foam::SensitivityVelocityPressureForceInteraction::SensitivityVelocityPressureFo
 SensitivityInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 primalInteraction(primalInteraction),
 forcingDerivativeField(primalInteraction.getReferenceInOutField()),
-input_adj_U(input_adj_U),
-output_adj_Uf(output_adj_Uf)
+adj_U(adj_U),
+adj_fU(adj_fU)
 {}
 
 Foam::scalar Foam::SensitivityVelocityPressureForceInteraction::computeSensitivity
@@ -41,7 +41,7 @@ void Foam::SensitivityVelocityPressureForceInteraction::solve(scalar timeStep)
 void Foam::SensitivityVelocityPressureForceInteraction::interpolateAdjVelocityToMarkers()
 {
     // lambda_Fu = int 1/rho lambda_u delta(x-X) dOmega
-    fieldToMarker<vector>(input_adj_U,markerFluidAdjointVelocity);
+    fieldToMarker<vector>(adj_U,markerFluidAdjointVelocity);
     //markerFluidAdjointVelocity /= rho;
 }
 
@@ -68,7 +68,7 @@ void Foam::SensitivityVelocityPressureForceInteraction::computeAdjCouplingForceO
 
 void Foam::SensitivityVelocityPressureForceInteraction::interpolateAdjFluidForceField()
 {
-    markerToField<vector>(makerCouplingAdjointForce,output_adj_Uf);
+    markerToField<vector>(makerCouplingAdjointForce,adj_fU);
 }
 
 Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocityForcingSensitivity
@@ -82,14 +82,14 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
         FatalErrorInFunction<<"Mismatch in marker size!"<<exit(FatalError);
     
     deriveParamMarkerToField<vector>(F_U,forcingDerivativeField,par);
-    if(forcingDerivativeField.size()!=output_adj_Uf.size())
+    if(forcingDerivativeField.size()!=adj_fU.size())
         FatalErrorInFunction<<"Mismatch in field size!"<<exit(FatalError);    
     
     vector sumVelocityForcingSensitivity = vector(0,0,0);
     for(label cellInd=0; cellInd<forcingDerivativeField.size(); cellInd++)
     {
         for(label dim=0; dim<3; dim++)
-            sumVelocityForcingSensitivity[dim] +=  output_adj_Uf[cellInd][dim] * -1 * forcingDerivativeField[cellInd][dim];
+            sumVelocityForcingSensitivity[dim] +=  adj_U[cellInd][dim] * -1 * forcingDerivativeField[cellInd][dim];
     }
     return sumVelocityForcingSensitivity;
 }
@@ -104,13 +104,13 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
         FatalErrorInFunction<<"Mismatch in marker size!"<<exit(FatalError);
     
     DynamicList<vector> velocityDerivationMarkers(markers.size());
-    //deriveParamFieldToMarker<vector>(primalInteraction.getVelocityField(),velocityDerivationMarkers,par); 
+    deriveParamFieldToMarker<vector>(primalInteraction.getVelocityField(),velocityDerivationMarkers,par); 
     
-    vector sumTemperatureSensitivity = vector(0,0,0);
+    vector sumVelocitySensitivity = vector(0,0,0);
     for(std::size_t cellInd=0; cellInd<markers.size(); cellInd++)
     {
         for(label dim=0; dim<3; dim++)
-            sumTemperatureSensitivity[dim] +=  makerCouplingAdjointForce[cellInd][dim] * -1 * velocityDerivationMarkers[cellInd][dim];
+            sumVelocitySensitivity[dim] +=  makerCouplingAdjointForce[cellInd][dim] * -1 * velocityDerivationMarkers[cellInd][dim];
     }
-    return sumTemperatureSensitivity;
+    return sumVelocitySensitivity;
 }

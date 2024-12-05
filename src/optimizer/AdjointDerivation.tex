@@ -1682,18 +1682,36 @@ $=
 	\int -T_{\text{fluid}} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega\\
 \end{pmatrix}
 d\Omega \cup X$\\
+$=
+\delta_\Gamma J + \int_{\Omega \cup X}
+\begin{pmatrix}
+	\frac{1}{\rho}\lambda_{\vec{u}} \\ \lambda_{U_M}\\ \frac{1}{\rho} \lambda_{T_{\text{fluid}}} \\ \lambda_{T_{\text{fluid}_M}}
+\end{pmatrix}
+\cdot
+\begin{pmatrix}
+	\sum_X -F_u \delta \Gamma \delta(\vec{x}-\vec{X}) \\
+	\int -\vec{u} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega \\
+	\sum_X -F_{T_{\text{fluid}}} \delta \Gamma \delta(\vec{x}-\vec{X})\\
+	\int -T_{\text{fluid}} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega\\
+\end{pmatrix}
+d\Omega \cup X$\\
 \begin{align*}
 \delta_\Gamma L=
 	&\delta_\Gamma J + \\
 	&\int_{\Omega}
-	\lambda_{f_u} \sum_X -F_u \delta \Gamma \delta(\vec{x}-\vec{X}) + 
-	\lambda_{f_{T_{\text{fluid}}}} \sum_X -F_{T_{\text{fluid}}} \delta \Gamma \delta(\vec{x}-\vec{X}) 
+	\left[\frac{1}{\rho}\lambda_{\vec{u}} \cdot \sum_X -F_u \delta \Gamma \delta(\vec{x}-\vec{X})\right] + 
+	\left[\frac{1}{\rho} \lambda_{T_{\text{fluid}}} \sum_X -F_{T_{\text{fluid}}} \delta \Gamma \delta(\vec{x}-\vec{X})\right] 
 	d\Omega + \\
-	&\int_X
-	\lambda_{U_M} \int -\vec{u} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega dX + 
-	\lambda_{T_{\text{fluid}_M}} \int -T_{\text{fluid}} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega
+	&\sum_X \left[
+	\lambda_{U_M} \cdot \int -\vec{u} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega \right] + 
+	\left[\lambda_{T_{\text{fluid}_M}} \int -T_{\text{fluid}} \delta \Gamma \delta (\vec{x}-\vec{X})d\Omega\right]
 	dX
 \end{align*}
+with\\
+$F_u  = \frac{\vec{U}_\text{structure} - U_M}{\Delta t}$\\
+$\lambda_{U_m} = -\frac{\lambda_{F_u}}{\Delta t} = -\frac{\int_\Omega \lambda_{f_u} \delta \left(\vec{x}-\vec{X}\right) d \Omega}{\Delta t} = -\frac{\int_\Omega \frac{1}{\rho}\lambda_{\vec{u}} \delta \left(\vec{x}-\vec{X}\right) d \Omega}{\Delta t}$\\
+$F_{T_{\text{fluid}}}  = \frac{T_\text{structure} - T_{\text{fluid}_M}}{\Delta t}$\\
+$\lambda_{T_{\text{fluid}_M}} = -\frac{\lambda_{F_{T_{\text{fluid}}}}}{\Delta t} = -\frac{\int_\Omega \lambda_{f_{T_{\text{fluid}}}} \delta \left(\vec{x}-\vec{X}\right) d \Omega}{\Delta t} = -\frac{\int_\Omega \frac{1}{\rho}\lambda_{T_{\text{fluid}}} \delta \left(\vec{x}-\vec{X}\right) d \Omega}{\Delta t}$\\
 \begin{align*}
 	\delta \Gamma \delta (\vec{x}-\vec{X}) =
 	& \delta \Gamma \delta (r = \vert\vert\vec{x}-\vec{X}\vert\vert_2) = \frac{\partial \delta (r = \vert\vert\vec{x}-\vec{X}\vert\vert_2)}{\partial \Gamma} = \frac{\partial \delta}{\partial r}\frac{\partial r}{\partial \vec{X}}\frac{\partial \vec{X}}{\partial \Gamma} \\

@@ -14,8 +14,8 @@ class SensitivityTemperatureInteraction : public SensitivityInteraction
             const fvMesh& mesh,
             LineStructure& structure,
             const TemperatureInteraction& primalInteraction,
-            volScalarField& input_adj_T,
-            volScalarField& output_adj_Tf,
+            volScalarField& adj_T,
+            volScalarField& adj_fT,
             const IOdictionary& structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
@@ -42,8 +42,8 @@ class SensitivityTemperatureInteraction : public SensitivityInteraction
         scalar integrateTemperatureSensitivity(const Parameter& par);
         
     private:
-        volScalarField& input_adj_T;
-        volScalarField& output_adj_Tf;
+        volScalarField& adj_T;
+        volScalarField& adj_fT;
         
         DynamicList<scalar> markerFluidAdjointTemperature;
         DynamicList<scalar> makerCouplingAdjointHeating;

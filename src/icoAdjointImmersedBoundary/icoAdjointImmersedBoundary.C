@@ -511,6 +511,12 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
 {
     Info<<Foam::nl<<"computeSensitivity"<<Foam::nl;
     Info<<"gradient.size():"<<gradient.size()<<Foam::nl;
+    
+    if(interaction_fU)
+        interaction_fU->recomputeMarkerValues();
+    if(interaction_fT)
+        interaction_fT->recomputeMarkerValues();    
+    
     for(std::pair<Parameter,scalar>& singleParameter : gradient)
     {
         Info<<singleParameter.first.to_string()<<Foam::nl;

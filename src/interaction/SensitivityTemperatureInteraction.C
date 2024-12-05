@@ -5,8 +5,8 @@ Foam::SensitivityTemperatureInteraction::SensitivityTemperatureInteraction
     const fvMesh& mesh,
     LineStructure& structure,
     const TemperatureInteraction& primalInteraction,
-    volScalarField& input_adj_T,
-    volScalarField& output_adj_Tf,
+    volScalarField& adj_T,
+    volScalarField& adj_fT,
     const IOdictionary& structureDict,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
@@ -14,8 +14,8 @@ Foam::SensitivityTemperatureInteraction::SensitivityTemperatureInteraction
 SensitivityInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 primalInteraction(primalInteraction),
 heatingDerivativeField(primalInteraction.getTemperatureField()),
-input_adj_T(input_adj_T),
-output_adj_Tf(output_adj_Tf)
+adj_T(adj_T),
+adj_fT(adj_fT)
 {}
 
 Foam::scalar Foam::SensitivityTemperatureInteraction::computeSensitivity
@@ -38,7 +38,7 @@ void Foam::SensitivityTemperatureInteraction::solve(scalar timeStep)
 void Foam::SensitivityTemperatureInteraction::interpolateAdjTemperatureToMarkers()
 {
     // lambda_F_Tfluid = int 1/rho lambda_T_fluid delta(x-X) dOmega
-    fieldToMarker<scalar>(input_adj_T,markerFluidAdjointTemperature);
+    fieldToMarker<scalar>(adj_T,markerFluidAdjointTemperature);
     //markerFluidAdjointTemperature /= rho;
 }
 
@@ -65,7 +65,7 @@ void Foam::SensitivityTemperatureInteraction::computeAdjCouplingHeatingOnMarkers
 
 void Foam::SensitivityTemperatureInteraction::interpolateAdjHeatingField()
 {
-    markerToField<scalar>(makerCouplingAdjointHeating,output_adj_Tf);
+    markerToField<scalar>(makerCouplingAdjointHeating,adj_fT);
 }
 
 Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureForcingSensitivity
@@ -79,13 +79,13 @@ Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureForcin
         FatalErrorInFunction<<"Mismatch in marker size!"<<exit(FatalError);
     
     deriveParamMarkerToField<scalar>(F_T,heatingDerivativeField,par);
-    if(heatingDerivativeField.size()!=output_adj_Tf.size())
+    if(heatingDerivativeField.size()!=adj_fT.size())
         FatalErrorInFunction<<"Mismatch in field size!"<<exit(FatalError);    
     
     scalar sumTemperatureForcingSensitivity = 0;
     for(label cellInd=0; cellInd<heatingDerivativeField.size(); cellInd++)
     {
-        sumTemperatureForcingSensitivity +=  output_adj_Tf[cellInd] * -1 * heatingDerivativeField[cellInd];
+        sumTemperatureForcingSensitivity +=  adj_T[cellInd] * -1 * heatingDerivativeField[cellInd];
     }
     return sumTemperatureForcingSensitivity;
 }

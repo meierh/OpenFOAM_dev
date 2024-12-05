@@ -45,6 +45,14 @@ void Foam::TemperatureInteraction::setToTime(scalar time)
     rodHeating = std::get<2>(markerValues);
 }
 
+void Foam::TemperatureInteraction::recomputeMarkerValues()
+{
+    interpolateTemperatureToMarkers();
+    computeCouplingHeatingOnMarkers();
+    computeRodHeating();
+    interpolateHeatingField();
+}
+
 void Foam::TemperatureInteraction::interpolateTemperatureToMarkers()
 {
     fieldToMarker<scalar>(input_T,markerFluidTemperature);

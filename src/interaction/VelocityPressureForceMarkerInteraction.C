@@ -92,6 +92,14 @@ void Foam::VelocityPressureForceInteraction::setToTime(scalar time)
     rodMoment = std::get<3>(markerValues);
 }
 
+void Foam::VelocityPressureForceInteraction::recomputeMarkerValues()
+{
+    interpolateFluidVelocityToMarkers();
+    computeCouplingForceOnMarkers();
+    computeRodForceMoment();
+    interpolateFluidForceField();
+}
+
 void Foam::VelocityPressureForceInteraction::interpolateFluidVelocityToMarkers()
 {
     fieldToMarker<vector>(input_U,markerFluidVelocity);

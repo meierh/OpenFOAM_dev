@@ -14,8 +14,8 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
             const fvMesh& mesh,
             LineStructure& structure,
             const VelocityPressureForceInteraction& primalInteraction,
-            volVectorField& input_adj_U,
-            volVectorField& output_adj_Uf,
+            volVectorField& adj_U,
+            volVectorField& adj_fU,
             const IOdictionary& structureDict,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
@@ -42,8 +42,8 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
         vector integrateVelocitySensitivity(const Parameter& par);
         
     private:
-        volVectorField& input_adj_U;
-        volVectorField& output_adj_Uf;
+        volVectorField& adj_U;
+        volVectorField& adj_fU;
         
         DynamicList<vector> markerFluidAdjointVelocity;
         DynamicList<vector> makerCouplingAdjointForce;        
