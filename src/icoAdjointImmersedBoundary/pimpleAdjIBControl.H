@@ -110,6 +110,14 @@ class pimpleAdjIBControl : public pimpleIBControl
         scalar adjMomentumTolerance;
         label momentumIteration = 0;
         
+        label adjnCorrectors;
+        label adjnCorrectors_count = 0;
+        bool adjnCorrectors_set = false;
+        
+        label adjnNonOrthogonalCorrectorsToken;
+        label adjnNonOrthogonalCorrectorsToken_count = 0;
+        bool adjnNonOrthogonalCorrectorsToken_set = false;
+        
         // Temperature system
         SolverPerformance<scalar>* adjTemperatureEqns;
         scalar adjTemperatureTolerance;

@@ -82,12 +82,13 @@ Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureForcin
     if(heatingDerivativeField.size()!=adj_fT.size())
         FatalErrorInFunction<<"Mismatch in field size!"<<exit(FatalError);    
     
-    scalar sumTemperatureForcingSensitivity = 0;
+    Field<scalar> temperatureForcingSensitivity(mesh.size(),Foam::zero());
     for(label cellInd=0; cellInd<heatingDerivativeField.size(); cellInd++)
     {
-        sumTemperatureForcingSensitivity +=  adj_T[cellInd] * -1 * heatingDerivativeField[cellInd];
+        temperatureForcingSensitivity[cellInd] =  adj_T[cellInd] * -1 * heatingDerivativeField[cellInd];
     }
-    return sumTemperatureForcingSensitivity;
+        
+    return integrateField(temperatureForcingSensitivity);
 }
 
 Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureSensitivity
@@ -102,10 +103,11 @@ Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureSensit
     DynamicList<scalar> heatingDerivationMarkers(markers.size());
     deriveParamFieldToMarker<scalar>(primalInteraction.getTemperatureField(),heatingDerivationMarkers,par); 
     
-    scalar sumTemperatureSensitivity = 0;
+    DynamicList<scalar> temperatureSensitivity(markers.size(),Foam::zero());
     for(std::size_t cellInd=0; cellInd<markers.size(); cellInd++)
     {
-        sumTemperatureSensitivity +=  makerCouplingAdjointHeating[cellInd] * -1 * heatingDerivationMarkers[cellInd];
+        temperatureSensitivity[cellInd] =  makerCouplingAdjointHeating[cellInd] * -1 * heatingDerivationMarkers[cellInd];
     }
-    return sumTemperatureSensitivity;
+    
+    return integrateMarkers(temperatureSensitivity);
 }

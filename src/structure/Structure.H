@@ -552,7 +552,7 @@ class Structure
         
         //Exchange fields on halo cells
         template<typename T>
-        std::unique_ptr<List<List<T>>> broadcastHaloFields(const GeometricField<T,fvPatchField,volMesh>& fieldData);
+        std::unique_ptr<List<List<T>>> broadcastHaloFields(const Field<T>& fieldData);
         /*************************+++++++****Halo cells************++++++++*******************/
         
         /********************************Mesh communication***********+++++*******************/

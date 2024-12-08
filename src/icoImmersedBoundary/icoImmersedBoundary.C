@@ -75,7 +75,6 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
     
     create_Analysis();
-    
 }
 
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
@@ -654,6 +653,7 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
         postCorrector(pimpleCtlr);
     }
     postSolve(pimpleCtlr);
+    Info<<"OneTimestep done"<<Foam::nl;
 }
 
 void Foam::solvers::icoImmersedBoundary::oneTimestep()
@@ -675,8 +675,10 @@ void Foam::solvers::icoImmersedBoundary::Solve()
             
         oneTimestep();
         
+        
         write_Analysis();
         runTime.write();
+        Info<<"runTime:"<<runTime.toc()<<Foam::nl;
     
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
@@ -732,6 +734,7 @@ void Foam::solvers::icoImmersedBoundary::create_Analysis()
 
 void Foam::solvers::icoImmersedBoundary::write_Analysis()
 {
+    Info<<"write_Analysis"<<Foam::nl;
     if(structure)
     {
         if(cellSizes)
@@ -741,4 +744,5 @@ void Foam::solvers::icoImmersedBoundary::write_Analysis()
         if(cellMarkerCharacSize)
             structure->writeCellMarkerCharacSizeField(*cellMarkerCharacSize);
     }
+    Info<<"write_Analysis done"<<Foam::nl;
 }

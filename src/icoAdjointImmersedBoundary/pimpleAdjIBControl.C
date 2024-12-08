@@ -71,6 +71,36 @@ void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
         }
         else
             adjMomentumTolerance = std::max<scalar>(adjPressureTolerance,adjVelocityTolerance);
+        
+        if(adj_pimpleDict.found("nCorrectors"))
+        {
+            ITstream nCorrectorsStream = adj_pimpleDict.lookup("nCorrectors");
+            token nCorrectorsToken;
+            nCorrectorsStream.read(nCorrectorsToken);
+            if(!nCorrectorsToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/nCorrectors -- must be label"<<exit(FatalError);
+            adjnCorrectors = nCorrectorsToken.labelToken();
+            adjnCorrectors_set = true;
+            if(adjnCorrectors<0)
+                FatalErrorInFunction<<"adjnCorrectors lower than zero"<<exit(FatalError);
+        }
+        else
+            adjnCorrectors_set = false;
+
+        if(adj_pimpleDict.found("nNonOrthogonalCorrectors"))
+        {
+            ITstream nNonOrthogonalCorrectorsStream = adj_pimpleDict.lookup("nNonOrthogonalCorrectors");
+            token nNonOrthogonalCorrectorsToken;
+            nNonOrthogonalCorrectorsStream.read(nNonOrthogonalCorrectorsToken);
+            if(!nNonOrthogonalCorrectorsToken.isLabel())
+                FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/nNonOrthogonalCorrectors -- must be label"<<exit(FatalError);
+            adjnNonOrthogonalCorrectorsToken = nNonOrthogonalCorrectorsToken.labelToken();
+            adjnNonOrthogonalCorrectorsToken_set = true;
+            if(adjnCorrectors<0)
+                FatalErrorInFunction<<"adjnCorrectors lower than zero"<<exit(FatalError);
+        }
+        else
+            adjnCorrectors_set = false;
     }
     else
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
@@ -157,6 +187,8 @@ bool Foam::solvers::pimpleAdjIBControl::adjMomentumLoop()
     else
         Info<<"momentum iteration:"<<momentumIteration<<" adj_U iniRes "<<adj_u_iniTol<<" adj_p iniRes:"<<adj_p_iniTol<<" limit:"<<adjMomentumTolerance<<" converged"<<Foam::nl<<Foam::nl;
     
+    adjnCorrectors_count = 0;
+    
     return contLoop;
 }
 
@@ -177,11 +209,32 @@ Foam::label Foam::solvers::pimpleAdjIBControl::adjNCorrPiso()
 
 bool Foam::solvers::pimpleAdjIBControl::adjCorrect()
 {
-    return pimple.correct();
+    adjnNonOrthogonalCorrectorsToken_count = 0;
+    if(adjnCorrectors_set)
+    {
+        adjnCorrectors_count++;
+        if(adjnCorrectors_count<=adjnCorrectors)
+            return true;
+        else 
+            return false;
+    }
+    else
+        return pimple.correct();
 }
 
 bool Foam::solvers::pimpleAdjIBControl::adjCorrectNonOrthogonal()
 {
+    if(adjnNonOrthogonalCorrectorsToken_set)
+    {
+        adjnNonOrthogonalCorrectorsToken_count++;
+        if(adjnNonOrthogonalCorrectorsToken_count<=adjnNonOrthogonalCorrectorsToken)
+            return true;
+        else 
+            return false;
+    }
+    else
+        return pimple.correct();
+    
     return pimple.correctNonOrthogonal();
 }
 

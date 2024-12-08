@@ -144,7 +144,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
             std::function<Field<scalar>(const icoAdjointVelocityWallBC&)> dJdp_Wall,
             std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet
         );
-        surfaceScalarField adj_phi_;
+        //surfaceScalarField adj_phi_;
         
         // Adjoint Pressure
         volScalarField adj_p_;
@@ -158,6 +158,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         std::unique_ptr<volVectorField> adj_fU_;
         std::unique_ptr<SensitivityVelocityPressureForceInteraction> interaction_adj_fU;
         void create_AdjointVelocityForcing();
+        scalar virtualAdjMomentumTimestep;
         
         //- Adjoint Temperature
         bool useAdjointTemperature;
@@ -173,6 +174,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         std::unique_ptr<volScalarField> adj_fT_;
         std::unique_ptr<SensitivityTemperatureInteraction> interaction_adj_fT;
         void create_AdjointTemperatureForcing();
+        scalar virtualAdjTemperatureTimestep;
         
         //Set objective function boundary part derivatives
         std::function<scalar(vector n, vector u, scalar p, scalar T)> dJgdp;

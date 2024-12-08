@@ -33,7 +33,7 @@ class SensitivityInteraction : public FieldMarkerStructureInteraction
             const DynamicList<T>& markerData,
             GeometricField<T,fvPatchField,volMesh>& fieldData,
             const Parameter& par
-        );
+        );        
 };
 #include "SensitivityInteraction.T.H"
 }

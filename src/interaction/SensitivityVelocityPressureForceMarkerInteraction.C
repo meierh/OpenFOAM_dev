@@ -64,10 +64,16 @@ void Foam::SensitivityVelocityPressureForceInteraction::computeAdjCouplingForceO
         vector adj_velocity = markerFluidAdjointVelocity[markerInd];
         makerCouplingAdjointForce[markerInd] = (markerAdjVelocity-adj_velocity)/timeStep;
     }
+    
+    vector sum = vector(0,0,0);
+    for(vector val : makerCouplingAdjointForce)
+        sum += val;
+    Info<<"Foam::SensitivityVelocityPressureForceInteraction::computeCouplingForceOnMarkers::makerCouplingAdjointForce = "<<sum<<Foam::nl;
 }
 
 void Foam::SensitivityVelocityPressureForceInteraction::interpolateAdjFluidForceField()
 {
+    adj_fU = Foam::zero();
     markerToField<vector>(makerCouplingAdjointForce,adj_fU);
 }
 
@@ -85,13 +91,14 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
     if(forcingDerivativeField.size()!=adj_fU.size())
         FatalErrorInFunction<<"Mismatch in field size!"<<exit(FatalError);    
     
-    vector sumVelocityForcingSensitivity = vector(0,0,0);
+    Field<vector> velocityForcingSensitivity(mesh.size(),Foam::zero());
     for(label cellInd=0; cellInd<forcingDerivativeField.size(); cellInd++)
     {
         for(label dim=0; dim<3; dim++)
-            sumVelocityForcingSensitivity[dim] +=  adj_U[cellInd][dim] * -1 * forcingDerivativeField[cellInd][dim];
+            velocityForcingSensitivity[cellInd][dim] =  adj_U[cellInd][dim] * -1 * forcingDerivativeField[cellInd][dim];
     }
-    return sumVelocityForcingSensitivity;
+        
+    return integrateField(velocityForcingSensitivity);
 }
 
 Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocitySensitivity
@@ -106,11 +113,11 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
     DynamicList<vector> velocityDerivationMarkers(markers.size());
     deriveParamFieldToMarker<vector>(primalInteraction.getVelocityField(),velocityDerivationMarkers,par); 
     
-    vector sumVelocitySensitivity = vector(0,0,0);
+    DynamicList<vector> velocitySensitivity(markers.size(),Foam::zero());
     for(std::size_t cellInd=0; cellInd<markers.size(); cellInd++)
     {
         for(label dim=0; dim<3; dim++)
-            sumVelocitySensitivity[dim] +=  makerCouplingAdjointForce[cellInd][dim] * -1 * velocityDerivationMarkers[cellInd][dim];
+            velocitySensitivity[cellInd][dim] =  makerCouplingAdjointForce[cellInd][dim] * -1 * velocityDerivationMarkers[cellInd][dim];
     }
-    return sumVelocitySensitivity;
+    return integrateMarkers(velocitySensitivity);
 }

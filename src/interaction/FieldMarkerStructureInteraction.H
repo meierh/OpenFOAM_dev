@@ -34,13 +34,13 @@ class FieldMarkerStructureInteraction
         //Map field from fielData to markerData according to markers
         template<typename T> void fieldToMarker
         (
-            const GeometricField<T,fvPatchField,volMesh>& fieldData,
+            const Field<T>& fieldData,
             DynamicList<T>& markerData
         );
         
         template<typename T> void integrateFieldOverMarker
         (
-            const GeometricField<T,fvPatchField,volMesh>& fieldData,
+            const Field<T>& fieldData,
             DynamicList<T>& markerData,
             std::function<T(const LagrangianMarker*, std::function<T(Pair<label>)>)> integration            
         );
@@ -48,7 +48,7 @@ class FieldMarkerStructureInteraction
         template<typename T> void markerToField
         (
             const DynamicList<T>& markerData,
-            GeometricField<T,fvPatchField,volMesh>& fieldData
+            Field<T>& fieldData
         );
                 
         template<typename T> void integrateMarkersOverField
@@ -63,6 +63,16 @@ class FieldMarkerStructureInteraction
         (
             std::tuple<List<scalar>,List<List<T>>,label> in,
             std::tuple<List<scalar>,List<List<T>>,label>& out
+        );
+        
+        template<typename T> T integrateField
+        (
+            const Field<T>& field
+        );
+        
+        template<typename T> T integrateMarkers
+        (
+            const DynamicList<T>& markerVals
         );
         
         const scalar h;

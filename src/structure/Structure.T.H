@@ -1,9 +1,12 @@
 template<typename T>
 std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
 (
-    const GeometricField<T,fvPatchField,volMesh>& fieldData
+    const Field<T>& fieldData
 )
 {
+    if(fieldData.size()!=mesh.size())
+        FatalErrorInFunction<<"Mismatch in cell number"<<exit(FatalError);
+    
     auto haloFieldPtr = std::make_unique<List<List<T>>>(Pstream::nProcs());
     List<List<T>>& haloField = *haloFieldPtr;
     List<T>& ownHaloField = haloField[Pstream::myProcNo()];
