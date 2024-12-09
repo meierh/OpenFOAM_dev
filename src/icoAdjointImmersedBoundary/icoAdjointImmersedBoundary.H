@@ -198,6 +198,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         SolverPerformance<scalar> adjTEqn_res;
         void connectSolverPerformance(pimpleAdjIBControl& pimpleCtlr);
         
+        void initializeInteractions();
+        
         //Gradient Computation
         std::vector<std::pair<Parameter,scalar>> gradient;
         

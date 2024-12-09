@@ -22,6 +22,8 @@ class FSIAction : public VelocityPressureForceInteraction
         
         void preSolveMovement() override {};
         
+        void recomputeMarkerValues() override {NotImplemented;}
+        
     protected:
         void computeRodForceMoment() override;
         

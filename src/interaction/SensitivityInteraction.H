@@ -19,7 +19,7 @@ class SensitivityInteraction : public FieldMarkerStructureInteraction
         virtual ~SensitivityInteraction()=default;
 
         virtual scalar computeSensitivity(const Parameter& para) = 0;
-
+        
     protected:
         template<typename T> void deriveParamFieldToMarker
         (

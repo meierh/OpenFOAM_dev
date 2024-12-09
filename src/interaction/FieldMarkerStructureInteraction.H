@@ -25,6 +25,8 @@ class FieldMarkerStructureInteraction
         
         virtual void setToTime(scalar time) = 0;
         
+        virtual void recomputeMarkerValues() = 0;
+        
     protected:
         ActiveRodMesh::rodMesh* rodMesh;        
         const fvMesh& mesh;

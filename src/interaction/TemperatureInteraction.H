@@ -28,7 +28,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         const volScalarField& getTemperatureForcingField() const {return output_Tf;}
         const DynamicList<scalar>& getMarkerCouplingHeating() const {return makerCouplingHeating;}
         
-        void recomputeMarkerValues();
+        void recomputeMarkerValues() override;
 
     protected:
         void interpolateTemperatureToMarkers();

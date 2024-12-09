@@ -4,7 +4,7 @@ std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
     const Field<T>& fieldData
 )
 {
-    if(fieldData.size()!=mesh.size())
+    if(fieldData.size()!=mesh.cells().size())
         FatalErrorInFunction<<"Mismatch in cell number"<<exit(FatalError);
     
     auto haloFieldPtr = std::make_unique<List<List<T>>>(Pstream::nProcs());

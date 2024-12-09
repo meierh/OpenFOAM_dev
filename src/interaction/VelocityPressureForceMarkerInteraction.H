@@ -37,7 +37,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         const DynamicList<vector>& getMarkerCouplingForce() const {return markerCouplingForce;}
         const volVectorField& getVelocityField() const {return input_U;}
         
-        void recomputeMarkerValues();
+        void recomputeMarkerValues() override;
         
     protected:
         void interpolateFluidVelocityToMarkers();

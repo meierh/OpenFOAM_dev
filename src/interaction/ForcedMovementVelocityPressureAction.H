@@ -26,6 +26,8 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
         void subTimestepStructureMovement() override {};
         void subTimestepMarkerMeshAdaption() override {};
         
+        void recomputeMarkerValues() override {NotImplemented;}
+        
     protected:
         std::unique_ptr<List<List<vector>>> readDeformationDict();
         

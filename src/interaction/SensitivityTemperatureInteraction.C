@@ -35,6 +35,31 @@ void Foam::SensitivityTemperatureInteraction::solve(scalar timeStep)
     interpolateAdjHeatingField();
 }
 
+void Foam::SensitivityTemperatureInteraction::recomputeMarkerValues()
+{
+    interpolateAdjTemperatureToMarkers();
+    
+    scalar virtualAdjTemperatureTimestep=0.1;
+    IOobject fvSolutionIO("fvSolution","system",mesh.time(),IOobject::MUST_READ,IOobject::NO_WRITE);
+    if(!fvSolutionIO.filePath("",true).empty())
+    {
+        IOdictionary fvSolutionDict(fvSolutionIO);
+        dictionary& adj_pimpleDict = fvSolutionDict.subDict("adj_PIMPLE");
+
+        ITstream virtualTemperatureTimestepStream = adj_pimpleDict.lookup("virtualTemperatureTimestep");
+        token virtualTemperatureTimestepToken;
+        virtualTemperatureTimestepStream.read(virtualTemperatureTimestepToken);
+        if(!virtualTemperatureTimestepToken.isScalar())
+            FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/virtualMomentumTimestep -- must be scalar"<<exit(FatalError);
+        virtualAdjTemperatureTimestep = virtualTemperatureTimestepToken.scalarToken();
+    }
+    else
+        FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
+    computeAdjCouplingHeatingOnMarkers(virtualAdjTemperatureTimestep);
+    
+    interpolateAdjHeatingField();
+}
+
 void Foam::SensitivityTemperatureInteraction::interpolateAdjTemperatureToMarkers()
 {
     // lambda_F_Tfluid = int 1/rho lambda_T_fluid delta(x-X) dOmega
@@ -82,7 +107,7 @@ Foam::scalar Foam::SensitivityTemperatureInteraction::integrateTemperatureForcin
     if(heatingDerivativeField.size()!=adj_fT.size())
         FatalErrorInFunction<<"Mismatch in field size!"<<exit(FatalError);    
     
-    Field<scalar> temperatureForcingSensitivity(mesh.size(),Foam::zero());
+    Field<scalar> temperatureForcingSensitivity(mesh.cells().size(),Foam::zero());
     for(label cellInd=0; cellInd<heatingDerivativeField.size(); cellInd++)
     {
         temperatureForcingSensitivity[cellInd] =  adj_T[cellInd] * -1 * heatingDerivativeField[cellInd];

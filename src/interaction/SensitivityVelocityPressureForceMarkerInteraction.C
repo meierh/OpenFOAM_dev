@@ -23,8 +23,9 @@ Foam::scalar Foam::SensitivityVelocityPressureForceInteraction::computeSensitivi
     const Parameter& para
 )
 {
-    Info<<"computeSensitivity:"<<para.to_string()<<Foam::nl;
-    vector sensitivityVector = integrateVelocityForcingSensitivity(para)+integrateVelocitySensitivity(para);
+    vector velocityForcingSensitivity = integrateVelocityForcingSensitivity(para);
+    vector velocitySensitivity = integrateVelocitySensitivity(para);
+    vector sensitivityVector = velocityForcingSensitivity+velocitySensitivity;
     scalar sensitivity = sensitivityVector[0]+sensitivityVector[1]+sensitivityVector[2];
     Pstream::gather<scalar>(sensitivity,std::plus<scalar>());
     Pstream::scatter<scalar>(sensitivity);
@@ -35,6 +36,31 @@ void Foam::SensitivityVelocityPressureForceInteraction::solve(scalar timeStep)
 {
     interpolateAdjVelocityToMarkers();
     computeAdjCouplingForceOnMarkers(timeStep);
+    interpolateAdjFluidForceField();
+}
+
+void Foam::SensitivityVelocityPressureForceInteraction::recomputeMarkerValues()
+{
+    interpolateAdjVelocityToMarkers();
+    
+    scalar virtualAdjMomentumTimestep=0.1;
+    IOobject fvSolutionIO("fvSolution","system",mesh.time(),IOobject::MUST_READ,IOobject::NO_WRITE);
+    if(!fvSolutionIO.filePath("",true).empty())
+    {
+        IOdictionary fvSolutionDict(fvSolutionIO);
+        dictionary& adj_pimpleDict = fvSolutionDict.subDict("adj_PIMPLE");
+
+        ITstream virtualMomentumTimestepStream = adj_pimpleDict.lookup("virtualMomentumTimestep");
+        token virtualMomentumTimestepToken;
+        virtualMomentumTimestepStream.read(virtualMomentumTimestepToken);
+        if(!virtualMomentumTimestepToken.isScalar())
+            FatalErrorInFunction<<"Invalid entry in system/fvSolution/adj_PIMPLE/virtualMomentumTimestep -- must be scalar"<<exit(FatalError);
+        virtualAdjMomentumTimestep = virtualMomentumTimestepToken.scalarToken();
+    }
+    else
+        FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
+    computeAdjCouplingForceOnMarkers(virtualAdjMomentumTimestep);
+    
     interpolateAdjFluidForceField();
 }
 
@@ -81,7 +107,7 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
 (
     const Parameter& par
 )
-{
+{   
     const DynamicList<vector>& F_U = primalInteraction.getMarkerCouplingForce();
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     if(F_U.size()!=static_cast<label>(markers.size()))
@@ -91,21 +117,21 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
     if(forcingDerivativeField.size()!=adj_fU.size())
         FatalErrorInFunction<<"Mismatch in field size!"<<exit(FatalError);    
     
-    Field<vector> velocityForcingSensitivity(mesh.size(),Foam::zero());
+    Field<vector> velocityForcingSensitivity(mesh.cells().size(),Foam::zero());
     for(label cellInd=0; cellInd<forcingDerivativeField.size(); cellInd++)
     {
         for(label dim=0; dim<3; dim++)
             velocityForcingSensitivity[cellInd][dim] =  adj_U[cellInd][dim] * -1 * forcingDerivativeField[cellInd][dim];
     }
-        
-    return integrateField(velocityForcingSensitivity);
+
+    return integrateField<vector>(velocityForcingSensitivity);
 }
 
 Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocitySensitivity
 (
     const Parameter& par
 )
-{
+{   
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     if(makerCouplingAdjointForce.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Mismatch in marker size!"<<exit(FatalError);
@@ -119,5 +145,6 @@ Foam::vector Foam::SensitivityVelocityPressureForceInteraction::integrateVelocit
         for(label dim=0; dim<3; dim++)
             velocitySensitivity[cellInd][dim] =  makerCouplingAdjointForce[cellInd][dim] * -1 * velocityDerivationMarkers[cellInd][dim];
     }
-    return integrateMarkers(velocitySensitivity);
+        
+    return integrateMarkers<vector>(velocitySensitivity);
 }

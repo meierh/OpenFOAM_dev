@@ -30,6 +30,8 @@ class SensitivityTemperatureInteraction : public SensitivityInteraction
         void store() override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
         void setToTime(scalar time) override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
         
+        void recomputeMarkerValues() override;
+        
     protected:
         const TemperatureInteraction& primalInteraction;
         volScalarField heatingDerivativeField;

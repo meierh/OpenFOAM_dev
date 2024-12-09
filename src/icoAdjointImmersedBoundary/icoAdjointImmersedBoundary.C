@@ -278,11 +278,29 @@ void Foam::solvers::icoAdjointImmersedBoundary::connectSolverPerformance
         pimpleCtlr.setAdjTemperaturePerformance(&adjTEqn_res);
 }
 
+void Foam::solvers::icoAdjointImmersedBoundary::initializeInteractions()
+{
+    if(useAdjointVelocityForcing)
+    {
+        interaction_adj_fU->solve(virtualAdjMomentumTimestep);
+    }
+    
+    if(useAdjointTemperature)
+    {        
+        if(useAdjointTemperatureForcing)
+        {
+            interaction_adj_fT->solve(virtualAdjTemperatureTimestep);
+        }
+    }
+}
+
 void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
 (
     pimpleAdjIBControl& adjPimpleCtlr
 )
-{   
+{
+    initializeInteractions();
+    
     Info<<"adj_preSolve  useAdjointTemperature:"<<useAdjointTemperature<<Foam::nl;
     if(useAdjointTemperature)
     {        
@@ -313,7 +331,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
             
             if(useAdjointTemperatureForcing)
             {
-                interaction_adj_fT->solve(1);
+                interaction_adj_fT->solve(virtualAdjTemperatureTimestep);
 
                 adjTEqn_res = solve(adjTEqn);
             }
@@ -503,24 +521,31 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
-    Info<<Foam::nl<<"computeSensitivity"<<Foam::nl;
     Info<<"gradient.size():"<<gradient.size()<<Foam::nl;
-    /*
+    
     if(interaction_fU)
         interaction_fU->recomputeMarkerValues();
     if(interaction_fT)
-        interaction_fT->recomputeMarkerValues();    
+        interaction_fT->recomputeMarkerValues();
+    if(interaction_adj_fU)
+        interaction_adj_fU->recomputeMarkerValues();
+    if(interaction_adj_fT)
+        interaction_adj_fT->recomputeMarkerValues();
     
+    Info<<Foam::nl<<"computeSensitivity"<<Foam::nl;
+
     for(std::pair<Parameter,scalar>& singleParameter : gradient)
     {
+        Info<<"----------------------------------------------"<<Foam::endl;
         Info<<singleParameter.first.to_string()<<Foam::nl;
         singleParameter.second = 0;
         if(interaction_adj_fU)
             singleParameter.second += interaction_adj_fU->computeSensitivity(singleParameter.first);
         if(interaction_adj_fT)
             singleParameter.second += interaction_adj_fT->computeSensitivity(singleParameter.first);
+        Info<<"Completed one parameter"<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
     }
-    */
     Info<<Foam::nl<<"computeSensitivity done"<<Foam::nl;
 }
 
@@ -530,8 +555,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
 )
 {
     Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
-    adj_U_ = Foam::zero();
-    adj_p_ = Foam::zero();
+    Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+    /*
     adj_preSolve(adjPimpleCtlr);
     do
     {
@@ -551,7 +577,10 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
     while (adjPimpleCtlr.adjMomentumLoop());
+    */
     Info<<"--------------------------------------- Solved Adjoint ---------------------------------------"<<Foam::nl;
+    Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+    Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
     runTime.write();
     adj_postSolve(adjPimpleCtlr);
 }

@@ -5,8 +5,12 @@ void Foam::FieldMarkerStructureInteraction::fieldToMarker
     DynamicList<T>& markerData
 )
 {
-    if(fieldData.size()!=mesh.size())
+    if(fieldData.size()!=mesh.cells().size())
+    {
+        Info<<"fieldData.size():"<<fieldData.size()<<Foam::nl;
+        Info<<"mesh.size():"<<mesh.cells().size()<<Foam::nl;
         FatalErrorInFunction<<"Mismatch in cell number"<<exit(FatalError);
+    }
     
     std::function<T(const LagrangianMarker*,std::function<T(Pair<label>)> valueFunction)> convolution;
     convolution = [this](const LagrangianMarker* marker, std::function<T(Pair<label>)> valueFunction)
@@ -90,7 +94,7 @@ void Foam::FieldMarkerStructureInteraction::integrateFieldOverMarker
     std::function<T(const LagrangianMarker*, std::function<T(Pair<label>)>)> integration
 )
 {
-    if(fieldData.size()!=mesh.size())
+    if(fieldData.size()!=mesh.cells().size())
         FatalErrorInFunction<<"Mismatch in cell number"<<exit(FatalError);
     
     LineStructure& structure = this->structure;
@@ -168,7 +172,7 @@ void Foam::FieldMarkerStructureInteraction::markerToField
     Field<T>& fieldData
 )
 {
-    if(fieldData.size()!=mesh.size())
+    if(fieldData.size()!=mesh.cells().size())
         FatalErrorInFunction<<"Mismatch in cell number"<<exit(FatalError);
     
     fieldData = Foam::zero();
@@ -300,15 +304,16 @@ T Foam::FieldMarkerStructureInteraction::integrateField
     const cellList& cells = mesh.cells();
     const faceList& faces = mesh.faces();
     const pointField& points = mesh.points();
-    
+
     if(field.size()!=cells.size())
         FatalErrorInFunction<<"Mismatch in cell number"<<exit(FatalError);
-    
+
     T sum = Foam::zero();
     for(label cellInd=0; cellInd<cells.size(); cellInd++)
     {
         sum += field[cellInd]*cells[cellInd].mag(points,faces);
     }
+    
     return sum;
 }
 

@@ -25,7 +25,7 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
         
         void subTimestepStructureMovement() override {};
         void subTimestepMarkerMeshAdaption() override {};
-        
+                
     protected:
         
     private:

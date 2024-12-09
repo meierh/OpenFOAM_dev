@@ -30,6 +30,8 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
         void store() override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
         void setToTime(scalar time) override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
         
+        void recomputeMarkerValues() override;
+        
     protected:
         const VelocityPressureForceInteraction& primalInteraction;
         volVectorField forcingDerivativeField;
