@@ -301,6 +301,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
 {
     initializeInteractions();
     
+    Info<<"J:"<<J(*this)<<Foam::endl;
+    
     Info<<"adj_preSolve  useAdjointTemperature:"<<useAdjointTemperature<<Foam::nl;
     if(useAdjointTemperature)
     {        
@@ -537,12 +539,12 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
     for(std::pair<Parameter,scalar>& singleParameter : gradient)
     {
         Info<<"----------------------------------------------"<<Foam::endl;
-        Info<<singleParameter.first.to_string()<<Foam::nl;
         singleParameter.second = 0;
         if(interaction_adj_fU)
             singleParameter.second += interaction_adj_fU->computeSensitivity(singleParameter.first);
         if(interaction_adj_fT)
             singleParameter.second += interaction_adj_fT->computeSensitivity(singleParameter.first);
+        Info<<singleParameter.first.to_string()<<" -- "<<singleParameter.second<<Foam::nl;
         Info<<"Completed one parameter"<<Foam::endl;
         Info<<"||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
     }
@@ -557,8 +559,8 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
-    /*
     adj_preSolve(adjPimpleCtlr);
+    /*
     do
     {
         adj_moveMesh();
@@ -708,6 +710,35 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
+{
+    while (adjPimpleCtlr.run(time))
+    {
+        
+        Info<<"-------------------------------------- Presolve Time = "<<runTime.userTimeName()<<" --------------------------------------"<<nl;
+        adjPimpleCtlr.read();
+        preSolve(adjPimpleCtlr);
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+        time++;
+        Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;
+        icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
+
+        write_Analysis();
+        runTime.write();
+        Info<<"runTime:"<<runTime.toc()<<Foam::nl;
+        Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
+    }
+    Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
+
+    oneAdjSteadyTimestep(adjPimpleCtlr);
+    //oneAdjSteadyTimestepBase(adjPimpleCtlr);
+    adj_U_.write();
+    adj_p_.write();
+    
+    Info<<"SolveSteadyAdjoint done"<<nl<< nl;
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::SolveFDGradient()
 {
     while (adjPimpleCtlr.run(time))
     {

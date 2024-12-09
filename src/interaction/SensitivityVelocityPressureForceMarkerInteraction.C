@@ -24,9 +24,13 @@ Foam::scalar Foam::SensitivityVelocityPressureForceInteraction::computeSensitivi
 )
 {
     vector velocityForcingSensitivity = integrateVelocityForcingSensitivity(para);
+    Info<<"velocityForcingSensitivity:"<<velocityForcingSensitivity<<Foam::endl;
     vector velocitySensitivity = integrateVelocitySensitivity(para);
+    Info<<"velocitySensitivity:"<<velocitySensitivity<<Foam::endl;
     vector sensitivityVector = velocityForcingSensitivity+velocitySensitivity;
+    Info<<"sensitivityVector:"<<sensitivityVector<<Foam::endl;
     scalar sensitivity = sensitivityVector[0]+sensitivityVector[1]+sensitivityVector[2];
+    Info<<"sensitivity:"<<sensitivity<<Foam::endl;
     Pstream::gather<scalar>(sensitivity,std::plus<scalar>());
     Pstream::scatter<scalar>(sensitivity);
     return sensitivity;

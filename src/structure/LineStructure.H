@@ -352,6 +352,7 @@ class LineStructure : public Structure
         virtual vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par);
         void store() override;
         void setToTime(scalar time) override;
+        virtual List<scalar> getParameterValue(const Parameter& para);
     // ----------------- ---------------------------- -----------------
 
     protected:

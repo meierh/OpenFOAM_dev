@@ -208,8 +208,16 @@ class CrossSectionStructure : public LineStructure
             label derivCoeffNumber,
             scalar value
         );
+        scalar getCrossSecParameters
+        (
+            label rodNumber,
+            bool phase,
+            label fourierCoeffNumber,
+            label derivCoeffNumber
+        );
         vector dXdParam(const LagrangianMarker* marker,const Parameter& par) override;
         vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par) override;
+        List<scalar> getParameterValue(const Parameter& para) override;
     // ----------------- ---------------------------- -----------------
         
     private:

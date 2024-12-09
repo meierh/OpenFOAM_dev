@@ -127,6 +127,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     
     // High level functions
         void SolveSteadyAdjoint();
+        void SolveFDGradient();
+
     
     protected:
         pimpleAdjIBControl adjPimpleCtlr;
