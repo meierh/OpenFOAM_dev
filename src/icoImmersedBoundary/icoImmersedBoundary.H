@@ -101,7 +101,11 @@ class icoImmersedBoundary : public incompressibleFluid
         
         void Solve();
         
-        scalar minDeltaT() const;        
+        scalar minDeltaT() const;
+        
+        const std::unique_ptr<LineStructure>& getStructure() const {return structure;}
+        std::unique_ptr<LineStructure>& getStructure() {return structure;}
+
 
     protected:
         Time& time;
