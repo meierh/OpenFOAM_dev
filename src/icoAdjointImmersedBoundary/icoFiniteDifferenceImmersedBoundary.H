@@ -89,6 +89,7 @@ class icoFiniteDifferenceImmersedBoundary
         fvMesh& mesh;
         Time& time;
         scalar parameterIniValue;
+        Parameter para;
         std::vector<scalar> epsilons;
         std::function<scalar(const icoAdjointImmersedBoundary&)> J;
         std::unique_ptr<icoAdjointImmersedBoundary> icoSolver;

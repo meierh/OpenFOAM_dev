@@ -36,15 +36,15 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
     {
         // plus epsilon
         icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
-        std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
-        structure->setParameterValue(para,{parameterIniValue+eps});
+        std::unique_ptr<LineStructure>& structure_plus = icoSolver->getStructure();
+        structure_plus->setParameterValue(para,{parameterIniValue+eps});
         icoSolver->SolvePrimal();
         scalar J_plus = J(*icoSolver);
         
         // minus epsilon
         icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
-        std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
-        structure->setParameterValue(para,{parameterIniValue-eps});
+        std::unique_ptr<LineStructure>& structure_minus = icoSolver->getStructure();
+        structure_minus->setParameterValue(para,{parameterIniValue-eps});
         icoSolver->SolvePrimal();
         scalar J_minus = J(*icoSolver);
         
