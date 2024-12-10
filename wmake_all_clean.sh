@@ -32,6 +32,10 @@ cd ../optimIB
 rm -rf Make/linux64GccDPInt32Opt
 wmake -j 3 &
 
+cd ../fdIB
+rm -rf Make/linux64GccDPInt32Opt
+wmake -j 3 &
+
 wait
 cd ../../../
 
@@ -57,6 +61,9 @@ cd ../../applications/solvers/icoIB
 wmake &
 
 cd ../optimIB
+wmake &
+
+cd ../fdIB
 wmake &
 
 wait

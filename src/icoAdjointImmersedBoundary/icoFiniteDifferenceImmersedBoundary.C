@@ -25,29 +25,45 @@ J(obj.J)
     for(uint i=0; i<percFD.size(); i++)
         epsilons.push_back(parameterIniValue*(percFD[i]/100));
     
+    recordFDFile = std::make_unique<std::ofstream>("fdRecords");
+    
     Info<<"--------------------------icoFiniteDifferenceImmersedBoundary--------------------------"<<Foam::endl;
-    Info<<"parameter:"<<para.to_string()<<Foam::endl;
+    Info<<"parameter:"<<para.to_string()<<structure->getParameterValue(para)<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoFiniteDifferenceImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
 }
 
 void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
 {
+    scalar J_plus,J_minus,fdGradient;
+    
     for(scalar eps : epsilons)
-    {
+    {       
+        Info<<"Start eps:"<<eps<<Foam::nl;
+        
         // plus epsilon
         icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
-        std::unique_ptr<LineStructure>& structure_plus = icoSolver->getStructure();
-        structure_plus->setParameterValue(para,{parameterIniValue+eps});
+        {
+            std::unique_ptr<LineStructure>& structure_plus = icoSolver->getStructure();
+            structure_plus->setParameterValue(para,{parameterIniValue+eps});
+        }
         icoSolver->SolvePrimal();
-        scalar J_plus = J(*icoSolver);
+        J_plus = J(*icoSolver);
+        
+        Info<<"Done eps:"<<eps<<" J_plus"<<Foam::nl;
         
         // minus epsilon
         icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
-        std::unique_ptr<LineStructure>& structure_minus = icoSolver->getStructure();
-        structure_minus->setParameterValue(para,{parameterIniValue-eps});
+        {
+            std::unique_ptr<LineStructure>& structure_minus = icoSolver->getStructure();
+            structure_minus->setParameterValue(para,{parameterIniValue-eps});
+        }
         icoSolver->SolvePrimal();
-        scalar J_minus = J(*icoSolver);
+        J_minus = J(*icoSolver);
         
-        scalar fdGradient = (J_plus-J_minus)/(2*eps);
+        Info<<"Done eps:"<<eps<<" J_minus"<<Foam::nl;
+        
+        fdGradient = (J_plus-J_minus)/(2*eps);
+        
+        (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_plus<<"  -eps J:"<<J_minus<<"  fdgrad:"<<fdGradient<<std::endl;
     }
 }

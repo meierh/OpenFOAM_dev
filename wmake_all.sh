@@ -24,6 +24,9 @@ wmake -j 3 &
 cd ../optimIB
 wmake -j 3 &
 
+cd ../fdIB
+wmake -j 3 &
+
 wait
 cd ../../../
 
@@ -49,6 +52,9 @@ cd ../../applications/solvers/icoIB
 wmake &
 
 cd ../optimIB
+wmake &
+
+cd ../fdIB
 wmake &
 
 wait
