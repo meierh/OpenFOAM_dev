@@ -115,7 +115,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         (
             fvMesh& mesh,
             Time& time,
-            List<Parameter> parameters,
+            std::vector<Parameter> parameters,
             objectiveFunction obj=createEmptyObjective()
         );
         //- Disallow default bitwise copy construction
@@ -128,8 +128,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     // High level functions
         void SolveSteadyAdjoint();
         void SolveFDGradient();
+        void SolvePrimal();
 
-    
     protected:
         pimpleAdjIBControl adjPimpleCtlr;
         bool steadyStateAdjoint;

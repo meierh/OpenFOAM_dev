@@ -363,8 +363,34 @@ Foam::List<Foam::scalar> Foam::LineStructure::getParameterValue
         const NurbsCoeffReference& nurbsCoeff = para.getNurbsCoeffs()[coeffI];
         values[coeffI] = getCurveCoeff(nurbsCoeff.rodNumber,nurbsCoeff.coeffNumber,nurbsCoeff.dimension);
     }
+    if(values.size()<1)
+        FatalErrorInFunction<<"Must be at least one value"<<exit(FatalError);
     
     return values;
+}
+
+void Foam::LineStructure::setParameterValue
+(
+    const Parameter& para,
+    List<scalar> value
+)
+{
+    if(para.getType()!=Parameter::Type::Rod)
+    {
+        Info<<"para:"<<para.to_string()<<Foam::nl;
+        FatalErrorInFunction<<"Can not work with parameter type"<<exit(FatalError);
+    }
+    if(!para.isValid())
+        FatalErrorInFunction<<"Invalid parameter!"<<exit(FatalError);
+    
+    if(static_cast<label>(para.getNurbsCoeffs().size())!=value.size())
+        FatalErrorInFunction<<"Parameter value mismatch!"<<exit(FatalError);
+    
+    for(label coeffI=0; coeffI<value.size(); coeffI++)
+    {
+        const NurbsCoeffReference& nurbsCoeff = para.getNurbsCoeffs()[coeffI];
+        setCurveCoeff(nurbsCoeff.rodNumber,nurbsCoeff.coeffNumber,nurbsCoeff.dimension,value[coeffI]);
+    }    
 }
 
 void Foam::LineStructure::createSpacingPoints()

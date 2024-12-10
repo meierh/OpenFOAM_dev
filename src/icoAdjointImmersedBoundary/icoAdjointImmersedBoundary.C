@@ -4,7 +4,7 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
 (
     fvMesh& mesh,
     Time& time,
-    List<Parameter> parameters,
+    std::vector<Parameter> parameters,
     objectiveFunction obj
 ):
 icoImmersedBoundary(mesh,time),
@@ -544,7 +544,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
             singleParameter.second += interaction_adj_fU->computeSensitivity(singleParameter.first);
         if(interaction_adj_fT)
             singleParameter.second += interaction_adj_fT->computeSensitivity(singleParameter.first);
-        Info<<singleParameter.first.to_string()<<" -- "<<singleParameter.second<<Foam::nl;
+        Info<<singleParameter.first.to_string()<<":"<<structure->getParameterValue(singleParameter.first)<<" -- "<<singleParameter.second<<Foam::nl;
         Info<<"Completed one parameter"<<Foam::endl;
         Info<<"||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
     }
@@ -709,7 +709,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
     oneAdjSteadyTimestep(adjPimpleCtlr);
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
+void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimal()
 {
     while (adjPimpleCtlr.run(time))
     {
@@ -729,13 +729,12 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
     Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
+}
 
+void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
+{
+    SolvePrimal();
     oneAdjSteadyTimestep(adjPimpleCtlr);
-    //oneAdjSteadyTimestepBase(adjPimpleCtlr);
-    adj_U_.write();
-    adj_p_.write();
-    
-    Info<<"SolveSteadyAdjoint done"<<nl<< nl;
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::SolveFDGradient()

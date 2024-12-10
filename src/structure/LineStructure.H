@@ -353,6 +353,7 @@ class LineStructure : public Structure
         void store() override;
         void setToTime(scalar time) override;
         virtual List<scalar> getParameterValue(const Parameter& para);
+        virtual void setParameterValue(const Parameter& para, List<scalar> value);
     // ----------------- ---------------------------- -----------------
 
     protected:

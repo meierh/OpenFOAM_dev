@@ -255,26 +255,54 @@ Foam::List<Foam::scalar> Foam::CrossSectionStructure::getParameterValue
     }
     else if(para.getType()==Parameter::Type::CrossSection)
     {
-        List<scalar> values(para.getNurbsCoeffs().size());
+        List<scalar> values(para.getCrossSecCoeffs().size());
         for(label coeffI=0; coeffI<values.size(); coeffI++)
         {
-            const NurbsCoeffReference& nurbsCoeff = para.getNurbsCoeffs()[coeffI];
-            values[coeffI] = getCurveCoeff(nurbsCoeff.rodNumber,nurbsCoeff.coeffNumber,nurbsCoeff.dimension);
+            const CrossSectionCoeffReference& crossSecCoeff = para.getCrossSecCoeffs()[coeffI];
+            values[coeffI] = getCrossSecParameters
+            (
+                crossSecCoeff.rodNumber,crossSecCoeff.phase,crossSecCoeff.fourierCoeffNumber,crossSecCoeff.coeffNumber
+            );
         }
+        if(values.size()<1)
+            FatalErrorInFunction<<"Must be at least one value"<<exit(FatalError);
         return values;
     }
     else
         FatalErrorInFunction<<"Invalid parameter type none!"<<exit(FatalError);
+    
+    return {};
+}
 
+void Foam::CrossSectionStructure::setParameterValue
+(
+    const Parameter& para,
+    List<scalar> value
+)
+{
+    if(!para.isValid())
+        FatalErrorInFunction<<"Invalid parameter!"<<exit(FatalError);
     
-    List<scalar> values(para.getNurbsCoeffs().size());
-    for(label coeffI=0; coeffI<values.size(); coeffI++)
+    if(para.getType()==Parameter::Type::Rod)
     {
-        const NurbsCoeffReference& nurbsCoeff = para.getNurbsCoeffs()[coeffI];
-        values[coeffI] = getCurveCoeff(nurbsCoeff.rodNumber,nurbsCoeff.coeffNumber,nurbsCoeff.dimension);
+        LineStructure::getParameterValue(para);
     }
-    
-    return values;
+    else if(para.getType()==Parameter::Type::CrossSection)
+    {
+        if(static_cast<label>(para.getCrossSecCoeffs().size())!=value.size())
+            FatalErrorInFunction<<"Parameter value mismatch!"<<exit(FatalError);
+        
+        for(label coeffI=0; coeffI<value.size(); coeffI++)
+        {
+            const CrossSectionCoeffReference& crossSecCoeff = para.getCrossSecCoeffs()[coeffI];
+            setCrossSecParameters
+            (
+                crossSecCoeff.rodNumber,crossSecCoeff.phase,crossSecCoeff.fourierCoeffNumber,crossSecCoeff.coeffNumber,value[coeffI]
+            );
+        }
+    }
+    else
+        FatalErrorInFunction<<"Invalid parameter type none!"<<exit(FatalError);
 }
 
 std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSectionsFromDict

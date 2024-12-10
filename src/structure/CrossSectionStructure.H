@@ -218,6 +218,7 @@ class CrossSectionStructure : public LineStructure
         vector dXdParam(const LagrangianMarker* marker,const Parameter& par) override;
         vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par) override;
         List<scalar> getParameterValue(const Parameter& para) override;
+        void setParameterValue(const Parameter& para, List<scalar> value) override;
     // ----------------- ---------------------------- -----------------
         
     private:
