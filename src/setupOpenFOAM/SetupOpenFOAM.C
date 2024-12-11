@@ -1,15 +1,5 @@
 #include "SetupOpenFOAM.H"
 
- Foam::argList Foam::setRootCase(int argc, char *argv[])
- {
-    Foam::argList args(argc, argv);
-    if (!args.checkRootCase())
-    {
-        Foam::FatalError.exit();
-    }
-    return args;
- }
- 
 std::unique_ptr<Foam::Time> Foam::createTime
 (
     const Foam::argList& args

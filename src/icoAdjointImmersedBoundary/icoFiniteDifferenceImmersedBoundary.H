@@ -74,8 +74,7 @@ class icoFiniteDifferenceImmersedBoundary
         //- Construct from region mesh
         icoFiniteDifferenceImmersedBoundary
         (
-            int argc,
-            char *argv[],
+            argList& args,
             Parameter para,
             std::vector<scalar> percFD,
             objectiveFunction obj=createEmptyObjective()
@@ -87,8 +86,7 @@ class icoFiniteDifferenceImmersedBoundary
         void Solve();
         
     protected:
-        int argc;
-        char **argv;
+        argList& args;
         scalar parameterIniValue;
         Parameter para;
         std::vector<scalar> epsilons;

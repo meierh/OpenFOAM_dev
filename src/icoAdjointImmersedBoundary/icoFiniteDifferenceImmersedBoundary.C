@@ -2,18 +2,16 @@
 
 Foam::solvers::icoFiniteDifferenceImmersedBoundary::icoFiniteDifferenceImmersedBoundary
 (
-    int argc,
-    char *argv[],
+    argList& args,
     Parameter para,
     std::vector<scalar> percFD,
     objectiveFunction obj
 ):
-argc(argc),
-argv(argv),
+args(args),
 para(para),
 J(obj.J)
 {
-    std::unique_ptr<Time> timePtr = createTime(setRootCase(argc,argv));
+    std::unique_ptr<Time> timePtr = createTime(args);
     std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
     icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
     const std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
@@ -55,7 +53,7 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
         for(label sign : {1,-1})
         {
             // plus epsilon
-            std::unique_ptr<Time> timePtr = createTime(setRootCase(argc,argv));
+            std::unique_ptr<Time> timePtr = createTime(args);
             std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
             auto icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
             {

@@ -62,6 +62,7 @@ Usage
 #include "argList.H"
 #include "Optimizer.H"
 #include "icoFiniteDifferenceImmersedBoundary.H"
+
 #include "pimpleSingleRegionControl.H"
 
 using namespace Foam;
@@ -69,22 +70,24 @@ using namespace Foam;
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
-{    
+{
+    Pout<<"fdIB start"<<Foam::endl;
+    #include "setRootCase.H"
+
     Parameter radPara(CrossSectionCoeffReference(0,0,0));
     //Parameter radPara1(CrossSectionCoeffReference(0,0,1));
     
     // Instantiate the solver
     Foam::solvers::icoFiniteDifferenceImmersedBoundary fdSolver
     (
-        argc,
-        argv,
+        args,
         radPara,
         {10,1,0.1,0.01,0.001},
         Foam::solvers::createTotalPressureLoss()
     );
     fdSolver.Solve();
     
-    Info<<"fdIB done"<<Foam::nl;
+    Pout<<"fdIB done"<<Foam::nl;
       
     return 0;
 }
