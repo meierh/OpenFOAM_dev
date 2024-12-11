@@ -17,7 +17,7 @@ std::unique_ptr<Foam::Time> Foam::createTime
 {
     Foam::Info<< "Create time\n" << Foam::endl;  
     auto timePtr = std::make_unique<Foam::Time>(Foam::Time::controlDictName, args);
-    return std::move(timePtr);
+    return timePtr;
 }
 
 std::unique_ptr<Foam::fvMesh> Foam::createMesh
@@ -27,7 +27,6 @@ std::unique_ptr<Foam::fvMesh> Foam::createMesh
 {
     Foam::Info << "Create mesh for time = " << runTime.name() << Foam::endl;
     auto meshPtr = std::make_unique<Foam::fvMesh>(IOobject(fvMesh::defaultRegion,runTime.name(),runTime,IOobject::MUST_READ));
-    Foam::Info << "Created "<< Foam::endl;
-    return std::move(meshPtr);
+    return meshPtr;
 }
  
