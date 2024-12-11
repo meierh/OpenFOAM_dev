@@ -15,7 +15,7 @@ std::unique_ptr<Foam::Time> Foam::createTime
     const Foam::argList& args
 )
 {
-    Foam::Info<< "Create time\n" << Foam::endl;  
+    Pout<< "Create time:"<<args.args()<< Foam::endl;  
     auto timePtr = std::make_unique<Foam::Time>(Foam::Time::controlDictName, args);
     return timePtr;
 }

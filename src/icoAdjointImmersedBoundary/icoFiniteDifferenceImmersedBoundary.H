@@ -84,9 +84,11 @@ class icoFiniteDifferenceImmersedBoundary
         void operator=(const icoAdjointImmersedBoundary&) = delete;
     
     // High level functions
-        void Solve(int argc,char *argv[]);
+        void Solve();
         
     protected:
+        int argc;
+        char **argv;
         scalar parameterIniValue;
         Parameter para;
         std::vector<scalar> epsilons;

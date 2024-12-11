@@ -8,6 +8,8 @@ Foam::solvers::icoFiniteDifferenceImmersedBoundary::icoFiniteDifferenceImmersedB
     std::vector<scalar> percFD,
     objectiveFunction obj
 ):
+argc(argc),
+argv(argv),
 para(para),
 J(obj.J)
 {
@@ -26,12 +28,10 @@ J(obj.J)
     for(uint i=0; i<percFD.size(); i++)
         epsilons.push_back(parameterIniValue*(percFD[i]/100));
     
-    recordFDFile = std::make_unique<std::ofstream>("fdRecords");
+    if(Pstream::master())
+        recordFDFile = std::make_unique<std::ofstream>("fdRecords");
     
     icoSolver->checkIOObjects();
-    
-    
-    
     
     Info<<"--------------------------icoFiniteDifferenceImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"parameter:"<<para.to_string()<<structure->getParameterValue(para)<<Foam::endl;
@@ -42,7 +42,7 @@ J(obj.J)
     timePtr.release();
 }
 
-void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve(int argc,char *argv[])
+void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
 {
     scalar fdGradient;
     std::vector<scalar> J_eps;
@@ -76,6 +76,7 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve(int argc,char *ar
         }
         fdGradient = (J_eps[0]-J_eps[1])/(2*eps);
         
-        (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
+        if(Pstream::master())
+            (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
     }
 }

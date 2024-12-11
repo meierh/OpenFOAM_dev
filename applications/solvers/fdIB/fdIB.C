@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
         {10,1,0.1,0.01,0.001},
         Foam::solvers::createTotalPressureLoss()
     );
-    fdSolver.Solve(argc,argv);
+    fdSolver.Solve();
     
     Info<<"fdIB done"<<Foam::nl;
       
