@@ -12,6 +12,8 @@ cd ../icoImmersedBoundary
 wmake &
 cd ../icoAdjointImmersedBoundary
 wmake &
+cd ../setupOpenFOAM
+wmake &
 
 cd ../../applications/solvers/icoIB
 wmake &
@@ -34,6 +36,8 @@ wmake &
 cd ../icoImmersedBoundary
 wmake &
 cd ../icoAdjointImmersedBoundary
+wmake &
+cd ../setupOpenFOAM
 wmake &
 
 cd ../../applications/solvers/icoIB

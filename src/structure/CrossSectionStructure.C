@@ -281,7 +281,10 @@ void Foam::CrossSectionStructure::setParameterValue
 )
 {
     if(!para.isValid())
+    {
+        Info<<"para:"<<para.to_string()<<Foam::nl;
         FatalErrorInFunction<<"Invalid parameter!"<<exit(FatalError);
+    }
     
     if(para.getType()==Parameter::Type::Rod)
     {

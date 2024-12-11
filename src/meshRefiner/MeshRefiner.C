@@ -44,7 +44,6 @@ markerRefineDemands("markerDemands",doRefine)
             FatalErrorInFunction<<"Invalid topoChanger/markerCellFactor is"<<topoChangerFactorScalar<<" -- valid {]0,inf[}"<<exit(FatalError);
         markerCharLengthToCellSizeFactor = topoChangerFactorScalar;
     }
-
 }
 
 void Foam::MeshRefiner::adaptMesh()
@@ -165,7 +164,7 @@ void Foam::MeshRefiner::markerRefinement
 }
 
 bool Foam::MeshRefiner::applyMeshAdaption()
-{
+{   
     bool refined = mesh.update();
     if(refined)
     {

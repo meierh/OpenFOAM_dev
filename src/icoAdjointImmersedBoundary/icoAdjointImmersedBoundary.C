@@ -46,12 +46,12 @@ adj_p_
     create_AdjointTemperatureForcing();
     connectSolverPerformance(adjPimpleCtlr);
     steadyStateAdjoint = adjPimpleCtlr.isSteady();
-    
+            
     if(!steadyStateAdjoint)
         FatalErrorInFunction<<"Unsteady adjoint not implemented"<<exit(FatalError);
     
     checkDimensions();
-    
+            
     create_Objective(obj);
     setAdjUBC(obj.dJdp_Inlet,obj.dJdp_Wall,obj.dJdu_uOutlet);
     setAdjPBC(obj.dJdu_pOutlet);
@@ -65,7 +65,7 @@ adj_p_
     Info<<"useAdjointVelocityForcing:"<<useAdjointVelocityForcing<<Foam::endl;
     Info<<"useAdjointTemperature:"<<useAdjointTemperature<<Foam::endl;
     Info<<"useAdjointTemperatureForcing:"<<useAdjointTemperatureForcing<<Foam::endl;
-    Info<<"||||||||||||||||||||||||||icoAdjointImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
+    Info<<"||||||||||||||||||||||||||icoAdjointImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
 }
 
 Foam::solvers::icoAdjointImmersedBoundary::~icoAdjointImmersedBoundary()
@@ -709,8 +709,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep()
     oneAdjSteadyTimestep(adjPimpleCtlr);
 }
 
-void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimal()
-{
+void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimal
+(
+    std::function<void(bool,const Time&,Time&)> writeData
+)
+{   
     while (adjPimpleCtlr.run(time))
     {
         
@@ -724,10 +727,11 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimal()
         icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
 
         write_Analysis();
-        runTime.write();
+        writeData(false,runTime,time);
         Info<<"runTime:"<<runTime.toc()<<Foam::nl;
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
+    writeData(true,runTime,time);
     Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
 }
 

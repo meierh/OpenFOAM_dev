@@ -18,6 +18,9 @@ wmake -j 4 &
 cd ../icoAdjointImmersedBoundary
 wmake -j 8 &
 
+cd ../setupOpenFOAM
+wmake -j 1 &
+
 cd ../../applications/solvers/icoIB
 wmake -j 3 &
 
@@ -46,6 +49,9 @@ cd ../icoImmersedBoundary
 wmake &
 
 cd ../icoAdjointImmersedBoundary
+wmake &
+
+cd ../setupOpenFOAM
 wmake &
 
 cd ../../applications/solvers/icoIB

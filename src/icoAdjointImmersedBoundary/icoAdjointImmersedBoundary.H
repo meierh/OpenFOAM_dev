@@ -128,7 +128,11 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
     // High level functions
         void SolveSteadyAdjoint();
         void SolveFDGradient();
-        void SolvePrimal();
+        void SolvePrimal
+        (
+            std::function<void(bool,const Time&, Time&)> writeData = [](bool complete, const Time& runTime, Time& time){runTime.write();}
+        );
+;
 
     protected:
         pimpleAdjIBControl adjPimpleCtlr;

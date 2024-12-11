@@ -24,6 +24,10 @@ cd ../icoAdjointImmersedBoundary
 rm -rf lnInclude Make/linux64GccDPInt32Opt
 wmake -j 8 &
 
+cd ../setupOpenFOAM
+rm -rf lnInclude Make/linux64GccDPInt32Opt
+wmake -j 1 &
+
 cd ../../applications/solvers/icoIB
 rm -rf Make/linux64GccDPInt32Opt
 wmake -j 3 &
@@ -55,6 +59,9 @@ cd ../icoImmersedBoundary
 wmake &
 
 cd ../icoAdjointImmersedBoundary
+wmake &
+
+cd ../setupOpenFOAM
 wmake &
 
 cd ../../applications/solvers/icoIB

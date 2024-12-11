@@ -10,6 +10,7 @@ EXE_INC = \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/structure/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/meshRefiner/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/icoImmersedBoundary/lnInclude \
+    -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/setupOpenFOAM/lnInclude \
     -isystem$(WM_THIRD_PARTY_DIR)/tinyxml2 \
     -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src \
     -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodContact \
@@ -41,6 +42,7 @@ EXE_LIBS = \
     -lStructure \
     -lMeshRefiner \
     -licoImmersedBoundary \
+    -lSetupOpenFOAM \
     -L$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/build/cmake_build \
     -lActiveRodMesh \
     -L$(WM_THIRD_PARTY_DIR)/nlopt/build \

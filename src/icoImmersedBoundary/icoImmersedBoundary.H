@@ -101,6 +101,8 @@ class icoImmersedBoundary : public incompressibleFluid
         
         void Solve();
         
+        void checkIOObjects(){Info<<"checkIOObjects"<<mesh.toc()<<Foam::nl;}
+        
         scalar minDeltaT() const;
         
         const std::unique_ptr<LineStructure>& getStructure() const {return structure;}

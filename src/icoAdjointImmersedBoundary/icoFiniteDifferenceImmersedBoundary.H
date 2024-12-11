@@ -54,6 +54,7 @@ See also
 #ifndef icoFiniteDifferenceImmersedBoundary_H
 #define icoFiniteDifferenceImmersedBoundary_H
 
+#include "SetupOpenFOAM.H"
 #include "icoAdjointImmersedBoundary.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -73,8 +74,8 @@ class icoFiniteDifferenceImmersedBoundary
         //- Construct from region mesh
         icoFiniteDifferenceImmersedBoundary
         (
-            fvMesh& mesh,
-            Time& time,
+            int argc,
+            char *argv[],
             Parameter para,
             std::vector<scalar> percFD,
             objectiveFunction obj=createEmptyObjective()
@@ -83,11 +84,9 @@ class icoFiniteDifferenceImmersedBoundary
         void operator=(const icoAdjointImmersedBoundary&) = delete;
     
     // High level functions
-        void Solve();
+        void Solve(int argc,char *argv[]);
         
     protected:
-        fvMesh& mesh;
-        Time& time;
         scalar parameterIniValue;
         Parameter para;
         std::vector<scalar> epsilons;

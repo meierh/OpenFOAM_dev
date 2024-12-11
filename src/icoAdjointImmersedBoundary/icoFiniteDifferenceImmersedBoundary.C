@@ -2,17 +2,18 @@
 
 Foam::solvers::icoFiniteDifferenceImmersedBoundary::icoFiniteDifferenceImmersedBoundary
 (
-    fvMesh& mesh,
-    Time& time,
+    int argc,
+    char *argv[],
     Parameter para,
     std::vector<scalar> percFD,
     objectiveFunction obj
 ):
-mesh(mesh),
-time(time),
+para(para),
 J(obj.J)
-{    
-    icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
+{
+    std::unique_ptr<Time> timePtr = createTime(setRootCase(argc,argv));
+    std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
+    icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
     const std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
     if(!structure)
         FatalErrorInFunction<<"No structure set"<<exit(FatalError);
@@ -27,43 +28,54 @@ J(obj.J)
     
     recordFDFile = std::make_unique<std::ofstream>("fdRecords");
     
+    icoSolver->checkIOObjects();
+    
+    
+    
+    
     Info<<"--------------------------icoFiniteDifferenceImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"parameter:"<<para.to_string()<<structure->getParameterValue(para)<<Foam::endl;
-    Info<<"||||||||||||||||||||||||||icoFiniteDifferenceImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;    
+    Info<<"||||||||||||||||||||||||||icoFiniteDifferenceImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
+
+    icoSolver.release();
+    meshPtr.release();
+    timePtr.release();
 }
 
-void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
+void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve(int argc,char *argv[])
 {
-    scalar J_plus,J_minus,fdGradient;
+    scalar fdGradient;
+    std::vector<scalar> J_eps;
+    label resultCount = 1;
     
     for(scalar eps : epsilons)
     {       
         Info<<"Start eps:"<<eps<<Foam::nl;
         
-        // plus epsilon
-        icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
+        for(label sign : {1,-1})
         {
-            std::unique_ptr<LineStructure>& structure_plus = icoSolver->getStructure();
-            structure_plus->setParameterValue(para,{parameterIniValue+eps});
+            // plus epsilon
+            std::unique_ptr<Time> timePtr = createTime(setRootCase(argc,argv));
+            std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
+            auto icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
+            {
+                std::unique_ptr<LineStructure>& structure_plus = icoSolver->getStructure();
+                structure_plus->setParameterValue(para,{parameterIniValue+(static_cast<scalar>(sign)*eps)});
+            }
+            icoSolver->SolvePrimal([&](bool completed, const Time& runTime, Time& time)
+            {
+                if(completed)
+                {
+                    time.setTime(static_cast<scalar>(resultCount),resultCount);
+                    runTime.write();
+                }
+            });
+            J_eps.push_back(J(*icoSolver));
+            resultCount++;
+            Info<<"Done "<<sign<<" eps:"<<eps<<Foam::nl;
         }
-        icoSolver->SolvePrimal();
-        J_plus = J(*icoSolver);
+        fdGradient = (J_eps[0]-J_eps[1])/(2*eps);
         
-        Info<<"Done eps:"<<eps<<" J_plus"<<Foam::nl;
-        
-        // minus epsilon
-        icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(mesh,time,{}));
-        {
-            std::unique_ptr<LineStructure>& structure_minus = icoSolver->getStructure();
-            structure_minus->setParameterValue(para,{parameterIniValue-eps});
-        }
-        icoSolver->SolvePrimal();
-        J_minus = J(*icoSolver);
-        
-        Info<<"Done eps:"<<eps<<" J_minus"<<Foam::nl;
-        
-        fdGradient = (J_plus-J_minus)/(2*eps);
-        
-        (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_plus<<"  -eps J:"<<J_minus<<"  fdgrad:"<<fdGradient<<std::endl;
+        (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
     }
 }

@@ -69,24 +69,20 @@ using namespace Foam;
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
-{
-    #include "setRootCase.H"
-    #include "createTime.H"
-    #include "createMesh.H"
-    
+{    
     Parameter radPara(CrossSectionCoeffReference(0,0,0));
     //Parameter radPara1(CrossSectionCoeffReference(0,0,1));
     
     // Instantiate the solver
     Foam::solvers::icoFiniteDifferenceImmersedBoundary fdSolver
     (
-        mesh,
-        runTime,
+        argc,
+        argv,
         radPara,
         {10,1,0.1,0.01,0.001},
         Foam::solvers::createTotalPressureLoss()
     );
-    fdSolver.Solve();
+    fdSolver.Solve(argc,argv);
     
     Info<<"fdIB done"<<Foam::nl;
       

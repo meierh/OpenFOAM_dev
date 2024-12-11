@@ -73,7 +73,7 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     Info<<"useTemperature:"<<useTemperature<<Foam::endl;
     Info<<"useTemperatureForcing:"<<useTemperatureForcing<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
-    
+        
     create_Analysis();
 }
 
@@ -662,7 +662,7 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep()
 }
 
 void Foam::solvers::icoImmersedBoundary::Solve()
-{
+{   
     while (pimpleCtlr.run(time))
     {
         Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
