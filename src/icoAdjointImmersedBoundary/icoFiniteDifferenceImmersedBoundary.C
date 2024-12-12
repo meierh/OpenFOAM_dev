@@ -13,7 +13,7 @@ J(obj.J)
 {
     std::unique_ptr<Time> timePtr = createTime(args);
     std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
-    icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
+    auto icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
     const std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
     if(!structure)
         FatalErrorInFunction<<"No structure set"<<exit(FatalError);
@@ -27,7 +27,10 @@ J(obj.J)
         epsilons.push_back(parameterIniValue*(percFD[i]/100));
     
     if(Pstream::master())
+    {
         recordFDFile = std::make_unique<std::ofstream>("fdRecords");
+        (*recordFDFile) << std::setprecision(20);
+    }
         
     Info<<"--------------------------icoFiniteDifferenceImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"parameter:"<<para.to_string()<<structure->getParameterValue(para)<<Foam::endl;
@@ -41,19 +44,17 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
     label resultCount = 1;
     
     for(scalar eps : epsilons)
-    {       
-        Info<<"Start eps:"<<eps<<Foam::nl;
-        
+    {      
+        if(Pstream::master())
+            Info<<"Start eps:"<<eps<<Foam::nl;
+
         for(label sign : {1,-1})
         {
-            // plus epsilon
             std::unique_ptr<Time> timePtr = createTime(args);
             std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
             auto icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
-            {
-                std::unique_ptr<LineStructure>& structure_plus = icoSolver->getStructure();
-                structure_plus->setParameterValue(para,{parameterIniValue+(static_cast<scalar>(sign)*eps)});
-            }
+            std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
+            structure->setParameterValue(para,{parameterIniValue+(static_cast<scalar>(sign)*eps)});
             icoSolver->SolvePrimal([&](bool completed, const Time& runTime, Time& time)
             {
                 if(completed)
@@ -62,16 +63,21 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
                     runTime.write();
                 }
             });
+            scalarList values = structure->getParameterValue(para);
+            if(values.size()!=1)
+                FatalErrorInFunction<<"Parameter must be a single coefficient"<<exit(FatalError);
+            if(Pstream::master())
+                Info<<"Done "<<sign<<" para:"<<values[0]<<Foam::nl;
             J_eps.push_back(J(*icoSolver));
             resultCount++;
-            Info<<"Done "<<sign<<" eps:"<<eps<<Foam::nl;
         }
         fdGradient = (J_eps[0]-J_eps[1])/(2*eps);
         
         if(Pstream::master())
         {
-            (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
             Info<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<Foam::endl;
+            (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
+
         }
     }
 }

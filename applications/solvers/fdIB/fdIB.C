@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
         args,
         radPara,
         {10,1,0.1,0.01,0.001},
+        //{10},
         Foam::solvers::createTotalPressureLoss()
     );
     fdSolver.Solve();

@@ -47,6 +47,7 @@ Foam::solvers::objectiveFunction Foam::solvers::createTotalPressureLoss()
         const volVectorField::Boundary& u_boundary = u.boundaryField();
         
         const label inletPatchInd = domainBCs.findIndex("inlet");
+        scalar J_inlet = 0;
         if(inletPatchInd!=-1)
         {
             const fvPatch& inletPatch = domainBCs[inletPatchInd];
@@ -59,10 +60,12 @@ Foam::solvers::objectiveFunction Foam::solvers::createTotalPressureLoss()
             scalarField p_plus_abs_u = abs_u+pInlet;
             scalarField int_p_plus_abs_u = p_plus_abs_u*inFaceMag;
             for(scalar val : int_p_plus_abs_u)
-                J += val;
+                J_inlet += val;
         }
+        Info<<"Inlet: "<<J_inlet<<Foam::nl;
 
         const label outletPatchInd = domainBCs.findIndex("outlet");
+        scalar J_outlet = 0;
         if(outletPatchInd!=-1)
         {
             const fvPatch& outletPatch = domainBCs[outletPatchInd];
@@ -75,8 +78,11 @@ Foam::solvers::objectiveFunction Foam::solvers::createTotalPressureLoss()
             scalarField p_plus_abs_u = abs_u+pOutlet;
             scalarField int_p_plus_abs_u = p_plus_abs_u*outFaceMag;
             for(scalar val : int_p_plus_abs_u)
-                J -= val;
+                J_outlet -= val;
         }
+        Info<<"Outlet: "<<J_outlet<<Foam::nl;
+        
+        J = J_inlet+J_outlet;
         
         Pstream::gather<scalar>(J,std::plus<scalar>());
         Pstream::scatter<scalar>(J);

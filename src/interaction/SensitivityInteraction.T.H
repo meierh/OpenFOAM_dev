@@ -48,14 +48,18 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamMarkerToField
     
     const std::vector<LagrangianMarker*>& markers = this->structure.getCollectedMarkers();
     
+    if(markers.size()!=markerData.size())
+        FatalErrorInFunction<<"Mismatch in markers.size():"<<markers.size()<<" and markerData.size():"<<markerData.size()<<exit(FatalError);
+    
     // Spread marker field of own markers 
     for(label index=0; index<markerData.size(); index++)
     {
-        const LagrangianMarker& oneMarker = *(markers[index]);
+        const LagrangianMarker* oneMarkerPtr = markers[index];
+        const LagrangianMarker& oneMarker = *(oneMarkerPtr);
         const vector& oneMarkerPos = oneMarker.getMarkerPosition();
         const DynamicList<Pair<label>>& supportCells = oneMarker.getSupportCells();
         
-        vector dX_dParam = structure.dXdParam(&oneMarker,parameter);
+        vector dX_dParam = structure.dXdParam(oneMarkerPtr,parameter);
 
         for(label suppInd=0; suppInd<supportCells.size(); suppInd++)
         {
