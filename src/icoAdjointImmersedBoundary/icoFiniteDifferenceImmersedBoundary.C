@@ -28,16 +28,10 @@ J(obj.J)
     
     if(Pstream::master())
         recordFDFile = std::make_unique<std::ofstream>("fdRecords");
-    
-    icoSolver->checkIOObjects();
-    
+        
     Info<<"--------------------------icoFiniteDifferenceImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"parameter:"<<para.to_string()<<structure->getParameterValue(para)<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoFiniteDifferenceImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
-
-    icoSolver.release();
-    meshPtr.release();
-    timePtr.release();
 }
 
 void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
@@ -75,6 +69,9 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
         fdGradient = (J_eps[0]-J_eps[1])/(2*eps);
         
         if(Pstream::master())
+        {
             (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
+            Info<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<Foam::endl;
+        }
     }
 }
