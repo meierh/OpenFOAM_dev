@@ -81,6 +81,7 @@ class pimpleIBControl : public pimpleSingleRegionControl
 
         bool loop()=delete;
         
+        bool runNonStop(Time& time);
         bool run(Time& time);
         
         bool momentumLoop();
@@ -98,7 +99,9 @@ class pimpleIBControl : public pimpleSingleRegionControl
         void setTemperaturePerformance(SolverPerformance<scalar>* tEqn);
         
         bool isSteady(){return steady;}
-                
+
+        void reset();
+
     protected:
         pimpleNoLoopControl& pimple;        
         void readFromFvSolution();
@@ -130,6 +133,8 @@ class pimpleIBControl : public pimpleSingleRegionControl
         bool advancedInitialConvergence = true;
         scalar convergenceDelay;
         bool convergenceDelaySet;
+
+        bool resetActive = false;
 };
 
 

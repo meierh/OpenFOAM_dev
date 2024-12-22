@@ -560,7 +560,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
     adj_preSolve(adjPimpleCtlr);
-    /*
     do
     {
         adj_moveMesh();
@@ -579,7 +578,6 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
     while (adjPimpleCtlr.adjMomentumLoop());
-    */
     Info<<"--------------------------------------- Solved Adjoint ---------------------------------------"<<Foam::nl;
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
@@ -714,10 +712,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimal
     std::function<void(bool,const Time&,Time&)> writeData
 )
 {   
-    while (adjPimpleCtlr.run(time))
+    do
     {
-        
-        Info<<"-------------------------------------- Presolve Time = "<<runTime.userTimeName()<<" --------------------------------------"<<nl;
+        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
         adjPimpleCtlr.read();
         preSolve(adjPimpleCtlr);
         // Adjust the time-step according to the solver maxDeltaT
@@ -728,9 +725,35 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimal
 
         write_Analysis();
         writeData(false,runTime,time);
-        Info<<"runTime:"<<runTime.toc()<<Foam::nl;
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
+    while (adjPimpleCtlr.run(time));
+    writeData(true,runTime,time);
+    Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
+}
+
+void Foam::solvers::icoAdjointImmersedBoundary::SolvePrimalRepeated
+(
+    std::function<void(bool,const Time&,Time&)> writeData
+)
+{
+    adjPimpleCtlr.reset();
+    do
+    {
+        Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
+        adjPimpleCtlr.read();
+        preSolve(adjPimpleCtlr);
+        // Adjust the time-step according to the solver maxDeltaT
+        adjustDeltaT(time, *this);
+        time++;
+        Info<< "---------------------------------------- Time = "<<runTime.userTimeName()<<" -------------------------------------------"<<nl;
+        icoImmersedBoundary::oneTimestep(adjPimpleCtlr);
+
+        write_Analysis();
+        writeData(false,runTime,time);
+        Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
+    }
+    while (adjPimpleCtlr.runNonStop(time));
     writeData(true,runTime,time);
     Info<<"Primal final time = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
 }

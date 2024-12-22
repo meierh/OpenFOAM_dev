@@ -667,9 +667,12 @@ void Foam::solvers::icoImmersedBoundary::Solve()
     {
         Info<< " Presolve Time = " << runTime.userTimeName() << nl << endl;
         pimpleCtlr.read();
+        Pout<<"pimpleCtlr.read()"<<Foam::endl;
         preSolve(pimpleCtlr);
+        Pout<<"preSolve(pimpleCtlr)"<<Foam::endl;
         // Adjust the time-step according to the solver maxDeltaT
         adjustDeltaT(time, *this);
+        Pout<<"adjustDeltaT(time, *this)"<<Foam::endl;
         time++;
         Info<< "Time = " << runTime.userTimeName() << nl << endl;
             
@@ -677,9 +680,11 @@ void Foam::solvers::icoImmersedBoundary::Solve()
         
         
         write_Analysis();
+        Barrier(false);
+        Pout<<"Barrier(false)"<<Foam::nl;
         runTime.write();
-        Info<<"runTime:"<<runTime.toc()<<Foam::nl;
-    
+        Pout<<"runTime.write();"<<Foam::nl;
+
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;
     }
 }

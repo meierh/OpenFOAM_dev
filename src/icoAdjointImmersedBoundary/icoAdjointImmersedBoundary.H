@@ -132,7 +132,10 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         (
             std::function<void(bool,const Time&, Time&)> writeData = [](bool complete, const Time& runTime, Time& time){runTime.write();}
         );
-;
+        void SolvePrimalRepeated
+        (
+            std::function<void(bool,const Time&, Time&)> writeData = [](bool complete, const Time& runTime, Time& time){runTime.write();}
+        );
 
     protected:
         pimpleAdjIBControl adjPimpleCtlr;

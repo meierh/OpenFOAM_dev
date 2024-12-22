@@ -106,6 +106,11 @@ void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);
 }
 
+bool Foam::solvers::pimpleAdjIBControl::runNonStop(Time& time)
+{
+    return pimpleIBControl::runNonStop(time);
+}
+
 bool Foam::solvers::pimpleAdjIBControl::run(Time& time)
 {
     return pimpleIBControl::run(time);

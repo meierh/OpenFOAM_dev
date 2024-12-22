@@ -162,16 +162,40 @@ void Foam::solvers::pimpleIBControl::readFromFvSolution()
 
 bool Foam::solvers::pimpleIBControl::run(Time& time)
 {
+    return pimpleSingleRegionControl::run(time);
+}
+
+bool Foam::solvers::pimpleIBControl::runNonStop(Time& time)
+{
     momentumInnerIteration = 0;
     temperatureInnerIteration = 0;
-    timeIteration++;
-    return pimpleSingleRegionControl::run(time);
+    if(resetActive)
+    {
+        pimple.storePrevIterFields();
+        resetActive = false;
+        return true;
+    }
+    else
+    {
+        timeIteration++;
+        bool converged = pimple.converged();
+        if(converged)
+        {
+            time.writeNow();
+            return false;
+        }
+        else
+        {
+            pimple.storePrevIterFields();
+            return time.loop();
+        }
+    }
 }
 
 bool Foam::solvers::pimpleIBControl::momentumLoop()
 {    
     bool contLoop;
-    Info<<"||--momentumInnerIteration:"<<momentumInnerIteration<<" timeIteration:"<<timeIteration<<" minMomentumIterations:"<<minMomentumIterations<<" advancedInitialConvergence:"<<advancedInitialConvergence<<Foam::nl;
+    Info<<"||--momentumInnerIteration:"<<momentumInnerIteration<<" timeIteration:"<<timeIteration<<" minMomentumIterations:"<<minMomentumIterations<<" advancedInitialConvergence:"<<advancedInitialConvergence<<Foam::endl;
     if(momentumInnerIteration==0)
     {
         contLoop = true;
@@ -320,4 +344,12 @@ void Foam::solvers::pimpleIBControl::setTemperaturePerformance(SolverPerformance
 {
     temperatureEqns = tEqn;
     temperatureUsed = true;
+}
+
+void Foam::solvers::pimpleIBControl::reset()
+{
+    timeIteration=0;
+    resetActive=true;
+    corr_=0;
+    converged_=false;
 }

@@ -83,6 +83,7 @@ class pimpleAdjIBControl : public pimpleIBControl
 
         bool loop()=delete;
         
+        bool runNonStop(Time& time);
         bool run(Time& time);
         
         bool adjMomentumLoop();
@@ -98,7 +99,7 @@ class pimpleAdjIBControl : public pimpleIBControl
         void setAdjVelocityPerformance(SolverPerformance<vector>* adjUEqn);
         void setAdjPressurePerformance(SolverPerformance<scalar>* adjPEqn);
         void setAdjTemperaturePerformance(SolverPerformance<scalar>* adjTEqn);
-        
+
     private:
         void readFromFvSolution();
         

@@ -70,6 +70,33 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
 {}
 
+void Foam::LineStructure::reInitializeMarkers
+(
+    bool keepMarkers,
+    bool keepSeedPoints
+)
+{
+    check();
+
+    if(!keepSeedPoints)
+    {
+        auto t1 = std::chrono::system_clock::now();
+        createSpacingPoints();
+        auto t2 = std::chrono::system_clock::now();
+        Info<<"createSpacingPoints took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    }
+
+    if(!keepMarkers)
+    {
+        auto t1 = std::chrono::system_clock::now();
+        createMarkersFromSpacedPoints();
+        auto t2 = std::chrono::system_clock::now();
+        Info<<"createMarkersFromSpacedPoints took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count()<<" milliseconds"<<Foam::nl;
+    }
+
+    finalizeMarkers();
+}
+
 void Foam::LineStructure::finalizeMarkers
 (
     bool doRefine
