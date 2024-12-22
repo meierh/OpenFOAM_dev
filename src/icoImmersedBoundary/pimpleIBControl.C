@@ -162,6 +162,8 @@ void Foam::solvers::pimpleIBControl::readFromFvSolution()
 
 bool Foam::solvers::pimpleIBControl::run(Time& time)
 {
+    momentumInnerIteration = 0;
+    temperatureInnerIteration = 0;
     return pimpleSingleRegionControl::run(time);
 }
 
