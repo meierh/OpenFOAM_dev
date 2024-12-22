@@ -91,7 +91,7 @@ class icoFiniteDifferenceImmersedBoundary
         Parameter para;
         std::vector<scalar> epsilons;
         std::function<scalar(const icoAdjointImmersedBoundary&)> J;
-        std::unique_ptr<icoAdjointImmersedBoundary> icoSolver;
+        //std::unique_ptr<icoAdjointImmersedBoundary> icoSolver;
         std::unique_ptr<std::ofstream> recordFDFile;
 };
 

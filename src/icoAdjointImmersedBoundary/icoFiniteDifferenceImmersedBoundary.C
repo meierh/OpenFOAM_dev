@@ -13,7 +13,7 @@ J(obj.J)
 {
     std::unique_ptr<Time> timePtr = createTime(args);
     std::unique_ptr<fvMesh> meshPtr = createMesh(*timePtr);
-    icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
+    auto icoSolver = std::unique_ptr<icoAdjointImmersedBoundary>(new icoAdjointImmersedBoundary(*meshPtr,*timePtr,{para}));
     const std::unique_ptr<LineStructure>& structure = icoSolver->getStructure();
     if(!structure)
         FatalErrorInFunction<<"No structure set"<<exit(FatalError);
@@ -27,15 +27,14 @@ J(obj.J)
         epsilons.push_back(parameterIniValue*(percFD[i]/100));
     
     if(Pstream::master())
+    {
         recordFDFile = std::make_unique<std::ofstream>("fdRecords");
-
+        (*recordFDFile) << std::setprecision(20);
+    }
+        
     Info<<"--------------------------icoFiniteDifferenceImmersedBoundary--------------------------"<<Foam::endl;
     Info<<"parameter:"<<para.to_string()<<structure->getParameterValue(para)<<Foam::endl;
     Info<<"||||||||||||||||||||||||||icoFiniteDifferenceImmersedBoundary||||||||||||||||||||||||||"<<Foam::endl;
-
-    icoSolver.release();
-    meshPtr.release();
-    timePtr.release();
 }
 
 void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
@@ -86,6 +85,10 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
         }
         fdGradient = (J_eps[0]-J_eps[1])/(2*eps);
         if(Pstream::master())
+        {
+            Info<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<Foam::endl;
             (*recordFDFile)<<"val:"<<parameterIniValue<<"  eps:"<<eps<<"  +eps J:"<<J_eps[0]<<"  -eps J:"<<J_eps[1]<<"  fdgrad:"<<fdGradient<<std::endl;
+
+        }
     }
 }

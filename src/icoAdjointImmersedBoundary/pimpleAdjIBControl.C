@@ -11,7 +11,7 @@ pimpleIBControl(pimple,runTime)
 }
 
 void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
-{
+{    
     pimpleIBControl::readFromFvSolution();
     
     IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
@@ -51,7 +51,7 @@ void Foam::solvers::pimpleAdjIBControl::readFromFvSolution()
             adjTemperatureTolerance = adj_tDictToleranceToken.scalarToken();
             adjTemperatureToleranceSet = true;
         }
-                
+
         dictionary& adj_pimpleDict = fvSolutionDict.subDict("adj_PIMPLE");
 
         // Read adjointMomentum

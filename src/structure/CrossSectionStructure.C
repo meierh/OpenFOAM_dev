@@ -151,9 +151,12 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
     const Parameter& par
 )
 {
+    if(marker==nullptr)
+        FatalErrorInFunction<<"Marker is nullptr"<<exit(FatalError);
+    
     vector rodDerive(0,0,0);
-    const LagrangianMarkerOnCrossSec* crossSecMarker;
-    if((crossSecMarker = dynamic_cast<const LagrangianMarkerOnCrossSec*>(marker))!=nullptr)
+    const LagrangianMarkerOnCrossSec* crossSecMarker = dynamic_cast<const LagrangianMarkerOnCrossSec*>(marker);
+    if(crossSecMarker !=nullptr)
     {
         if(par.getType()!=Parameter::Type::None)
             rodDerive = dXdParam(marker->getRodNumber(),marker->getMarkerParameter(),marker->getMarkerAngle(),marker->getMarkerRadiusFrac(),par);

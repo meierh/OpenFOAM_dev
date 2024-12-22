@@ -141,6 +141,8 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         pimpleAdjIBControl adjPimpleCtlr;
         bool steadyStateAdjoint;
         void setupAdjoint();
+        enum SolutionStartType {primal,adjoint,gradient};
+        SolutionStartType solutionStart = SolutionStartType::primal;
         
         //Optimization
         void create_Objective(objectiveFunction& obj);
@@ -210,7 +212,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         void initializeInteractions();
         
         //Gradient Computation
-        std::vector<std::pair<Parameter,scalar>> gradient;
+        std::vector<std::pair<Parameter,scalar>> parameterGradient;
         
         //Objective function
         std::function<scalar(const icoAdjointImmersedBoundary&)> J;
