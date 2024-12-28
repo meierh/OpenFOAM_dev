@@ -194,6 +194,11 @@ bool Foam::solvers::pimpleIBControl::runNonStop(Time& time)
     }
 }
 
+bool Foam::solvers::pimpleIBControl::momentumLoopOrig()
+{
+    return pimpleSingleRegionControl::loop();
+}
+
 bool Foam::solvers::pimpleIBControl::momentumLoop()
 {    
     bool contLoop;

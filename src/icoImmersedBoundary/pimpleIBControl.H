@@ -84,6 +84,7 @@ class pimpleIBControl : public pimpleSingleRegionControl
         bool runNonStop(Time& time);
         bool run(Time& time);
         
+        bool momentumLoopOrig();
         bool momentumLoop();
         bool momentumPredictor();
         bool consistent();
