@@ -476,7 +476,6 @@ void Foam::solvers::icoImmersedBoundary::correctPressure
     pimpleIBControl& pimpleCtlr
 )
 {   
-    Info<<"icoImmersedBoundary::correctPressure"<<Foam::nl;
     volScalarField& p(p_);
     volVectorField& U(U_);
     surfaceScalarField& phi(phi_);
@@ -641,7 +640,7 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
 {
     Info<<"--------------------------------------- Solve Primal ---------------------------------------"<<Foam::nl;
     preMove(pimpleCtlr);
-    while (pimpleCtlr.momentumLoop())
+    while (pimpleCtlr.momentumLoopOrig())
     {
         moveMesh(pimpleCtlr);
         motionCorrector(pimpleCtlr);
