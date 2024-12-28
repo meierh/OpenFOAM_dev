@@ -24,7 +24,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         virtual void preSolveMovement()=0;
         virtual void preSolveMarkerMeshAdaption()=0;
         
-        void solve() override;
+        void solve(const pimpleSingleRegionControl& pimpleCtrl) override;
         virtual void subTimestepStructureMovement()=0;
         virtual void subTimestepMarkerMeshAdaption()=0;
         
@@ -44,25 +44,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         void computeCouplingForceOnMarkers();
         virtual void computeRodForceMoment();
         void interpolateFluidForceField();
-        
-        vector sumForces
-        (
-            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
-        );
-        
-        vector sumMoments
-        (
-            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
-        );
-        
-        bool printSummedRodForces = false;
-        std::string recordRodForceFileName;
-        std::unique_ptr<std::ofstream> recordRodForceFile;
-        
-        bool printSummedRodMoments = false;
-        std::string recordRodMomentFileName;
-        std::unique_ptr<std::ofstream> recordRodMomentFile;
-        
+
         void moveMarkers();
         void meshMarkerAdaptation();
         
@@ -78,6 +60,59 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         DynamicList<vector> rodMoment;
         
         std::map<scalar,std::tuple<DynamicList<vector>,DynamicList<vector>,DynamicList<vector>,DynamicList<vector>>> storage;
+        
+        class SumMarkerForceFile : public MarkerInfoFiles
+        {
+            public:
+                SumMarkerForceFile
+                (
+                    const IOdictionary& structureDict
+                ):
+                MarkerInfoFiles
+                (structureDict,"recordRodForce",true,{"Time","RodInd","Fx","Fy","Fz"})
+                {}
+            
+                void writeSolution(const VelocityPressureForceInteraction& interaction);
+        };        
+        vector sumForces
+        (
+            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
+        );
+        SumMarkerForceFile sumMarkerForceFileObject;
+        
+        class SumMarkerMomentFile : public MarkerInfoFiles
+        {
+            public:
+                SumMarkerMomentFile
+                (
+                    const IOdictionary& structureDict
+                ):
+                MarkerInfoFiles
+                (structureDict,"recordRodMoment",true,{"Time","RodInd","Mx","My","Mz"})
+                {}
+            
+                void writeSolution(const VelocityPressureForceInteraction& interaction);
+        };
+        vector sumMoments
+        (
+            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
+        );
+        SumMarkerMomentFile sumMarkerMomentFileObject;
+        
+        class DetailedMarkerForceFile : public MarkerInfoFiles
+        {
+            public:
+                DetailedMarkerForceFile
+                (
+                    const IOdictionary& structureDict
+                ):
+                MarkerInfoFiles
+                (structureDict,"recordDetailedRodForce",true,{"Time","RodInd","Parameter","Angle","RadiusFrac","Nx","Ny","Nz","Fx","Fy","Fz"})
+                {}
+            
+                void writeSolution(const VelocityPressureForceInteraction& interaction);
+        };
+        DetailedMarkerForceFile detailedMarkerForceFileObject;
 };
 }
 #endif

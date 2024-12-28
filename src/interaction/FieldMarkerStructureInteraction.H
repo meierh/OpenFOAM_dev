@@ -19,7 +19,7 @@ class FieldMarkerStructureInteraction
         );
         virtual ~FieldMarkerStructureInteraction()=default;
 
-        virtual void solve() = 0;
+        virtual void solve(const pimpleSingleRegionControl) = 0;
 
         virtual void store() = 0;
         
@@ -80,6 +80,27 @@ class FieldMarkerStructureInteraction
         const scalar h;
         const markerMeshType modusFieldToMarker;
         const markerMeshType modusMarkerToField;
+        
+        class MarkerInfoFiles
+        {
+            public:
+                MarkerInfoFiles
+                (
+                    const IOdictionary& structureDict,
+                    word dictName,
+                    bool masterFile,
+                    List<word> header
+                );
+
+            protected:
+                void write(List<scalar> values);
+                        
+                bool masterFile;
+                std::string fileName;
+                std::unique_ptr<std::ofstream> filePtr;
+                label columns;
+                bool fileActive;
+        };
 };
 
 #include "FieldMarkerStructureInteraction.T.H"
