@@ -565,7 +565,7 @@ class Structure
         static scalar spacingFromMesh(const fvMesh& mesh, label cellInd=0);
         static void neighbourCells(const fvMesh& mesh, label cellInd, DynamicList<label>& neighbours);
         
-        label findCell(vector position, label cellHint=-1);
+        label findCell(vector position, label cellHint=-1) const;
         
         void writeCellSizeField(volScalarField& field) const;
         

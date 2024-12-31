@@ -3083,7 +3083,7 @@ Foam::label Foam::Structure::findCell
 (
     vector position,
     label cellHint
-)
+) const
 {
     label cellInd = mesh.findCell(position);    
     return cellInd;

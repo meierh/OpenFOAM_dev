@@ -150,7 +150,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
             const scalar markerAngle,
             const scalar radiusFrac
         );
-        
+        vector getMarkerNormal() const override {return markerNormal;}
         inline scalar getMarkerAngle() const override {return markerAngle;}
         inline scalar getMarkerRadiusFrac() const override {return markerRadiusFrac;}
         inline CrossSection* getBaseCrossSec() {return baseCrossSec;}
@@ -163,6 +163,7 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
         
         scalar markerAngle;
         scalar markerRadiusFrac;
+        vector markerNormal;
         CrossSection* baseCrossSec;        
 };
 
@@ -311,7 +312,21 @@ class CrossSectionStructure : public LineStructure
         );
 
     public:
+
+        static vector evaluateRodCircumNormal
+        (
+            const ActiveRodMesh::rodCosserat* oneRod,
+            scalar parameter,
+            scalar angle
+        );
         
+        vector evaluateRodCircumNormal
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle
+        ) override;
+
         vector evaluateRodCircumPos
         (
             label rodNumber,

@@ -12,16 +12,25 @@ Foam::TemperatureInteraction::TemperatureInteraction
 ):
 FieldMarkerStructureInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 input_T(input_T),
-output_Tf(output_Tf)
+output_Tf(output_Tf),
+detailedMarkerTemperatureFileObject(structureDict)
 {
 }
 
-void Foam::TemperatureInteraction::solve()
+void Foam::TemperatureInteraction::solve
+(
+    const pimpleSingleRegionControl& pimpleCtrl
+)
 {
     interpolateTemperatureToMarkers();
     computeCouplingHeatingOnMarkers();
     computeRodHeating();
     interpolateHeatingField();
+    
+    if(pimpleCtrl.finalIter())
+    {
+        detailedMarkerTemperatureFileObject.writeSolution(*this);
+    }
 }
 
 void Foam::TemperatureInteraction::store()
@@ -131,4 +140,91 @@ Foam::scalar Foam::TemperatureInteraction::getTemperature
 )
 {
     return 0;
+}
+
+void Foam::TemperatureInteraction::DetailedMarkerTemperatureFile::writeSolution
+(
+    const TemperatureInteraction& interaction
+)
+{
+    const std::vector<LagrangianMarker*>& markers = interaction.getStructure().getCollectedMarkers();
+    const DynamicList<scalar>& rodHeating = interaction.getRodHeating();
+    const volScalarField& T = interaction.getTemperature();
+    
+    if(rodHeating.size()!=static_cast<label>(markers.size()))
+    {
+        Info<<"rodHeating.size():"<<rodHeating.size()<<Foam::endl;
+        Info<<"markers.size():"<<markers.size()<<Foam::endl;
+        FatalErrorInFunction<<"Mismatch in size of rodHeating and markers"<<exit(FatalError);
+    }
+
+    volVectorField gradT = fvc::grad(T);
+    
+    word interpolationType = "";
+    autoPtr<interpolation<scalar> > Tinterp = interpolation<scalar>::New(interpolationType,T);
+    
+    for(std::size_t i=0; i<markers.size(); i++)
+    {
+        LagrangianMarker* oneMarker = markers[i];
+    //{"Time","RodInd","Parameter","Angle","RadiusFrac","Px","Py","Pz","Nx","Ny","Nz","cellSpacing","rodHeating","T_1n","T_2n","T_4n","T_8n","interpolated_T","dTdn","dTdn_1n","dTdn_2n","dTdn_4n","dTdn_8n"})
+        
+        vector P = oneMarker->getMarkerPosition();
+        vector N = oneMarker->getMarkerNormal();
+        label cellInd = oneMarker->getMarkerCell();
+        scalar interpT = Tinterp->interpolate(P,cellInd);
+        vector cellGradT = gradT[cellInd];
+        scalar dTdn = cellGradT&N;
+        scalar cellSpacing = Structure::spacingFromMesh(interaction.getMesh(),cellInd);
+        FixedList<vector,4> steps = {N*cellSpacing,2*N*cellSpacing,4*N*cellSpacing,8*N*cellSpacing};
+        FixedList<vector,4> points = {P+steps[0],P+steps[1],P+steps[2],P+steps[3]};
+        FixedList<label,4> pointsCell;
+        for(label i=0; i<4; i++)
+            pointsCell[i] = interaction.getStructure().findCell(points[i],cellInd);
+        FixedList<scalar,4> pointsT = {0,0,0,0};
+        for(label i=0; i<4; i++)
+        {
+            if(pointsCell[i]>=0 || pointsCell[i]<T.size())
+                pointsT[i] = Tinterp->interpolate(points[i],pointsCell[i]);
+        }
+        FixedList<scalar,4> pointsdTdn;
+        for(label i=0; i<4; i++)
+        {
+            if(pointsCell[i]>=0 || pointsCell[i]<T.size())
+            {
+                scalar len = std::sqrt(steps[i]&steps[i]);
+                pointsdTdn[i] = (pointsT[i]-interpT)/len;
+            }
+            else
+                pointsdTdn[i] = 0;
+        }
+        
+        List<scalar> line =
+        {
+            interaction.getMesh().time().value(),
+            static_cast<scalar>(oneMarker->getRodNumber()),
+            oneMarker->getMarkerParameter(),
+            oneMarker->getMarkerAngle(),
+            oneMarker->getMarkerRadiusFrac(),
+            P[0],
+            P[1],
+            P[2],
+            N[0],
+            N[1],
+            N[2],
+            cellSpacing,
+            rodHeating[i],
+            pointsT[0],
+            pointsT[1],
+            pointsT[2],
+            pointsT[3],
+            interpT,
+            dTdn,
+            pointsdTdn[0],
+            pointsdTdn[1],
+            pointsdTdn[2],
+            pointsdTdn[3]            
+        };
+        
+        write(line);
+    }
 }

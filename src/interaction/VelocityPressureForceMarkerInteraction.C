@@ -17,7 +17,8 @@ input_U(input_U),
 output_Uf(output_Uf),
 refinement_(refinement_),
 sumMarkerForceFileObject(structureDict),
-sumMarkerMomentFileObject(structureDict)
+sumMarkerMomentFileObject(structureDict),
+detailedMarkerForceFileObject(structureDict)
 {
 }
 
@@ -120,7 +121,7 @@ void Foam::VelocityPressureForceInteraction::moveMarkers()
 Foam::vector Foam::VelocityPressureForceInteraction::sumForces
 (
     std::function<bool(const LagrangianMarker&)> condition
-)
+) const
 {
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
@@ -147,7 +148,7 @@ Foam::vector Foam::VelocityPressureForceInteraction::sumForces
 Foam::vector Foam::VelocityPressureForceInteraction::sumMoments
 (
     std::function<bool(const LagrangianMarker&)> condition
-)
+) const
 {
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     
@@ -216,13 +217,15 @@ void Foam::VelocityPressureForceInteraction::SumMarkerForceFile::writeSolution
 {
     if(fileActive)
     {
-        for(label rodInd=0; structure->getNumberRods(); rodInd++)
+        label nR = interaction.getStructure().getNumberRods();
+        Info<<"nR:"<<nR<<Foam::endl;
+        for(label rodInd=0; rodInd<nR; rodInd++)
         {
-            vector summedForces = sumForces
+            vector summedForces = interaction.sumForces
             (
-                [](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
+                [&](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
             );
-            write({mesh.time().value(),rodInd,summedForces[0],summedForces[1],summedForces[2]});
+            write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedForces[0],summedForces[1],summedForces[2]});
         }
     }
 }
@@ -234,13 +237,15 @@ void Foam::VelocityPressureForceInteraction::SumMarkerMomentFile::writeSolution
 {
     if(fileActive)
     {
-        for(label rodInd=0; structure->getNumberRods(); rodInd++)
+        label nR = interaction.getStructure().getNumberRods();
+        Info<<"nR:"<<nR<<Foam::endl;
+        for(label rodInd=0; rodInd<nR; rodInd++)
         {
-            vector summedMoments = sumMoments
+            vector summedMoments = interaction.sumMoments
             (
-                [](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
+                [&](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
             );
-            write({mesh.time().value(),rodInd,summedMoments[0],summedMoments[1],summedMoments[2]});
+            write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedMoments[0],summedMoments[1],summedMoments[2]});
         }
     }
 }
@@ -250,7 +255,8 @@ void Foam::VelocityPressureForceInteraction::DetailedMarkerForceFile::writeSolut
     const VelocityPressureForceInteraction& interaction
 )
 {
-    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    const std::vector<LagrangianMarker*>& markers = interaction.getStructure().getCollectedMarkers();
+    const DynamicList<vector>& rodForce = interaction.getRodForce();
     
     if(rodForce.size()!=static_cast<label>(markers.size()))
     {
@@ -262,19 +268,29 @@ void Foam::VelocityPressureForceInteraction::DetailedMarkerForceFile::writeSolut
     for(std::size_t i=0; i<markers.size(); i++)
     {
         LagrangianMarker* oneMarker = markers[i];
-    {"Time","RodInd","Parameter","Angle","RadiusFrac","Nx","Ny","Nz","Fx","Fy","Fz"})
+    //{"Time","RodInd","Parameter","Angle","RadiusFrac","Nx","Ny","Nz","Fx","Fy","Fz"})
         
-        write(
+        vector P = oneMarker->getMarkerPosition();
+        vector N = oneMarker->getMarkerNormal();
+        
+        List<scalar> line =
         {
-            mesh.time().value(),
-            oneMarker->getRodNumber(),
+            interaction.getMesh().time().value(),
+            static_cast<scalar>(oneMarker->getRodNumber()),
             oneMarker->getMarkerParameter(),
             oneMarker->getMarkerAngle(),
             oneMarker->getMarkerRadiusFrac(),
-            ,
+            P[0],
+            P[1],
+            P[2],
+            N[0],
+            N[1],
+            N[2],
             rodForce[i][0],
             rodForce[i][1],
             rodForce[i][2]
-        });
+        };
+        
+        write(line);
     }
 }

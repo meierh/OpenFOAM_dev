@@ -55,6 +55,7 @@ class LagrangianMarker
         inline void setMarkerWeight(scalar weight) {markerWeight=weight;}
         inline scalar getMarkerWeight() const {return markerWeight;}
         inline scalar getMarkerCharacLen() const {return markerCharLen;}
+        virtual vector getMarkerNormal() const {return vector(0,0,0);}
         virtual inline scalar getMarkerAngle() const {return 0;}
         virtual inline scalar getMarkerRadiusFrac() const {return 0;}
         inline const DynamicList<Pair<label>>& getSupportCells(SupportType type=SupportType::Direct) const
@@ -649,6 +650,13 @@ class LineStructure : public Structure
         };
         
         const List<scalar>& getCrossSecArea() const {return crossSecArea;}
+        
+        virtual vector evaluateRodCircumNormal
+        (
+            label rodNumber,
+            scalar parameter,
+            scalar angle
+        );
         
         virtual vector evaluateRodCircumPos
         (

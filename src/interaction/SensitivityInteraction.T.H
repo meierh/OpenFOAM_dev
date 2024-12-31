@@ -48,7 +48,7 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamMarkerToField
     
     const std::vector<LagrangianMarker*>& markers = this->structure.getCollectedMarkers();
     
-    if(markers.size()!=markerData.size())
+    if(static_cast<label>(markers.size())!=markerData.size())
         FatalErrorInFunction<<"Mismatch in markers.size():"<<markers.size()<<" and markerData.size():"<<markerData.size()<<exit(FatalError);
     
     // Spread marker field of own markers 

@@ -1927,6 +1927,42 @@ Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
     return Foam::mag(connec);
 }
 
+Foam::vector Foam::CrossSectionStructure::evaluateRodCircumNormal
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar parameter,
+    scalar angle
+)
+{
+    vector d1,d2,d3,r;
+    rodEval(oneRod,parameter,d1,d2,d3,r);
+    vector coordXDir = std::cos(angle)*d1;
+    vector coordYDir = std::sin(angle)*d2;
+    vector n = coordXDir+coordYDir;
+    scalar len_n = std::sqrt(n&n);    
+    if(len_n<1e-10)
+        FatalErrorInFunction<<"Normal len too small"<<exit(FatalError);
+    return n/len_n;
+}
+
+Foam::vector Foam::CrossSectionStructure::evaluateRodCircumNormal
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle
+)
+{   
+    vector d1,d2,d3,r;
+    rodEval(rodNumber,parameter,d1,d2,d3,r);
+    vector coordXDir = std::cos(angle)*d1;
+    vector coordYDir = std::sin(angle)*d2;
+    vector n = coordXDir+coordYDir;
+    scalar len_n = std::sqrt(n&n);
+    if(len_n<1e-10)
+        FatalErrorInFunction<<"Normal len too small"<<exit(FatalError);
+    return n/len_n;
+}
+
 Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
 (
     const ActiveRodMesh::rodCosserat* oneRod,

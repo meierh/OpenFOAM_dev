@@ -61,6 +61,7 @@ void Foam::LagrangianMarkerOnCrossSec::evaluateMarker()
     computeCharacLength();
     //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::computeCharacLength"<<Foam::nl;
     //auto t8 = std::chrono::system_clock::now();
+    markerNormal = structure.evaluateRodCircumNormal(rodNumber,markerParameter,markerAngle);
     
     /*
     if(paraMarker.find(markerParameter)==paraMarker.end())

@@ -101,3 +101,68 @@ void Foam::FieldMarkerStructureInteraction::scatterNurbs
         out.second = nurbsData[6][0];
     }
 }
+
+Foam::FieldMarkerStructureInteraction::MarkerInfoFiles::MarkerInfoFiles
+(
+    const IOdictionary& structureDict,
+    Foam::word dictName,
+    bool masterFile,
+    List<word> header
+):
+masterFile(masterFile),
+columns(header.size()),
+fileActive(false)
+{
+    if(structureDict.found(dictName))
+    {
+        ITstream markerInfoFilesStream = structureDict.lookup(dictName);
+        token markerInfoFilesToken;
+        markerInfoFilesStream.read(markerInfoFilesToken);
+        if(!markerInfoFilesToken.isString())
+            FatalErrorInFunction<<"Invalid entry in structure/structureDict/"<<dictName<<" -- must be string"<<exit(FatalError);
+        fileName = markerInfoFilesToken.stringToken();
+        fileActive = true;
+        if(masterFile)
+        {
+            if(Pstream::master())
+                filePtr = std::make_unique<std::ofstream>(fileName);
+        }
+        else
+        {
+            filePtr = std::make_unique<std::ofstream>(fileName);
+        }
+    }
+    
+    if(filePtr)
+    {
+        for(label headerInd=0; headerInd<header.size(); headerInd++)
+        {
+            (*filePtr)<<header[headerInd];
+            if(headerInd<header.size()-1)
+                (*filePtr)<<",";
+            else
+                (*filePtr)<<std::endl;
+        }
+    }
+}
+
+void Foam::FieldMarkerStructureInteraction::MarkerInfoFiles::write
+(
+    List<scalar> values
+)
+{
+    if(values.size()!=columns)
+        FatalErrorInFunction<<"Mismatch in column number"<<exit(FatalError);
+    
+    if(filePtr)
+    {
+        for(label colInd=0; colInd<columns; colInd++)
+        {
+            (*filePtr)<<values[colInd];
+            if(colInd<columns-1)
+                (*filePtr)<<",";
+            else
+                (*filePtr)<<std::endl;
+        }
+    }
+}

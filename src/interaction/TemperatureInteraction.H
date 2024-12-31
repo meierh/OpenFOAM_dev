@@ -1,6 +1,8 @@
 #ifndef TEMPERATUREINTERACTION_H
 #define TEMPERATUREINTERACTION_H
 #include "FieldMarkerStructureInteraction.H"
+#include "fvc.H"
+#include "interpolation.H"
 
 namespace Foam
 {
@@ -19,7 +21,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
-        void solve() override;
+        void solve(const pimpleSingleRegionControl&) override;
         
         void store() override;
         void setToTime(scalar time) override;
@@ -43,6 +45,9 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         );
         
         scalar getTemperature(const LagrangianMarker* marker);
+        
+        const DynamicList<scalar>& getRodHeating() const {return rodHeating;}
+        const volScalarField& getTemperature() const {return input_T;}
 
     private:
         volScalarField& input_T;
@@ -54,7 +59,22 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
         
         std::map<scalar,std::tuple<DynamicList<scalar>,DynamicList<scalar>,DynamicList<scalar>>> storage;
         
-        void assignForceOnRod();
+        //void assignForceOnRod();
+        
+        class DetailedMarkerTemperatureFile : public MarkerInfoFiles
+        {
+            public:
+                DetailedMarkerTemperatureFile
+                (
+                    const IOdictionary& structureDict
+                ):
+                MarkerInfoFiles
+                (structureDict,"recordDetailedMarkerTemperature",true,{"Time","RodInd","Parameter","Angle","RadiusFrac","Px","Py","Pz","Nx","Ny","Nz","T","dTdn"})
+                {}
+            
+                void writeSolution(const TemperatureInteraction& interaction);
+        };
+        DetailedMarkerTemperatureFile detailedMarkerTemperatureFileObject;
 };
 
 }

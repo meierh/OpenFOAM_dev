@@ -24,7 +24,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         virtual void preSolveMovement()=0;
         virtual void preSolveMarkerMeshAdaption()=0;
         
-        void solve(const pimpleSingleRegionControl& pimpleCtrl) override;
+        void solve(const pimpleSingleRegionControl&) override;
         virtual void subTimestepStructureMovement()=0;
         virtual void subTimestepMarkerMeshAdaption()=0;
         
@@ -38,6 +38,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         const volVectorField& getVelocityField() const {return input_U;}
         
         void recomputeMarkerValues() override;
+        
+        const DynamicList<vector>& getRodForce() const {return rodForce;}
         
     protected:
         void interpolateFluidVelocityToMarkers();
@@ -76,8 +78,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         };        
         vector sumForces
         (
-            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
-        );
+            std::function<bool(const LagrangianMarker&)> condition = [](const LagrangianMarker& marker){return true;}
+        ) const ;
         SumMarkerForceFile sumMarkerForceFileObject;
         
         class SumMarkerMomentFile : public MarkerInfoFiles
@@ -95,8 +97,8 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         };
         vector sumMoments
         (
-            std::function<bool(LagrangianMarker)> condition = [](LagrangianMarker marker){return true;}
-        );
+            std::function<bool(const LagrangianMarker&)> condition = [](const LagrangianMarker& marker){return true;}
+        ) const;
         SumMarkerMomentFile sumMarkerMomentFileObject;
         
         class DetailedMarkerForceFile : public MarkerInfoFiles
@@ -107,7 +109,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
                     const IOdictionary& structureDict
                 ):
                 MarkerInfoFiles
-                (structureDict,"recordDetailedRodForce",true,{"Time","RodInd","Parameter","Angle","RadiusFrac","Nx","Ny","Nz","Fx","Fy","Fz"})
+                (structureDict,"recordDetailedMarkerRodForce",true,{"Time","RodInd","Parameter","Angle","RadiusFrac","Px","Py","Pz","Nx","Ny","Nz","Fx","Fy","Fz"})
                 {}
             
                 void writeSolution(const VelocityPressureForceInteraction& interaction);

@@ -1,6 +1,7 @@
 #ifndef FIELDMARKERSTRUCTUREINTERACTION_H
 #define FIELDMARKERSTRUCTUREINTERACTION_H
 #include "LineStructure.H"
+#include "pimpleSingleRegionControl.H"
 
 namespace Foam
 {
@@ -19,13 +20,16 @@ class FieldMarkerStructureInteraction
         );
         virtual ~FieldMarkerStructureInteraction()=default;
 
-        virtual void solve(const pimpleSingleRegionControl) = 0;
+        virtual void solve(const pimpleSingleRegionControl&) = 0;
 
         virtual void store() = 0;
         
         virtual void setToTime(scalar time) = 0;
         
         virtual void recomputeMarkerValues() = 0;
+        
+        const LineStructure& getStructure() const {return structure;}
+        const fvMesh& getMesh() const {return mesh;}
         
     protected:
         ActiveRodMesh::rodMesh* rodMesh;        

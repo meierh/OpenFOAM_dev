@@ -122,11 +122,12 @@ class pimpleIBControl : public pimpleSingleRegionControl
         
         // Temperature system
         SolverPerformance<scalar>* temperatureEqns;
-        scalar temperatureTolerance;
-        bool temperatureToleranceSet = false;
-        label temperatureInnerIteration;
-        label minTemperatureIterations=1;
-        scalar temperatureIterTolFrac=1;
+        label nOuterTemperatureCorrector;
+        label iOuterTemperatureCorrector;
+        bool nOuterTemperatureCorrectorSet = false;
+        bool TTimestepToleranceSet = false;
+        scalar TTimestepTolerance;
+        //bool TConverged = false;
         bool temperatureUsed = false;
         
         //Full system

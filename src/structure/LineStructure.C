@@ -1468,6 +1468,17 @@ void Foam::LineStructure::setDeformation
     setupRodBoundingBoxTree();
 }
 
+Foam::vector Foam::LineStructure::evaluateRodCircumNormal
+(
+    label rodNumber,
+    scalar parameter,
+    scalar angle
+)
+{
+    FatalErrorInFunction<<"Invalid call"<<exit(FatalError);
+    return vector(0,0,0);
+}
+
 Foam::vector Foam::LineStructure::evaluateRodCircumPos
 (
     label rodNumber,
