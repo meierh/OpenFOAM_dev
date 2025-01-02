@@ -15,6 +15,7 @@ timeIteration(0)
 
 void Foam::solvers::pimpleIBControl::readFromFvSolution()
 {
+    Info<<"Foam::solvers::pimpleIBControl::readFromFvSolution"<<Foam::endl;
     IOobject fvSolutionIO("fvSolution","system",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
     if(!fvSolutionIO.filePath("",true).empty())
     {
@@ -177,8 +178,13 @@ void Foam::solvers::pimpleIBControl::readFromFvSolution()
                     FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/outerCorrectorResidualControl/T/tolerance -- must be scalar"<<exit(FatalError);
                 TTimestepTolerance = TTimestepToleranceToken.scalarToken();
                 TTimestepToleranceSet = true;
+                Info<<"TTimestepToleranceSet true"<<Foam::endl;
             }
+            else
+                Info<<"No T found"<<Foam::endl;
         }
+        else
+            Info<<"No outerCorrectorResidualControl directory"<<Foam::endl;
     }
     else
         FatalErrorInFunction<<"Missing file in system/fvSolution"<<exit(FatalError);    
@@ -322,7 +328,6 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
         iOuterTemperatureCorrector++;
         if(TTimestepToleranceSet && iOuterTemperatureCorrector>1)
         {
-            return true;
             if(temperatureEqns==nullptr)
                 FatalErrorInFunction<<"temperatureEqns not set!"<<exit(FatalError);
             //bool tEqnConverged = temperatureEqns->converged();

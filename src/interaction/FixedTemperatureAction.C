@@ -10,7 +10,8 @@ Foam::FixedTemperatureAction::FixedTemperatureAction
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-TemperatureInteraction(mesh,structure,input_T,output_Tf,structureDict,modusFieldToMarker,modusMarkerToField)
+TemperatureInteraction(mesh,structure,input_T,output_Tf,structureDict,modusFieldToMarker,modusMarkerToField),
+fixedTemperature(readTemperatureFromDict())
 {
 }
 

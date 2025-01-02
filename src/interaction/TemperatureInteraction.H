@@ -44,7 +44,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
                                 [](LagrangianMarker marker){return true;}
         );
         
-        scalar getTemperature(const LagrangianMarker* marker);
+        virtual scalar getTemperature(const LagrangianMarker* marker) = 0;
         
         const DynamicList<scalar>& getRodHeating() const {return rodHeating;}
         const volScalarField& getTemperature() const {return input_T;}

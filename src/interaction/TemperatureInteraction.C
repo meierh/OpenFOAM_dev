@@ -134,14 +134,6 @@ Foam::scalar Foam::TemperatureInteraction::sumHeating
     return result;
 }
 
-Foam::scalar Foam::TemperatureInteraction::getTemperature
-(
-    const LagrangianMarker* marker
-)
-{
-    return 0;
-}
-
 void Foam::TemperatureInteraction::DetailedMarkerTemperatureFile::writeSolution
 (
     const TemperatureInteraction& interaction

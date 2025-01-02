@@ -20,7 +20,7 @@ class FixedTemperatureAction : public TemperatureInteraction
         );
         
     protected:
-        scalar getTemperature(const LagrangianMarker* marker);
+        scalar getTemperature(const LagrangianMarker* marker) override;
         
     private:
         scalar readTemperatureFromDict();
