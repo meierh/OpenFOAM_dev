@@ -619,7 +619,7 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
     bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> forcedSpacing
 )
-{    
+{   
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     CrossSection& crossSec = rodCrossSection[rodNumber];
     if(rodMarkersList[rodNumber])
@@ -639,7 +639,7 @@ void Foam::CrossSectionStructure::refineMarkersOnRod
             {
                 std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>>& radialMarkers = *iterRadial;
                 //Info<<"\t\t radialMarkers.second.size():"<<radialMarkers.second.size();
-                //Info<<"  radialMarkers:"<<radialMarkers.first<<Foam::nl;
+                //Info<<"    radialMarkers:"<<radialMarkers.first<<Foam::nl;
                 scalar radialFrac = radialMarkers.first;
                 
                 bool isRadialCenter = false;
@@ -1056,7 +1056,7 @@ void Foam::CrossSectionStructure::refineRadial
     bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> refineSpacing
 )
-{
+{   
     //auto t0 = std::chrono::system_clock::now();
     //auto start = t0;
     //Info<<"refineRadial"<<Foam::nl;
@@ -1127,7 +1127,7 @@ void Foam::CrossSectionStructure::refineRadial
             //Info<<"radMarker0CellSpacing:"<<radMarker0CellSpacing<<"  radMarker1CellSpacing:"<<radMarker1CellSpacing<<Foam::nl;
             //Info<<"radMarker0InCell:"<<radMarker0InCell<<"  radMarker1InCell:"<<radMarker1InCell<<Foam::nl;
             
-            scalar maxDist = std::numeric_limits<scalar>::max();
+            scalar maxDist = std::numeric_limits<scalar>::min();
             for(auto iter=radMarkerIter0->second.begin(); iter!=radMarkerIter0->second.end(); iter++)
             {
                 scalar angle = iter->getMarkerAngle();
@@ -1163,6 +1163,7 @@ void Foam::CrossSectionStructure::refineRadial
                 if(maxDist>refineSpacing.second)
                     subdivide=true;
             }
+            //Info<<"\tSubdivide:"<<subdivide<<"  --  maxDist:"<<maxDist<<" > refineSpacing.second"<<refineSpacing.second<<Foam::nl;
             if(radMarker0InCell || radMarker1InCell)
             {
                 scalar minSpacing = std::min(radMarker0CellSpacing,radMarker1CellSpacing);
@@ -1175,12 +1176,14 @@ void Foam::CrossSectionStructure::refineRadial
                 }
                 if(maxDist > minSpacing*refnRodMarkersDistToMeshSpacing)
                     subdivide=true;
+                
+                //Info<<"\tSubdivide:"<<subdivide<<"  --  maxDist:"<<maxDist<<"> minSpacing*refnRodMarkersDistToMeshSpacing:"<<(minSpacing*refnRodMarkersDistToMeshSpacing)<<Foam::nl;
             }
 
             if(subdivide)
             {
                 scalar middleRadiusFrac = 0.5*(radMarker0RadFrac + radMarker1RadFrac);
-                //Info<<"\tSubdivide:"<<"middleRadiusFrac:"<<middleRadiusFrac<<" radMarker0RadFrac:"<<radMarker0RadFrac<<" radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::nl;
+                //Info<<"\tSubdivide:"<<"middleRadiusFrac:"<<middleRadiusFrac<<" radMarker0RadFrac:"<<radMarker0RadFrac<<" radMarker1RadFrac:"<<radMarker1RadFrac<<Foam::nl<<Foam::nl;
                 std::vector<scalar> angleData;
                 createSpacedPointsOnCrossSec
                 (
@@ -1219,7 +1222,7 @@ void Foam::CrossSectionStructure::refineTangential
     bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> refineSpacing
 )
-{
+{    
     //auto t0 = std::chrono::system_clock::now();
     //auto start = t0;
     

@@ -110,7 +110,7 @@ void Foam::LineStructure::refineEvaluateReduceCollect
 (
     bool doRefine
 )
-{
+{   
     auto start = std::chrono::system_clock::now();
     
     auto t1 = std::chrono::system_clock::now();
@@ -525,7 +525,7 @@ void Foam::LineStructure::refineMarkersOnRod
     bool useMarkerCharLenSpacing,
     std::pair<bool,scalar> forcedSpacing
 )
-{
+{    
     const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodNumber];
     if(rodMarkersList[rodNumber])
     {
@@ -708,8 +708,6 @@ void Foam::LineStructure::evaluateMarkerMeshRelation
 
 void Foam::LineStructure::reduceMarkers()
 {
-    std::cout<<"LineStructure::reduceMarkers()"<<std::endl;
-
     status.execValid(status.markersReduction);
     std::vector<MarkerReference<LagrangianMarker>> allMarkers;
     for(std::unique_ptr<std::list<LagrangianMarker>>& singleRodMarkersPtr : rodMarkersList)
