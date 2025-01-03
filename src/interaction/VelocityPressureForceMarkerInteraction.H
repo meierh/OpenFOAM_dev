@@ -24,7 +24,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         virtual void preSolveMovement()=0;
         virtual void preSolveMarkerMeshAdaption()=0;
         
-        void solve(const pimpleSingleRegionControl&) override;
+        void solve(bool finalIteration) override;
         virtual void subTimestepStructureMovement()=0;
         virtual void subTimestepMarkerMeshAdaption()=0;
         

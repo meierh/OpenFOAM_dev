@@ -21,7 +21,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
-        void solve(const pimpleSingleRegionControl&) override;
+        void solve(bool finalIteration) override;
         
         void store() override;
         void setToTime(scalar time) override;
@@ -69,7 +69,8 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
                     const IOdictionary& structureDict
                 ):
                 MarkerInfoFiles
-                (structureDict,"recordDetailedMarkerTemperature",true,{"Time","RodInd","Parameter","Angle","RadiusFrac","Px","Py","Pz","Nx","Ny","Nz","T","dTdn"})
+                (structureDict,"recordDetailedMarkerTemperature",true,{"Time","RodInd","Parameter","Angle","RadiusFrac","Px","Py","Pz","Nx","Ny","Nz","cellSpacing","rodHeating","T_1n","T_2n","T_4n","T_8n","interpolated_T","dTdn","dTdn_1n","dTdn_2n","dTdn_4n","dTdn_8n"}
+                )
                 {}
             
                 void writeSolution(const TemperatureInteraction& interaction);

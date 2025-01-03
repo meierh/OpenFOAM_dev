@@ -165,4 +165,6 @@ void Foam::FieldMarkerStructureInteraction::MarkerInfoFiles::write
                 (*filePtr)<<std::endl;
         }
     }
+    else
+        FatalErrorInFunction<<"No file"<<exit(FatalError);
 }

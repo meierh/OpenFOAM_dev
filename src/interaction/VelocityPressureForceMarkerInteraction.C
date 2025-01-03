@@ -24,7 +24,7 @@ detailedMarkerForceFileObject(structureDict)
 
 void Foam::VelocityPressureForceInteraction::solve
 (
-    const pimpleSingleRegionControl& pimpleCtrl
+    bool finalIteration
 )
 {
     interpolateFluidVelocityToMarkers();
@@ -32,7 +32,7 @@ void Foam::VelocityPressureForceInteraction::solve
     computeRodForceMoment();
     interpolateFluidForceField();
     
-    if(pimpleCtrl.finalIter())
+    if(finalIteration)
     {
         sumMarkerForceFileObject.writeSolution(*this);
         sumMarkerMomentFileObject.writeSolution(*this);
@@ -225,7 +225,10 @@ void Foam::VelocityPressureForceInteraction::SumMarkerForceFile::writeSolution
             (
                 [&](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
             );
-            write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedForces[0],summedForces[1],summedForces[2]});
+            if(Pstream::master())
+            {
+                write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedForces[0],summedForces[1],summedForces[2]});
+            }
         }
     }
 }
@@ -245,7 +248,10 @@ void Foam::VelocityPressureForceInteraction::SumMarkerMomentFile::writeSolution
             (
                 [&](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
             );
-            write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedMoments[0],summedMoments[1],summedMoments[2]});
+            if(Pstream::master())
+            {
+                write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedMoments[0],summedMoments[1],summedMoments[2]});
+            }
         }
     }
 }
@@ -265,6 +271,8 @@ void Foam::VelocityPressureForceInteraction::DetailedMarkerForceFile::writeSolut
         FatalErrorInFunction<<"Mismatch in size of rodForce and markers"<<exit(FatalError);
     }
     
+    List<DynamicList<List<scalar>>> globalLines(Pstream::nProcs());
+    DynamicList<List<scalar>>& lines = globalLines[Pstream::myProcNo()];    
     for(std::size_t i=0; i<markers.size(); i++)
     {
         LagrangianMarker* oneMarker = markers[i];
@@ -291,6 +299,15 @@ void Foam::VelocityPressureForceInteraction::DetailedMarkerForceFile::writeSolut
             rodForce[i][2]
         };
         
-        write(line);
+        lines.append(line);
+    }
+    Pstream::gatherList(globalLines);
+    if(Pstream::master())
+    {
+        for(const DynamicList<List<scalar>>& oneProcLines : globalLines)
+        {
+            for(const List<scalar>& line : oneProcLines)
+                write(line);
+        }
     }
 }

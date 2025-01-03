@@ -100,6 +100,8 @@ class pimpleIBControl : public pimpleSingleRegionControl
         void setTemperaturePerformance(SolverPerformance<scalar>* tEqn);
         
         bool isSteady(){return steady;}
+        
+        bool finalHeatIter() const {return finalHeatIterSet;}
 
         void reset();
 
@@ -127,6 +129,7 @@ class pimpleIBControl : public pimpleSingleRegionControl
         bool nOuterTemperatureCorrectorSet = false;
         bool TTimestepToleranceSet = false;
         scalar TTimestepTolerance;
+        bool finalHeatIterSet = false;
         //bool TConverged = false;
         bool temperatureUsed = false;
         

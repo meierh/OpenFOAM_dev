@@ -323,6 +323,13 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
     if(!nOuterTemperatureCorrectorSet)
         FatalErrorInFunction<<"nOuterTemperatureCorrector not set"<<exit(FatalError);
     
+    if(finalHeatIterSet)
+    {
+        finalHeatIterSet = false;
+        return false;
+    }
+    
+    bool continueLoop;
     if(iOuterTemperatureCorrector<nOuterTemperatureCorrector)
     {
         iOuterTemperatureCorrector++;
@@ -334,17 +341,22 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
             scalar tInitialRes = temperatureEqns->initialResidual();
             bool tIterationConverged = (tInitialRes<TTimestepTolerance);
             if(tIterationConverged)
-                return false;
+                continueLoop = false;
             else
-                return true;
+                continueLoop = true;
         }
         else
-            return true;
+            continueLoop = true;
     }
     else
     {
-        return false;
+        continueLoop = false;
     }
+    
+    if(!continueLoop)
+        finalHeatIterSet = true;
+    
+    return true;
 }
 
 /*

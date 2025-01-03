@@ -1,9 +1,15 @@
 EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
     -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(FOAM_MODULES)/fluidSolver/lnInclude \
+    -I$(FOAM_MODULES)/incompressibleFluid/lnInclude \
+    -I$(LIB_SRC)/MomentumTransportModels/momentumTransportModels/lnInclude \
     -I$(LIB_SRC)/fvMotionSolver/lnInclude \
+    -I$(LIB_SRC)/physicalProperties/lnInclude \
+    -I$(LIB_SRC)/MomentumTransportModels/incompressible/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/structure/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/meshRefiner/lnInclude \
+    -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/icoImmersedBoundary/lnInclude \
     -isystem$(WM_THIRD_PARTY_DIR)/tinyxml2 \
     -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src \
     -isystem$(WM_THIRD_PARTY_DIR)/ActiveRodMesh/ActiveRodMesh/src/rodContact \
@@ -26,6 +32,7 @@ EXE_INC = \
 
 LIB_LIBS = \
     -lfiniteVolume \
+    -lincompressibleFluid \
     -lmeshTools \
     -lfvMotionSolvers \
     $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
@@ -35,6 +42,7 @@ LIB_LIBS = \
     -L$(FOAM_USER_LIBBIN) \
     -lStructure \
     -lMeshRefiner \
+    -licoImmersedBoundary \
     -L$(WM_THIRD_PARTY_DIR)/nlopt/build \
     -lnlopt \
     -L$(WM_THIRD_PARTY_DIR)/gismo-stable_20160712/build/lib \

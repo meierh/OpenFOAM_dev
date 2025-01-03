@@ -19,7 +19,7 @@ detailedMarkerTemperatureFileObject(structureDict)
 
 void Foam::TemperatureInteraction::solve
 (
-    const pimpleSingleRegionControl& pimpleCtrl
+    bool finalIteration
 )
 {
     interpolateTemperatureToMarkers();
@@ -27,7 +27,7 @@ void Foam::TemperatureInteraction::solve
     computeRodHeating();
     interpolateHeatingField();
     
-    if(pimpleCtrl.finalIter())
+    if(finalIteration)
     {
         detailedMarkerTemperatureFileObject.writeSolution(*this);
     }
@@ -152,9 +152,11 @@ void Foam::TemperatureInteraction::DetailedMarkerTemperatureFile::writeSolution
 
     volVectorField gradT = fvc::grad(T);
     
-    word interpolationType = "";
+    word interpolationType = "pointMVC";
     autoPtr<interpolation<scalar> > Tinterp = interpolation<scalar>::New(interpolationType,T);
     
+    List<DynamicList<List<scalar>>> globalLines(Pstream::nProcs());
+    DynamicList<List<scalar>>& lines = globalLines[Pstream::myProcNo()];
     for(std::size_t i=0; i<markers.size(); i++)
     {
         LagrangianMarker* oneMarker = markers[i];
@@ -217,6 +219,15 @@ void Foam::TemperatureInteraction::DetailedMarkerTemperatureFile::writeSolution
             pointsdTdn[3]            
         };
         
-        write(line);
+        lines.append(line);        
+    }
+    Pstream::gatherList(globalLines);
+    if(Pstream::master())
+    {
+        for(const DynamicList<List<scalar>>& oneProcLines : globalLines)
+        {
+            for(const List<scalar>& line : oneProcLines)
+                write(line);
+        }
     }
 }

@@ -1,7 +1,6 @@
 #ifndef FIELDMARKERSTRUCTUREINTERACTION_H
 #define FIELDMARKERSTRUCTUREINTERACTION_H
 #include "LineStructure.H"
-#include "pimpleSingleRegionControl.H"
 
 namespace Foam
 {
@@ -20,7 +19,7 @@ class FieldMarkerStructureInteraction
         );
         virtual ~FieldMarkerStructureInteraction()=default;
 
-        virtual void solve(const pimpleSingleRegionControl&) = 0;
+        virtual void solve(bool finalIteration) = 0;
 
         virtual void store() = 0;
         
