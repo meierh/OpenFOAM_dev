@@ -152,7 +152,7 @@ void Foam::TemperatureInteraction::DetailedMarkerTemperatureFile::writeSolution
 
     volVectorField gradT = fvc::grad(T);
     
-    word interpolationType = "pointMVC";
+    word interpolationType = "cell";
     autoPtr<interpolation<scalar> > Tinterp = interpolation<scalar>::New(interpolationType,T);
     
     List<DynamicList<List<scalar>>> globalLines(Pstream::nProcs());
