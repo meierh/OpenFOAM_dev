@@ -1378,19 +1378,225 @@ void Foam::Structure::minGradStep
 
 void Foam::Structure::linearLeastSquare
 (
-    const List<vector>& points,
-    const List<scalar>& parameters,
+    const List<vector>& pointValues,
+    const List<scalar>& points,
     const gsNurbs<scalar>& nurbs,
     gsMatrix<scalar>& fittedCoeffs
 )
 {
+    if(points.size()!=pointValues.size())
+        FatalErrorInFunction<<"Mismatch in value number"<<exit(FatalError);
+    
+    std::multimap<scalar,vector> orderedPointsToValues;
+    for(label i=0; i<points.size(); i++)
+        orderedPointsToValues.insert({points[i],pointValues[i]});    
+    
+    std::set<scalar> knotMap;
+    for(scalar knot : nurbs.knots())
+        knotMap.insert(knot);
+    
+    List<std::pair<scalar,std::multimap<scalar,vector>>> knotsUniqueOrdered(knotMap.size());
+    label i=0;
+    for(auto iter=knotMap.begin(); iter!=knotMap.end(); iter++,i++)
+        knotsUniqueOrdered[i].first = *iter;
+    for(i=0; i<knotsUniqueOrdered.size()-1; i++)
+    {
+        scalar startValue = knotsUniqueOrdered[i].first;
+        std::multimap<scalar,vector>::iterator startIter = orderedPointsToValues.lower_bound(startValue);
+        scalar endValue = knotsUniqueOrdered[i+1].first;
+        std::multimap<scalar,vector>::iterator endIter = orderedPointsToValues.upper_bound(endValue);
+        for(auto iter=startIter; iter!=endIter; iter++)
+        {
+            knotsUniqueOrdered[i].second.insert({iter->first,iter->second});
+        }
+    }
+    label leftMarker=-1;
+    List<label> nextLeft(knotMap.size());
+    for(i=0; i<nextLeft.size(); i++)
+    {
+        nextLeft[i] = leftMarker;
+        if(knotsUniqueOrdered[i].second.size()>0)
+            leftMarker = i;
+    }
+    label rightMarker=knotMap.size();
+    List<label> nextRight(knotMap.size());  
+    for(i=nextRight.size()-1; i>=0; i--)
+    {
+        nextRight[i] = rightMarker;
+        if(knotsUniqueOrdered[i].second.size()>0)
+            rightMarker = i;
+    }
+    
+    Info<<"Pre fill in"<<Foam::endl;
+    for(label k=0; k<knotsUniqueOrdered.size(); k++)
+    {
+        Info<<"k:"<<k<<" -  "<<knotsUniqueOrdered[k].first;
+        for(std::pair<scalar,vector> val : knotsUniqueOrdered[k].second)
+            Info<<"("<<val.first<<";"<<val.second<<") ";
+        Info<<Foam::endl;
+    }
+    
+    label numberOfSubsteps = 2;
+    for(i=0; i<knotsUniqueOrdered.size()-1; i++)
+    {
+        scalar knotVal = knotsUniqueOrdered[i].first;
+        scalar nextKnotVal = knotsUniqueOrdered[i+1].first;
+        scalar span = nextKnotVal-knotVal;
+        if(knotsUniqueOrdered[i].second.size()==0)
+        {
+            label left = nextLeft[i];
+            label right = nextRight[i];
+            if(left<0 && right>=knotsUniqueOrdered.size())
+            {
+                FatalErrorInFunction<<"No reference data"<<exit(FatalError);
+            }
+            else if(left<0)
+            {
+                const std::multimap<scalar,vector>& rhsValues = knotsUniqueOrdered[right].second;
+                auto rhsSmallest = rhsValues.begin();
+                for(scalar c=0; c<numberOfSubsteps; c++)
+                    knotsUniqueOrdered[i].second.insert({knotVal+span*(c/numberOfSubsteps),rhsSmallest->second});
+            }
+            else if(right>=knotsUniqueOrdered.size())
+            {
+                const std::multimap<scalar,vector>& lhsValues = knotsUniqueOrdered[left].second;
+                auto lhsLargest = lhsValues.end();
+                lhsLargest--;
+                for(scalar c=0; c<numberOfSubsteps; c++)
+                    knotsUniqueOrdered[i].second.insert({knotVal+span*(c/numberOfSubsteps),lhsLargest->second});
+            }
+            else
+            {
+                const std::multimap<scalar,vector>& lhsValues = knotsUniqueOrdered[left].second;
+                auto lhsLargest = lhsValues.end();
+                lhsLargest--;
+                std::pair<scalar,vector> lhsVal = *lhsLargest;
+                
+                const std::multimap<scalar,vector>& rhsValues = knotsUniqueOrdered[right].second;
+                auto rhsSmallest = rhsValues.begin();
+                std::pair<scalar,vector> rhsVal = *rhsSmallest;
+                
+                for(scalar c=0; c<numberOfSubsteps; c++)
+                {
+                    scalar intermedKnotVal = knotVal+span*(c/numberOfSubsteps);
+                    scalar distToLhs = intermedKnotVal-lhsVal.first;
+                    scalar distToRhs = rhsVal.first-intermedKnotVal;
+                    scalar totalDist = rhsVal.first-lhsVal.first;
+                
+                    vector avgP = (distToRhs/totalDist)*lhsVal.second + (distToLhs/totalDist)*rhsVal.second;
+                    knotsUniqueOrdered[i].second.insert({intermedKnotVal,avgP});
+                }
+            }
+        }
+    }
+    
+    Info<<"Post fill in"<<Foam::endl;
+    for(label k=0; k<knotsUniqueOrdered.size(); k++)
+    {
+        Info<<"k:"<<k<<" -  "<<knotsUniqueOrdered[k].first<<"  ";
+        for(std::pair<scalar,vector> val : knotsUniqueOrdered[k].second)
+            Info<<"("<<val.first<<";"<<val.second<<") ";
+        Info<<Foam::endl;
+    }
+    
+    DynamicList<vector> pointValuesFilled;
+    DynamicList<scalar> pointsFilled;
+    for(const std::pair<scalar,std::multimap<scalar,vector>>& valueBlocks : knotsUniqueOrdered)
+    {
+        for(std::pair<scalar,vector> value : valueBlocks.second)
+        {
+            pointValuesFilled.append(value.second);
+            pointsFilled.append(value.first);
+        }
+    }
+    
+    label nbrCoefficients = nurbs.coefs().rows();
+    label nbrValues = pointsFilled.size();
+    
+    List<gsNurbs<scalar>> reducedNurbs(nbrCoefficients);
+    for(label coeffI=0; coeffI<nbrCoefficients; coeffI++)
+    {
+        reducedNurbs[coeffI] = nurbs;
+        gsMatrix<scalar>& reducedNurbsCoefs = reducedNurbs[coeffI].coefs();
+        for(label coeffITemp=0; coeffITemp<nbrCoefficients; coeffITemp++)
+        {
+            if(coeffITemp==coeffI)
+            {
+                reducedNurbsCoefs(coeffITemp,0)=1;
+                reducedNurbsCoefs(coeffITemp,1)=1;
+                reducedNurbsCoefs(coeffITemp,2)=1;
+            }
+            else
+            {
+                reducedNurbsCoefs(coeffITemp,0)=0;
+                reducedNurbsCoefs(coeffITemp,1)=0;
+                reducedNurbsCoefs(coeffITemp,2)=0;
+            }
+        }
+    }
+    auto R = [&](label l, scalar u)
+    {
+        if(l<0 || l>=reducedNurbs.size())
+            FatalErrorInFunction<<"Invalid number l"<<exit(FatalError);
+        const gsNurbs<scalar> redNurb = reducedNurbs[l];
+        gsMatrix<scalar> gsU(1,1);
+        gsU.at(0) = u;
+        gsMatrix<scalar> val;
+        redNurb.eval_into(gsU,val);
+        return val(0,0);
+    };
+        
+    FixedList<CSR_Matrix_par,3> A;
+    FixedList<Vector_par,3> b;
+    FixedList<Vector_par,3> c;
+    for(label dim=0; dim<3; dim++)
+    {
+        A[dim] = CSR_Matrix_par(nbrCoefficients,0,nbrCoefficients,nbrCoefficients,false);
+        b[dim] = Vector_par(nbrCoefficients,0,nbrCoefficients,false);
+        for(label coeff_row=0; coeff_row<nbrCoefficients; coeff_row++)
+        {
+            List<scalar> A_row(nbrCoefficients);
+            for(label coeff_col=0; coeff_col<nbrCoefficients; coeff_col++)
+            {
+                scalar sum=0;
+                for(scalar ui : pointsFilled)
+                {
+                    scalar R_u = R(coeff_row,ui);
+                    sum += R_u*R_u;
+                }
+                A_row[coeff_col] = sum;
+            }
+            
+            scalar b_row=0;
+            for(label pointInd=0; pointInd<nbrValues; pointInd++)
+            {
+                scalar ui = pointsFilled[pointInd];
+                vector pui = pointValuesFilled[pointInd];
+                scalar R_u = R(coeff_row,ui);
+                b_row += pui[dim]*R_u;
+            }
+            A[dim].addRow(A_row);
+            b[dim][coeff_row] = b_row;
+        }
+        std::cout<<"A[]:"<<A[dim].to_string()<<std::endl;
+        std::cout<<"b[]:"<<b[dim].to_string()<<std::endl;
+        BiCGSTAB solver(A[dim]);
+        c[dim] = solver.solve(b[dim]);
+        std::cout<<"c[]:"<<c[dim].to_string()<<std::endl;
+    }
+    
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+
+    /*
     gsMatrix<scalar> s(1,points.size());
     for(label pntInd=0; pntInd<points.size(); pntInd++)
     {
-        s(0,pntInd) = parameters[pntInd];
+        s(0,pntInd) = pointValues[pntInd];
     }
-    
+    std::cout<<"s:"<<s<<std::endl;
+        
     List<gsMatrix<scalar>> R(nurbs.coefs().rows());
+    Info<<"R.size():"<<R.size()<<Foam::endl;
     for(label coeffI=0; coeffI<R.size(); coeffI++)
     {
         gsNurbs<scalar> reducedNurbs = nurbs;
@@ -1411,6 +1617,7 @@ void Foam::Structure::linearLeastSquare
             }
         }
         reducedNurbs.eval_into(s,R[coeffI]);
+        std::cout<<"coeffI:"<<coeffI<<"  -- R[coeffI]:"<<R[coeffI]<<std::endl;
     }
         
     FixedList<CSR_Matrix_par,3> A;
@@ -1446,16 +1653,25 @@ void Foam::Structure::linearLeastSquare
             BiCGSTAB solver(transpA_A);
             c[dim] = solver.solve(transpA_x);
         }
-    }   
+    }
+    std::cout<<"c[0]:"<<c[0].to_string()<<std::endl;
+    std::cout<<"c[1]:"<<c[1].to_string()<<std::endl;
+    std::cout<<"c[2]:"<<c[2].to_string()<<std::endl;
     
     fittedCoeffs = nurbs.coefs();
     for(label dim=0; dim<c.size(); dim++)
     {
         for(label coeffI=0; coeffI<c[dim].getGlobalSize(); coeffI++)
         {
-            fittedCoeffs(coeffI,dim) = c[dim][coeffI];
+            //fittedCoeffs(coeffI,dim) = c[dim][coeffI];
         }
     }
+    
+    std::cout<<"nurbs:"<<nurbs<<std::endl;
+    std::cout<<"fittedCoeffs:"<<fittedCoeffs<<std::endl;
+    
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    */
 }
 
 void Foam::Structure::fitNurbsCoeffsToPoints

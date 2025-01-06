@@ -32,8 +32,10 @@ void Foam::ForcedMovementVelocityPressureAction::preSolveMarkerMeshAdaption()
 
 std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::readDeformationDict()
 {   
+    Info<<"Foam::ForcedMovementVelocityPressureAction::readDeformationDict()"<<Foam::endl;
     const dictionary& rodMovementFieldDict = structureDict.subDict("rodMovementField");
     List<keyType> rodMovementFieldKeys = rodMovementFieldDict.keys();
+    Info<<"rodMovementFieldKeys:"<<rodMovementFieldKeys<<Foam::endl;
     
     auto movementListPtr = std::make_unique<List<List<vector>>>(rodMovementFieldKeys.size());
     List<List<vector>>& movementList = *movementListPtr;
@@ -47,21 +49,25 @@ std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVeloci
     for(label rodNumber=0; rodNumber<structure.getNumberRods(); rodNumber++)
     {
         keyType oneRodMoveFieldKey = rodMovementFieldKeys[rodNumber];
+        Info<<"rodNumber:"<<rodNumber<<" : "<<oneRodMoveFieldKey<<Foam::endl;
         const dictionary& oneRodMovementDict = rodMovementFieldDict.subDict(oneRodMoveFieldKey);
         const entry* cdstr = oneRodMovementDict.lookupEntryPtr("move",false,false);
         ITstream stream = cdstr->stream();
         List<vector> oneRodMovementData(stream);
+        Info<<"oneRodMovementData:"<<oneRodMovementData<<Foam::endl;
         const gsNurbs<scalar>& deformation = structure.getDeformation(rodNumber);
-        gsMatrix<scalar> defCoeffs;
-        Structure::fitNurbsCoeffsToPoints(oneRodMovementData,deformation,defCoeffs);
-        movementList[rodNumber].setSize(defCoeffs.rows());
+        label nbrDefParameters = deformation.coefs().rows();
+        if(nbrDefParameters!=oneRodMovementData.size())
+            FatalErrorInFunction<<"Mismatch in given deformation parameter size! Is "<<oneRodMovementData.size()<<" but should be "<<nbrDefParameters<<exit(FatalError);
+        if(deformation.coefs().cols()!=3)
+            FatalErrorInFunction<<"Deformation has non vector type parameter"<<exit(FatalError);
+        movementList[rodNumber].setSize(nbrDefParameters);
         for(label coeffI=0; coeffI<movementList[rodNumber].size(); coeffI++)
         {
-            movementList[rodNumber][coeffI][0] = defCoeffs(coeffI,0);
-            movementList[rodNumber][coeffI][1] = defCoeffs(coeffI,1);
-            movementList[rodNumber][coeffI][2] = defCoeffs(coeffI,2);
+            movementList[rodNumber][coeffI] = oneRodMovementData[coeffI];
         }
     }
+    Info<<"movementList:"<<movementList<<Foam::endl;
     return movementListPtr;
 }
 
