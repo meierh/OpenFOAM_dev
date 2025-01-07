@@ -33,6 +33,7 @@ markerParameter(0)
 
 Foam::vector Foam::LagrangianMarker::getMarkerVelocity() const
 {
+    Info<<"Foam::vector Foam::LagrangianMarker::getMarkerVelocity() const"<<Foam::endl;
     return structure.evaluateRodVelocity(rodNumber,markerParameter,0,0);
 }
 

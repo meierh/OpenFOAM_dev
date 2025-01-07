@@ -191,6 +191,7 @@ Foam::vector Foam::LineStructure::evaluateRodVelocity
     scalar radiusFrac
 )
 {
+    Info<<"Foam::vector Foam::LineStructure::evaluateRodVelocity"<<Foam::endl;
     scalar currentTime = mesh.time().value();
     vector currentPosition = evaluateRodPos(Rods[rodNumber],parameter);
     

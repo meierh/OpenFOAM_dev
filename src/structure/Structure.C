@@ -928,10 +928,25 @@ void Foam::Structure::setupActiveRodMesh()
     }
     constructCoeffDerivedData();
     
-    prevDeformations.clear();
-    prevDeformations.resize(nR);
-    prevRotations.clear();
-    prevRotations.resize(nR);
+    prevState.first.clear();
+    prevState.first.resize(nR);
+    prevState.second.clear();
+    prevState.second.resize(nR);
+    
+    currentState.first.clear();
+    currentState.first.resize(nR);
+    for(label rodI=0; rodI<nR; rodI++)
+    {
+        currentState.first[rodI] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
+        currentState.first[rodI]->first = Rods[rodI]->m_Def;
+    }
+    currentState.second.clear();
+    currentState.second.resize(nR);
+    for(label rodI=0; rodI<nR; rodI++)
+    {
+        currentState.second[rodI] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
+        currentState.second[rodI]->first = Rods[rodI]->m_Rot;
+    }
     
     rodEvalBuffer.resize(nR);
     rodDerivEvalBuffer.resize(nR);
@@ -1697,8 +1712,12 @@ const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRo
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
     std::pair<gsNurbs<scalar>,scalar>* prevDef = nullptr;
-    if(prevDeformations[rodNumber])
-        prevDef = prevDeformations[rodNumber].get();
+    if(prevState.first[rodNumber])
+    {
+        prevDef = prevState.first[rodNumber].get();
+        if(prevDef->second==mesh.time().value())
+            FatalErrorInFunction<<"Same time value can not be the previous state"<<exit(FatalError); 
+    }
     return prevDef;
 }
 
@@ -1710,8 +1729,12 @@ const std::pair<gsNurbs<Foam::scalar>,Foam::scalar>* Foam::Structure::readPrevRo
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
     std::pair<gsNurbs<scalar>,scalar>* prevRot = nullptr;
-    if(prevRotations[rodNumber])
-        prevRot = prevRotations[rodNumber].get();
+    if(prevState.second[rodNumber])
+    {
+        prevRot = prevState.second[rodNumber].get();
+        if(prevRot->second==mesh.time().value())
+            FatalErrorInFunction<<"Same time value can not be the previous state"<<exit(FatalError); 
+    }
     return prevRot;
 }
 
@@ -1735,6 +1758,7 @@ void Foam::Structure::setDeformation
     const List<vector>& deformationCoeffs
 )
 {
+    //Info<<"----------- void Foam::Structure::setDeformation --------------"<<deformationCoeffs<<Foam::endl;
     if(rodNumber<0 || rodNumber>=nR)
         FatalErrorInFunction<<"Invalid rodNumber given"<<exit(FatalError);
     gsNurbs<scalar>& def = Rods[rodNumber]->m_Def;
@@ -1744,16 +1768,6 @@ void Foam::Structure::setDeformation
     if(defCoeffs.cols()!=3)
         FatalErrorInFunction<<"Invalid coefficient dimension!"<<exit(FatalError);
     
-    if(!prevDeformations[rodNumber])
-        prevDeformations[rodNumber] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
-    prevDeformations[rodNumber]->first = Rods[rodNumber]->m_Def;
-    prevDeformations[rodNumber]->second = mesh.time().value();
-    
-    if(!prevRotations[rodNumber])
-        prevRotations[rodNumber] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
-    prevRotations[rodNumber]->first = Rods[rodNumber]->m_Rot;
-    prevRotations[rodNumber]->second = mesh.time().value();
-    
     for(label coeffNum=0; coeffNum<deformationCoeffs.size(); coeffNum++)
     {
         defCoeffs(coeffNum,0) = deformationCoeffs[coeffNum][0];
@@ -1761,9 +1775,31 @@ void Foam::Structure::setDeformation
         defCoeffs(coeffNum,2) = deformationCoeffs[coeffNum][2];        
     }
     
+    if(!currentState.first[rodNumber])
+        currentState.first[rodNumber] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
+    currentState.first[rodNumber]->first = Rods[rodNumber]->m_Def;
+    currentState.first[rodNumber]->second = mesh.time().value();
+    
+    if(!currentState.second[rodNumber])
+        currentState.second[rodNumber] = std::make_unique<std::pair<gsNurbs<scalar>,scalar>>();
+    currentState.second[rodNumber]->first = Rods[rodNumber]->m_Rot;
+    currentState.second[rodNumber]->second = mesh.time().value();
+    
+    //std::cout<<"To current:"<<currentState.first[rodNumber]->first<<std::endl;
+    
     rodEvalBuffer[rodNumber].clear();
     rodDerivEvalBuffer[rodNumber].clear();
     rodDeriv2EvalBuffer[rodNumber].clear();
+}
+
+void Foam::Structure::pushBackDeformationState()
+{
+    for(std::size_t rodI=0; rodI<static_cast<std::size_t>(nR); rodI++)
+    {
+        prevState.first[rodI] = std::move(currentState.first[rodI]);
+        //std::cout<<"Current to prev:"<<prevState.first[rodI]->first<<std::endl;
+        prevState.second[rodI] = std::move(currentState.second[rodI]);
+    }    
 }
 
 const gsNurbs<Foam::scalar>& Foam::Structure::getDeformation

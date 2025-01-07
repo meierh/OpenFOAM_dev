@@ -1,6 +1,7 @@
 #ifndef FORCEDMOVEMENTVELOCITYPRESSUREACTION_H
 #define FORCEDMOVEMENTVELOCITYPRESSUREACTION_H
 #include "VelocityPressureForceMarkerInteraction.H"
+#include <dlfcn.h>
 
 namespace Foam
 {
@@ -33,6 +34,7 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
         
     private:
         vector getVelocity(const LagrangianMarker* marker) override;
+        void constructMovementFunction();
         //std::unique_ptr<List<List<vector>>> readMovementFromDict();
 };
 

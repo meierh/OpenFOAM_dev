@@ -284,12 +284,15 @@ class Structure
         
     // --------------- Rod movement methods ---------------
     private:
-        std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>> prevDeformations;
-        std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>> prevRotations;
+        using timedDef = std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>>;
+        using timedRot = std::vector<std::unique_ptr<std::pair<gsNurbs<scalar>,scalar>>>;
+        std::pair<timedDef,timedRot> prevState;
+        std::pair<timedDef,timedRot> currentState;
     protected:
         const std::pair<gsNurbs<scalar>,scalar>* readPrevRodDeformation(label rodNumber) const;
         const std::pair<gsNurbs<scalar>,scalar>* readPrevRodRotation(label rodNumber) const;
     public:
+        void pushBackDeformationState();
         virtual void setDeformation(const List<List<vector>>& deformationCoeffs);
         void setDeformation(label rodNumber, const List<vector>& deformationCoeffs);
         virtual vector evaluateRodVelocity(label rodNumber, scalar parameter, scalar angle, scalar radiusFrac) = 0;

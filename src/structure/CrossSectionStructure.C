@@ -48,7 +48,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
     scalar angle,
     scalar radiusFrac
 )
-{
+{   
     scalar currentTime = mesh.time().value();
     vector currentPosition = evaluateRodCircumPos(Rods[rodNumber],parameter,&(rodCrossSection[rodNumber]),angle,radiusFrac);
     
@@ -61,6 +61,8 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
     scalar prevTime = prevDef->second;
     if(prevTime!=prevRot->second)
         FatalErrorInFunction<<"Mismatch in prev time stamps"<<exit(FatalError);
+    if(prevTime==currentTime)
+        FatalErrorInFunction<<"Previous deformation has the same time as current"<<exit(FatalError);
     scalar deltaT = currentTime-prevTime;
     
     vector prevR,prevD1,prevD2,prevD3;
@@ -70,7 +72,8 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
     vector coordYDir = std::sin(angle)*radius*prevD2;
     vector previousPosition = prevR+coordXDir+coordYDir;
     
-    return (currentPosition-previousPosition)/deltaT;
+    vector velocity = (currentPosition-previousPosition)/deltaT;
+    return velocity;
 }
 
 void Foam::CrossSectionStructure::to_string()
