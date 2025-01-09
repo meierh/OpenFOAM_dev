@@ -421,6 +421,13 @@ void Foam::LineStructure::setParameterValue
     }    
 }
 
+std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>>
+Foam::LineStructure::getInteriorCells()
+{
+    auto empty = std::make_unique<List<std::pair<label,std::tuple<label,scalar,scalar>>>>();
+    return empty;
+}
+
 void Foam::LineStructure::createSpacingPoints()
 {
     status.execValid(status.initialPoints);
@@ -433,7 +440,7 @@ void Foam::LineStructure::createSpacingPoints()
     status.executed(status.initialPoints);
 }
 
-void Foam::LineStructure::createSpacedPointsOnRod
+std::unique_ptr<std::vector<Foam::scalar>> Foam::LineStructure::createSpacedPointsOnRodArray
 (
     label rodNumber,
     scalar spacing
@@ -475,7 +482,16 @@ void Foam::LineStructure::createSpacedPointsOnRod
         pointsVec.push_back(para);
     }
     
-    initialRodPoints[rodNumber] = std::move(pointsPtr);
+    return std::move(pointsPtr);
+}
+
+void Foam::LineStructure::createSpacedPointsOnRod
+(
+    label rodNumber,
+    scalar spacing
+)
+{
+    initialRodPoints[rodNumber] = std::move(createSpacedPointsOnRodArray(rodNumber,spacing));
 }
 
 void Foam::LineStructure::createMarkersFromSpacedPoints()
@@ -1255,6 +1271,51 @@ Foam::vector Foam::LineStructure::derivate2RodPos
     return d2rdp;
 }
 
+Foam::scalar Foam::LineStructure::closestToRodCenterLine
+(
+    const ActiveRodMesh::rodCosserat* oneRod,
+    scalar para,
+    vector x,
+    scalar epsilon
+)
+{    
+    vector C = evaluateRodPos(oneRod,para);
+    vector dCdu = derivateRodPos(oneRod,para);
+    scalar residual = std::abs((C-x) & dCdu);
+    int i=0;
+    while(residual>epsilon)
+    {
+        vector C = evaluateRodPos(oneRod,para);
+        vector dCdu = derivateRodPos(oneRod,para);
+        vector d2Cdu2 = derivate2RodPos(oneRod,para);
+        vector C_x = C-x;
+        scalar C_x_mul_dCdu = C_x & dCdu;
+        scalar dCdu_mul_dCdu_plus_C_x_mul_d2Cdu2 = (dCdu & dCdu) + (C_x & d2Cdu2);
+        scalar dPara = C_x_mul_dCdu/dCdu_mul_dCdu_plus_C_x_mul_d2Cdu2;
+
+        scalar stepWidth=1;
+        for(; ; stepWidth/=2)
+        {
+            scalar iterPara = para - stepWidth*dPara;
+            if(iterPara<oneRod->m_Curve.knots().first() || iterPara>=oneRod->m_Curve.knots().last())
+                continue;
+            vector C = evaluateRodPos(oneRod,iterPara);
+            vector dCdu = derivateRodPos(oneRod,iterPara);
+            scalar newResidual = std::abs((C-x) & dCdu);
+            if(newResidual<residual)
+                break;
+        }
+        para = para - stepWidth*dPara;
+        residual = std::abs((C-x) & dCdu);
+        
+        if(i>1000)
+            FatalError<<"No convergence"<<exit(FatalError);
+        i++;
+    }
+
+    return para;
+}
+
 Foam::scalar Foam::LineStructure::distance
 (
     const ActiveRodMesh::rodCosserat* oneRod,   
@@ -1281,6 +1342,39 @@ Foam::scalar Foam::LineStructure::distance
         FatalErrorInFunction<<"Distance can not be computed between points on different rods"<<exit(FatalError);
     
     return distance(A.getBaseRod(),A.getMarkerParameter(),B.getMarkerParameter());
+}
+
+Foam::scalar Foam::LineStructure::distancePntToRodCenterline
+(
+    vector pnt,
+    const ActiveRodMesh::rodCosserat* oneRod,   
+    scalar parameter
+)
+{
+    vector connec = evaluateRodPos(oneRod,parameter)-pnt;
+    return std::sqrt(connec&connec);
+}
+
+Foam::scalar Foam::LineStructure::distancePntToRodCenterline
+(
+    vector pnt,
+    label rodNumber,
+    scalar parameter
+)
+{
+    vector connec = evaluateRodCircumPos(rodNumber,parameter,0,0)-pnt;
+    return std::sqrt(connec&connec);
+}
+
+Foam::scalar Foam::LineStructure::distanceCellCenterToRodCenterline
+(
+    label cellInd,
+    label rodNumber,
+    scalar parameter
+)
+{
+    const cell& thisCell = mesh.cells()[cellInd];
+    return distancePntToRodCenterline(thisCell.centre(mesh.points(),mesh.faces()),rodNumber,parameter);
 }
 
 Foam::scalar Foam::LineStructure::bisectionBinary
@@ -1350,7 +1444,7 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     {
         Pout<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken<<Foam::endl;
         Pout<<"pntDistToMarkerCharLenToken:"<<pntDistToMarkerCharLenToken.typeName()<<Foam::endl;
-        FatalErrorInFunction<<"Invalid entry in constant                                                            /structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
     }
     rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
     

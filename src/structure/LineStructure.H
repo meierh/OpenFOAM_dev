@@ -194,6 +194,7 @@ class LineStructureStatus
         Node markersReduction =     Node({&markers,&markersVolume},false,"markersReduction");
         Node markerMesh =           Node({&markers},false,"markerMesh");
         Node markersCollected =     Node({&markers},false,"markersCollected");
+        Node collectedInterior=     Node({&markersCollected,&markerMesh},false,"collectedInterior");
         Node markersCellWeight =    Node({&markersCollected,&markerMesh},false,"markersCellWeight");
         Node markersHaloCollect =   Node({&markersCollected},false,"markersHaloCollect");
         Node markersHaloExchange =  Node({&markersHaloCollect},false,"markersHaloExchange");
@@ -323,6 +324,7 @@ class LineStructure : public Structure
         static vector evaluateRodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
         static vector derivateRodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
         static vector derivate2RodPos(const ActiveRodMesh::rodCosserat* oneRod, scalar parameter);
+        static scalar closestToRodCenterLine(const ActiveRodMesh::rodCosserat* oneRod, scalar iniPara, vector x, scalar epsilon=1e-8);
         
     // ----------------- Finalize markers -----------------
         virtual void finalizeMarkers(bool doRefine=true);
@@ -356,6 +358,8 @@ class LineStructure : public Structure
         virtual List<scalar> getParameterValue(const Parameter& para);
         virtual void setParameterValue(const Parameter& para, List<scalar> value);
     // ----------------- ---------------------------- -----------------
+                
+        virtual std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>> getInteriorCells();
 
     protected:
         LineStructureStatus status;
@@ -366,6 +370,11 @@ class LineStructure : public Structure
         
         virtual void createSpacingPoints();
         virtual void createSpacedPointsOnRod
+        (
+            label rodNumber,
+            scalar spacing
+        );
+        virtual std::unique_ptr<std::vector<scalar>> createSpacedPointsOnRodArray
         (
             label rodNumber,
             scalar spacing
@@ -505,6 +514,27 @@ class LineStructure : public Structure
         );
         
         static scalar distance(const LagrangianMarker& A, const LagrangianMarker& B);
+        
+        scalar distancePntToRodCenterline
+        (
+            vector pnt,
+            label rodNumber,
+            scalar parameter
+        );
+        
+        static scalar distancePntToRodCenterline
+        (
+            vector pnt,
+            const ActiveRodMesh::rodCosserat* oneRod,   
+            scalar parameter
+        );
+        
+        scalar distanceCellCenterToRodCenterline
+        (
+            label cellInd,
+            label rodNumber,
+            scalar parameter
+        );
         
         scalar bisectionBinary
         (

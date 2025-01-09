@@ -20,6 +20,8 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
+        
+        ~ForcedMovementVelocityPressureAction();
                
         void preSolveMovement() override;
         void preSolveMarkerMeshAdaption() override;
@@ -34,8 +36,17 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
         
     private:
         vector getVelocity(const LagrangianMarker* marker) override;
+        std::vector<std::string> deformationNurbsCodes;
+        void *rodMoveSo;
+        std::vector<void(*)(unsigned int degree, const double* knots, unsigned int knotNbr, double* Px, double* Py, double* Pz, unsigned int PNbr, double time)> movementFunction;
         void constructMovementFunction();
-        //std::unique_ptr<List<List<vector>>> readMovementFromDict();
+        
+        std::string rodMovementSignature = 
+                "void deformationNurbs\
+                (\
+                    unsigned int degree, const double* knots, unsigned int knotNbr,\
+                    double* Px, double* Py, double* Pz, unsigned int PNbr\
+                )";
 };
 
 }

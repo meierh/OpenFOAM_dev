@@ -287,10 +287,17 @@ class CrossSectionStructure : public LineStructure
         void removeOverlapMarkers() override;
                 
         void collectMarkers() override;
-        
+       
+        /*
         std::unique_ptr<std::vector<LagrangianMarkerOnCrossSec>> reduceSurplusMarkers
         (
             std::vector<std::vector<std::vector<LagrangianMarkerOnCrossSec>>>& markers
+        );
+        */
+        
+        void collectInteriorCells
+        (
+            List<std::pair<label,std::tuple<label,scalar,scalar>>>& interiorCells
         );
         
     // ----------------- RodBoundingBox setup -----------------
@@ -312,6 +319,7 @@ class CrossSectionStructure : public LineStructure
         );
 
     public:
+        std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>> getInteriorCells() override;
 
         static vector evaluateRodCircumNormal
         (

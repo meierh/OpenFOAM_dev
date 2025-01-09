@@ -18,6 +18,11 @@ VelocityPressureForceInteraction(mesh,structure,input_U,output_Uf,structureDict,
     constructMovementFunction();
 }
 
+Foam::ForcedMovementVelocityPressureAction::~ForcedMovementVelocityPressureAction()
+{
+    dlclose(rodMoveSo);
+}
+
 void Foam::ForcedMovementVelocityPressureAction::preSolveMovement()
 {
     structure.pushBackDeformationState();
@@ -33,10 +38,8 @@ void Foam::ForcedMovementVelocityPressureAction::preSolveMarkerMeshAdaption()
 
 std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVelocityPressureAction::readDeformationDict()
 {   
-    Info<<"Foam::ForcedMovementVelocityPressureAction::readDeformationDict()"<<Foam::endl;
     const dictionary& rodMovementFieldDict = structureDict.subDict("rodMovementField");
     List<keyType> rodMovementFieldKeys = rodMovementFieldDict.keys();
-    Info<<"rodMovementFieldKeys:"<<rodMovementFieldKeys<<Foam::endl;
     
     auto movementListPtr = std::make_unique<List<List<vector>>>(rodMovementFieldKeys.size());
     List<List<vector>>& movementList = *movementListPtr;
@@ -49,37 +52,22 @@ std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVeloci
     
     for(label rodNumber=0; rodNumber<structure.getNumberRods(); rodNumber++)
     {
-        keyType oneRodMoveFieldKey = rodMovementFieldKeys[rodNumber];
-        Info<<"rodNumber:"<<rodNumber<<" : "<<oneRodMoveFieldKey<<Foam::endl;
-        const dictionary& oneRodMovementDict = rodMovementFieldDict.subDict(oneRodMoveFieldKey);
-        ITstream moveFunctionStream = oneRodMovementDict.lookup("move");
-        token moveFunctionToken;
-        moveFunctionStream.read(moveFunctionToken);
-        if(!moveFunctionToken.isString())
-        {
-            FatalErrorInFunction<<"Invalid entry in constant/structureDict/"<<oneRodMoveFieldKey<<"/move -- must be  string"<<exit(FatalError);
-        }
-        string moveFunction = moveFunctionToken.stringToken();
-        Info<<"moveFunction:"<<moveFunction<<Foam::endl;
-    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
-        
-        const entry* cdstr = oneRodMovementDict.lookupEntryPtr("move",false,false);
-        ITstream stream = cdstr->stream();
-        List<vector> oneRodMovementData(stream);
-        Info<<"oneRodMovementData:"<<oneRodMovementData<<Foam::endl;
         const gsNurbs<scalar>& deformation = structure.getDeformation(rodNumber);
-        label nbrDefParameters = deformation.coefs().rows();
-        if(nbrDefParameters!=oneRodMovementData.size())
-            FatalErrorInFunction<<"Mismatch in given deformation parameter size! Is "<<oneRodMovementData.size()<<" but should be "<<nbrDefParameters<<exit(FatalError);
-        if(deformation.coefs().cols()!=3)
-            FatalErrorInFunction<<"Deformation has non vector type parameter"<<exit(FatalError);
-        movementList[rodNumber].setSize(nbrDefParameters);
-        for(label coeffI=0; coeffI<movementList[rodNumber].size(); coeffI++)
+        unsigned int nbrDefParameters = deformation.coefs().rows();
+        std::vector<scalar> Px(nbrDefParameters),Py(nbrDefParameters),Pz(nbrDefParameters);
+        movementFunction[rodNumber]
+        (
+            deformation.knots().degree(),deformation.knots().data(),deformation.knots().size(),
+            Px.data(),Py.data(),Pz.data(),nbrDefParameters,mesh.time().value()
+        );
+        List<vector>& movementListRod = movementList[rodNumber];
+        movementListRod.resize(nbrDefParameters);
+        for(std::size_t index=0; index<nbrDefParameters; index++)
         {
-            movementList[rodNumber][coeffI] = oneRodMovementData[coeffI];
+            movementListRod[index] = vector(Px[index],Py[index],Pz[index]);
         }
+        Info<<"movementListRod:"<<movementListRod<<Foam::endl;
     }
-    Info<<"movementList:"<<movementList<<Foam::endl;
     return movementListPtr;
 }
 
@@ -98,14 +86,14 @@ void Foam::ForcedMovementVelocityPressureAction::constructMovementFunction()
     List<keyType> rodMovementFieldKeys = rodMovementFieldDict.keys();
     Info<<"rodMovementFieldKeys:"<<rodMovementFieldKeys<<Foam::endl;
     
-    auto movementListPtr = std::make_unique<List<List<vector>>>(rodMovementFieldKeys.size());
-    List<List<vector>>& movementList = *movementListPtr;
-    
     if(rodMovementFieldKeys.size()!=structure.getNumberRods())
     {
         Info<<"rodMovementFieldKeys:"<<rodMovementFieldKeys<<Foam::endl;
         FatalErrorInFunction<<"Mismatch in movement field to rod number!"<<exit(FatalError);
     }
+    
+    movementFunction.resize(structure.getNumberRods());
+    deformationNurbsCodes.resize(structure.getNumberRods());
     
     for(label rodNumber=0; rodNumber<structure.getNumberRods(); rodNumber++)
     {
@@ -119,32 +107,58 @@ void Foam::ForcedMovementVelocityPressureAction::constructMovementFunction()
         {
             FatalErrorInFunction<<"Invalid entry in constant/structureDict/"<<oneRodMoveFieldKey<<"/move -- must be  string"<<exit(FatalError);
         }
-        string moveFunction = moveFunctionToken.stringToken();
-        Info<<"moveFunction:"<<moveFunction<<Foam::endl;
-        std::ofstream dynCode("constant/dynamic_code.cpp");
-        dynCode<<moveFunction;
-        dynCode.close();
-        int result = system("g++ constant/dynamic_code.cpp -o constant/dynamic_code.so -shared -fPIC");
-        if(result!=0)
-            FatalErrorInFunction<<"Compile of dynamic code failed"<<exit(FatalError);
-        
-typedef int (*some_func)(int a, int b);
-void *myso = dlopen("constant/dynamic_code.so", RTLD_NOW);
-if(myso==nullptr)
-    FatalErrorInFunction<<"Loading of dynamic_code.so failed"<<exit(FatalError);
-void* basisF = dlsym(myso, "add__xxyz");
-if(basisF==nullptr)
-{
-    char *errstr;
-    errstr = dlerror();
-    if (errstr != NULL)
-        printf ("A dynamic linking error occurred: (%s)\n", errstr);
-    FatalErrorInFunction<<"Loading of symbol from dynamic_code.so failed"<<exit(FatalError);
-}
-some_func *func = (some_func*)basisF;
-Info<<"add(2,4):"<<(*func)(2,4)<<Foam::endl;
-dlclose(myso);
-        
-        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+        deformationNurbsCodes[rodNumber] = moveFunctionToken.stringToken();
     }
+    
+    std::ofstream dynCode("constant/rodMovementCode.cpp");
+    dynCode<<"#include <math.h>\n"<<"extern \"C\" {\n";
+    for(std::size_t rodNumber=0; rodNumber<deformationNurbsCodes.size(); rodNumber++)
+    {
+        std::string moveFunction = deformationNurbsCodes[rodNumber];
+        std::string nameFunction = moveFunction.substr(0,21);
+        if(nameFunction!="void deformationNurbs")
+            FatalErrorInFunction<<"Function name is wrong:"<<rodNumber<<" -->"<<nameFunction<<"<--"<<exit(FatalError);
+        /*
+        std::string parameters = moveFunction.substr(23,220);
+        std::string::size_type substringStart = moveFunction.find(rodMovementSignature);
+        if(substringStart!=0)
+        {
+            Info<<"nameFunction:"<<nameFunction<<Foam::endl;
+            Info<<"parameters:"<<parameters<<Foam::endl;
+            FatalErrorInFunction<<"Invalid signature in rod:"<<rodNumber<<Foam::endl<<
+            "is: -->"<<moveFunction.substr(0,230)<<"<--"<<Foam::endl<<
+            "should be: -->"<<rodMovementSignature<<"<--"<<Foam::endl<<
+            exit(FatalError);
+        }
+        */
+        moveFunction.insert(21,std::to_string(rodNumber));        
+        dynCode<<moveFunction<<"\n";
+    }
+    dynCode<<"}";
+    dynCode.close();
+    int result = system("g++ constant/rodMovementCode.cpp -o constant/rodMovementCode.so -shared -fPIC");
+    if(result!=0)
+        FatalErrorInFunction<<"Compile of dynamic code failed"<<exit(FatalError);
+        
+    rodMoveSo = dlopen("constant/rodMovementCode.so", RTLD_NOW);
+    if(rodMoveSo==nullptr)
+        FatalErrorInFunction<<"Loading of rodMovementCode.so failed"<<exit(FatalError);
+    for(std::size_t rodNumber=0; rodNumber<deformationNurbsCodes.size(); rodNumber++)
+    {
+        void* basisFunctionPtr = dlsym(rodMoveSo, ("deformationNurbs"+std::to_string(rodNumber)).c_str());
+        if(basisFunctionPtr==nullptr)
+        {
+            char *errstr;
+            errstr = dlerror();
+            if (errstr != NULL)
+                printf ("A dynamic linking error occurred: (%s)\n", errstr);
+            FatalErrorInFunction<<"Loading of symbol (deformationNurbs) from rodMovementCode.so failed"<<exit(FatalError);
+        }
+        movementFunction[rodNumber] = nullptr;
+        movementFunction[rodNumber] = reinterpret_cast<void(*)(unsigned int,const double*,unsigned int,double*,double*,double*,unsigned int,double)>(basisFunctionPtr);
+        if(movementFunction[rodNumber]==nullptr)
+        {
+            FatalErrorInFunction<<"Casting of function pointer failed"<<exit(FatalError);
+        }
+    }    
 }

@@ -1915,6 +1915,138 @@ void Foam::CrossSectionStructure::collectMarkers()
     status.executed(status.markersCollected);
 }
 
+void Foam::CrossSectionStructure::collectInteriorCells
+(
+    List<std::pair<label,std::tuple<label,scalar,scalar>>>& interiorCells
+)
+{
+    status.execValid(status.collectedInterior);
+    std::unordered_set<label> markerCells;
+    const std::vector<LagrangianMarker*>& collectedMarkers = getCollectedMarkers();
+    for(const LagrangianMarker* marker : collectedMarkers)
+    {
+        const DynamicList<Pair<label>>& support = marker->getSupportCells();
+        for(const Pair<label>& suppCell : support)
+        {
+            if(suppCell.first()==Pstream::myProcNo())
+            {
+                markerCells.insert(suppCell.second());
+            }
+        }
+    }
+    
+    std::vector<std::vector<std::pair<vector,scalar>>> rodCenterlinePoints(myMesh->m_nR);
+    for(int rodIndex=0; rodIndex<myMesh->m_nR; rodIndex++)
+    {
+        const ActiveRodMesh::rodCosserat* oneRod = myMesh->m_Rods[rodIndex];
+        std::unique_ptr<std::vector<Foam::scalar>> spacedParameters;
+        spacedParameters = createSpacedPointsOnRodArray(rodIndex,initialMeshSpacing/10);
+        std::vector<std::pair<vector,scalar>>& oneRodPoints = rodCenterlinePoints[rodIndex];
+        for(scalar para : *spacedParameters)
+        {
+            vector pnt = LineStructure::evaluateRodPos(oneRod,para);
+            oneRodPoints.push_back({pnt,para});
+        }
+    }
+
+    //cellData = std::tuple<rodIndex,nearest parameter,closest distance>
+    using cellData = std::tuple<label,scalar,scalar>;
+    
+    std::unordered_map<label,cellData> interiorCellsSet;
+    for(int rodIndex=0; rodIndex<myMesh->m_nR; rodIndex++)
+    {
+        const std::vector<std::pair<vector,scalar>>& pnts = rodCenterlinePoints[rodIndex];
+        for(const std::pair<vector,scalar>& pnt : pnts)
+        {
+            vector pntPos = pnt.first;
+            scalar pntPara = pnt.second;
+            label pntCell = mesh.findCell(pntPos);
+            if(pntCell!=-1 && markerCells.find(pntCell)==markerCells.end())
+            {
+                scalar dist = distanceCellCenterToRodCenterline(pntCell,rodIndex,pntPara);
+                auto iter = interiorCellsSet.find(pntCell);
+                if(iter!=interiorCellsSet.end())
+                {
+                    if(dist < std::get<2>(iter->second))
+                    {
+                        std::get<1>(iter->second) = pntPara;
+                        std::get<2>(iter->second) = dist;
+                    }
+                }
+                else
+                    interiorCellsSet.insert({pntCell,{rodIndex,pntPara,dist}});
+            }
+        }
+    }
+    
+    DynamicList<label> frontCellList;
+    for(auto iter=interiorCellsSet.begin(); iter!=interiorCellsSet.end(); iter++)
+        frontCellList.append(iter->first);
+    
+    const List<List<Pair<label>>>& localMeshGraph = getMeshGraph(Pstream::myProcNo());
+    bool addedCells = true;
+    while(frontCellList.size()>0)
+    {
+        addedCells = false;
+        DynamicList<label> newFrontCellList;
+        for(label cellInd : frontCellList)
+        {
+            auto iter = interiorCellsSet.find(cellInd);
+            if(iter==interiorCellsSet.end())
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
+            const std::pair<label,cellData>& cell = *iter;
+            const List<Pair<label>> cellNei = localMeshGraph[cell.first];
+            for(const Pair<label>& nei : cellNei)
+            {
+                if(nei.first()==Pstream::myProcNo())
+                {
+                    label neiCell = nei.second();
+                    if(markerCells.find(neiCell)==markerCells.end())
+                    {
+                        scalar dist = distanceCellCenterToRodCenterline
+                        (
+                            neiCell,
+                            std::get<0>(cell.second),
+                            std::get<1>(cell.second)
+                        );
+                        auto iter = interiorCellsSet.find(neiCell);
+                        if(iter!=interiorCellsSet.end())
+                        {
+                            if(dist < std::get<2>(iter->second))
+                            {
+                                std::get<0>(iter->second) = std::get<0>(cell.second);
+                                std::get<1>(iter->second) = std::get<1>(cell.second);
+                                std::get<2>(iter->second) = dist;
+                            }
+                        }
+                        else
+                        {
+                            interiorCellsSet.insert({neiCell,{std::get<0>(cell.second),std::get<1>(cell.second),dist}});
+                            newFrontCellList.append(neiCell);
+                        }
+                    }
+                }
+            }
+        }
+        frontCellList = newFrontCellList;
+    }
+    
+    interiorCells.setSize(interiorCellsSet.size());
+    label i=0;
+    for(std::pair<label,std::tuple<label,scalar,scalar>> cell : interiorCellsSet)
+    {
+        
+        const ActiveRodMesh::rodCosserat* oneRod = Rods[std::get<0>(cell.second)];
+        label cellInd = cell.first;
+        vector cellCentre = mesh.cells()[cellInd].centre(mesh.points(),mesh.faces());
+        std::get<1>(cell.second) = closestToRodCenterLine(oneRod,std::get<1>(cell.second),cellCentre);
+        std::get<2>(cell.second) = distancePntToRodCenterline(cellCentre,oneRod,std::get<1>(cell.second)); 
+        
+        interiorCells[i] = cell;
+        i++;
+    }
+}
+
 Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
 (
     const ActiveRodMesh::rodCosserat* oneRod,
@@ -1931,6 +2063,13 @@ Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
     vector parBVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterB,oneCrossSec,angleB,radiusFracB);
     vector connec = parAVec-parBVec;
     return Foam::mag(connec);
+}
+
+std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>> Foam::CrossSectionStructure::getInteriorCells()
+{
+    auto interiorCells = std::make_unique<List<std::pair<label,std::tuple<label,scalar,scalar>>>>();
+    collectInteriorCells(*interiorCells);
+    return interiorCells;
 }
 
 Foam::vector Foam::CrossSectionStructure::evaluateRodCircumNormal

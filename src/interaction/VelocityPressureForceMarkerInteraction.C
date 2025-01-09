@@ -19,7 +19,7 @@ refinement_(refinement_),
 sumMarkerForceFileObject(structureDict),
 sumMarkerMomentFileObject(structureDict),
 detailedMarkerForceFileObject(structureDict)
-{
+{  
 }
 
 void Foam::VelocityPressureForceInteraction::solve
@@ -27,6 +27,16 @@ void Foam::VelocityPressureForceInteraction::solve
     bool finalIteration
 )
 {
+    std::unique_ptr<List<std::pair<label,std::tuple<label,scalar,scalar>>>> interiorCells = structure.getInteriorCells();
+    for(label i=0; i<output_Uf.size(); i++)
+        output_Uf[i] = Foam::zero();
+    for(const std::pair<label,std::tuple<label,scalar,scalar>>& cell : *interiorCells)
+        output_Uf[cell.first] = vector(std::get<0>(cell.second),std::get<1>(cell.second),std::get<2>(cell.second));
+    output_Uf.write();
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);  
+    
+    /*
+    
     interpolateFluidVelocityToMarkers();
     computeCouplingForceOnMarkers();
     computeRodForceMoment();
@@ -38,6 +48,7 @@ void Foam::VelocityPressureForceInteraction::solve
         sumMarkerMomentFileObject.writeSolution(*this);
         detailedMarkerForceFileObject.writeSolution(*this);
     }
+    */
 }
 
 void Foam::VelocityPressureForceInteraction::store()
