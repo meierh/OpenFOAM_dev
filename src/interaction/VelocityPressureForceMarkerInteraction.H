@@ -76,10 +76,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
             
                 void writeSolution(const VelocityPressureForceInteraction& interaction);
         };        
-        vector sumForces
-        (
-            std::function<bool(const LagrangianMarker&)> condition = [](const LagrangianMarker& marker){return true;}
-        ) const ;
+        vector summedForces() const ;
         SumMarkerForceFile sumMarkerForceFileObject;
         
         class SumMarkerMomentFile : public MarkerInfoFiles
@@ -95,10 +92,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
             
                 void writeSolution(const VelocityPressureForceInteraction& interaction);
         };
-        vector sumMoments
-        (
-            std::function<bool(const LagrangianMarker&)> condition = [](const LagrangianMarker& marker){return true;}
-        ) const;
+        vector summedMoments() const;
         SumMarkerMomentFile sumMarkerMomentFileObject;
         
         class DetailedMarkerForceFile : public MarkerInfoFiles

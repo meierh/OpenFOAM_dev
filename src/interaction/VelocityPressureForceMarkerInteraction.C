@@ -118,58 +118,37 @@ void Foam::VelocityPressureForceInteraction::moveMarkers()
     }
 }
 
-Foam::vector Foam::VelocityPressureForceInteraction::sumForces
-(
-    std::function<bool(const LagrangianMarker&)> condition
-) const
+Foam::vector Foam::VelocityPressureForceInteraction::summedForces() const
 {
-    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
-    
-    if(rodForce.size()!=static_cast<label>(markers.size()))
+    vector sumForces = Foam::zero();
+    const pointField& points = mesh.points();
+    const faceList& faces = mesh.faces();
+    const cellList& cells = mesh.cells();
+    for(label cellInd=0; cellInd<mesh.cells().size(); cellInd++)
     {
-        Info<<"rodForce.size():"<<rodForce.size()<<Foam::endl;
-        Info<<"markers.size():"<<markers.size()<<Foam::endl;
-        FatalErrorInFunction<<"Mismatch in size of rodForce and markers"<<exit(FatalError);
+        scalar volume = cells[cellInd].mag(points,faces);
+        sumForces += output_Uf[cellInd]*volume;
     }
-    
-    vector result = Foam::zero();
-    for(std::size_t i=0; i<markers.size(); i++)
-    {
-        LagrangianMarker* oneMarker = markers[i];
-        if(condition(*oneMarker))
-            result += rodForce[i];
-    }
-    Pstream::gather(result,std::plus<vector>());
-    Pstream::scatter(result);
-    
-    return result;
+    Pstream::gather(sumForces,std::plus<vector>());
+    Pstream::scatter(sumForces);
+    return sumForces;
 }
 
-Foam::vector Foam::VelocityPressureForceInteraction::sumMoments
-(
-    std::function<bool(const LagrangianMarker&)> condition
-) const
+Foam::vector Foam::VelocityPressureForceInteraction::summedMoments() const
 {
-    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
-    
-    if(rodMoment.size()!=static_cast<label>(markers.size()))
+    vector sumForces = Foam::zero();
+    const pointField& points = mesh.points();
+    const faceList& faces = mesh.faces();
+    const cellList& cells = mesh.cells();
+    for(label cellInd=0; cellInd<mesh.cells().size(); cellInd++)
     {
-        Info<<"rodMoment.size():"<<rodMoment.size()<<Foam::endl;
-        Info<<"markers.size():"<<markers.size()<<Foam::endl;
-        FatalErrorInFunction<<"Mismatch in size of rodMoment and markers"<<exit(FatalError);
+        scalar volume = cells[cellInd].mag(points,faces);
+        vector centre = cells[cellInd].centre(points,faces);
+        sumForces += centre ^ (output_Uf[cellInd]*volume);
     }
-    
-    vector result = Foam::zero();
-    for(std::size_t i=0; i<markers.size(); i++)
-    {
-        LagrangianMarker* oneMarker = markers[i];
-        if(condition(*oneMarker))
-            result += rodMoment[i];
-    }
-    Pstream::gather(result,std::plus<vector>());
-    Pstream::scatter(result);
-    
-    return result;
+    Pstream::gather(sumForces,std::plus<vector>());
+    Pstream::scatter(sumForces);
+    return sumForces;
 }
 
 void Foam::VelocityPressureForceInteraction::meshMarkerAdaptation()
@@ -218,13 +197,9 @@ void Foam::VelocityPressureForceInteraction::SumMarkerForceFile::writeSolution
     if(fileActive)
     {
         label nR = interaction.getStructure().getNumberRods();
-        Info<<"nR:"<<nR<<Foam::endl;
         for(label rodInd=0; rodInd<nR; rodInd++)
         {
-            vector summedForces = interaction.sumForces
-            (
-                [&](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
-            );
+            vector summedForces = interaction.summedForces();
             if(Pstream::master())
             {
                 write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedForces[0],summedForces[1],summedForces[2]});
@@ -241,13 +216,9 @@ void Foam::VelocityPressureForceInteraction::SumMarkerMomentFile::writeSolution
     if(fileActive)
     {
         label nR = interaction.getStructure().getNumberRods();
-        Info<<"nR:"<<nR<<Foam::endl;
         for(label rodInd=0; rodInd<nR; rodInd++)
         {
-            vector summedMoments = interaction.sumMoments
-            (
-                [&](const LagrangianMarker& marker){return marker.getRodNumber()==rodInd;}
-            );
+            vector summedMoments = interaction.summedMoments();
             if(Pstream::master())
             {
                 write({interaction.getMesh().time().value(),static_cast<scalar>(rodInd),summedMoments[0],summedMoments[1],summedMoments[2]});
@@ -261,53 +232,56 @@ void Foam::VelocityPressureForceInteraction::DetailedMarkerForceFile::writeSolut
     const VelocityPressureForceInteraction& interaction
 )
 {
-    const std::vector<LagrangianMarker*>& markers = interaction.getStructure().getCollectedMarkers();
-    const DynamicList<vector>& rodForce = interaction.getRodForce();
-    
-    if(rodForce.size()!=static_cast<label>(markers.size()))
+    if(fileActive)
     {
-        Info<<"rodForce.size():"<<rodForce.size()<<Foam::endl;
-        Info<<"markers.size():"<<markers.size()<<Foam::endl;
-        FatalErrorInFunction<<"Mismatch in size of rodForce and markers"<<exit(FatalError);
-    }
-    
-    List<DynamicList<List<scalar>>> globalLines(Pstream::nProcs());
-    DynamicList<List<scalar>>& lines = globalLines[Pstream::myProcNo()];    
-    for(std::size_t i=0; i<markers.size(); i++)
-    {
-        LagrangianMarker* oneMarker = markers[i];
-    //{"Time","RodInd","Parameter","Angle","RadiusFrac","Nx","Ny","Nz","Fx","Fy","Fz"})
-        
-        vector P = oneMarker->getMarkerPosition();
-        vector N = oneMarker->getMarkerNormal();
-        
-        List<scalar> line =
+        const std::vector<LagrangianMarker*>& markers = interaction.getStructure().getCollectedMarkers();
+        const DynamicList<vector>& rodForce = interaction.getRodForce();
+
+        if(rodForce.size()!=static_cast<label>(markers.size()))
         {
-            interaction.getMesh().time().value(),
-            static_cast<scalar>(oneMarker->getRodNumber()),
-            oneMarker->getMarkerParameter(),
-            oneMarker->getMarkerAngle(),
-            oneMarker->getMarkerRadiusFrac(),
-            P[0],
-            P[1],
-            P[2],
-            N[0],
-            N[1],
-            N[2],
-            rodForce[i][0],
-            rodForce[i][1],
-            rodForce[i][2]
-        };
-        
-        lines.append(line);
-    }
-    Pstream::gatherList(globalLines);
-    if(Pstream::master())
-    {
-        for(const DynamicList<List<scalar>>& oneProcLines : globalLines)
+            Info<<"rodForce.size():"<<rodForce.size()<<Foam::endl;
+            Info<<"markers.size():"<<markers.size()<<Foam::endl;
+            FatalErrorInFunction<<"Mismatch in size of rodForce and markers"<<exit(FatalError);
+        }
+
+        List<DynamicList<List<scalar>>> globalLines(Pstream::nProcs());
+        DynamicList<List<scalar>>& lines = globalLines[Pstream::myProcNo()];
+        for(std::size_t i=0; i<markers.size(); i++)
         {
-            for(const List<scalar>& line : oneProcLines)
-                write(line);
+            LagrangianMarker* oneMarker = markers[i];
+        //{"Time","RodInd","Parameter","Angle","RadiusFrac","Nx","Ny","Nz","Fx","Fy","Fz"})
+
+            vector P = oneMarker->getMarkerPosition();
+            vector N = oneMarker->getMarkerNormal();
+
+            List<scalar> line =
+            {
+                interaction.getMesh().time().value(),
+                static_cast<scalar>(oneMarker->getRodNumber()),
+                oneMarker->getMarkerParameter(),
+                oneMarker->getMarkerAngle(),
+                oneMarker->getMarkerRadiusFrac(),
+                P[0],
+                P[1],
+                P[2],
+                N[0],
+                N[1],
+                N[2],
+                rodForce[i][0],
+                rodForce[i][1],
+                rodForce[i][2]
+            };
+
+            lines.append(line);
+        }
+        Pstream::gatherList(globalLines);
+        if(Pstream::master())
+        {
+            for(const DynamicList<List<scalar>>& oneProcLines : globalLines)
+            {
+                for(const List<scalar>& line : oneProcLines)
+                    write(line);
+            }
         }
     }
 }

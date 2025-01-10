@@ -99,6 +99,7 @@ class FieldMarkerStructureInteraction
                 void write(List<scalar> values);
                         
                 bool masterFile;
+                word dictName;
                 std::string fileName;
                 std::unique_ptr<std::ofstream> filePtr;
                 label columns;

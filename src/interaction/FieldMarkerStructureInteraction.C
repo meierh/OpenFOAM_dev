@@ -110,6 +110,7 @@ Foam::FieldMarkerStructureInteraction::MarkerInfoFiles::MarkerInfoFiles
     List<word> header
 ):
 masterFile(masterFile),
+dictName(dictName),
 columns(header.size()),
 fileActive(false)
 {
@@ -166,5 +167,5 @@ void Foam::FieldMarkerStructureInteraction::MarkerInfoFiles::write
         }
     }
     else
-        FatalErrorInFunction<<"No file"<<exit(FatalError);
+        FatalErrorInFunction<<"No file of dictName:"<<dictName<<exit(FatalError);
 }
