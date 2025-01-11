@@ -450,9 +450,9 @@ void Foam::solvers::icoImmersedBoundary::momentumPredictor
     if (pimpleCtlr.momentumPredictor())
     {
         UEqn_res = solve(UEqn == -fvc::grad(p));
-        if(useVelocityForcing)
+        if(useVelocityForcing && runTime.timeIndex()>1)
         {
-            interaction_fU->solve(pimpleCtlr.finalIter());
+            interaction_fU->solve(pimpleCtlr.firstIter(),runTime.value(),pimpleCtlr.finalIter());
         }
 
         fvConstraints().constrain(U);
@@ -585,7 +585,7 @@ void Foam::solvers::icoImmersedBoundary::postSolve
             {
                 volScalarField& fT = *fT_;
                 TEqn_res = solve(TEqn==temperatureForcingFactor*fT);
-                interaction_fT->solve(pimpleCtlr.finalHeatIter());
+                interaction_fT->solve(pimpleCtlr.firstHeatIter(),runTime.value(),pimpleCtlr.finalHeatIter());
             }
             else
             {

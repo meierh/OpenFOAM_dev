@@ -19,6 +19,8 @@ detailedMarkerTemperatureFileObject(structureDict)
 
 void Foam::TemperatureInteraction::solve
 (
+    bool firstIteration,
+    scalar time,
     bool finalIteration
 )
 {

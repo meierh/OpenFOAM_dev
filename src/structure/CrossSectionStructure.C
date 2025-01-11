@@ -2065,11 +2065,54 @@ Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
     return Foam::mag(connec);
 }
 
-std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>> Foam::CrossSectionStructure::getInteriorCells()
+const Foam::List<std::tuple<Foam::label,Foam::label,Foam::scalar,Foam::scalar,Foam::scalar>>&
+Foam::CrossSectionStructure::getInteriorCells
+(
+    scalar time,
+    bool reconstruct
+)
 {
-    auto interiorCells = std::make_unique<List<std::pair<label,std::tuple<label,scalar,scalar>>>>();
-    collectInteriorCells(*interiorCells);
-    return interiorCells;
+    if(!interiorCells || ((time!=interiorCellTimeValue) && (reconstruct)))
+    {
+        interiorCells = std::make_unique<List<std::tuple<label,label,scalar,scalar,scalar>>>();
+        List<std::pair<label,std::tuple<label,scalar,scalar>>> collectedInteriorCells;
+        collectInteriorCells(collectedInteriorCells);
+        
+        interiorCells->setSize(collectedInteriorCells.size());
+        for(label i=0; i<collectedInteriorCells.size(); i++)
+        {
+            label cellInd = collectedInteriorCells[i].first;
+            label rodInd = std::get<0>(collectedInteriorCells[i].second);
+            scalar para = std::get<1>(collectedInteriorCells[i].second);
+            scalar dist = std::get<2>(collectedInteriorCells[i].second);
+            vector cellCentre = mesh.cells()[cellInd].centre(mesh.points(),mesh.faces());
+            
+            vector d1,d2,d3,r;
+            rodEval(rodInd,para,d1,d2,d3,r);
+            vector X = cellCentre-r;
+            scalar radius = std::sqrt(X&X);
+            scalar angle=0;
+            if(radius>0)
+            {
+                vector projXd1 = ((X&d1)/(d1&d1))*d1;
+                vector projXd2 = X-projXd1;
+                
+                scalar fracd1 = (projXd1 & d1)/radius;
+                scalar fracd2 = (projXd2 & d2)/radius;
+                scalar angle = std::acos(fracd1);
+                if(fracd2<0)
+                {
+                    angle = 2*Foam::constant::mathematical::pi-angle;
+                }
+            }
+            scalar crossSecRadius = rodCrossSection[rodInd](para,angle);
+            if(crossSecRadius<=0)
+                FatalErrorInFunction<<"Error"<<exit(FatalError);
+            scalar radiusFrac = radius/crossSecRadius;
+            (*interiorCells)[i] = {cellInd,rodInd,para,angle,radiusFrac};
+        }
+    }
+    return *interiorCells;
 }
 
 Foam::vector Foam::CrossSectionStructure::evaluateRodCircumNormal

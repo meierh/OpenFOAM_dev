@@ -71,6 +71,27 @@ std::unique_ptr<Foam::List<Foam::List<Foam::vector>>> Foam::ForcedMovementVeloci
     return movementListPtr;
 }
 
+bool Foam::ForcedMovementVelocityPressureAction::reconstructInterior
+(
+    bool firstIteration,
+    scalar time,
+    bool finalIteration
+)
+{
+    return firstIteration;
+}
+
+Foam::vector Foam::ForcedMovementVelocityPressureAction::getCellVelocity
+(
+    label rodInd,
+    scalar para,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    return structure.evaluateRodVelocity(rodInd,para,angle,radiusFrac);
+}
+
 Foam::vector Foam::ForcedMovementVelocityPressureAction::getVelocity
 (
     const LagrangianMarker* marker

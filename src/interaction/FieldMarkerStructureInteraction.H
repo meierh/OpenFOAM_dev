@@ -19,7 +19,7 @@ class FieldMarkerStructureInteraction
         );
         virtual ~FieldMarkerStructureInteraction()=default;
 
-        virtual void solve(bool finalIteration) = 0;
+        virtual void solve(bool firstIteration, scalar time, bool finalIteration) = 0;
 
         virtual void store() = 0;
         

@@ -421,11 +421,19 @@ void Foam::LineStructure::setParameterValue
     }    
 }
 
-std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>>
-Foam::LineStructure::getInteriorCells()
+const Foam::List<std::tuple<Foam::label,Foam::label,Foam::scalar,Foam::scalar,Foam::scalar>>&
+Foam::LineStructure::getInteriorCells
+(
+    scalar time,
+    bool reconstruct
+)
 {
-    auto empty = std::make_unique<List<std::pair<label,std::tuple<label,scalar,scalar>>>>();
-    return empty;
+    if(!interiorCells || ((time!=interiorCellTimeValue) && (reconstruct)))
+    {
+        interiorCellTimeValue = time;
+        interiorCells = std::make_unique<List<std::tuple<label,label,scalar,scalar,scalar>>>();
+    }
+    return *interiorCells;
 }
 
 void Foam::LineStructure::createSpacingPoints()

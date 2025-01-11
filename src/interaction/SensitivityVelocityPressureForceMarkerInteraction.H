@@ -25,7 +25,7 @@ class SensitivityVelocityPressureForceInteraction : public SensitivityInteractio
         scalar computeSensitivity(const Parameter& para) override;
         
         void solve(scalar timeStep);
-        void solve(bool finalIteration) override {};
+        void solve(bool firstIteration,scalar time,bool finalIteration) override {};
         
         void store() override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}
         void setToTime(scalar time) override {FatalErrorInFunction<<"Not Implmented"<<exit(FatalError);}

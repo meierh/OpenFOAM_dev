@@ -24,7 +24,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         virtual void preSolveMovement()=0;
         virtual void preSolveMarkerMeshAdaption()=0;
         
-        void solve(bool finalIteration) override;
+        void solve(bool firstIteration, scalar time, bool finalIteration) override;
         virtual void subTimestepStructureMovement()=0;
         virtual void subTimestepMarkerMeshAdaption()=0;
         
@@ -46,6 +46,12 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         void computeCouplingForceOnMarkers();
         virtual void computeRodForceMoment();
         void interpolateFluidForceField();
+        
+        bool interiorForcingActive;
+        bool necessaryReconstruct=false;
+        virtual vector getCellVelocity(label rodInd,scalar para,scalar angle,scalar radiusFrac)=0;
+        virtual bool reconstructInterior(bool firstIteration,scalar time,bool finalIteration)=0;
+        void interiorForcing(scalar time,bool reconstruct);
         
         void moveMarkers();
         void meshMarkerAdaptation();

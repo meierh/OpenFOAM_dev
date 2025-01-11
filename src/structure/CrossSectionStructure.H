@@ -319,7 +319,7 @@ class CrossSectionStructure : public LineStructure
         );
 
     public:
-        std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>> getInteriorCells() override;
+        virtual const List<std::tuple<label,label,scalar,scalar,scalar>>& getInteriorCells(scalar time,bool reconstruct) override;
 
         static vector evaluateRodCircumNormal
         (

@@ -20,10 +20,26 @@ sumMarkerForceFileObject(structureDict),
 sumMarkerMomentFileObject(structureDict),
 detailedMarkerForceFileObject(structureDict)
 {  
+    ITstream interiorForcingStream = structureDict.lookup("interiorForcing");
+    token interiorForcingToken;
+    interiorForcingStream.read(interiorForcingToken);
+    if(!interiorForcingToken.isWord())
+    {
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/interiorForcingStream -- must be  word"<<exit(FatalError);
+    }
+    word interiorForcingCmd = interiorForcingToken.wordToken();
+    if(interiorForcingCmd=="yes")
+        interiorForcingActive = true;
+    else if(interiorForcingCmd=="no")
+        interiorForcingActive = false;
+    else
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/interiorForcingStream -- must be  {yes,no}"<<exit(FatalError);
 }
 
 void Foam::VelocityPressureForceInteraction::solve
 (
+    bool firstIteration,
+    scalar time,
     bool finalIteration
 )
 {   
@@ -31,6 +47,10 @@ void Foam::VelocityPressureForceInteraction::solve
     computeCouplingForceOnMarkers();
     computeRodForceMoment();
     interpolateFluidForceField();
+    if(interiorForcingActive)
+    {
+        interiorForcing(time,reconstructInterior(firstIteration,time,finalIteration));
+    }
     
     if(finalIteration)
     {
@@ -101,6 +121,30 @@ void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
     markerToField<vector>(markerCouplingForce,output_Uf);
 }
 
+void Foam::VelocityPressureForceInteraction::interiorForcing(scalar time,bool reconstruct)
+{
+    if(necessaryReconstruct)
+    {
+        reconstruct = true;
+        necessaryReconstruct = false;
+    }
+    scalar deltaT = mesh.time().deltaTValue();
+    const List<std::tuple<label,label,scalar,scalar,scalar>>& interiorCells = structure.getInteriorCells(time,reconstruct);
+    for(const std::tuple<label,label,scalar,scalar,scalar>& cell : interiorCells)
+    {
+        label cellInd = std::get<0>(cell);
+        label rodInd = std::get<1>(cell);
+        scalar para = std::get<2>(cell);
+        scalar angle = std::get<3>(cell);
+        scalar radiusFrac = std::get<4>(cell);
+        vector cellVelocityGoal = getCellVelocity(rodInd,para,angle,radiusFrac);
+        vector cellVelocity = input_U[cellInd];
+        vector forcingVelocity = (cellVelocityGoal-cellVelocity)/deltaT;
+        output_Uf[cellInd] = forcingVelocity;
+    }
+    Info<<"interiorForcing:"<<interiorCells.size()<<Foam::endl;
+}
+
 void Foam::VelocityPressureForceInteraction::moveMarkers()
 {  
     List<bool> prevRodInMesh = structure.getRodInMesh();
@@ -160,6 +204,7 @@ void Foam::VelocityPressureForceInteraction::meshMarkerAdaptation()
         //meshRefined = refinement_->refineMeshAndMarkers(meshRefined);
         refinement_->refineMeshAndMarkers();
         Info<<"||||||||||||||||||||||||Done refinement||||||||||||||||||||||||"<<Foam::endl;
+        necessaryReconstruct = true;
     }
     structure.finalizeMarkers(true);
 }

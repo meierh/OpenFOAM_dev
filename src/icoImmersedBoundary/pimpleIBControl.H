@@ -101,6 +101,7 @@ class pimpleIBControl : public pimpleSingleRegionControl
         
         bool isSteady(){return steady;}
         
+        bool firstHeatIter() const {return firstHeatIterSet;}
         bool finalHeatIter() const {return finalHeatIterSet;}
 
         void reset();
@@ -129,6 +130,7 @@ class pimpleIBControl : public pimpleSingleRegionControl
         bool nOuterTemperatureCorrectorSet = false;
         bool TTimestepToleranceSet = false;
         scalar TTimestepTolerance;
+        bool firstHeatIterSet = true;
         bool finalHeatIterSet = false;
         //bool TConverged = false;
         bool temperatureUsed = false;

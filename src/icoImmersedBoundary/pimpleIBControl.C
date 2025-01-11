@@ -323,9 +323,12 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
     if(!nOuterTemperatureCorrectorSet)
         FatalErrorInFunction<<"nOuterTemperatureCorrector not set"<<exit(FatalError);
     
+    firstHeatIterSet = false;
+    
     if(finalHeatIterSet)
     {
         finalHeatIterSet = false;
+        firstHeatIterSet = true;
         return false;
     }
     
@@ -355,7 +358,7 @@ bool Foam::solvers::pimpleIBControl::temperatureLoop()
     
     if(!continueLoop)
         finalHeatIterSet = true;
-    
+        
     return true;
 }
 

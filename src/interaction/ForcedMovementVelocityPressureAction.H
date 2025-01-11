@@ -33,6 +33,8 @@ class ForcedMovementVelocityPressureAction : public VelocityPressureForceInterac
         
     protected:
         std::unique_ptr<List<List<vector>>> readDeformationDict();
+        bool reconstructInterior(bool firstIteration,scalar time,bool finalIteration) override;
+        vector getCellVelocity(label rodInd,scalar para,scalar angle,scalar radiusFrac) override;
         
     private:
         vector getVelocity(const LagrangianMarker* marker) override;

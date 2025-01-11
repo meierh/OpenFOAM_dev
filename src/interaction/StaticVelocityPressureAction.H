@@ -27,6 +27,8 @@ class StaticVelocityPressureAction : public VelocityPressureForceInteraction
         void subTimestepMarkerMeshAdaption() override {};
                 
     protected:
+        bool reconstructInterior(bool firstIteration,scalar time,bool finalIteration) override;
+        vector getCellVelocity(label rodInd,scalar para,scalar angle,scalar radiusFrac) override;
         
     private:
         bool initalMarkerMeshAdaptionDone = false;

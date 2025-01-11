@@ -21,7 +21,7 @@ class TemperatureInteraction : public FieldMarkerStructureInteraction
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
         
-        void solve(bool finalIteration) override;
+        void solve(bool firstIteration, scalar time, bool finalIteration) override;
         
         void store() override;
         void setToTime(scalar time) override;

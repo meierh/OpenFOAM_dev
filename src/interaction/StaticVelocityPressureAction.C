@@ -23,6 +23,27 @@ void Foam::StaticVelocityPressureAction::preSolveMarkerMeshAdaption()
     }
 }
 
+bool Foam::StaticVelocityPressureAction::reconstructInterior
+(
+    bool firstIteration,
+    scalar time,
+    bool finalIteration
+)
+{
+    return false;
+}
+
+Foam::vector Foam::StaticVelocityPressureAction::getCellVelocity
+(
+    label rodInd,
+    scalar para,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    return vector(0,0,0);
+}
+
 Foam::vector Foam::StaticVelocityPressureAction::getVelocity
 (
     const LagrangianMarker* marker

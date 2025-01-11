@@ -358,8 +358,13 @@ class LineStructure : public Structure
         virtual List<scalar> getParameterValue(const Parameter& para);
         virtual void setParameterValue(const Parameter& para, List<scalar> value);
     // ----------------- ---------------------------- -----------------
-                
-        virtual std::unique_ptr<Foam::List<std::pair<Foam::label,std::tuple<Foam::label,Foam::scalar,Foam::scalar>>>> getInteriorCells();
+
+    protected:
+        //                            cellInd,rodInd,para,angle,radiusFrac
+        std::unique_ptr<List<std::tuple<label,label,scalar,scalar,scalar>>> interiorCells;
+        scalar interiorCellTimeValue;
+    public:
+        virtual const List<std::tuple<label,label,scalar,scalar,scalar>>& getInteriorCells(scalar time, bool reconstruct);
 
     protected:
         LineStructureStatus status;

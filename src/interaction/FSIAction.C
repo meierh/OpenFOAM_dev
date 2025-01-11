@@ -69,6 +69,27 @@ void Foam::FSIAction::computeRodForceMoment()
     //Gather force and moment
 }
 
+bool Foam::FSIAction::reconstructInterior
+(
+    bool firstIteration,
+    scalar time,
+    bool finalIteration
+)
+{
+    return true;
+}
+
+Foam::vector Foam::FSIAction::getCellVelocity
+(
+    label rodInd,
+    scalar para,
+    scalar angle,
+    scalar radiusFrac
+)
+{
+    return structure.evaluateRodVelocity(rodInd,para,angle,radiusFrac);
+}
+
 Foam::vector Foam::FSIAction::getVelocity
 (
     const LagrangianMarker* marker

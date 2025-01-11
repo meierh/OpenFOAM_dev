@@ -25,7 +25,9 @@ class FSIAction : public VelocityPressureForceInteraction
         void recomputeMarkerValues() override {NotImplemented;}
         
     protected:
+        bool reconstructInterior(bool firstIteration,scalar time,bool finalIteration) override;
         void computeRodForceMoment() override;
+        vector getCellVelocity(label rodInd,scalar para,scalar angle,scalar radiusFrac) override;
         
     private:
         vector getVelocity(const LagrangianMarker* marker) override;
