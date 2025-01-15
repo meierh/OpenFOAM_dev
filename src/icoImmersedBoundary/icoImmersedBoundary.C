@@ -313,8 +313,30 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner
                 refinement_ = std::make_shared<MeshRefiner>(mesh,*structure,*refine_,dynamicMeshDict);
                 useRefinement = true;
             }
+            else if(refinerTypeWord == "MarkerAndFluid")
+            {
+                dictionary& fluidCriterionDict = topoChangerDict.subDict("fluidCriterion");
+                ITstream typeStream = fluidCriterionDict.lookup("type");
+                token typeToken;
+                typeStream.read(typeToken);
+                if(!typeToken.isWord())
+                    FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/fluidCriterion/type -- must be word"<<exit(FatalError);
+                word type = typeToken.wordToken();
+                
+                if(type=="velocityMagnitude")
+                {
+                    refinement_ = std::make_shared<VelocityMagnitudeLaplacian>(mesh,*structure,*refine_,dynamicMeshDict,U_);
+                }
+                else if(type=="rmsVelocityCurvature")
+                {
+                    refinement_ = std::make_shared<RMSVelocityCurvature>(mesh,*structure,*refine_,dynamicMeshDict,U_);
+                }
+                else
+                    FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/fluidCriterion/type -- valid {velocityMagnitude}"<<exit(FatalError);                
+                useRefinement = true;
+            }
             else
-                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/refinerType -- valid {None,MarkerOnly}"<<exit(FatalError);
+                FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/refinerType -- valid {None,MarkerOnly,MarkerAndFluid}"<<exit(FatalError);
         }
         else
             useRefinement = false;

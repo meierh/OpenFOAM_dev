@@ -1,5 +1,5 @@
-#ifndef RMSVELOCITYCURVATURE_H
-#define RMSVELOCITYCURVATURE_H
+#ifndef RMSVelocityCurvature_H
+#define RMSVelocityCurvature_H
 #include "VelocityRefiner.H"
 
 namespace Foam
@@ -10,15 +10,15 @@ class RMSVelocityCurvature : public VelocityRefiner
     public:
         explicit RMSVelocityCurvature
         (
-            volScalarField& doRefine,
-            LineStructure& structure,
             fvMesh& mesh,
-            const dictionary& dynamicMeshDict,
+            LineStructure& structure,
+            volScalarField& doRefine,
+            dictionary& dynamicMeshDict,
             volVectorField& velocity
         );
 
     protected:
-        void fieldRefinement() override;
+        //void fieldRefinement() override;
 };
 
 }

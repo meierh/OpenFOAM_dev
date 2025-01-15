@@ -1,5 +1,5 @@
-#ifndef VELOCITYREFINER_H
-#define VELOCITYREFINER_H
+#ifndef VelocityMagnitudeLaplacian_H
+#define VelocityMagnitudeLaplacian_H
 #include "VelocityRefiner.H"
 #include "fvcGrad.H"
 
@@ -11,15 +11,15 @@ class VelocityMagnitudeLaplacian : public VelocityRefiner
     public:
         explicit VelocityMagnitudeLaplacian
         (
-            volScalarField& doRefine,
-            LineStructure& structure,
             fvMesh& mesh,
-            const dictionary& dynamicMeshDict,
+            LineStructure& structure,
+            volScalarField& doRefine,
+            dictionary& dynamicMeshDict,
             volVectorField& velocity
         );
 
     protected:
-        void fieldRefinement() override;
+        //void fieldRefinement() override;
 };
 
 }

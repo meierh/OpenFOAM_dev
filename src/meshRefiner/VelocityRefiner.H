@@ -11,9 +11,9 @@ class VelocityRefiner : public MeshRefiner
     public:
         explicit VelocityRefiner
         (
-            volScalarField& doRefine,
-            LineStructure& structure,
             fvMesh& mesh,
+            LineStructure& structure,
+            volScalarField& doRefine,
             dictionary& dynamicMeshDict,
             volVectorField& velocity
         );
@@ -22,7 +22,6 @@ class VelocityRefiner : public MeshRefiner
         scalar refineGradient;
         scalar unrefineGradient;
         volVectorField& velocity;
-        void fieldRefinement() override;
 };
 
 }

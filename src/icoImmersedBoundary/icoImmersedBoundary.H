@@ -60,6 +60,8 @@ See also
 #include "ForcedMovementVelocityPressureAction.H"
 #include "FixedTemperatureAction.H"
 #include "MeshRefiner.H"
+#include "VelocityMagnitudeLaplacian.H"
+#include "RMSVelocityCurvature.H"
 
 #include "fvmDiv.H"
 #include "fvmLaplacian.H"
