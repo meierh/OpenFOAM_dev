@@ -1,4 +1,7 @@
 MeshRefiner.C
 VelocityRefiner.C
+VelocityMagnitudeLaplacian.C
+RMSVelocityCurvature.C
+VelocityJump.C
 
 LIB = $(FOAM_USER_LIBBIN)/libMeshRefiner

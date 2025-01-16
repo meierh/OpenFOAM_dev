@@ -11,8 +11,8 @@ Foam::VelocityMagnitudeLaplacian::VelocityMagnitudeLaplacian
 VelocityRefiner(mesh,structure,doRefine,dynamicMeshDict,velocity)
 {}
 
-/*
-void Foam::VelocityRefiner::fieldRefinement()
+
+void Foam::VelocityMagnitudeLaplacian::fieldRefinement()
 {
     
     dimensionSet dimensions = fieldRefineDemands.dimensions();
@@ -26,4 +26,3 @@ void Foam::VelocityRefiner::fieldRefinement()
 
     }
 }
-*/

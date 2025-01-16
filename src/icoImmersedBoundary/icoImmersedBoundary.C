@@ -325,14 +325,20 @@ void Foam::solvers::icoImmersedBoundary::create_Refiner
                 
                 if(type=="velocityMagnitude")
                 {
+                    NotImplemented;
                     refinement_ = std::make_shared<VelocityMagnitudeLaplacian>(mesh,*structure,*refine_,dynamicMeshDict,U_);
                 }
                 else if(type=="rmsVelocityCurvature")
                 {
+                    NotImplemented;
                     refinement_ = std::make_shared<RMSVelocityCurvature>(mesh,*structure,*refine_,dynamicMeshDict,U_);
                 }
+                else if(type=="velocityJump")
+                {
+                    refinement_ = std::make_shared<VelocityJump>(mesh,*structure,*refine_,dynamicMeshDict,U_);
+                }
                 else
-                    FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/fluidCriterion/type -- valid {velocityMagnitude}"<<exit(FatalError);                
+                    FatalErrorInFunction<<"Invalid entry in constant/dynamicMeshDict/topoChangerDict/fluidCriterion/type -- valid {velocityMagnitude,rmsVelocityCurvature,velocityJump}"<<exit(FatalError);                
                 useRefinement = true;
             }
             else

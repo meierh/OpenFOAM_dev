@@ -62,6 +62,7 @@ See also
 #include "MeshRefiner.H"
 #include "VelocityMagnitudeLaplacian.H"
 #include "RMSVelocityCurvature.H"
+#include "VelocityJump.H"
 
 #include "fvmDiv.H"
 #include "fvmLaplacian.H"

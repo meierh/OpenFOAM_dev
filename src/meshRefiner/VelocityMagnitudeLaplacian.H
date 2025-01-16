@@ -19,7 +19,7 @@ class VelocityMagnitudeLaplacian : public VelocityRefiner
         );
 
     protected:
-        //void fieldRefinement() override;
+        void fieldRefinement() override;
 };
 
 }
