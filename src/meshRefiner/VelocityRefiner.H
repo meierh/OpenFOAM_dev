@@ -17,7 +17,7 @@ class VelocityRefiner : public MeshRefiner
             dictionary& dynamicMeshDict,
             volVectorField& velocity
         );
-
+        
     protected:
         scalar refineGradient;
         scalar unrefineGradient;

@@ -8,7 +8,7 @@ Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
     objectiveFunction obj
 ):
 icoImmersedBoundary(mesh,time),
-adjPimpleCtlr(incompressibleFluid::pimple,time),
+adjPimpleCtlr(incompressibleFluid::pimple,time,mesh),
 adj_U_
 (
     IOobject

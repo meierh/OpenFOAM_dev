@@ -2,6 +2,8 @@
 #define MESHREFINER_H
 #include "fvMesh.H"
 #include "LineStructure.H"
+#include "fvMeshTopoChanger.H"
+#include "fvMeshTopoChangersRefiner.H"
 
 namespace Foam
 {
@@ -17,20 +19,17 @@ class MeshRefiner
             dictionary& dynamicMeshDict
         );
         virtual ~MeshRefiner() = default;
-
-        virtual void adaptMesh();
-        
-        /* Markers are not refined.
-         * Only mesh is refined
-         * Returns true if mesh was refined
-         */
-        virtual bool refineMeshOnStaticMarkers();
-        
+                
         /* preRefinedMesh: Was the mesh previously refined
          * Mesh is refined and markers are refined
          * Returns true if mesh was refined
          */
-        virtual bool refineMeshAndMarkers(bool preRefinedMesh=false);
+        bool refineMeshAndMarkers(bool preRefinedMesh=false);
+        
+        /* Refine only on fluid grounds
+         * Returns true if mesh was refined
+         */
+        bool refineMeshOnFluid();
         
     protected:
         const scalar REFINE   = +1;
@@ -54,6 +53,8 @@ class MeshRefiner
         void markerRefinement(scalar defaultValue);
         
         bool applyMeshAdaption();
+        
+        const fvMeshTopoChangers::refiner* refinerPtr;
 
     private:
         scalar refinementDemandMerge(scalar fieldDemand, scalar markerDemand);

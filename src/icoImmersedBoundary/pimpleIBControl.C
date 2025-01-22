@@ -3,12 +3,14 @@
 Foam::solvers::pimpleIBControl::pimpleIBControl
 (
     pimpleNoLoopControl& pimple,
-    Time& runTime
+    Time& runTime,
+    const fvMesh& mesh
 ):
 pimpleSingleRegionControl(pimple),
 pimple(pimple),
 runTime(runTime),
-timeIteration(0)
+timeIteration(0),
+mesh(mesh)
 {
     readFromFvSolution();
 }
@@ -437,4 +439,44 @@ void Foam::solvers::pimpleIBControl::reset()
     resetActive=true;
     corr_=0;
     converged_=false;
+}
+
+bool Foam::solvers::pimpleIBControl::halfConverged()
+{
+    const fvSolution& solutionLimits = mesh.solution();
+    const dictionary& pimpleDict = solutionLimits.subDict("PIMPLE");
+    const dictionary& outerCorrectorResidualControlDict = pimpleDict.subDict("outerCorrectorResidualControl");
+    
+    const dictionary& uDict = outerCorrectorResidualControlDict.subDict("U");
+    ITstream uDictToleranceStream = uDict.lookup("tolerance");
+    token uDictToleranceToken;
+    uDictToleranceStream.read(uDictToleranceToken);
+    if(!uDictToleranceToken.isScalar())
+        FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/outerCorrectorResidualControl/U/tolerance -- must be scalar"<<exit(FatalError);
+    scalar velocityTolerance = uDictToleranceToken.scalarToken();
+    scalar halfVelocityTolerance = std::sqrt(velocityTolerance);
+    if(velocityEqns==nullptr)
+        FatalErrorInFunction<<"velocityEqns not set!"<<exit(FatalError);
+    vector uInitialResidual = velocityEqns->initialResidual();
+    bool velocityHalfConverged = true;
+    for(label d=0; d<3; d++)
+        if(halfVelocityTolerance<uInitialResidual[d])
+            velocityHalfConverged = false;
+
+    const dictionary& pDict = outerCorrectorResidualControlDict.subDict("p");
+    ITstream pDictToleranceStream = pDict.lookup("tolerance");
+    token pDictToleranceToken;
+    pDictToleranceStream.read(pDictToleranceToken);
+    if(!pDictToleranceToken.isScalar())
+        FatalErrorInFunction<<"Invalid entry in system/fvSolution/PIMPLE/outerCorrectorResidualControl/p/tolerance -- must be scalar"<<exit(FatalError);
+    scalar pressureTolerance = pDictToleranceToken.scalarToken();
+    scalar halfPressureTolerance = std::sqrt(pressureTolerance);
+    if(pressureEqns==nullptr)
+        FatalErrorInFunction<<"pressureEqns not set!"<<exit(FatalError);
+    scalar pInitialResidual = pressureEqns->initialResidual();
+    bool pressureHalfConverged = true;
+    if(halfPressureTolerance<pInitialResidual)
+        pressureHalfConverged = false;
+    
+    return pressureHalfConverged & velocityHalfConverged;
 }

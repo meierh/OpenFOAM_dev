@@ -77,7 +77,7 @@ namespace solvers
 class pimpleIBControl : public pimpleSingleRegionControl
 {
     public:
-        pimpleIBControl(pimpleNoLoopControl& pimple,Time& runTime);
+        pimpleIBControl(pimpleNoLoopControl& pimple,Time& runTime,const fvMesh& mesh);
 
         bool loop()=delete;
         
@@ -105,6 +105,8 @@ class pimpleIBControl : public pimpleSingleRegionControl
         bool finalHeatIter() const {return finalHeatIterSet;}
 
         void reset();
+        
+        bool halfConverged();
 
     protected:
         pimpleNoLoopControl& pimple;        
@@ -112,6 +114,7 @@ class pimpleIBControl : public pimpleSingleRegionControl
         Time& runTime;
         bool steady;
         label timeIteration;
+        const fvMesh& mesh;
         
     private:
         // Momentum system

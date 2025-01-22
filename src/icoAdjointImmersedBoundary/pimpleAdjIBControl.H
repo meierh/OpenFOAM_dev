@@ -77,7 +77,7 @@ namespace solvers
 class pimpleAdjIBControl : public pimpleIBControl
 {
     public:
-        pimpleAdjIBControl(pimpleNoLoopControl& pimple,Time& runTime);
+        pimpleAdjIBControl(pimpleNoLoopControl& pimple,Time& runTime,const fvMesh& mesh);
         pimpleAdjIBControl(const pimpleAdjIBControl&)=delete;
         //virtual ~pimpleIBControl() {~pimpleSingleRegionControl::pimpleSingleRegionControl();}
 

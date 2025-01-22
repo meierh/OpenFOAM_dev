@@ -44,50 +44,10 @@ markerRefineDemands("markerDemands",doRefine)
             FatalErrorInFunction<<"Invalid topoChanger/markerCellFactor is"<<topoChangerFactorScalar<<" -- valid {]0,inf[}"<<exit(FatalError);
         markerCharLengthToCellSizeFactor = topoChangerFactorScalar;
     }
-}
-
-void Foam::MeshRefiner::adaptMesh()
-{
-    FatalErrorInFunction<<"Not in use anymore"<<exit(FatalError);
-    /*
-    fieldRefinement();
-    markerRefinement(UNREFINE);
-
-    for(label cellInd=0; cellInd<fieldRefineDemands.size(); cellInd++)
-    {
-        scalar fieldRefValue = fieldRefineDemands[cellInd];
-        const scalar markerRefValue = markerRefineDemands[cellInd];
-        scalar& refineValue = doRefine[cellInd];
-        refineValue = refinementDemandMerge(fieldRefValue,markerRefValue);
-    }
-    mesh.update();
-    refineMeshAndMarkers();
-    */
-}
-
-bool Foam::MeshRefiner::refineMeshOnStaticMarkers()
-{
-    FatalErrorInFunction<<"No longer in use"<<exit(FatalError);
     
-    bool meshWasRefined = false;
-    /*
-    bool refined = true;
-    while(refined)
-    {
-        Info<<"------------refineMeshOnStaticMarkers-------------"<<Foam::nl;
-        auto start = std::chrono::system_clock::now();
-        markerRefinement(MUSTKEEP);
-        for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
-        {
-            doRefine[cellInd] = markerRefineDemands[cellInd];
-        }
-        refined = applyMeshAdaption();
-        meshWasRefined |= refined;
-        auto end = std::chrono::system_clock::now();
-        Info<<"------------------------------------------------- took:"<<std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()<<" milliseconds"<<Foam::nl;
-    }
-    */
-    return meshWasRefined;
+    const fvMeshTopoChanger& topoCh = mesh.topoChanger();
+    const fvMeshTopoChanger* topoChPtr = &topoCh;
+    refinerPtr = dynamic_cast<const fvMeshTopoChangers::refiner*>(topoChPtr);
 }
 
 bool Foam::MeshRefiner::refineMeshAndMarkers
@@ -120,10 +80,46 @@ bool Foam::MeshRefiner::refineMeshAndMarkers
     return meshWasRefined;
 }
 
+bool Foam::MeshRefiner::refineMeshOnFluid()
+{
+    fieldRefinement();
+    bool meshChange = false;
+    List<bool> cellToKeep(markerRefineDemands.size(),false);
+    const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
+    for(const LagrangianMarker* oneMarker : markers)
+    {
+        label markerCell = oneMarker->getMarkerCell();
+        cellToKeep[markerCell] = true;
+    }
+    
+    for(label cellInd=0; cellInd<markerRefineDemands.size(); cellInd++)
+    {
+        if(!cellToKeep[cellInd])
+        {
+            doRefine[cellInd] = fieldRefineDemands[cellInd];
+            if(!meshChange)
+            {
+                if(doRefine[cellInd]==REFINE || doRefine[cellInd]==UNREFINE)
+                {
+                    meshChange = true;
+                }
+            }
+        }
+        else
+            doRefine[cellInd] = MUSTKEEP;            
+    }
+    bool refined=false;
+        
+    if(meshChange)
+        refined = applyMeshAdaption();
+    
+    return refined;
+}
+
 void Foam::MeshRefiner::fieldRefinement()
 {
     dimensionSet dimensions = fieldRefineDemands.dimensions();
-    Foam::dimensioned<Foam::scalar> val("fieldRefinement",dimensions,-0.25);
+    Foam::dimensioned<Foam::scalar> val("fieldRefinement",dimensions,DONTCARE);
     fieldRefineDemands = val;
 }
 

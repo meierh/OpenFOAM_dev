@@ -39,6 +39,7 @@ Foam::vector Foam::LagrangianMarker::getMarkerVelocity() const
 
 Foam::scalar Foam::LagrangianMarker::getMarkerTemperature() const
 {
+    FatalErrorInFunction<<"Error"<<exit(FatalError);
     return 1;
 }
 

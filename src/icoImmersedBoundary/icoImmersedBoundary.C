@@ -7,7 +7,7 @@ Foam::solvers::icoImmersedBoundary::icoImmersedBoundary
 ):
 incompressibleFluid(mesh),
 time(time),
-pimpleCtlr(incompressibleFluid::pimple,time),
+pimpleCtlr(incompressibleFluid::pimple,time,mesh),
 transportProperties
 (
     IOobject
@@ -430,11 +430,16 @@ void Foam::solvers::icoImmersedBoundary::preMove
     }
 }
 
-void Foam::solvers::icoImmersedBoundary::moveMesh
+void Foam::solvers::icoImmersedBoundary::refineMesh
 (
     pimpleIBControl& pimpleCtlr
 )
 {
+    if(pimpleCtlr.halfConverged())
+    {
+        if(refinement_)
+            refinement_->refineMeshOnFluid();
+    }
 }
 
 void Foam::solvers::icoImmersedBoundary::motionCorrector
@@ -590,6 +595,7 @@ void Foam::solvers::icoImmersedBoundary::postCorrector
 )
 {
     incompressibleFluid::postCorrector();
+    bool changes = false;
     if(interaction_fU)
     {
         interaction_fU->subTimestepStructureMovement();
@@ -671,13 +677,13 @@ void Foam::solvers::icoImmersedBoundary::oneTimestep
     preMove(pimpleCtlr);
     while (pimpleCtlr.momentumLoopOrig())
     {
-        moveMesh(pimpleCtlr);
         motionCorrector(pimpleCtlr);
         //fvModels().correct();
         prePredictor(pimpleCtlr);
         momentumPredictor(pimpleCtlr);
         thermophysicalPredictor();
         pressureCorrector(pimpleCtlr);
+        refineMesh(pimpleCtlr);
         postCorrector(pimpleCtlr);
     }
     postSolve(pimpleCtlr);

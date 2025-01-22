@@ -189,7 +189,7 @@ class icoImmersedBoundary : public incompressibleFluid
         //void preMove()override{};
         
         //- Called at the start of the PIMPLE loop to move the mesh
-        void moveMesh(pimpleIBControl& pimpleCtlr);
+        void refineMesh(pimpleIBControl& pimpleCtlr);
         void moveMesh()override{FatalErrorInFunction<<"Invalid call moveMesh"<<exit(FatalError);};
 
         //- Corrections that follow mesh motion

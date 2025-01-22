@@ -3,9 +3,10 @@
 Foam::solvers::pimpleAdjIBControl::pimpleAdjIBControl
 (
     pimpleNoLoopControl& pimple,
-    Time& runTime
+    Time& runTime,
+    const fvMesh& mesh
 ):
-pimpleIBControl(pimple,runTime)
+pimpleIBControl(pimple,runTime,mesh)
 {
     readFromFvSolution();
 }
