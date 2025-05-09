@@ -56,6 +56,7 @@ See also
 
 #include "icoImmersedBoundary.H"
 #include "SensitivityVelocityPressureForceMarkerInteraction.H"
+#include "SensitivityVelocityPressure.H"
 #include "SensitivityTemperatureInteraction.H"
 
 #include "fvmDiv.H"

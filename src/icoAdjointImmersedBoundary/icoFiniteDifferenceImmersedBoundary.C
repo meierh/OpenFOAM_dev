@@ -41,7 +41,7 @@ void Foam::solvers::icoFiniteDifferenceImmersedBoundary::Solve()
 {
     scalar fdGradient;
     std::vector<scalar> J_eps;
-    scalar writeTime = 1;
+    //scalar writeTime = 1;
     
     Info<<"epsilons:";
     for(scalar eps : epsilons)

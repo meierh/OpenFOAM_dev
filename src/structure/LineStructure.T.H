@@ -14,9 +14,14 @@ void Foam::LineStructure::reduceMarkers
         cellToMarker[cellInd].push_back(&markerData);
     }
     
+    if(!this->structureDict)
+    {
+        FatalErrorInFunction<<"File structureDict does not exit but is necessary!"<<exit(FatalError);
+    }
     const IOdictionary& structureDict = *(this->structureDict);
     if(structureDict.found("markerReductionMethod"))
     {
+        Info<<"structureDict.found(markerReductionMethod)=true"<<Foam::endl;
         ITstream markerReductionStream = structureDict.lookup("markerReductionMethod");
         token markerReductionToken;
         markerReductionStream.read(markerReductionToken);
@@ -41,7 +46,10 @@ void Foam::LineStructure::reduceMarkers
             maxTwoMarkerPerCell(allMarkers,cellToMarker);
         }
         else
+        {
+            Info<<"structureDict.found(markerReductionMethod)=false"<<Foam::endl;
             FatalErrorInFunction<<"Invalid option in structure/structureDict/markerReductionMethod -- must be {onePerCell}"<<exit(FatalError);
+        }
     }
     else
         FatalErrorInFunction<<"Missing keyword markerReductionMethod in structure/structureDict"<<exit(FatalError);

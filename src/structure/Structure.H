@@ -471,6 +471,9 @@ class Structure
             //Solver options
             ActiveRodMesh::SolveOptions solveOpt;
         //******************* Parameters *******************//
+            
+        List<Tuple2<bool,Tuple3<vector,vector,vector>>> rodCoordinateSystemIniRotation;
+        void correctInitialCoordinateSystemState();
     // -------------------------------- ------------------ --------------------------------
 
     protected:

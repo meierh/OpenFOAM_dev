@@ -33,7 +33,11 @@ class SensitivityInteraction : public FieldMarkerStructureInteraction
             const DynamicList<T>& markerData,
             GeometricField<T,fvPatchField,volMesh>& fieldData,
             const Parameter& par
-        );        
+        );
+
+    public:
+        void deltaFunctionParamGradientCheck(std::vector<Parameter> paraList);
+        
 };
 #include "SensitivityInteraction.T.H"
 }

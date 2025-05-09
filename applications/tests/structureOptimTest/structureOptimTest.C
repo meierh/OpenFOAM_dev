@@ -54,10 +54,33 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
+    
+    volVectorField U
+    (
+        IOobject
+        (
+            "U",
+            runTime.name(),
+            mesh,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    );
+
+    volVectorField Uf(U);
+    
+    IOobject structureIO("structureDict","constant",runTime,IOobject::MUST_READ,IOobject::NO_WRITE);
+    std::shared_ptr<IOdictionary> structureDict;
+    if(!structureIO.filePath("",true).empty())
+        structureDict = std::make_shared<IOdictionary>(structureIO);
+    else
+        FatalErrorInFunction<<"StructureDict not found"<<exit(FatalError);
+    
 
     Info<<"Start testing"<<Foam::endl;
     for(label run=0; run<1; run++)
-    {
+    {       
         label k = RandomInt(0,10);
         Info<<"----- Run:"<<run<<" -----:"<<k<<Foam::endl;
 
@@ -101,14 +124,43 @@ int main(int argc, char *argv[])
         eps = RandomFloat(-1,1);
         curveCoeffs[0][3] = vector(40+eps,-10+eps,0+eps);
         Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
+                
+        std::vector<CrossSection> crossSecList = {CrossSection(0.05)};
+        CrossSectionStructure testStructure(mesh,crossSecList,structureDict);
+        std::shared_ptr<MeshRefiner> refinement_;
+        StaticVelocityPressureAction primalInteraction(mesh,testStructure,U,Uf,*structureDict,refinement_);
+        SensitivityVelocityPressure interaction(mesh,testStructure,primalInteraction,*structureDict);
         
-        std::vector<CrossSection> crossSecList = {CrossSection(a_0,a_k,b_k,phaseShift)};
-        CrossSectionStructure testStructure(mesh,crossSecList,true);
+        Info<<"Markers size:"<<testStructure.getCollectedMarkers().size()<<Foam::endl;
+        testStructure.deltaFunctionGradientCheck();
         
-        testStructure.selfCheck();
+        std::vector<NurbsCoeffReference> nurbsCoeffs;
+        std::vector<CrossSectionCoeffReference> crossSecCoeffs;
+        std::vector<Parameter> parameters;
+        testStructure.listCoefficients(nurbsCoeffs,crossSecCoeffs);
+        Info<<"nurbsCoeffs.size():"<<nurbsCoeffs.size()<<Foam::endl;
+        for(NurbsCoeffReference item : nurbsCoeffs)
+            Info<<item<<":"<<testStructure.getParameterValue(Parameter(item))<<Foam::endl;
+        Info<<"crossSecCoeffs.size():"<<crossSecCoeffs.size()<<Foam::endl;
+        for(CrossSectionCoeffReference item : crossSecCoeffs)
+            Info<<item<<":"<<testStructure.getParameterValue(Parameter(item))<<Foam::endl;
         
+        for(NurbsCoeffReference item : nurbsCoeffs)
+            parameters.push_back(Parameter(item));
+        for(CrossSectionCoeffReference item : crossSecCoeffs)
+            parameters.push_back(Parameter(item));
         
+        testStructure.rodPointParameterGradientCheck({Parameter({nurbsCoeffs[0]})});
+        //testStructure.rodPointParameterGradientCheck(parameters);
+        
+        //interaction.deltaFunctionParamGradientCheck({Parameter({nurbsCoeffs[4]})});
+        
+                
+        //testStructure.selfCheck();
         //testStructure.parameterGradientCheck();
+        
+        
+        
         
         /*
         testStructure.selfCheck();
@@ -187,6 +239,8 @@ int main(int argc, char *argv[])
         */
         
     }
+    
+    
     
     Info<<"Done testing"<<Foam::endl;    
     return 0;

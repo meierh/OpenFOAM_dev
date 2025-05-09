@@ -5,7 +5,10 @@ EXE_INC = \
     -I$(LIB_SRC)/MomentumTransportModels/incompressible/lnInclude \
     -I$(LIB_SRC)/physicalProperties/lnInclude \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/fvMeshTopoChangers/lnInclude \
     -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIB_SRC)/triSurface/lnInclude \
+    -I$(LIB_SRC)/polyTopoChange/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/structure/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/meshRefiner/lnInclude \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/interaction/lnInclude \
@@ -36,8 +39,15 @@ EXE_LIBS = \
     -lincompressibleFluid \
     -lmeshTools \
     -lfiniteVolume \
+    -ltriSurface \
+    -lmeshTools \
+    -lpolyTopoChange \
+    -lfvMeshTopoChangers \
+    $(WM_THIRD_PARTY_DIR)/tinyxml2/libtinyxml2.a \
+    $(WM_THIRD_PARTY_DIR)/gsl-2.8/build/lib/libgsl.a \
     -L$(FOAM_USER_LIBBIN) \
     -licoImmersedBoundary \
+    -lSetupOpenFOAM \
     -lStructure \
     -lMeshRefiner \
     -lInteraction \

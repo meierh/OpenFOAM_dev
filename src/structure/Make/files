@@ -1,9 +1,11 @@
 Structure.C
+Rotation.C
 BoundingBox.C
 LineStructure.C
 LagrangianMarker.C
 LineStructureStatus.C
 LineStructureParameters.C
+LineStructureParameterVariation.C
 CrossSection.C
 LagrangianMarkerOnCrossSec.C
 CrossSectionStructure.C

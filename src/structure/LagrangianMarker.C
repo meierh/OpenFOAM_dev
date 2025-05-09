@@ -1385,6 +1385,7 @@ Foam::scalar Foam::LagrangianMarker::deltaDirac
     vector h
 )
 {
+    /*
     vector sigma_d;
     for(label dim=0; dim<3; dim++)
     {
@@ -1395,6 +1396,17 @@ Foam::scalar Foam::LagrangianMarker::deltaDirac
     scalar deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
     deltaDir /= (h[0]*h[1]*h[2]);
     return deltaDir;
+    */
+    
+    vector sigma_d;
+    for(label dim=0; dim<3; dim++)
+    {
+        scalar X_i_x_i = X[dim]-x[dim];
+        scalar r = X_i_x_i / h[dim];
+        sigma_d[dim] = phiFunction(r)/h[dim];
+    }
+    scalar deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
+    return deltaDir;
 }
 
 Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
@@ -1404,15 +1416,26 @@ Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
     vector h
 )
 {
-    vector ddeltaDir_dX;
-    for(label dim=0; dim<3; dim++)
-    {
-        scalar X_i_x_i = X[dim]-x[dim];
-        scalar r = X_i_x_i / h[dim];
-        ddeltaDir_dX[dim] = dphiFunction_dr(r);
-        ddeltaDir_dX[dim] /= h[dim];
-    }
-    ddeltaDir_dX /= (h[0]*h[1]*h[2]);
+    vector X_x = x-X;
+    vector r = X_x;
+    r[0]/=h[0]; r[1]/=h[1]; r[2]/=h[2];
+    
+    scalar deltax = (1/h[0]) * phiFunction(r[0]);
+    scalar deltay = (1/h[1]) * phiFunction(r[1]);
+    scalar deltaz = (1/h[2]) * phiFunction(r[2]);
+    
+    // deltax_dX deltay deltaz
+    vector deltax_dX = 1/(h[0]*h[0]) * dphiFunction_dr(r[0]) * vector(-1,0,0);
+    
+    // deltax deltay_dX deltaz
+    vector deltay_dX = 1/(h[1]*h[1]) * dphiFunction_dr(r[1]) * vector(0,-1,0);
+
+    // deltax deltay deltaz_dX
+    vector deltaz_dX = 1/(h[2]*h[2]) * dphiFunction_dr(r[2]) * vector(0,0,-1);
+    
+    vector ddeltaDir_dX =   deltax_dX * deltay * deltaz
+                          + deltax * deltay_dX * deltaz 
+                          + deltax * deltay * deltaz_dX;
     return ddeltaDir_dX;
 }
 
@@ -1435,12 +1458,7 @@ Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
     const FixedList<scalar,10>& b
 )
 {
-    vector conn = x-X;
-    scalar correctionFactor =   b[0] + 
-                                conn[0]*b[1] + conn[1]*b[2] + conn[2]*b[3] +
-                                conn[0]*conn[1]*b[4] + conn[1]*conn[2]*b[5] + conn[2]*conn[0]*b[6] +
-                                conn[0]*conn[0]*b[7] + conn[1]*conn[1]*b[8] + conn[2]*conn[2]*b[9];
-    return correctionFactor*deltaDirac(X,x,h);
+    return b_x_X(X,x,b)*deltaDirac(X,x,h);
 }
 
 Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
@@ -1451,15 +1469,39 @@ Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
     const FixedList<scalar,10>& b
 )
 {
+    return db_dX(X,x,b)*deltaDirac(X,x,h) + b_x_X(X,x,b)*ddeltaDirac_dX(X,x,h);
+}
+
+Foam::scalar Foam::LagrangianMarker::b_x_X
+(
+    vector X,
+    vector x,
+    const FixedList<scalar,10>& b
+)
+{
+    
     vector conn = x-X;
-    scalar dcorrectionFactor_dX0 = -1*b[1]+ -1*conn[1]*b[4]+ conn[2]*-1*b[6]+ -2*conn[0]*b[7];
-    scalar dcorrectionFactor_dX1 = -1*b[2]+ -1*conn[0]*b[4]+ -1*conn[2]*b[5]+ -2*conn[1]*b[8];
-    scalar dcorrectionFactor_dX2 = -1*b[3]+ conn[1]*-1*b[5]+ -1*conn[0]*b[6]+ -2*conn[2]*b[9];
-    vector ddeltaDirac_dX = LagrangianMarker::ddeltaDirac_dX(X,x,h);
-    ddeltaDirac_dX[0] *= dcorrectionFactor_dX0;
-    ddeltaDirac_dX[1] *= dcorrectionFactor_dX1;
-    ddeltaDirac_dX[2] *= dcorrectionFactor_dX2;
-    return ddeltaDirac_dX;
+    scalar b_x_X_val =  b[0] + 
+                        conn[0]*b[1] + conn[1]*b[2] + conn[2]*b[3] +
+                        conn[0]*conn[1]*b[4] + conn[1]*conn[2]*b[5] + conn[2]*conn[0]*b[6] +
+                        conn[0]*conn[0]*b[7] + conn[1]*conn[1]*b[8] + conn[2]*conn[2]*b[9];
+    return b_x_X_val;
+}
+
+Foam::vector Foam::LagrangianMarker::db_dX
+(
+    vector X,
+    vector x,
+    const FixedList<scalar,10>& b
+)
+{
+    vector conn = x-X;
+    vector db1_3_dX = -  vector(b[1],b[2],b[3]);
+    vector db4_dX   = -  vector(conn[1],conn[0],0)*b[4];
+    vector db5_dX   = -  vector(0,conn[2],conn[1])*b[5];
+    vector db6_dX   = -  vector(conn[2],0,conn[0])*b[6];
+    vector db7_9_dX = -2*vector(conn[0]*b[7],conn[1]*b[8],conn[2]*b[9]);
+    return db1_3_dX + db4_dX + db5_dX + db6_dX + db7_9_dX;
 }
 
 Foam::scalar Foam::LagrangianMarker::phiFunction
@@ -1544,7 +1586,6 @@ Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
 {
     return ddeltaDirac_dX(X,x,dilation);
 }
-
 
 std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeCorrectedMomentMatrix() const
 {
@@ -1635,4 +1676,323 @@ std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeCo
     moments3D(8,9) = moments3D(9,8) = computeCorrectedMoment(vector(0,2,2));
     
     return moments3DPtr;
+}
+
+void Foam::LagrangianMarker::checkPhiGradient()
+{
+    std::vector<scalar> epsilonList = {1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8};
+    std::vector<scalar> span;
+    scalar start = -2.5;
+    scalar end = 2.5;
+    scalar dist = end-start;
+    label num = 100;
+    scalar delta = dist/num;
+    for(scalar val=start; val<end; val+=delta)
+    {
+        DynamicList<scalar> error;
+        for(scalar eps : epsilonList)
+        {
+            scalar f0 = phiFunction(val-eps);
+            scalar f1 = phiFunction(val+eps);
+            scalar fd_dfde = (f1-f0)/(2*eps);
+            scalar dfde = dphiFunction_dr(val);
+            scalar abs_error = std::abs(fd_dfde-dfde);
+            error.append(abs_error);
+        }
+        auto minIter = std::min_element(error.begin(),error.end());
+        scalar min_error = *minIter;
+        scalar min_index = std::distance(error.begin(),minIter);
+        
+        auto maxIter = std::max_element(error.begin(),error.end());
+        scalar max_error = *maxIter;
+        scalar max_index = std::distance(error.begin(),maxIter);
+        
+        if(min_error > 1e-6)
+        {
+            Info<<"val: "<<val<<" min error("<<min_index<<"):"<<min_error<<" max error("<<max_index<<"):"<<max_error<<Foam::endl;
+            Info<<"error:"<<error<<Foam::endl;
+            for(scalar eps : epsilonList)
+            {
+                scalar f0 = phiFunction(val-eps);
+                scalar f1 = phiFunction(val+eps);
+                scalar fd_dfde = (f1-f0)/(2*eps);
+                scalar dfde = dphiFunction_dr(val);
+                scalar abs_error = std::abs(fd_dfde-dfde);
+                Info<<"\t eps:"<<eps<<":"<<" fd_dfde:"<<fd_dfde<<" dfde:"<<dfde<<" abs:"<<abs_error<<Foam::endl;
+            }
+            FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
+        }
+    }
+}
+
+void Foam::LagrangianMarker::checkbGradient
+(
+    vector X,
+    vector x,
+    const FixedList<scalar,10>& b
+)
+{
+    std::vector<scalar> epsilonList = {1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8};
+    std::vector<scalar> span;
+
+    DynamicList<scalar> error;
+    for(scalar eps : epsilonList)
+    {
+        vector fd_dbdX;
+        for(int d=0; d<3; d++)
+        {
+            vector X_minus_eps = X;
+            X_minus_eps[d]-=eps;
+            scalar f0 = b_x_X(X_minus_eps,x,b);
+            vector X_plus_eps = X;
+            X_plus_eps[d]+=eps;
+            scalar f1 = b_x_X(X_plus_eps,x,b);
+            fd_dbdX[d] = (f1-f0)/(2*eps);
+        }
+        vector dbdX = db_dX(X,x,b);
+        vector diff = dbdX-fd_dbdX;
+        scalar abs_error = std::sqrt(diff&diff);
+        error.append(abs_error);
+    }
+    auto minIter = std::min_element(error.begin(),error.end());
+    scalar min_error = *minIter;
+    scalar min_index = std::distance(error.begin(),minIter);
+    
+    auto maxIter = std::max_element(error.begin(),error.end());
+    scalar max_error = *maxIter;
+    scalar max_index = std::distance(error.begin(),maxIter);
+    
+    //Info<<"X:"<<X<<" x:"<<x<<" error:"<<error<<Foam::endl;
+    
+    if(min_error > 1e-6)
+    {
+        Info<<" min error("<<min_index<<"):"<<min_error<<" max error("<<max_index<<"):"<<max_error<<Foam::endl;
+        Info<<"error:"<<error<<Foam::endl;
+        FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
+    }
+}
+
+void Foam::LagrangianMarker::checkbGradientOfMarker() const
+{
+    vector X = getMarkerPosition();
+    const FixedList<scalar,10>& b = getCorrParaB();
+    for(const Pair<label>& suppCell : fullSupport)
+    {
+        vector cellCentre;
+        scalar cellVolume;
+        getCellData(suppCell,cellCentre,cellVolume);
+        vector x = cellCentre;
+        checkbGradient(X,x,b);        
+    }
+}
+
+void Foam::LagrangianMarker::checkDeltaDiracGradient
+(
+    const vector X,
+    const vector x,
+    const vector h
+)
+{
+    /*
+    Info<<Foam::endl;
+    Info<<"-------------------------------------------------------"<<Foam::endl;
+    Info<<"X:"<<X<<Foam::endl;
+    Info<<"x:"<<x<<Foam::endl;
+    Info<<"h:"<<h<<Foam::endl;
+    
+    vector X_new = vector(0.53903926402, 0.209754516101, 0.0044921875);
+    scalar val = deltaDirac(X_new,x,h);
+    Info<<"X_new:"<<X_new<<Foam::endl;
+    Info<<"val:"<<val<<Foam::endl;
+    
+    auto linspace = [](scalar start, scalar end, uint num)
+    {
+        scalar diff = end-start;
+        scalar spacing = diff/(num-1);
+        std::vector<scalar> span;
+        span.push_back(start);
+        for(uint i=0; i<num-1; i++)
+            span.push_back(span.back()+spacing);
+        span.push_back(end);
+        return span;
+    };
+    
+    std::vector<scalar> span = linspace(-0.05,0.0,110);
+    for(const scalar val : span)
+    {
+        vector X_new = X;
+        X_new[0] += val;
+        scalar dd = deltaDirac(X_new,x,h);
+        vector ddd_dX = ddeltaDirac_dX(X_new,x,h);
+        
+        Info<<X_new<<" | "<<dd<<" | "<<ddd_dX[0]<<Foam::endl;
+    }
+    
+    Info<<"-------------------------------------------------------"<<Foam::endl;
+    */
+    
+    std::vector<scalar> epsilonList = {1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12};
+
+    const vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h);
+    const scalar dDeltaDiracdXLen = std::sqrt(dDeltaDiracdX&dDeltaDiracdX);
+    DynamicList<scalar> error;
+    for(scalar eps : epsilonList)
+    {
+        vector fd_dDeltaDiracdX;
+        for(int d=0; d<3; d++)
+        {
+            vector X_minus_eps = X;
+            X_minus_eps[d]-=eps;
+            scalar f0 = deltaDirac(X_minus_eps,x,h);
+            vector X_plus_eps = X;
+            X_plus_eps[d]+=eps;
+            scalar f1 = deltaDirac(X_plus_eps,x,h);
+            fd_dDeltaDiracdX[d] = (f1-f0)/(2*eps);
+        }
+        vector diff = dDeltaDiracdX-fd_dDeltaDiracdX;
+        scalar abs_error = std::sqrt(diff&diff);
+        error.append(abs_error);
+    }
+    
+    auto minIter = std::min_element(error.begin(),error.end());
+    scalar min_error = *minIter;
+    scalar min_index = std::distance(error.begin(),minIter);
+    
+    auto maxIter = std::max_element(error.begin(),error.end());
+    scalar max_error = *maxIter;
+    scalar max_index = std::distance(error.begin(),maxIter);
+    
+    if(min_error > 1e-6)
+    {
+        if(dDeltaDiracdXLen!=0 && (min_error/dDeltaDiracdXLen)<1e-6)
+            return;
+        
+        Info<<" min error("<<min_index<<"):"<<min_error<<" max error("<<max_index<<"):"<<max_error<<Foam::endl;
+        Info<<"error:"<<error<<Foam::endl;
+        Info<<"dDeltaDiracdXLen:"<<dDeltaDiracdXLen<<" -- "<<(min_error/dDeltaDiracdXLen)<<Foam::endl;
+        Info<<Foam::endl;
+        
+        for(scalar eps : epsilonList)
+        {
+            vector fd_dDeltaDiracdX;
+            for(int d=0; d<3; d++)
+            {
+                vector X_minus_eps = X;
+                X_minus_eps[d]-=eps;
+                scalar f0 = deltaDirac(X_minus_eps,x,h);
+                vector X_plus_eps = X;
+                X_plus_eps[d]+=eps;
+                scalar f1 = deltaDirac(X_plus_eps,x,h);
+                fd_dDeltaDiracdX[d] = (f1-f0)/(2*eps);
+                Info<<"     X_minus_eps:"<<X_minus_eps<<" f0:"<<f0<<Foam::endl;
+                Info<<"     X_plus_eps:"<<X_plus_eps<<" f1:"<<f1<<Foam::endl;
+            }
+            vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h);
+            vector diff = dDeltaDiracdX-fd_dDeltaDiracdX;
+            scalar abs_error = std::sqrt(diff&diff);
+            Info<<"   eps:"<<eps<<" fd_dDDdX:"<<fd_dDeltaDiracdX<<" dDDdX:"<<dDeltaDiracdX<<" abs_error:"<<abs_error<<Foam::endl;
+        }
+        
+        FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
+    }
+}
+
+void Foam::LagrangianMarker::checkDeltaDiracGradientOfMarker() const
+{
+    vector X = getMarkerPosition();
+    for(const Pair<label>& suppCell : fullSupport)
+    {
+        vector cellCentre;
+        scalar cellVolume;
+        getCellData(suppCell,cellCentre,cellVolume);
+        vector x = cellCentre;
+        checkDeltaDiracGradient(X,x,dilation);        
+    }
+}
+
+void Foam::LagrangianMarker::checkCorrectedDeltaDiracGradient
+(
+    vector X,
+    vector x,
+    vector h,
+    const FixedList<scalar,10>& b
+)
+{
+    std::vector<scalar> epsilonList = {1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12};
+
+    const vector dCorrectedDeltaDiracdX = dcorrectedDeltaDirac_dX(X,x,h,b);
+    const scalar dCorrectedDeltaDiracdXLen = std::sqrt(dCorrectedDeltaDiracdX & dCorrectedDeltaDiracdX);
+    DynamicList<scalar> error;
+    for(scalar eps : epsilonList)
+    {
+        vector fd_dCorrectedDeltaDiracdX;
+        for(int d=0; d<3; d++)
+        {
+            vector X_minus_eps = X;
+            X_minus_eps[d]-=eps;
+            scalar f0 = correctedDeltaDirac(X_minus_eps,x,h,b);
+            vector X_plus_eps = X;
+            X_plus_eps[d]+=eps;
+            scalar f1 = correctedDeltaDirac(X_plus_eps,x,h,b);
+            fd_dCorrectedDeltaDiracdX[d] = (f1-f0)/(2*eps);
+        }
+        vector diff = dCorrectedDeltaDiracdX-fd_dCorrectedDeltaDiracdX;
+        scalar abs_error = std::sqrt(diff&diff);
+        error.append(abs_error);
+    }
+    
+    auto minIter = std::min_element(error.begin(),error.end());
+    scalar min_error = *minIter;
+    scalar min_index = std::distance(error.begin(),minIter);
+    
+    auto maxIter = std::max_element(error.begin(),error.end());
+    scalar max_error = *maxIter;
+    scalar max_index = std::distance(error.begin(),maxIter);
+    
+    if(min_error > 1e-6)
+    {
+        if(dCorrectedDeltaDiracdXLen!=0 && (min_error/dCorrectedDeltaDiracdXLen)<1e-6)
+            return;
+        
+        Info<<" min error("<<min_index<<"):"<<min_error<<" max error("<<max_index<<"):"<<max_error<<Foam::endl;
+        Info<<"error:"<<error<<Foam::endl;
+        Info<<"dCorrectedDeltaDiracdXLen:"<<dCorrectedDeltaDiracdXLen<<" -- "<<(min_error/dCorrectedDeltaDiracdXLen)<<Foam::endl;
+        
+        for(scalar eps : epsilonList)
+        {
+            vector fd_dCorrectedDeltaDiracdX;
+            for(int d=0; d<3; d++)
+            {
+                vector X_minus_eps = X;
+                X_minus_eps[d]-=eps;
+                scalar f0 = correctedDeltaDirac(X_minus_eps,x,h,b);
+                vector X_plus_eps = X;
+                X_plus_eps[d]+=eps;
+                scalar f1 = correctedDeltaDirac(X_plus_eps,x,h,b);
+                fd_dCorrectedDeltaDiracdX[d] = (f1-f0)/(2*eps);
+                Info<<"     X_minus_eps:"<<X_minus_eps<<" f0:"<<f0<<Foam::endl;
+                Info<<"     X_plus_eps:"<<X_plus_eps<<" f1:"<<f1<<Foam::endl;
+            }
+            vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h);
+            vector diff = dDeltaDiracdX-fd_dCorrectedDeltaDiracdX;
+            scalar abs_error = std::sqrt(diff&diff);
+            Info<<"   eps:"<<eps<<" fd_dcDDdX:"<<fd_dCorrectedDeltaDiracdX<<" dcDDdX:"<<dDeltaDiracdX<<" abs_error:"<<abs_error<<Foam::endl;
+        }
+        
+        FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
+    }
+}
+
+void Foam::LagrangianMarker::checkCorrectedDeltaDiracGradientOfMarker() const
+{
+    vector X = getMarkerPosition();
+    const FixedList<scalar,10>& b = getCorrParaB();
+    for(const Pair<label>& suppCell : fullSupport)
+    {
+        vector cellCentre;
+        scalar cellVolume;
+        getCellData(suppCell,cellCentre,cellVolume);
+        vector x = cellCentre;
+        checkCorrectedDeltaDiracGradient(X,x,dilation,b);        
+    }
 }

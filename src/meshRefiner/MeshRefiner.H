@@ -43,7 +43,6 @@ class MeshRefiner
 
         fvMesh& mesh;
         LineStructure& structure;
-        volScalarField& doRefine;
         dictionary& dynamicMeshDict;
 
         volScalarField fieldRefineDemands;
@@ -55,10 +54,13 @@ class MeshRefiner
         bool applyMeshAdaption();
         
         const fvMeshTopoChangers::refiner* refinerPtr;
-
+        volScalarField cellLevel;
+        
     private:
         scalar refinementDemandMerge(scalar fieldDemand, scalar markerDemand);
         scalar markerCharLengthToCellSizeFactor = 0.1;
+        bool fluidRefineOnIB = false;
+        volScalarField& doRefine;
 };
 
 }

@@ -13,6 +13,7 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField),
 crossSecArea(crossSecArea)
 {
+    FatalErrorInFunction<<"Constructor still used?"<<exit(FatalError);
     initialize();
 }
 
@@ -28,6 +29,7 @@ modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField),
 crossSecArea(List<scalar>(myMesh->m_nR,crossSecArea))
 {
+    FatalErrorInFunction<<"Constructor still used?"<<exit(FatalError);
     initialize();
 }
 
@@ -55,7 +57,9 @@ Foam::LineStructure::LineStructure
 Structure(mesh,mesh.time()),
 modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)
-{}
+{
+    FatalErrorInFunction<<"Constructor still used?"<<exit(FatalError);
+}
 
 Foam::LineStructure::LineStructure
 (
@@ -291,10 +295,10 @@ Foam::vector Foam::LineStructure::dXdParam
 
 Foam::vector Foam::LineStructure::dXdParam
 (
-    label rodNumber,
-    scalar rodParameter,
-    scalar angle,
-    scalar radiusFrac,
+    const label rodNumber,
+    const scalar rodParameter,
+    const scalar angle,
+    const scalar radiusFrac,
     const Parameter& par
 )
 {
@@ -341,7 +345,7 @@ void Foam::LineStructure::check()
     if(!myMesh)
         FatalErrorInFunction<<"Rod Mesh not set!"<<exit(FatalError);
     if(crossSecArea.size()!=myMesh->m_nR)
-        FatalErrorInFunction<<"Mismatch in size of crossSecArea and rodMarkersList"<<exit(FatalError);
+        FatalErrorInFunction<<"Mismatch in size of crossSecArea:"<<crossSecArea.size()<<" and rodMarkersList:"<<(myMesh->m_nR)<<exit(FatalError);
     if(static_cast<int>(myMesh->m_Rods.size())!=myMesh->m_nR)
         FatalErrorInFunction<<"Mismatch in size of m_Rods and m_nR"<<exit(FatalError);
 }
@@ -403,6 +407,7 @@ void Foam::LineStructure::setParameterValue
     List<scalar> value
 )
 {
+    Info<<"Set parameters to :"<<value<<Foam::endl;
     if(para.getType()!=Parameter::Type::Rod)
     {
         Info<<"para:"<<para.to_string()<<Foam::nl;
@@ -419,6 +424,28 @@ void Foam::LineStructure::setParameterValue
         const NurbsCoeffReference& nurbsCoeff = para.getNurbsCoeffs()[coeffI];
         setCurveCoeff(nurbsCoeff.rodNumber,nurbsCoeff.coeffNumber,nurbsCoeff.dimension,value[coeffI]);
     }    
+}
+
+void Foam::LineStructure::listCoefficients
+(
+    std::vector<NurbsCoeffReference>& nurbsCoeffs,
+    std::vector<CrossSectionCoeffReference>& crossSecCoeffs,
+    std::function<bool(NurbsCoeffReference)> nurbsCoeffCond,
+    std::function<bool(CrossSectionCoeffReference)> crossSecCoeffCond
+)
+{
+    for(label rodNumber=0; rodNumber<getNumberRods(); rodNumber++)
+    {
+        for(label coeffNumber=0; coeffNumber<numberCurveCoeffs(rodNumber); coeffNumber++)
+        {
+            for(label dim=0; dim<3; dim++)
+            {
+                NurbsCoeffReference ref(rodNumber,coeffNumber,dim);
+                if(nurbsCoeffCond(ref))
+                    nurbsCoeffs.push_back(ref);
+            }
+        }
+    }
 }
 
 const Foam::List<std::tuple<Foam::label,Foam::label,Foam::scalar,Foam::scalar,Foam::scalar>>&
@@ -2208,4 +2235,16 @@ void Foam::LineStructure::parameterGradientCheck()
 void Foam::LineStructure::selfCheck()
 {
     Structure::selfCheck();
+}
+
+void Foam::LineStructure::deltaFunctionGradientCheck()
+{
+    Info<<"checkPhiGradient"<<Foam::endl;
+    LagrangianMarker::checkPhiGradient();
+    for(const LagrangianMarker* marker : collectedMarkers)
+    {
+        marker->checkbGradientOfMarker();
+        marker->checkDeltaDiracGradientOfMarker();
+        marker->checkCorrectedDeltaDiracGradientOfMarker();        
+    }
 }

@@ -435,7 +435,7 @@ void Foam::solvers::icoImmersedBoundary::refineMesh
     pimpleIBControl& pimpleCtlr
 )
 {
-    if(pimpleCtlr.halfConverged())
+    if(true || pimpleCtlr.halfConverged())
     {
         if(refinement_)
             refinement_->refineMeshOnFluid();
@@ -595,7 +595,7 @@ void Foam::solvers::icoImmersedBoundary::postCorrector
 )
 {
     incompressibleFluid::postCorrector();
-    bool changes = false;
+    //bool changes = false;
     if(interaction_fU)
     {
         interaction_fU->subTimestepStructureMovement();

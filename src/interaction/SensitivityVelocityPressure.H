@@ -22,6 +22,11 @@ class SensitivityVelocityPressure : public SensitivityInteraction
         
         scalar computeSensitivity(const Parameter& para) override;
         
+        void solve(bool firstIteration, scalar time, bool finalIteration) override {NotImplemented;}
+        void store() override {NotImplemented;}
+        void setToTime(scalar time) override {NotImplemented;}
+        void recomputeMarkerValues() override {NotImplemented;}
+        
     protected:
         const VelocityPressureForceInteraction& primalInteraction;
         volVectorField forcingDerivativeField;

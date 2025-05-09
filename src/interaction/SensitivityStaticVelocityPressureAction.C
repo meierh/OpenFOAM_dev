@@ -16,7 +16,9 @@ primalInteraction(primalInteraction),
 forcingDerivativeField(primalInteraction.getReferenceInOutField()),
 input_adj_U(input_adj_U),
 output_adj_Uf(output_adj_Uf)
-{}
+{
+    FatalErrorInFunction<<"Out of use"<<exit(FatalError);
+}
 
 /*
 Foam::scalar Foam::SensitivityVelocityPressureForceInteraction::computeSensitivity

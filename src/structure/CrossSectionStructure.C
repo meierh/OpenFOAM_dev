@@ -5,27 +5,37 @@ Foam::CrossSectionStructure::CrossSectionStructure
 (
     const fvMesh& mesh,
     std::vector<CrossSection> rodCrossSection,
+    const std::shared_ptr<IOdictionary> structureDict,
+    bool empty,
     markerMeshType modusFieldToMarker,
     markerMeshType modusMarkerToField
 ):
-LineStructure(mesh,modusFieldToMarker,modusMarkerToField),
+LineStructure(mesh,structureDict,true,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
     Info<<"CrossSectionStructure"<<Foam::nl;
-    initialize();
+    if(!empty)
+        initialize();
 }
 
+/*
 Foam::CrossSectionStructure::CrossSectionStructure
 (
     const fvMesh& mesh,
     std::vector<CrossSection> rodCrossSection,
+    const std::shared_ptr<IOdictionary> structureDict,
     bool empty
 ):
-LineStructure(mesh),
+LineStructure(mesh,structureDict,modusFieldToMarker,modusMarkerToField),
 rodCrossSection(rodCrossSection)
 {
+    FatalErrorInFunction<<"DO NOT USE!"<<exit(FatalError);
+    
     Info<<"CrossSectionStructure empty"<<Foam::nl;
+    if(!empty)
+        initialize();
 }
+*/
 
 Foam::CrossSectionStructure::CrossSectionStructure
 (
@@ -173,25 +183,38 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
 
 Foam::vector Foam::CrossSectionStructure::dXdParam
 (
-    label rodNumber,
-    scalar rodParameter,
-    scalar angle,
-    scalar radiusFrac,
+    const label rodNumber,
+    const scalar rodParameter,
+    const scalar angle,
+    const scalar radiusFrac,
     const Parameter& par
 )
 {
     if(!(par.isValid()))
         FatalErrorInFunction<<"Invalid parameter here!"<<exit(FatalError);
     
-    vector d1,d2,d3,r;
-    rodEval(Rods[rodNumber],rodParameter,d1,d2,d3,r);
-    scalar radius = rodCrossSection[rodNumber](rodParameter,angle)*radiusFrac;
-
-    vector rodDerive(0,0,0);
+    vector d1,d2,d3,C;
+    rodEval(Rods[rodNumber],rodParameter,d1,d2,d3,C);
+    scalar r = rodCrossSection[rodNumber](rodParameter,angle);
+    
+    Info<<"d1:"<<d1<<Foam::endl;
+    Info<<"d2:"<<d2<<Foam::endl;
+    Info<<"d3:"<<d3<<Foam::endl;
+    Info<<"C:"<<C<<Foam::endl;
+    Info<<"r:"<<r<<Foam::endl;
+    
+    
+    DynamicList<vector> dCdParam_list;
+    DynamicList<vector> dd1dParam_list;
+    DynamicList<vector> dd2dParam_list;
+    DynamicList<scalar> drdParam_list;
+    
+    label nCoefficients = 0;
     if(par.getType()==Parameter::Type::Rod)
     {
         label dimension = par.getDimension();
         const std::vector<NurbsCoeffReference>& nurbsCoeffs = par.getNurbsCoeffs();
+        nCoefficients = nurbsCoeffs.size();
         for(const NurbsCoeffReference& ref : nurbsCoeffs)
         {
             if(rodNumber==ref.rodNumber)
@@ -199,13 +222,14 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
                 if(dimension!=ref.dimension)
                     FatalErrorInFunction<<"Dimension mismatch!"<<exit(FatalError);
                 
-                vector d1dC,d2dC,d3dC,rdC;
-                rodEvalDerivCoeff(rodNumber,ref.coeffNumber,dimension,rodParameter,d1dC,d2dC,d3dC,rdC);
+                vector d1dP,d2dP,d3dP,dCdP;
+                rodEvalDerivCoeff(rodNumber,ref.coeffNumber,dimension,rodParameter,d1dP,d2dP,d3dP,dCdP);   
+                //Info<<"rodNumber:"<<rodNumber<<" ref.coeffNumber:"<<ref.coeffNumber<<" dimension:"<<dimension<<" rodParameter:"<<rodParameter<<Foam::endl;
                 
-                vector cosd1dC = std::cos(angle)*d1dC;
-                vector sind2dC = std::sin(angle)*d2dC;
-
-                rodDerive += ( rdC + (cosd1dC+sind2dC)*radius );
+                dCdParam_list.append(dCdP);
+                dd1dParam_list.append(d1dP);
+                dd2dParam_list.append(d2dP);
+                drdParam_list.append(0);
             }
             else
                 FatalErrorInFunction<<"RodNumber mismatch!"<<exit(FatalError);
@@ -213,38 +237,52 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
     }
     else if(par.getType()==Parameter::Type::CrossSection)
     {
-        vector cosd1 = std::cos(angle)*d1;
-        vector sind2 = std::sin(angle)*d2;
-        vector radiusDirection = cosd1+sind2;
-        scalar derivRadius = 0;
         const std::vector<CrossSectionCoeffReference>& crossSecCoeffs = par.getCrossSecCoeffs();
+        nCoefficients = crossSecCoeffs.size();
         for(const CrossSectionCoeffReference& ref : crossSecCoeffs)
         {
             if(rodNumber==ref.rodNumber)
             {
+                dCdParam_list.append(Foam::zero());
+                dd1dParam_list.append(Foam::zero());
+                dd2dParam_list.append(Foam::zero());                
                 if(ref.phase)
                 {
-                    derivRadius +=
-                    rodCrossSection[rodNumber].evalRadiusDerivPhaseNurbsCoeff(ref.coeffNumber,
-                                                                              rodParameter,angle);
+                    drdParam_list.append(rodCrossSection[rodNumber].evalRadiusDerivPhaseNurbsCoeff
+                    (
+                        ref.coeffNumber,rodParameter,angle
+                    ));
                 }
                 else
                 {
-                    derivRadius +=
-                    rodCrossSection[rodNumber].evalRadiusDerivFourierCoeffNurbsCoeff(ref.fourierCoeffNumber,
-                                                                                     ref.coeffNumber,rodParameter,
-                                                                                     angle);
+                    drdParam_list.append(rodCrossSection[rodNumber].evalRadiusDerivFourierCoeffNurbsCoeff
+                    (
+                        ref.fourierCoeffNumber,ref.coeffNumber,rodParameter,angle
+                    ));
                 }
             }
             else
                 FatalErrorInFunction<<"RodNumber mismatch!"<<exit(FatalError);
         }
-        rodDerive = radiusDirection*derivRadius;
     }
     else
         FatalErrorInFunction<<"Invalid type of parameter here!"<<exit(FatalError);
-    rodDerive *= radiusFrac;
-    return rodDerive;
+    
+    
+    Info<<"dCdParam_list:"<<dCdParam_list<<Foam::endl;
+    Info<<"dd1dParam_list:"<<dd1dParam_list<<Foam::endl;
+    Info<<"dd2dParam_list:"<<dd2dParam_list<<Foam::endl;
+    Info<<"drdParam_list:"<<drdParam_list<<Foam::endl;
+    
+    
+    vector dXdParam = Foam::zero();
+    for(label n=0; n<nCoefficients; n++)
+    {
+        dXdParam += dCdParam_list[n] +
+                    (std::cos(angle)*dd1dParam_list[n] + std::sin(angle)*dd2dParam_list[n])*r*radiusFrac + 
+                    (std::cos(angle)*d1 + std::sin(angle)*d2)*drdParam_list[n]*radiusFrac;
+    }       
+    return dXdParam;
 }
 
 Foam::List<Foam::scalar> Foam::CrossSectionStructure::getParameterValue
@@ -294,7 +332,7 @@ void Foam::CrossSectionStructure::setParameterValue
     
     if(para.getType()==Parameter::Type::Rod)
     {
-        LineStructure::getParameterValue(para);
+        LineStructure::setParameterValue(para,value);
     }
     else if(para.getType()==Parameter::Type::CrossSection)
     {
@@ -312,6 +350,39 @@ void Foam::CrossSectionStructure::setParameterValue
     }
     else
         FatalErrorInFunction<<"Invalid parameter type none!"<<exit(FatalError);
+}
+
+void Foam::CrossSectionStructure::listCoefficients
+(
+    std::vector<NurbsCoeffReference>& nurbsCoeffs,
+    std::vector<CrossSectionCoeffReference>& crossSecCoeffs,
+    std::function<bool(NurbsCoeffReference)> nurbsCoeffCond,
+    std::function<bool(CrossSectionCoeffReference)> crossSecCoeffCond
+)
+{
+    LineStructure::listCoefficients(nurbsCoeffs,crossSecCoeffs,nurbsCoeffCond,crossSecCoeffCond);
+    const std::vector<CrossSection>& crossSecs = getRodCrossSections();
+    for(label rodNumber=0; rodNumber<getNumberRods(); rodNumber++)
+    {
+        const CrossSection& oneCrossSec = crossSecs[rodNumber];
+        for(label fourCoeff=0; fourCoeff<oneCrossSec.numberFourierCoeff(); fourCoeff++)
+        {
+            for(label nurbsFourCoeff=0; nurbsFourCoeff<oneCrossSec.numberFourierCoeffNurbsCoeffs(fourCoeff); nurbsFourCoeff++)
+            {
+                CrossSectionCoeffReference ref(rodNumber,fourCoeff,nurbsFourCoeff);
+                ref.phase = false;
+                if(crossSecCoeffCond(ref))
+                    crossSecCoeffs.push_back(ref);
+            }
+            for(label phaseCoeff=0; phaseCoeff<oneCrossSec.numberPhaseNurbsCoeffs(); phaseCoeff++)
+            {
+                CrossSectionCoeffReference ref(rodNumber,-1,phaseCoeff);
+                ref.phase = true;
+                if(crossSecCoeffCond(ref))
+                    crossSecCoeffs.push_back(ref);
+            }
+        }
+    }
 }
 
 std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSectionsFromDict
@@ -1984,10 +2055,10 @@ void Foam::CrossSectionStructure::collectInteriorCells
         frontCellList.append(iter->first);
     
     const List<List<Pair<label>>>& localMeshGraph = getMeshGraph(Pstream::myProcNo());
-    bool addedCells = true;
+    //bool addedCells = true;
     while(frontCellList.size()>0)
     {
-        addedCells = false;
+        //addedCells = false;
         DynamicList<label> newFrontCellList;
         for(label cellInd : frontCellList)
         {
@@ -2084,7 +2155,7 @@ Foam::CrossSectionStructure::getInteriorCells
             label cellInd = collectedInteriorCells[i].first;
             label rodInd = std::get<0>(collectedInteriorCells[i].second);
             scalar para = std::get<1>(collectedInteriorCells[i].second);
-            scalar dist = std::get<2>(collectedInteriorCells[i].second);
+            //scalar dist = std::get<2>(collectedInteriorCells[i].second);
             vector cellCentre = mesh.cells()[cellInd].centre(mesh.points(),mesh.faces());
             
             vector d1,d2,d3,r;
@@ -2196,7 +2267,8 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     
     vector d1,d2,d3,r;
     rodEval(rodNumber,parameter,d1,d2,d3,r);
-    //Info<<"\t\tpara:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<" d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::nl;
+    Info<<"para:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<Foam::nl;
+    Info<<"d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::nl;
     vector tangential = d3;
     scalar tangentialLen = std::sqrt(tangential&tangential);
     tangential /= tangentialLen;
@@ -3006,6 +3078,136 @@ void Foam::CrossSectionStructure::parameterGradientCheck()
                         //FatalErrorInFunction<<"Error"<<exit(FatalError);
                     }
                 }
+            }
+        }
+    }
+}
+
+void Foam::CrossSectionStructure::rodPointParameterGradientCheck(std::vector<Parameter> paraList)
+{
+    std::vector<scalar> epsilonList = {1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12};
+    
+    Parameter onePara = paraList[0];
+    ParameterVariation& variator = ParameterVariation::createParameterVariator(this,onePara);
+    
+    label rodNum = 0;
+    scalar param = 0.09375;
+    scalar angle = 0.196349540849;
+    scalar radFrac = 1;
+    
+    DynamicList<vector> fd;
+    DynamicList<FixedList<vector,2>> f_val;
+    for(scalar eps : epsilonList)
+    {
+        f_val.append(FixedList<vector,2>());
+        variator.vary(-1*eps);
+        vector f_0 = evaluateRodCircumPos(rodNum,param,angle,radFrac);
+        variator.vary(+1*eps);
+        vector f_1 = evaluateRodCircumPos(rodNum,param,angle,radFrac);
+        fd.append((f_1-f_0)/(2*eps));
+        f_val.last()[0] = f_0;
+        f_val.last()[1] = f_1;
+    }
+    Info<<Foam::endl;
+    Info<<onePara<<Foam::endl;
+    Info<<"fd:"<<fd<<Foam::endl;
+    Info<<"f_val:"<<f_val<<Foam::endl;
+    vector dvecdP = dXdParam(rodNum,param,angle,radFrac,onePara);
+    Info<<"dvecdP:"<<dvecdP<<Foam::endl;
+    
+    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    
+    DynamicList<const LagrangianMarkerOnCrossSec*> markers;
+    for(LagrangianMarker* marker : getCollectedMarkers())
+    {
+        LagrangianMarkerOnCrossSec* castMarker = dynamic_cast<LagrangianMarkerOnCrossSec*>(marker);
+        if(castMarker==nullptr)
+            FatalErrorInFunction<<"Failed cast"<<exit(FatalError);
+        markers.append(castMarker);
+        break;
+    }
+    
+    for(Parameter para : paraList)
+    {
+        ParameterVariation& variator = ParameterVariation::createParameterVariator(this,para);
+        List<List<FixedList<vector,2>>> f_values(markers.size());
+        for(List<FixedList<vector,2>>& inner : f_values)
+            inner.setSize(epsilonList.size());
+        
+        for(std::size_t epsInd=0; epsInd<epsilonList.size(); epsInd++)
+        {
+            const std::vector<scalar> signs = {-1,1};
+            for(std::size_t signInd=0; signInd<signs.size(); signInd++)
+            {
+                // Parameter -/+ eps
+                variator.vary(signs[signInd]*epsilonList[epsInd]);
+                for(label markerInd=0; markerInd<markers.size(); markerInd++)
+                {
+                    const LagrangianMarkerOnCrossSec& m = *(markers[markerInd]);
+                    f_values[markerInd][epsInd][signInd] = evaluateRodCircumPos
+                    (
+                        m.getRodNumber(),m.getMarkerParameter(),
+                        m.getMarkerAngle(),m.getMarkerRadiusFrac()
+                    );
+                }
+            }
+        }
+        
+        List<vector> dfdParam_values(markers.size());
+        List<scalar> dfdParam_values_Len(markers.size());
+        for(label markerInd=0; markerInd<markers.size(); markerInd++)
+        {
+            const LagrangianMarkerOnCrossSec& m = *(markers[markerInd]);
+            dfdParam_values[markerInd] = dXdParam(&m,para);
+            dfdParam_values_Len[markerInd] = std::sqrt(dfdParam_values[markerInd] & dfdParam_values[markerInd]);
+        }
+        
+        List<List<vector>> fd_dfdParam_values(f_values.size());
+        for(label markerInd=0; markerInd<markers.size(); markerInd++)
+        {
+            fd_dfdParam_values[markerInd].setSize(epsilonList.size());
+            for(std::size_t epsInd=0; epsInd<epsilonList.size(); epsInd++)
+            {
+                fd_dfdParam_values[markerInd][epsInd] = 
+                    (f_values[markerInd][epsInd][1]-f_values[markerInd][epsInd][0])/(2*epsilonList[epsInd]);
+            }
+        }
+        
+        List<List<scalar>> abs_error(f_values.size());
+        for(label markerInd=0; markerInd<markers.size(); markerInd++)
+        {
+            abs_error[markerInd].setSize(epsilonList.size());
+            for(std::size_t epsInd=0; epsInd<epsilonList.size(); epsInd++)
+            {               
+                vector diff = dfdParam_values[markerInd] - fd_dfdParam_values[markerInd][epsInd];
+                abs_error[markerInd][epsInd] = std::sqrt(diff & diff);
+            }
+        }
+        for(label markerInd=0; markerInd<markers.size(); markerInd++)
+        {
+            auto minAbsIter = std::min_element(abs_error[markerInd].begin(),abs_error[markerInd].end());
+            scalar min_Abserror = *minAbsIter;
+            label min_Absindex = std::distance(abs_error[markerInd].begin(),minAbsIter);
+            scalar marker_dfdParam_values_Len = dfdParam_values_Len[markerInd];
+            scalar min_Relerror = min_Abserror/marker_dfdParam_values_Len;
+                        
+            if(min_Abserror > 1e-6)
+            {
+                if(marker_dfdParam_values_Len!=0 && min_Relerror<1e-6)
+                    return;
+                
+                Info<<"markers["<<markerInd<<"]:";
+                Info<<(*(markers[markerInd]))<<Foam::endl;
+                Info<<" min error("<<min_Absindex<<"):"<<min_Abserror<<Foam::endl;
+                Info<<"error:"<<abs_error[markerInd]<<Foam::endl;
+                Info<<"f_values:"<<f_values[markerInd]<<Foam::endl;
+                Info<<Foam::endl;
+                Info<<"dfdParam_values["<<markerInd<<"]:"<<dfdParam_values[markerInd]<<Foam::endl;
+                Info<<"fd_dfdParam_values["<<markerInd<<"]:"<<fd_dfdParam_values[markerInd]<<Foam::endl;
+                Info<<"marker_dfdParam_values_Len:"<<marker_dfdParam_values_Len<<" -- "<<min_Relerror<<Foam::endl;
+                Info<<para<<Foam::endl;
+                
+                FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
             }
         }
     }

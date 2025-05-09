@@ -150,6 +150,12 @@ class LagrangianMarkerOnCrossSec : public LagrangianMarker
             const scalar markerAngle,
             const scalar radiusFrac
         );
+        friend messageStream& operator<< (messageStream &out, const LagrangianMarkerOnCrossSec& p)
+        {
+            out << "LagrangianMarkerOnCrossSec:";
+            out << "rodNum:" << p.rodNumber << " param:" << p.markerParameter << " angle:" << p.markerAngle << " radFrac:"<< p.markerRadiusFrac << Foam::endl;
+            return out;
+        }
         vector getMarkerNormal() const override {return markerNormal;}
         inline scalar getMarkerAngle() const override {return markerAngle;}
         inline scalar getMarkerRadiusFrac() const override {return markerRadiusFrac;}
@@ -174,15 +180,19 @@ class CrossSectionStructure : public LineStructure
         (
             const fvMesh& mesh,
             std::vector<CrossSection> rodCrossSection,
+            const std::shared_ptr<IOdictionary> structureDict,
+            bool empty = false,
             markerMeshType modusFieldToMarker = markerMeshType::NonUniform,
             markerMeshType modusMarkerToField = markerMeshType::NonUniform
         );
+        /*
         explicit CrossSectionStructure
         (
             const fvMesh& mesh,
             std::vector<CrossSection> rodCrossSection,
             bool empty
         );
+        */
         explicit CrossSectionStructure
         (
             const fvMesh& mesh,
@@ -217,9 +227,16 @@ class CrossSectionStructure : public LineStructure
             label derivCoeffNumber
         );
         vector dXdParam(const LagrangianMarker* marker,const Parameter& par) override;
-        vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par) override;
+        vector dXdParam(const label rodNumber,const scalar rodParameter,const scalar angle,const scalar radiusFrac,const Parameter& par) override;
         List<scalar> getParameterValue(const Parameter& para) override;
         void setParameterValue(const Parameter& para, List<scalar> value) override;
+        virtual void listCoefficients
+        (
+            std::vector<NurbsCoeffReference>& nurbsCoeffs,
+            std::vector<CrossSectionCoeffReference>& crossSecCoeffs,
+            std::function<bool(NurbsCoeffReference)> nurbsCoeffCond = [](NurbsCoeffReference ref){return true;},
+            std::function<bool(CrossSectionCoeffReference)> crossSecCoeffCond = [](CrossSectionCoeffReference ref){return true;}
+        ) override;        
     // ----------------- ---------------------------- -----------------
         
     private:
@@ -505,6 +522,7 @@ class CrossSectionStructure : public LineStructure
     public:
         void printMarkerStructure() override;
         void parameterGradientCheck() override;
+        void rodPointParameterGradientCheck(std::vector<Parameter> paraList);
         void selfCheck() override;
 };
 

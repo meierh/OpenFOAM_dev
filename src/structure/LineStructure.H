@@ -26,6 +26,14 @@ class LagrangianMarker
             const ActiveRodMesh::rodCosserat* baseRod,
             const scalar markerParameter
         );
+        
+        friend messageStream& operator<< (messageStream &out, const LagrangianMarker& p)
+        {
+            out << "LagrangianMarker:";
+            out << "rodNum:" << p.rodNumber << "param:" << p.markerParameter << Foam::endl;
+            return out;
+        }
+        
     protected:
         explicit LagrangianMarker
         (    
@@ -74,6 +82,8 @@ class LagrangianMarker
         static scalar correctedDeltaDirac(vector X, vector x, scalar h, const FixedList<scalar,10>& b);
         static scalar correctedDeltaDirac(vector X, vector x, vector h, const FixedList<scalar,10>& b);
         static vector dcorrectedDeltaDirac_dX(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        static scalar b_x_X(vector X, vector x, const FixedList<scalar,10>& b);
+        static vector db_dX(vector X, vector x, const FixedList<scalar,10>& b);
         static scalar phiFunction(scalar r);
         static scalar dphiFunction_dr(scalar r);
         
@@ -165,8 +175,16 @@ class LagrangianMarker
         scalar conditionThreshold = 1e5;
         std::unique_ptr<gismo::gsMatrix<scalar>> computeCorrectedMomentMatrix() const;
         
-        
         std::unordered_set<scalar> paraMarker;
+        
+    public:
+        static void checkPhiGradient();
+        static void checkbGradient(vector X, vector x, const FixedList<scalar,10>& b);
+        void checkbGradientOfMarker() const;
+        static void checkDeltaDiracGradient(vector X, vector x, vector h);
+        void checkDeltaDiracGradientOfMarker() const;
+        static void checkCorrectedDeltaDiracGradient(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        void checkCorrectedDeltaDiracGradientOfMarker() const;
 };
 #include "LagrangianMarker.T.H"
 
@@ -206,6 +224,14 @@ class NurbsCoeffReference
 {
     public:
         NurbsCoeffReference(label rodNumber, label coeffNumber, label dimension);
+        friend messageStream& operator<< (messageStream &out, const NurbsCoeffReference& r)
+        {
+            out << "[";
+            out <<  "r:" << r.rodNumber << ",";
+            out << "cN:" << r.coeffNumber << ",";
+            out << "d:" << r.dimension << "]";
+            return out;
+        }        
         label rodNumber;
         label coeffNumber;
         label dimension;
@@ -224,6 +250,15 @@ class CrossSectionCoeffReference
     public:
         CrossSectionCoeffReference(label rodNumber, label fourierCoeffNumber, label coeffNumber);
         CrossSectionCoeffReference(label rodNumber, label coeffNumber);
+        friend messageStream& operator<< (messageStream &out, const CrossSectionCoeffReference& r)
+        {
+            out << "[";
+            out <<  "r:" << r.rodNumber << ",";
+            out << "fcN:" << r.fourierCoeffNumber << ",";
+            out << "cN:" << r.coeffNumber << "]";
+            out << "p:" << r.phase << "]";
+            return out;
+        }   
         label rodNumber;
         bool phase;
         label fourierCoeffNumber;
@@ -261,6 +296,28 @@ class Parameter
         
         std::string to_string() const;
         
+        friend messageStream& operator<< (messageStream &out, const Parameter& p)
+        {
+            out<<" --- Parameter --- "<<Foam::endl;
+            out << "valid:"<<p.valid<<" dimension:"<<p.dimension<<" (";
+            if(p.parameterType==Type::Rod)
+            {
+                out<<" Rod: ";
+                for(NurbsCoeffReference item : p.nurbsCoeffs)
+                    out<<item;
+            }
+            else if(p.parameterType==Type::CrossSection)
+            {
+                out<<" CrossSection: ";
+                for(CrossSectionCoeffReference item : p.crossSecCoeffs)
+                    out<<item;
+            }
+            else
+                out<<" None ";
+            out<<Foam::endl<<" --- --------- --- "<<Foam::endl;
+            return out;
+        }   
+        
     private:
         Type parameterType;
         
@@ -270,6 +327,27 @@ class Parameter
         std::vector<CrossSectionCoeffReference> crossSecCoeffs;
         
         bool valid=false;
+};
+
+class ParameterVariation
+{
+    protected:
+        ParameterVariation(LineStructure* structure, const Parameter& para);
+        static ParameterVariation* variator;
+        LineStructure* structure;
+        const Parameter& para;
+        const List<scalar> values;
+        
+    public:
+        ~ParameterVariation();
+        ParameterVariation(ParameterVariation &other) = delete;
+        void operator=(const ParameterVariation &) = delete;
+
+        static ParameterVariation& getParameterVariator();
+        static ParameterVariation& createParameterVariator(LineStructure* structure, const Parameter& para);
+
+        void reset();
+        void vary(scalar epsilon);
 };
 
 class LineStructure : public Structure
@@ -352,11 +430,18 @@ class LineStructure : public Structure
     // ----------------- Optimization related methods -----------------
         void setNurbsParameters(label rodNumber, label derivCoeffNumber, label dimension, scalar value);
         virtual vector dXdParam(const LagrangianMarker* marker,const Parameter& par);
-        virtual vector dXdParam(label rodNumber,scalar rodParameter,scalar angle,scalar radiusFrac,const Parameter& par);
+        virtual vector dXdParam(const label rodNumber,const scalar rodParameter,const scalar angle,const scalar radiusFrac,const Parameter& par);
         void store() override;
         void setToTime(scalar time) override;
         virtual List<scalar> getParameterValue(const Parameter& para);
         virtual void setParameterValue(const Parameter& para, List<scalar> value);
+        virtual void listCoefficients
+        (
+            std::vector<NurbsCoeffReference>& nurbsCoeffs,
+            std::vector<CrossSectionCoeffReference>& crossSecCoeffs,
+            std::function<bool(NurbsCoeffReference)> nurbsCoeffCond = [](NurbsCoeffReference ref){return true;},
+            std::function<bool(CrossSectionCoeffReference)> crossSecCoeffCond = [](CrossSectionCoeffReference ref){return true;}
+        );
     // ----------------- ---------------------------- -----------------
 
     protected:
@@ -744,6 +829,7 @@ class LineStructure : public Structure
         //scalar initialSpacingFromMesh();
         void parameterGradientCheck() override;
         void selfCheck() override;
+        void deltaFunctionGradientCheck();
 };
 //#include "FieldMarkerStructureInteraction.T.H"
 #include "LineStructure.T.H"

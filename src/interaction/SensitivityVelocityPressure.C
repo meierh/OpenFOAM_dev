@@ -27,11 +27,13 @@ Foam::scalar Foam::SensitivityVelocityPressure::computeSensitivity
     return sensitivity;
 }
 
+
 Foam::vector Foam::SensitivityVelocityPressure::integrateVelocityForcingSensitivity
 (
     const Parameter& par
 )
 {
+    /*
     const DynamicList<vector>& F_U = primalInteraction.getMarkerCouplingForce();
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     if(F_U.size()!=static_cast<label>(markers.size()))
@@ -48,6 +50,7 @@ Foam::vector Foam::SensitivityVelocityPressure::integrateVelocityForcingSensitiv
             sumVelocityForcingSensitivity[dim] +=  output_adj_Uf[cellInd][dim] * -1 * forcingDerivativeField[cellInd][dim];
     }
     return sumVelocityForcingSensitivity;
+    */
 }
 
 Foam::vector Foam::SensitivityVelocityPressure::integrateVelocitySensitivity
@@ -55,6 +58,7 @@ Foam::vector Foam::SensitivityVelocityPressure::integrateVelocitySensitivity
     const Parameter& par
 )
 {
+    /*
     const std::vector<LagrangianMarker*>& markers = structure.getCollectedMarkers();
     if(makerCouplingAdjointForce.size()!=static_cast<label>(markers.size()))
         FatalErrorInFunction<<"Mismatch in marker size!"<<exit(FatalError);
@@ -69,4 +73,5 @@ Foam::vector Foam::SensitivityVelocityPressure::integrateVelocitySensitivity
             sumTemperatureSensitivity[dim] +=  makerCouplingAdjointForce[cellInd][dim] * -1 * velocityDerivationMarkers[cellInd][dim];
     }
     return sumTemperatureSensitivity;
+    */
 }

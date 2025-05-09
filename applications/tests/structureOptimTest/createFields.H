@@ -48,6 +48,8 @@ volVectorField U
     mesh
 );
 
+volVectorField Uf(U);
+
 Info<< "Reading field U_F\n" << endl;
 volVectorField Uf
 (
