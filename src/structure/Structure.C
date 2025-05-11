@@ -2315,7 +2315,76 @@ void Foam::Structure::correctInitialCoordinateSystemState()
         }
         else
         {
+            using std::sin;
+            using std::cos;
+            using std::abs;
             const Tuple3<vector,vector,vector>& iniCoord = rodCoordinateSystemIniRotation[rodNumber].second();
+            vector ini_d1 = iniCoord.first();
+            vector ini_d2 = iniCoord.second();
+            vector ini_d3 = iniCoord.third();
+            scalar minPara = Rods[rodNumber]->m_Curve.domainStart();
+            vector d1,d2,d3,r;
+            rodEval(rodNumber,minPara,d1,d2,d3,r);
+            
+            scalar a = acos((ini_d3&d3) / ( std::sqrt(ini_d3&ini_d3)*std::sqrt(d3&d3)));
+            vector u = d3 ^ ini_d3;
+            
+            std::function<FixedList<vector,3>(vector u, scalar a)> gen_R = 
+            [](vector u, scalar a)
+            {
+                FixedList<vector,3> R;
+                R[0] = vector(  u[0]*u[0]*(1-cos(a)) + cos(a),
+                                u[0]*u[1]*(1-cos(a)) - u[2]*sin(a),
+                                u[0]*u[2]*(1-cos(a)) + u[1]*sin(a));
+                R[1] = vector(  u[1]*u[0]*(1-cos(a)) + u[2]*sin(a),
+                                u[1]*u[1]*(1-cos(a)) + cos(a),
+                                u[1]*u[2]*(1-cos(a)) - u[0]*sin(a));
+                R[2] = vector(  u[2]*u[0]*(1-cos(a)) - u[1]*sin(a),
+                                u[2]*u[1]*(1-cos(a)) - u[0]*sin(a),
+                                u[2]*u[2]*(1-cos(a)) + cos(a));
+                return R;
+            };
+            
+            FixedList<vector,3> R = gen_R(u,a);
+            vector ini_d1_rot = vector(R[0]&ini_d1,R[1]&ini_d1,R[2]&ini_d1);
+            vector ini_d2_rot = vector(R[0]&ini_d2,R[1]&ini_d2,R[2]&ini_d2);
+            
+            std::function<FixedList<vector,3>(vector u, scalar a)> gen_dRda = 
+            [](vector u, scalar a)
+            {
+                FixedList<vector,3> R;
+                R[0] = vector(  u[0]*u[0]*sin(a) - sin(a),
+                                u[0]*u[1]*sin(a) - u[2]*cos(a),
+                                u[0]*u[2]*sin(a) + u[1]*cos(a));
+                R[1] = vector(  u[1]*u[0]*sin(a) + u[2]*cos(a),
+                                u[1]*u[1]*sin(a) - sin(a),
+                                u[1]*u[2]*sin(a) - u[0]*cos(a));
+                R[2] = vector(  u[2]*u[0]*sin(a) - u[1]*cos(a),
+                                u[2]*u[1]*sin(a) - u[0]*cos(a),
+                                u[2]*u[2]*sin(a) - sin(a));
+                return R;
+            };
+            
+            max(a) f = ( ini_d1_rot & R(a)*d1  +  ini_d2_rot & R(a)*d2 )
+            dfda = ( ini_d1_rot & dRda(a)*d1  +  ini_d2_rot & dRda(a)*d2 )
+            
+            std::function<scalar(scalar a)> dfda = 
+            [u=u](scalar a)
+            {
+                FixedList<vector,3> dRda = gen_dRda(u,a);
+                
+                FixedList<vector,3> R;
+                R[0] = vector(  u[0]*u[0]*sin(a) - sin(a),
+                                u[0]*u[1]*sin(a) - u[2]*cos(a),
+                                u[0]*u[2]*sin(a) + u[1]*cos(a));
+                R[1] = vector(  u[1]*u[0]*sin(a) + u[2]*cos(a),
+                                u[1]*u[1]*sin(a) - sin(a),
+                                u[1]*u[2]*sin(a) - u[0]*cos(a));
+                R[2] = vector(  u[2]*u[0]*sin(a) - u[1]*cos(a),
+                                u[2]*u[1]*sin(a) - u[0]*cos(a),
+                                u[2]*u[2]*sin(a) - sin(a));
+                return R;
+            };
             
         }
 
