@@ -160,6 +160,14 @@ Foam::Ostream& Foam::operator<<
     return os << "[("<<q.x<<","<<q.y<<","<<q.z<<")("<<q.w<<")]";
 }
 
+Foam::Rotation::Rotation
+(
+)
+{
+    T[0] = vector(1,0,0);
+    T[1] = vector(0,1,0);
+    T[2] = vector(0,0,1);
+}
 
 Foam::Rotation::Rotation
 (
@@ -171,6 +179,21 @@ Foam::Rotation::Rotation
     T[0] = d1;
     T[1] = d2;
     T[2] = d3;
+}
+
+Foam::Rotation::Rotation
+(
+    vector u,
+    scalar angle
+)
+{
+    u = normalize(u);
+    scalar v_1_cosa = 1-std::cos(angle);
+    scalar v_cosa = std::cos(angle);
+    scalar v_sina = std::sin(angle);
+    T[0] = vector(u[0]*u[0],u[1]*u[0],u[2]*u[0])*v_1_cosa + vector(v_cosa,u[2]*v_sina,-u[1]*v_sina);
+    T[1] = vector(u[0]*u[1],u[1]*u[1],u[2]*u[1])*v_1_cosa + vector(-u[2]*v_sina,v_cosa,u[0]*v_sina);
+    T[2] = vector(u[0]*u[2],u[1]*u[2],u[2]*u[2])*v_1_cosa + vector(u[1]*v_sina,-u[0]*v_sina,v_cosa);
 }
 
 Foam::Rotation::Rotation
@@ -222,6 +245,17 @@ Foam::Rotation Foam::Rotation::operator+
     {
         result.T[d] = (T[d]+R.T[d]); 
     }
+    return result;
+}
+
+Foam::vector Foam::Rotation::operator*
+(
+    vector const& v
+) const
+{
+    vector result;
+    for(label d=0; d<3; d++)
+        result[d] = T[0][d]*v[0] + T[1][d]*v[1] + T[2][d]*v[2];
     return result;
 }
 
@@ -372,4 +406,37 @@ Foam::FixedList<Foam::FixedList<Foam::vector,4>,3> Foam::Rotation::compute_d2Rdq
         d2d3dq[0][2]= 2; d2d3dq[1][2]=-2; d2d3dq[2][2]=-2; d2d3dq[3][2]= 2;
         
     return {d2d1dq,d2d2dq,d2d3dq};
+}
+
+Foam::Rotation Foam::Rotation::getIdentity()
+{
+    Rotation I;
+    return I;
+}
+
+Foam::vector Foam::normalize
+(
+    vector const& v
+)
+{
+    scalar len = std::sqrt(v&v);
+    if(len==0)
+        FatalErrorInFunction<<"Can not normalize a zero vector"<<exit(FatalError);
+    return v/len;
+}
+
+Foam::scalar Foam::angle
+(
+    vector const& v1,
+    vector const& v2
+)
+{
+    vector n_v1 = normalize(v1);
+    vector n_v2 = normalize(v2);
+    scalar dot = n_v1&n_v2;
+    if(dot>1)
+        dot=1;
+    else if(dot<-1)
+        dot=-1;
+    return std::acos(dot);
 }

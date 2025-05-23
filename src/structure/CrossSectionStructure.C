@@ -60,7 +60,8 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
 )
 {   
     scalar currentTime = mesh.time().value();
-    vector currentPosition = evaluateRodCircumPos(Rods[rodNumber],parameter,&(rodCrossSection[rodNumber]),angle,radiusFrac);
+    const Tuple2<bool,scalar>& rodCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
+    vector currentPosition = evaluateRodCircumPos(rodNumber,parameter,angle,radiusFrac);
     
     const std::pair<gsNurbs<scalar>,scalar>* prevDef = readPrevRodDeformation(rodNumber);
     const std::pair<gsNurbs<scalar>,scalar>* prevRot = readPrevRodRotation(rodNumber);
@@ -77,6 +78,10 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodVelocity
     
     vector prevR,prevD1,prevD2,prevD3;
     rodEval(Rods[rodNumber]->m_Curve,prevDef->first,prevRot->first,parameter,prevD1,prevD2,prevD3,prevR);
+    if(rodCorrAngle.first())
+    {
+        angle += rodCorrAngle.second();
+    }
     scalar radius = rodCrossSection[rodNumber](parameter,angle)*radiusFrac;
     vector coordXDir = std::cos(angle)*radius*prevD1;
     vector coordYDir = std::sin(angle)*radius*prevD2;
@@ -185,16 +190,22 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
 (
     const label rodNumber,
     const scalar rodParameter,
-    const scalar angle,
+    scalar angle,
     const scalar radiusFrac,
     const Parameter& par
 )
 {
     if(!(par.isValid()))
         FatalErrorInFunction<<"Invalid parameter here!"<<exit(FatalError);
+    const Tuple2<bool,scalar>& rodCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
     
     vector d1,d2,d3,C;
     rodEval(Rods[rodNumber],rodParameter,d1,d2,d3,C);
+    if(rodCorrAngle.first())
+    {
+        angle += rodCorrAngle.second();
+    }
+    
     scalar r = rodCrossSection[rodNumber](rodParameter,angle);
     
     Info<<"d1:"<<d1<<Foam::endl;
@@ -572,7 +583,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
             for(label r=0; r<numberOfFracs; r++)
             {
                 radialData[r].first = radFrac;
-                createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,radFrac,spacing,radialData[r].second);
+                createSpacedPointsOnCrossSec(rodNumber,parameter,radFrac,spacing,radialData[r].second);
                 //Info<<radFrac<<"  radialData["<<r<<"].second.size():"<<radialData[r].second.size()<<Foam::nl;
                 radFrac-=radFracPart;
             }
@@ -585,7 +596,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         {
             radialData.resize(1);
             radialData[0].first = 1.0;
-            createSpacedPointsOnCrossSec(oneRod,parameter,&crossSec,1.0,spacing,radialData[0].second);
+            createSpacedPointsOnCrossSec(rodNumber,parameter,1.0,spacing,radialData[0].second);
             //Info<<"radialData[0].second.size():"<<radialData[0].second.size()<<Foam::nl;
         }
     }
@@ -594,14 +605,13 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
 
 void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
 (
-    const ActiveRodMesh::rodCosserat* oneRod,
+    label rodNumber,
     scalar parameter,
-    CrossSection* oneCrossSec,
     scalar radFrac,
     scalar spacing,
     std::vector<scalar>& angleData
 )
-{    
+{
     std::list<scalar> points;
     points.push_back(0);
     points.push_back(0.5*Foam::constant::mathematical::pi);
@@ -616,7 +626,7 @@ void Foam::CrossSectionStructure::createSpacedPointsOnCrossSec
         auto pntsIter1 = ++(points.begin());
         for( ; pntsIter1!=points.end() ; )
         {
-            scalar dist = distance(oneRod,parameter,oneCrossSec,*pntsIter0,*pntsIter1,radFrac);
+            scalar dist = distance(rodNumber,parameter,*pntsIter0,*pntsIter1,radFrac);
             if(dist > spacing*iniRodPntsDistToMeshSpacing)
             {
                 scalar middlePar = 0.5*(*pntsIter0 + *pntsIter1);
@@ -1207,11 +1217,13 @@ void Foam::CrossSectionStructure::refineRadial
                 scalar angle = iter->getMarkerAngle();
                 vector radMarker0Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker0RadFrac
+                    rodNumber,parameter,angle,radMarker0RadFrac
+                    //oneRod,parameter,oneCrossSec,angle,radMarker0RadFrac
                 );
                 vector radMarker1Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker1RadFrac
+                    rodNumber,parameter,angle,radMarker1RadFrac
+                    //oneRod,parameter,oneCrossSec,angle,radMarker1RadFrac
                 );
                 vector distVec = radMarker0Pos-radMarker1Pos;
                 maxDist = std::max(maxDist,std::sqrt(distVec&distVec));
@@ -1221,11 +1233,13 @@ void Foam::CrossSectionStructure::refineRadial
                 scalar angle = iter->getMarkerAngle();
                 vector radMarker0Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker0RadFrac
+                    rodNumber,parameter,angle,radMarker0RadFrac
+                    //oneRod,parameter,oneCrossSec,angle,radMarker0RadFrac
                 );
                 vector radMarker1Pos = evaluateRodCircumPos
                 (
-                    oneRod,parameter,oneCrossSec,angle,radMarker1RadFrac
+                    rodNumber,parameter,angle,radMarker1RadFrac
+                    //oneRod,parameter,oneCrossSec,angle,radMarker1RadFrac
                 );
                 vector distVec = radMarker0Pos-radMarker1Pos;
                 maxDist = std::max(maxDist,std::sqrt(distVec&distVec));
@@ -1261,7 +1275,7 @@ void Foam::CrossSectionStructure::refineRadial
                 std::vector<scalar> angleData;
                 createSpacedPointsOnCrossSec
                 (
-                    oneRod,parameter,oneCrossSec,middleRadiusFrac,initialSpacing,angleData
+                    rodNumber,parameter,middleRadiusFrac,initialSpacing,angleData
                 );
                 std::pair<scalar,std::list<LagrangianMarkerOnCrossSec>> radialSlice;
                 radialSlice.first = middleRadiusFrac;
@@ -1405,7 +1419,7 @@ void Foam::CrossSectionStructure::refineTangential
                 std::vector<scalar> angleData;
                 createSpacedPointsOnCrossSec
                 (
-                    oneRod,middleMarkerPara,oneCrossSec,1.0,initialSpacing,angleData
+                    rodNumber,middleMarkerPara,1.0,initialSpacing,angleData
                 );
 
                 //auto ti3 = std::chrono::system_clock::now();
@@ -1483,13 +1497,15 @@ void Foam::CrossSectionStructure::setMarkerVolumeOnRod
             }
         }
         
+        
+        const Tuple2<bool,scalar>& rodCoordCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
         std::function<vector(scalar,scalar,scalar,scalar,scalar)> getPosition = 
-        [rod=oneRod,crossSec=oneCrossSec]
+        [rod=oneRod,crossSec=oneCrossSec,corrAngle=rodCoordCorrAngle]
         (scalar para, scalar radFrac, scalar angle, scalar paraDev, scalar radiusDev)
         {
             return CrossSectionStructure::evaluateRodCircumPos
             (
-                rod,para,crossSec,angle,radFrac,paraDev,radiusDev
+                rod,para,crossSec,angle,corrAngle,radFrac,paraDev,radiusDev
             );
         };
         
@@ -2126,12 +2142,13 @@ Foam::scalar Foam::CrossSectionStructure::evaluateCircumArcLen
     CrossSection* oneCrossSec,
     scalar angleA,
     scalar angleB,
+    const Tuple2<bool,scalar>& rodRotation,
     scalar radiusFracA,
     scalar radiusFracB
 )
 {
-    vector parAVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterA,oneCrossSec,angleA,radiusFracA);
-    vector parBVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterB,oneCrossSec,angleB,radiusFracB);
+    vector parAVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterA,oneCrossSec,angleA,rodRotation,radiusFracA);
+    vector parBVec = CrossSectionStructure::evaluateRodCircumPos(oneRod,parameterB,oneCrossSec,angleB,rodRotation,radiusFracB);
     vector connec = parAVec-parBVec;
     return Foam::mag(connec);
 }
@@ -2228,6 +2245,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     scalar parameter,
     CrossSection* oneCrossSec,
     scalar angle,
+    const Tuple2<bool,scalar>& oneRodRotation,
     scalar radiusFrac,
     scalar var_para,
     scalar var_radius
@@ -2236,19 +2254,19 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
-    //Info<<"\t\tpara:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<" d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::nl;
+    if(oneRodRotation.first())
+    {
+        angle += oneRodRotation.second();
+    }
+    
     vector tangential = d3;
     scalar tangentialLen = std::sqrt(tangential&tangential);
     tangential /= tangentialLen;
     vector tangentialDev = tangential * var_para;
-    //Info<<Foam::nl<<"parameter:"<<parameter<<Foam::nl;
     scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
     radius +=  var_radius;
-    //Info<<"radius:"<<radius<<Foam::nl;
     vector coordXDir = std::cos(angle)*radius*d1;
-    //Info<<"coordXDir:"<<coordXDir<<"  angle:"<<angle<<"  "<<d2<<Foam::nl;
     vector coordYDir = std::sin(angle)*radius*d2;
-    //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::nl;
     return (r+tangentialDev)+coordXDir+coordYDir;
 }
 
@@ -2262,13 +2280,18 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     scalar var_radius
 )
 {
+    return evaluateRodCircumPos(Rods[rodNumber],parameter,
+                                &(rodCrossSection[rodNumber]),angle,rodCoordinateSystemCorrectionAngle[rodNumber],
+                                radiusFrac,var_para,var_radius);
+    
+    /*
     //const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
     vector d1,d2,d3,r;
     rodEval(rodNumber,parameter,d1,d2,d3,r);
-    Info<<"para:"<<parameter<<" angle:"<<angle<<" radiusFrac:"<<radiusFrac<<Foam::nl;
-    Info<<"d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<" r:"<<r<<Foam::nl;
+
+    
     vector tangential = d3;
     scalar tangentialLen = std::sqrt(tangential&tangential);
     tangential /= tangentialLen;
@@ -2282,6 +2305,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumPos
     vector coordYDir = std::sin(angle)*radius*d2;
     //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::nl;
     return (r+tangentialDev)+coordXDir+coordYDir;
+    */
 }
 
 Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
@@ -2292,6 +2316,7 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
     scalar radiusFrac
 )
 {
+    /*
     //const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
@@ -2324,16 +2349,12 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
                         radius*(-std::sin(angle)*d1+std::cos(angle)*d2);
                         
     //auto t6 = std::chrono::system_clock::now();
-    /*
-    Info<<"\t\t d t0-t1 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count()<<Foam::nl;
-    Info<<"\t\t d t1-t2 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count()<<Foam::nl;
-    Info<<"\t\t d t2-t3 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count()<<Foam::nl;
-    Info<<"\t\t d t3-t4 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count()<<Foam::nl;
-    Info<<"\t\t d t4-t5 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count()<<Foam::nl;
-    Info<<"\t\t d t5-t6 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count()<<Foam::nl;
+    return {dRCPdp,dRCPdangle};
     */
     
-    return {dRCPdp,dRCPdangle};
+    return derivateRodCircumPos(Rods[rodNumber],parameter,
+                                &(rodCrossSection[rodNumber]),angle,rodCoordinateSystemCorrectionAngle[rodNumber],
+                                radiusFrac);
 }
 
 Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
@@ -2342,12 +2363,18 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
     scalar parameter,
     CrossSection* oneCrossSec,
     scalar angle,
+    const Tuple2<bool,scalar>& oneRodRotation,
     scalar radiusFrac
 )
 {
     //auto t0 = std::chrono::system_clock::now();
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
+    
+    if(oneRodRotation.first())
+    {
+        angle += oneRodRotation.second();
+    }
     
     //auto t1 = std::chrono::system_clock::now();
     
@@ -2374,16 +2401,6 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivateRodCircumPos
                         radius*(-std::sin(angle)*d1+std::cos(angle)*d2);
                         
     //auto t6 = std::chrono::system_clock::now();
-                        
-    /*
-    Info<<"\t\t d t0-t1 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count()<<Foam::nl;
-    Info<<"\t\t d t1-t2 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count()<<Foam::nl;
-    Info<<"\t\t d t2-t3 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count()<<Foam::nl;
-    Info<<"\t\t d t3-t4 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count()<<Foam::nl;
-    Info<<"\t\t d t4-t5 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count()<<Foam::nl;
-    Info<<"\t\t d t5-t6 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count()<<Foam::nl;
-    */
-    
     return {dRCPdp,dRCPdangle};
 }
 
@@ -2395,6 +2412,10 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
     scalar radiusFrac
 )
 {
+    return derivate2RodCircumPos(Rods[rodNumber],parameter,
+                                 &(rodCrossSection[rodNumber]),angle,rodCoordinateSystemCorrectionAngle[rodNumber],    radiusFrac);
+    
+    /*
     //const ActiveRodMesh::rodCosserat* oneRod = Rods[rodNumber];
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
@@ -2438,16 +2459,9 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
                          radius*(-std::cos(angle)*d1-std::sin(angle)*d2);
                          
     //auto t6 = std::chrono::system_clock::now();
-    /*
-    Info<<"\t\t d2 t0-t1 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count()<<Foam::nl;
-    Info<<"\t\t d2 t1-t2 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count()<<Foam::nl;
-    Info<<"\t\t d2 t2-t3 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count()<<Foam::nl;
-    Info<<"\t\t d2 t3-t4 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count()<<Foam::nl;
-    Info<<"\t\t d2 t4-t5 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count()<<Foam::nl;
-    Info<<"\t\t d2 t5-t6 :"<<std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count()<<Foam::nl;
-    */
     
     return {d2RCPdp,d2RCPdangle};
+    */
 }
 
 Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
@@ -2456,6 +2470,7 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
     scalar parameter,
     CrossSection* oneCrossSec,
     scalar angle,
+    const Tuple2<bool,scalar>& oneRodRotation,
     scalar radiusFrac
 )
 {
@@ -2463,6 +2478,11 @@ Foam::Pair<Foam::vector> Foam::CrossSectionStructure::derivate2RodCircumPos
 
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
+    
+    if(oneRodRotation.first())
+    {
+        angle += oneRodRotation.second();
+    }
     
     //auto t1 = std::chrono::system_clock::now();
     
@@ -2531,11 +2551,18 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
     scalar parameter,
     CrossSection* oneCrossSec,
     scalar angle,
+    const Tuple2<bool,scalar>& oneRodRotation,
     scalar radiusFrac
 )
 {
     vector d1,d2,d3,r;
     rodEval(oneRod,parameter,d1,d2,d3,r);
+    
+    if(oneRodRotation.first())
+    {
+        angle += oneRodRotation.second();
+    }
+    
     //Info<<Foam::nl<<"parameter:"<<parameter<<Foam::nl;
     scalar radius = (*oneCrossSec)(parameter,angle)*radiusFrac;
     //Info<<"radius:"<<radius<<Foam::nl;
@@ -2557,6 +2584,12 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
     scalar radiusFrac
 )
 {
+    const Tuple2<bool,scalar>& rodCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
+    return evaluateRodCircumDerivAngle( Rods[rodNumber],parameter,
+                                        &(rodCrossSection[rodNumber]),angle,rodCorrAngle,
+                                        radiusFrac);
+    
+    /*
     CrossSection* oneCrossSec = &(rodCrossSection[rodNumber]);
     
     vector d1,d2,d3,r;
@@ -2572,6 +2605,7 @@ Foam::vector Foam::CrossSectionStructure::evaluateRodCircumDerivAngle
     vector coordYDerivAngle = (dradius_dangle*std::sin(angle) + radius*std::cos(angle))*d2;
     //Info<<"coordYDir:"<<coordYDir<<"  angle:"<<angle<<"  "<<d3<<Foam::nl;
     return coordXDerivAngle+coordYDerivAngle;
+    */
 }
 
 Foam::scalar Foam::CrossSectionStructure::restrictAngle
@@ -2599,7 +2633,9 @@ T Foam::CrossSectionStructure::integrateCircumwise
     std::function<T(scalar)> function
 )
 {
-    return integrateCircumwise<T>(oneRod,parameter,crossSec,0,2*Foam::constant::mathematical::pi,function);
+    return integrateCircumwise<T>(oneRod,parameter,
+                                  crossSec,0,2*Foam::constant::mathematical::pi,{false,0},
+                                  function);
 }
 
 template<typename T>
@@ -2656,7 +2692,8 @@ T Foam::CrossSectionStructure::integrateCircumwise
     std::function<T(scalar)> function
 )
 {
-    return integrateCircumwise<T>(Rods[rodNumber],parameter,&(rodCrossSection[rodNumber]),angleStart,angleEnd,function);
+    return integrateCircumwise<T>(Rods[rodNumber],parameter,
+                                  &(rodCrossSection[rodNumber]),angleStart,angleEnd,                                function);
 }
 
 Foam::scalar Foam::CrossSectionStructure::distance
@@ -2666,15 +2703,21 @@ Foam::scalar Foam::CrossSectionStructure::distance
     CrossSection* crossSec,
     scalar angleStart,
     scalar angleEnd,
+    const Tuple2<bool,scalar>& rodRotation,
     scalar radiusFrac
 )
 {
     std::function<scalar(scalar)> curveLen = 
-    [rodPtr=oneRod, para=parameter, crossSecRef=crossSec, radFrac=radiusFrac](scalar angle)
+    [rodPtr=oneRod, para=parameter, crossSecRef=crossSec, radFrac=radiusFrac, rodCorrAngle=rodRotation](scalar angle)
     {
-        vector derivCrossSec = evaluateRodCircumDerivAngle(rodPtr,para,crossSecRef,angle,radFrac);
+        vector derivCrossSec = evaluateRodCircumDerivAngle(rodPtr,para,crossSecRef,angle,rodCorrAngle,radFrac);
         return std::sqrt(derivCrossSec&derivCrossSec);
     };
+    if(rodRotation.first())
+    {
+        angleStart += rodRotation.second();
+        angleEnd += rodRotation.second();
+    }
     return integrateCircumwise<scalar>(oneRod,parameter,crossSec,angleStart,angleEnd,curveLen);
 }
 
@@ -2687,6 +2730,11 @@ Foam::scalar Foam::CrossSectionStructure::distance
     scalar radiusFrac
 )
 {
+    const Tuple2<bool,scalar>& rodCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
+    return distance(Rods[rodNumber],parameter,
+                    &(rodCrossSection[rodNumber]),angleStart,angleEnd,rodCorrAngle,
+                    radiusFrac);
+    /*
     std::function<scalar(scalar)> curveLen = 
     [rodNum=rodNumber, para=parameter, radFrac=radiusFrac, this](scalar angle)
     {
@@ -2694,6 +2742,7 @@ Foam::scalar Foam::CrossSectionStructure::distance
         return std::sqrt(derivCrossSec&derivCrossSec);
     };
     return integrateCircumwise<scalar>(rodNumber,parameter,angleStart,angleEnd,curveLen);
+    */
 }
 
 Foam::scalar Foam::CrossSectionStructure::distance
@@ -2704,6 +2753,8 @@ Foam::scalar Foam::CrossSectionStructure::distance
 {
     if(A.getBaseRod()!=B.getBaseRod())
         FatalErrorInFunction<<"Distance can not be computed between points on different rods"<<exit(FatalError);
+    
+    const Tuple2<bool,scalar>& rodCorrAngle = A.getRodCoordinateSystemCorrectionAngle();
     
     //markerParameter,markerAngle,radiusFrac,markerPosition
     using node = std::tuple<scalar,scalar,scalar,vector>;
@@ -2766,7 +2817,7 @@ Foam::scalar Foam::CrossSectionStructure::distance
             std::get<1>(insertNode) = anglNodeInter;
             std::get<3>(insertNode) = CrossSectionStructure::evaluateRodCircumPos
                                     (A.getBaseRod(),std::get<0>(insertNode),
-                                     A.getBaseCrossSec(),std::get<1>(insertNode),
+                                     A.getBaseCrossSec(),std::get<1>(insertNode),rodCorrAngle,
                                      std::get<2>(insertNode));
             nodes.insert(node1,insertNode);
             node0 = node1;
@@ -2800,11 +2851,12 @@ Foam::scalar Foam::CrossSectionStructure::lowerBound_distance
     CrossSection* crossSec,
     scalar angleStart,
     scalar angleEnd,
+    const Tuple2<bool,scalar>& oneRodRotation,
     scalar radiusFrac
 )
 {
-    vector posStart = evaluateRodCircumPos(oneRod,parameter,crossSec,angleStart,radiusFrac);
-    vector posEnd = evaluateRodCircumPos(oneRod,parameter,crossSec,angleEnd,radiusFrac);
+    vector posStart = evaluateRodCircumPos(oneRod,parameter,crossSec,angleStart,oneRodRotation,radiusFrac);
+    vector posEnd = evaluateRodCircumPos(oneRod,parameter,crossSec,angleEnd,oneRodRotation,radiusFrac);
     vector dist = posEnd-posStart;
     return std::sqrt(dist&dist);
 }
@@ -2853,6 +2905,7 @@ void Foam::CrossSectionStructure::parameterGradientCheck()
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
         CrossSection* oCS = &(rodCrossSection[rodNumber]);
+        const Tuple2<bool,scalar>& rodCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
         
         scalar domainStart = this->domainStart(rodNumber)+5*epsilon;
         scalar domainEnd = this->domainEnd(rodNumber)-5*epsilon;
@@ -2993,23 +3046,23 @@ void Foam::CrossSectionStructure::parameterGradientCheck()
                 for(scalar radFrac=radiusStart; radFrac<radiusEnd; radFrac+=radiusStepsize)
                 {
                     // Compute gradients
-                    Pair<vector> drd_ = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,angle,radFrac);
-                    Pair<vector> d2rd_ = derivate2RodCircumPos(Rods[rodNumber],parameter,oCS,angle,radFrac);
+                    Pair<vector> drd_ = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,angle,rodCorrAngle,radFrac);
+                    Pair<vector> d2rd_ = derivate2RodCircumPos(Rods[rodNumber],parameter,oCS,angle,rodCorrAngle,radFrac);
                     
                     scalar l_para = parameter-epsilon;
                     scalar l_angle = angle-epsilon;
                     scalar u_para = parameter+epsilon;
                     scalar u_angle = angle+epsilon;
 
-                    vector lp_r = evaluateRodCircumPos(Rods[rodNumber],l_para,oCS,angle,radFrac);
-                    vector la_r = evaluateRodCircumPos(Rods[rodNumber],parameter,oCS,l_angle,radFrac);
-                    vector up_r = evaluateRodCircumPos(Rods[rodNumber],u_para,oCS,angle,radFrac);
-                    vector ua_r = evaluateRodCircumPos(Rods[rodNumber],parameter,oCS,u_angle,radFrac);
+                    vector lp_r = evaluateRodCircumPos(Rods[rodNumber],l_para,oCS,angle,rodCorrAngle,radFrac);
+                    vector la_r = evaluateRodCircumPos(Rods[rodNumber],parameter,oCS,l_angle,rodCorrAngle,radFrac);
+                    vector up_r = evaluateRodCircumPos(Rods[rodNumber],u_para,oCS,angle,rodCorrAngle,radFrac);
+                    vector ua_r = evaluateRodCircumPos(Rods[rodNumber],parameter,oCS,u_angle,rodCorrAngle,radFrac);
                     
-                    vector lp_drdp = derivateRodCircumPos(Rods[rodNumber],l_para,oCS,angle,radFrac).first();
-                    vector la_drdangle = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,l_angle,radFrac).second();
-                    vector up_drdp = derivateRodCircumPos(Rods[rodNumber],u_para,oCS,angle,radFrac).first();
-                    vector ua_drdangle = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,u_angle,radFrac).second();
+                    vector lp_drdp = derivateRodCircumPos(Rods[rodNumber],l_para,oCS,angle,rodCorrAngle,radFrac).first();
+                    vector la_drdangle = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,l_angle,rodCorrAngle,radFrac).second();
+                    vector up_drdp = derivateRodCircumPos(Rods[rodNumber],u_para,oCS,angle,rodCorrAngle,radFrac).first();
+                    vector ua_drdangle = derivateRodCircumPos(Rods[rodNumber],parameter,oCS,u_angle,rodCorrAngle,radFrac).second();
 
                     Pair<vector> fd_drd_((up_r-lp_r)/(2*epsilon),(ua_r-la_r)/(2*epsilon));
                     Pair<vector> fd_d2rd_((up_drdp-lp_drdp)/(2*epsilon),(ua_drdangle-la_drdangle)/(2*epsilon));
@@ -3254,6 +3307,7 @@ void Foam::CrossSectionStructure::selfCheck()
     for(std::size_t rodNumber=0; rodNumber<crossSec.size(); rodNumber++)
     {
         //Info<<"rodNumber:"<<rodNumber<<Foam::nl;
+        const Tuple2<bool,scalar>& rodCoordCorrAngle = getRodCoordinateSystemCorrectionAngle(rodNumber);
         
         CrossSection cpCrossSec = crossSec[rodNumber];
         /*
@@ -3431,13 +3485,13 @@ void Foam::CrossSectionStructure::selfCheck()
         Info<<"d2r003:"<<d2radius03<<Foam::endl;
         Info<<"d2r004:"<<d2radius04<<Foam::endl;
         
-        vector rodPosStatic = evaluateRodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,1);
+        vector rodPosStatic = evaluateRodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,rodCoordCorrAngle,1);
         vector rodPos = evaluateRodCircumPos(rodNumber,0.25,0.01,1);
         
-        Pair<vector> drodPosStatic = derivateRodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,1);
+        Pair<vector> drodPosStatic = derivateRodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,rodCoordCorrAngle,1);
         Pair<vector> drodPos = derivateRodCircumPos(rodNumber,0.25,0.01,1);
         
-        Pair<vector> d2rodPosStatic = derivate2RodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,1);
+        Pair<vector> d2rodPosStatic = derivate2RodCircumPos(Rods[rodNumber],0.25,&cpCrossSec,0.01,rodCoordCorrAngle,1);
         Pair<vector> d2rodPos = derivate2RodCircumPos(rodNumber,0.25,0.01,1);
         
         Info<<"rodPosStatic:"<<rodPosStatic<<Foam::endl;

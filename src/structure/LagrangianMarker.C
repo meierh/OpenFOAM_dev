@@ -528,6 +528,11 @@ void Foam::LagrangianMarker::getCellData
     */
 }
 
+const Foam::Tuple2<bool,Foam::scalar>& Foam::LagrangianMarker::getRodCoordinateSystemCorrectionAngle()
+{
+    return structure.getRodCoordinateSystemCorrectionAngle(rodNumber);
+}
+
 Foam::scalar Foam::LagrangianMarker::computeMoment
 (
     vector indices,

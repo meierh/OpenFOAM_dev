@@ -112,6 +112,8 @@ class LagrangianMarker
         
         void getCellData(const Pair<label>& cell, vector& cellCentre, scalar& volume) const;
         
+        const Tuple2<bool,scalar>& getRodCoordinateSystemCorrectionAngle();
+        
     protected:        
         LineStructure& structure;
         const fvMesh& mesh;

@@ -116,11 +116,13 @@ Ostream& operator<<(Ostream& os, Quaternion const& q);
 class Rotation
 {
     public:
-        Rotation(){};
+        Rotation();
         Rotation(vector d1, vector d2, vector d3);
+        Rotation(vector u, scalar angle);
         Rotation(const Quaternion& q);
         Rotation operator-(Rotation const& R) const;
         Rotation operator+(Rotation const& R) const;
+        vector operator*(vector const& v) const;
         bool operator!=(Rotation const& R) const;
         Rotation operator/(scalar alpha) const;
         scalar distanceNorm2(Rotation const& R) const;
@@ -134,6 +136,8 @@ class Rotation
         static Rotation compute_d2RdX(const Quaternion& d2qdX, const Quaternion& dqdX, const Quaternion& q);
         static FixedList<FixedList<vector,4>,3> compute_d2Rdq(const Quaternion& q);
         
+        static Rotation getIdentity();
+        
     private:
         FixedList<vector,3> T;
         
@@ -141,6 +145,8 @@ class Rotation
 };
 Ostream& operator<<(Ostream& os, Rotation const& m);
 
+vector normalize(vector const& v);
+scalar angle(vector const& v1, vector const& v2);
 
 class Structure
 {
@@ -472,8 +478,11 @@ class Structure
             ActiveRodMesh::SolveOptions solveOpt;
         //******************* Parameters *******************//
             
-        List<Tuple2<bool,Tuple3<vector,vector,vector>>> rodCoordinateSystemIniRotation;
+        List<Tuple2<bool,Tuple3<vector,vector,vector>>> rodCoordinateSystemIniRotation;        
+        List<Tuple2<bool,scalar>> rodCoordinateSystemCorrectionAngle;
         void correctInitialCoordinateSystemState();
+    public:
+        const Tuple2<bool,scalar>& getRodCoordinateSystemCorrectionAngle(label rodNumber);
     // -------------------------------- ------------------ --------------------------------
 
     protected:

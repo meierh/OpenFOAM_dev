@@ -256,9 +256,10 @@ class CrossSectionStructure : public LineStructure
         ) override;
         void createSpacedPointsOnCrossSec
         (
-            const ActiveRodMesh::rodCosserat* oneRod,
+            //const ActiveRodMesh::rodCosserat* oneRod,
+            label rodNumber,
             scalar parameter,
-            CrossSection* oneCrossSec,
+            //CrossSection* oneCrossSec,
             scalar radFrac,
             scalar spacing,
             std::vector<scalar>& angleData
@@ -331,6 +332,7 @@ class CrossSectionStructure : public LineStructure
             CrossSection* oneCrossSec,
             scalar angleA,
             scalar angleB,
+            const Tuple2<bool,scalar>& rodRotation,
             scalar radiusFracA,
             scalar radiusFracB
         );
@@ -368,6 +370,7 @@ class CrossSectionStructure : public LineStructure
             scalar parameter,
             CrossSection* oneCrossSec,
             scalar angle,
+            const Tuple2<bool,scalar>& correctionAngle,
             scalar radiusFrac,
             scalar var_para = 0,
             scalar var_radius = 0
@@ -387,6 +390,7 @@ class CrossSectionStructure : public LineStructure
             scalar parameter,
             CrossSection* oneCrossSec,
             scalar angle,
+            const Tuple2<bool,scalar>& oneRodRotation,
             scalar radiusFrac
         );
     
@@ -404,6 +408,7 @@ class CrossSectionStructure : public LineStructure
             scalar parameter,
             CrossSection* oneCrossSec,
             scalar angle,
+            const Tuple2<bool,scalar>& oneRodRotation,
             scalar radiusFrac
         );
         
@@ -423,6 +428,7 @@ class CrossSectionStructure : public LineStructure
             scalar parameter,
             CrossSection* oneCrossSec,
             scalar angle,
+            const Tuple2<bool,scalar>& oneRodRotation,
             scalar radiusFrac=1
         );
         
@@ -473,6 +479,7 @@ class CrossSectionStructure : public LineStructure
             CrossSection* crossSec,
             scalar angleStart,
             scalar angleEnd,
+            const Tuple2<bool,scalar>& rodRotation,
             scalar radiusFrac
         );
         
@@ -498,6 +505,7 @@ class CrossSectionStructure : public LineStructure
             CrossSection* crossSec,
             scalar angleStart,
             scalar angleEnd,
+            const Tuple2<bool,scalar>& oneRodRotation,
             scalar radiusFrac
         );
         

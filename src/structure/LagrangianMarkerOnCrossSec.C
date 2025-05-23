@@ -32,9 +32,10 @@ void Foam::LagrangianMarkerOnCrossSec::evaluateMarker()
 {
     //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()"<<Foam::nl;
     //auto t0 = std::chrono::system_clock::now();
+    const Tuple2<bool,scalar>& rodCoordCorrAngle = structure.getRodCoordinateSystemCorrectionAngle(rodNumber);
     markerPosition = CrossSectionStructure::evaluateRodCircumPos
     (
-        baseRod,markerParameter,baseCrossSec,markerAngle,markerRadiusFrac
+        baseRod,markerParameter,baseCrossSec,markerAngle,rodCoordCorrAngle,markerRadiusFrac
     );
     //Pout<<"      LagrangianMarkerOnCrossSec::evaluateMarker()::markerPosition:"<<markerPosition<<Foam::nl;
     //auto t1 = std::chrono::system_clock::now();

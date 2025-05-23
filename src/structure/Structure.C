@@ -13,6 +13,7 @@ xmlPath(getXMLPath()),
 name(getName()),
 nR(loadRodsFromXML()),
 rodCoordinateSystemIniRotation(nR,{false,Tuple3<vector,vector,vector>()}),
+rodCoordinateSystemCorrectionAngle(nR,{false,0}),
 mesh(mesh),
 meshBoundingBox(computeMeshBoundingBox())
 {
@@ -37,6 +38,7 @@ xmlPath(xmlFromDict(*structureDict)),
 name(getName()),
 nR(loadRodsFromXML()),
 rodCoordinateSystemIniRotation(nR,{false,Tuple3<vector,vector,vector>()}),
+rodCoordinateSystemCorrectionAngle(nR,{false,0,}),
 mesh(mesh),
 structureDict(structureDict),
 meshBoundingBox(computeMeshBoundingBox())
@@ -2298,11 +2300,10 @@ void Foam::Structure::setCurveCoeff
 
 void Foam::Structure::correctInitialCoordinateSystemState()
 {
-    Info<<"correctInitialCoordinateSystemState"<<Foam::endl;
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
         Tuple2<bool,Tuple3<vector,vector,vector>>& iniCoord = rodCoordinateSystemIniRotation[rodNumber];
-        Info<<"iniCoord:"<<iniCoord<<Foam::endl;
+        //Info<<"iniCoord:"<<iniCoord<<Foam::endl;
         if(!iniCoord.first())
         {
             iniCoord.first()=true;
@@ -2319,79 +2320,82 @@ void Foam::Structure::correctInitialCoordinateSystemState()
             using std::cos;
             using std::abs;
             const Tuple3<vector,vector,vector>& iniCoord = rodCoordinateSystemIniRotation[rodNumber].second();
-            vector ini_d1 = iniCoord.first();
-            vector ini_d2 = iniCoord.second();
-            vector ini_d3 = iniCoord.third();
+            const vector ini_d1 = iniCoord.first();
+            const vector ini_d2 = iniCoord.second();
+            const vector ini_d3 = iniCoord.third();
             scalar minPara = Rods[rodNumber]->m_Curve.domainStart();
             vector d1,d2,d3,r;
             rodEval(rodNumber,minPara,d1,d2,d3,r);
-            
-            scalar a = acos((ini_d3&d3) / ( std::sqrt(ini_d3&ini_d3)*std::sqrt(d3&d3)));
-            vector u = d3 ^ ini_d3;
-            
-            std::function<FixedList<vector,3>(vector u, scalar a)> gen_R = 
-            [](vector u, scalar a)
+                        
+            scalar a = angle(ini_d3,d3);
+            vector ini_d1_rot,ini_d2_rot,ini_d3_rot;
+            if(a==0)
+            {                
+                ini_d1_rot = ini_d1;
+                ini_d2_rot = ini_d2;
+                ini_d3_rot = ini_d3;
+            }
+            else
             {
-                FixedList<vector,3> R;
-                R[0] = vector(  u[0]*u[0]*(1-cos(a)) + cos(a),
-                                u[0]*u[1]*(1-cos(a)) - u[2]*sin(a),
-                                u[0]*u[2]*(1-cos(a)) + u[1]*sin(a));
-                R[1] = vector(  u[1]*u[0]*(1-cos(a)) + u[2]*sin(a),
-                                u[1]*u[1]*(1-cos(a)) + cos(a),
-                                u[1]*u[2]*(1-cos(a)) - u[0]*sin(a));
-                R[2] = vector(  u[2]*u[0]*(1-cos(a)) - u[1]*sin(a),
-                                u[2]*u[1]*(1-cos(a)) - u[0]*sin(a),
-                                u[2]*u[2]*(1-cos(a)) + cos(a));
-                return R;
-            };
+                vector u = normalize(ini_d3 ^ d3);
+                Rotation R(u,a);
+                ini_d1_rot = R*ini_d1;
+                ini_d2_rot = R*ini_d2;
+                ini_d3_rot = R*ini_d3;
+            }
+                        
+            scalar angle_d1 = angle(d1,ini_d1_rot);
+            vector cross_d1 = d1 ^ ini_d1_rot;
+            scalar angle_d2 = angle(d2,ini_d2_rot);
+            vector cross_d2 = d2 ^ ini_d2_rot;
             
-            FixedList<vector,3> R = gen_R(u,a);
-            vector ini_d1_rot = vector(R[0]&ini_d1,R[1]&ini_d1,R[2]&ini_d1);
-            vector ini_d2_rot = vector(R[0]&ini_d2,R[1]&ini_d2,R[2]&ini_d2);
-            
-            std::function<FixedList<vector,3>(vector u, scalar a)> gen_dRda = 
-            [](vector u, scalar a)
+            if(std::abs(angle_d1-angle_d2) > 1e-4)
             {
-                FixedList<vector,3> R;
-                R[0] = vector(  u[0]*u[0]*sin(a) - sin(a),
-                                u[0]*u[1]*sin(a) - u[2]*cos(a),
-                                u[0]*u[2]*sin(a) + u[1]*cos(a));
-                R[1] = vector(  u[1]*u[0]*sin(a) + u[2]*cos(a),
-                                u[1]*u[1]*sin(a) - sin(a),
-                                u[1]*u[2]*sin(a) - u[0]*cos(a));
-                R[2] = vector(  u[2]*u[0]*sin(a) - u[1]*cos(a),
-                                u[2]*u[1]*sin(a) - u[0]*cos(a),
-                                u[2]*u[2]*sin(a) - sin(a));
-                return R;
-            };
+                Info<<"angle_d1:"<<angle_d1<<Foam::endl;
+                Info<<"angle_d2:"<<angle_d2<<Foam::endl;
+                Info<<"std::abs(angle_d1-angle_d2):"<<std::abs(angle_d1-angle_d2)<<Foam::endl;
+                FatalErrorInFunction<<"Mismatch in angles"<<exit(FatalError);
+            }
+            if((cross_d1 & cross_d2) < 0)
+                FatalErrorInFunction<<"Mismatch in normals"<<exit(FatalError);
             
-            max(a) f = ( ini_d1_rot & R(a)*d1  +  ini_d2_rot & R(a)*d2 )
-            dfda = ( ini_d1_rot & dRda(a)*d1  +  ini_d2_rot & dRda(a)*d2 )
-            
-            std::function<scalar(scalar a)> dfda = 
-            [u=u](scalar a)
+            scalar avgAngle = (angle_d1+angle_d2)/2;
+            vector u_d3 = normalize(d3);
+            if(avgAngle!=0)
             {
-                FixedList<vector,3> dRda = gen_dRda(u,a);
-                
-                FixedList<vector,3> R;
-                R[0] = vector(  u[0]*u[0]*sin(a) - sin(a),
-                                u[0]*u[1]*sin(a) - u[2]*cos(a),
-                                u[0]*u[2]*sin(a) + u[1]*cos(a));
-                R[1] = vector(  u[1]*u[0]*sin(a) + u[2]*cos(a),
-                                u[1]*u[1]*sin(a) - sin(a),
-                                u[1]*u[2]*sin(a) - u[0]*cos(a));
-                R[2] = vector(  u[2]*u[0]*sin(a) - u[1]*cos(a),
-                                u[2]*u[1]*sin(a) - u[0]*cos(a),
-                                u[2]*u[2]*sin(a) - sin(a));
-                return R;
-            };
+                if((u_d3 & cross_d1)<0 && (u_d3 & cross_d2)<0)
+                    avgAngle = -avgAngle;
+                else if((u_d3 & cross_d1)>0 && (u_d3 & cross_d2)>0)
+                {}
+                else
+                    FatalErrorInFunction<<"Sign mismatch"<<exit(FatalError);
+            }
             
-        }
+            Rotation corr_R(u_d3,avgAngle);
 
-        Info<<"iniCoord:"<<iniCoord<<Foam::endl;
-        
-        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+            vector d1_rot = corr_R*d1;
+            vector d2_rot = corr_R*d2;
+            vector d3_rot = corr_R*d3;
+            
+            scalar test_angle_d1 = angle(d1_rot,ini_d1);
+            scalar test_angle_d2 = angle(d2_rot,ini_d2);
+            scalar test_angle_d3 = angle(d3_rot,ini_d3);
+            
+            scalar maxAngle = std::max(angle_d1,angle_d2);
+            if(test_angle_d1>maxAngle || test_angle_d2>maxAngle || test_angle_d3>maxAngle)
+                FatalErrorInFunction<<"Failure in coordinate rotation correction matrix"<<exit(FatalError);
+                
+            rodCoordinateSystemCorrectionAngle[rodNumber] = {true,avgAngle};
+        }        
     }
+}
+
+const Foam::Tuple2<bool,Foam::scalar>& Foam::Structure::getRodCoordinateSystemCorrectionAngle
+(
+    label rodNumber
+)
+{
+    return rodCoordinateSystemCorrectionAngle[rodNumber];
 }
 
 Foam::BoundingBox Foam::Structure::computeMeshBoundingBox()
