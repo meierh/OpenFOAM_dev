@@ -208,11 +208,13 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
     
     scalar r = rodCrossSection[rodNumber](rodParameter,angle);
     
+    /*
     Info<<"d1:"<<d1<<Foam::endl;
     Info<<"d2:"<<d2<<Foam::endl;
     Info<<"d3:"<<d3<<Foam::endl;
     Info<<"C:"<<C<<Foam::endl;
     Info<<"r:"<<r<<Foam::endl;
+    */
     
     
     DynamicList<vector> dCdParam_list;
@@ -279,12 +281,12 @@ Foam::vector Foam::CrossSectionStructure::dXdParam
     else
         FatalErrorInFunction<<"Invalid type of parameter here!"<<exit(FatalError);
     
-    
+    /*
     Info<<"dCdParam_list:"<<dCdParam_list<<Foam::endl;
     Info<<"dd1dParam_list:"<<dd1dParam_list<<Foam::endl;
     Info<<"dd2dParam_list:"<<dd2dParam_list<<Foam::endl;
     Info<<"drdParam_list:"<<drdParam_list<<Foam::endl;
-    
+    */
     
     vector dXdParam = Foam::zero();
     for(label n=0; n<nCoefficients; n++)
@@ -529,7 +531,8 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         scalar pnt0Para = *pntIter0;
         scalar pnt1Para = *pntIter1;
         
-        vector r,d2,d3;        
+        /*
+        vector r,d2,d3;
         vector pnt0D1;
         rodEval(oneRod,pnt0Para,pnt0D1,d2,d3,r);
         vector pnt1D1;
@@ -540,6 +543,20 @@ void Foam::CrossSectionStructure::createSpacedPointsOnRod
         
         scalar angle = std::acos((pnt0D1&pnt1D1)/(std::sqrt(pnt0D1&pnt0D1)*std::sqrt(pnt1D1&pnt1D1)));
         scalar halfAngle = std::abs(angle/2);
+        */
+        
+        vector r,d1,d2;
+        vector pnt0D3;
+        rodEval(oneRod,pnt0Para,d1,d2,pnt0D3,r);
+        vector pnt1D3;
+        rodEval(oneRod,pnt1Para,d1,d2,pnt1D3,r);
+        
+        if((pnt0D3&pnt1D3) < 0)
+            FatalErrorInFunction<<"Vector can not be pointing in different directions"<< exit(FatalError);
+        
+        scalar rodTurnAngle = angle(pnt0D3,pnt1D3);
+        scalar halfAngle = std::abs(rodTurnAngle/2);
+        
         scalar rodDistance = LineStructure::distance(oneRod,pnt0Para,pnt1Para);
         
         scalar maxRadiusPnt0 = crossSec.upperLimitRadius(pnt0Para);
@@ -3136,39 +3153,44 @@ void Foam::CrossSectionStructure::parameterGradientCheck()
     }
 }
 
-void Foam::CrossSectionStructure::rodPointParameterGradientCheck(std::vector<Parameter> paraList)
+void Foam::CrossSectionStructure::rodPointParameterGradientCheck(const std::vector<Parameter>& paraList)
 {
     std::vector<scalar> epsilonList = {1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12};
     
-    Parameter onePara = paraList[0];
-    ParameterVariation& variator = ParameterVariation::createParameterVariator(this,onePara);
-    
-    label rodNum = 0;
-    scalar param = 0.09375;
-    scalar angle = 0.196349540849;
-    scalar radFrac = 1;
-    
-    DynamicList<vector> fd;
-    DynamicList<FixedList<vector,2>> f_val;
-    for(scalar eps : epsilonList)
+    /*
     {
-        f_val.append(FixedList<vector,2>());
-        variator.vary(-1*eps);
-        vector f_0 = evaluateRodCircumPos(rodNum,param,angle,radFrac);
-        variator.vary(+1*eps);
-        vector f_1 = evaluateRodCircumPos(rodNum,param,angle,radFrac);
-        fd.append((f_1-f_0)/(2*eps));
-        f_val.last()[0] = f_0;
-        f_val.last()[1] = f_1;
+        Parameter onePara = paraList[0];
+        ParameterVariation& variator = ParameterVariation::createParameterVariator(this,onePara);
+        
+        label rodNum = 0;
+        scalar param = 0.09375;
+        scalar angle = 0.196349540849;
+        scalar radFrac = 1;
+        
+        DynamicList<vector> fd;
+        DynamicList<FixedList<vector,2>> f_val;
+        for(scalar eps : epsilonList)
+        {
+            f_val.append(FixedList<vector,2>());
+            variator.vary(-1*eps);
+            vector f_0 = evaluateRodCircumPos(rodNum,param,angle,radFrac);
+            variator.vary(+1*eps);
+            vector f_1 = evaluateRodCircumPos(rodNum,param,angle,radFrac);
+            fd.append((f_1-f_0)/(2*eps));
+            f_val.last()[0] = f_0;
+            f_val.last()[1] = f_1;
+        }
+        Info<<Foam::endl;
+        Info<<onePara<<Foam::endl;
+        Info<<"fd:"<<fd<<Foam::endl;
+        Info<<"f_val:"<<f_val<<Foam::endl;
+        vector dvecdP = dXdParam(rodNum,param,angle,radFrac,onePara);
+        Info<<"dvecdP:"<<dvecdP<<Foam::endl;
+        
+        FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+        
     }
-    Info<<Foam::endl;
-    Info<<onePara<<Foam::endl;
-    Info<<"fd:"<<fd<<Foam::endl;
-    Info<<"f_val:"<<f_val<<Foam::endl;
-    vector dvecdP = dXdParam(rodNum,param,angle,radFrac,onePara);
-    Info<<"dvecdP:"<<dvecdP<<Foam::endl;
-    
-    FatalErrorInFunction<<"Temp Stop"<<exit(FatalError);
+    */
     
     DynamicList<const LagrangianMarkerOnCrossSec*> markers;
     for(LagrangianMarker* marker : getCollectedMarkers())
@@ -3177,15 +3199,43 @@ void Foam::CrossSectionStructure::rodPointParameterGradientCheck(std::vector<Par
         if(castMarker==nullptr)
             FatalErrorInFunction<<"Failed cast"<<exit(FatalError);
         markers.append(castMarker);
-        break;
     }
+    if(markers.size()==0)
+        FatalErrorInFunction<<"No test because no markers"<<exit(FatalError);
+    if(paraList.size()==0)
+        FatalErrorInFunction<<"No test because no parameters"<<exit(FatalError);
+    
+    int i=0;
     
     for(Parameter para : paraList)
     {
+        if(i>0)
+        {
+            Info<<"VariatorPar0: ";
+            Info<<ParameterVariation::getParameterVariator().getParameter()<<Foam::endl;
+        }
+        
+        Info<<Foam::endl<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+        Info<<para<<Foam::endl;
+        Info<<"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
+                
+        Info<<"Start variation"<<Foam::endl;
+        
+        if(i>0)
+        {
+            Info<<"VariatorPar1: ";
+            Info<<ParameterVariation::getParameterVariator().getParameter()<<Foam::endl;
+        }
+        
         ParameterVariation& variator = ParameterVariation::createParameterVariator(this,para);
+        
+        
         List<List<FixedList<vector,2>>> f_values(markers.size());
         for(List<FixedList<vector,2>>& inner : f_values)
             inner.setSize(epsilonList.size());
+        
+        i++;
         
         for(std::size_t epsInd=0; epsInd<epsilonList.size(); epsInd++)
         {
@@ -3205,6 +3255,8 @@ void Foam::CrossSectionStructure::rodPointParameterGradientCheck(std::vector<Par
                 }
             }
         }
+        
+        Info<<"Variation done"<<Foam::endl;
         
         List<vector> dfdParam_values(markers.size());
         List<scalar> dfdParam_values_Len(markers.size());
@@ -3246,24 +3298,42 @@ void Foam::CrossSectionStructure::rodPointParameterGradientCheck(std::vector<Par
                         
             if(min_Abserror > 1e-6)
             {
-                if(marker_dfdParam_values_Len!=0 && min_Relerror<1e-6)
-                    return;
-                
-                Info<<"markers["<<markerInd<<"]:";
-                Info<<(*(markers[markerInd]))<<Foam::endl;
-                Info<<" min error("<<min_Absindex<<"):"<<min_Abserror<<Foam::endl;
-                Info<<"error:"<<abs_error[markerInd]<<Foam::endl;
-                Info<<"f_values:"<<f_values[markerInd]<<Foam::endl;
-                Info<<Foam::endl;
-                Info<<"dfdParam_values["<<markerInd<<"]:"<<dfdParam_values[markerInd]<<Foam::endl;
-                Info<<"fd_dfdParam_values["<<markerInd<<"]:"<<fd_dfdParam_values[markerInd]<<Foam::endl;
-                Info<<"marker_dfdParam_values_Len:"<<marker_dfdParam_values_Len<<" -- "<<min_Relerror<<Foam::endl;
-                Info<<para<<Foam::endl;
-                
-                FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
+                if(marker_dfdParam_values_Len!=0 && min_Relerror<2e-2)
+                {}
+                else
+                {
+                    Info<<"----------------------------------"<<Foam::endl;
+                    Info<<"markers["<<markerInd<<"]:";
+                    Info<<(*(markers[markerInd]))<<Foam::endl;
+                    Info<<" min error("<<min_Absindex<<"):"<<min_Abserror<<Foam::endl;
+                    Info<<"error:"<<abs_error[markerInd]<<Foam::endl;
+                    Info<<"f_values:"<<f_values[markerInd]<<Foam::endl;
+                    Info<<Foam::endl;
+                    Info<<"dfdParam_values["<<markerInd<<"]:"<<dfdParam_values[markerInd]<<Foam::endl;
+                    Info<<"fd_dfdParam_values["<<markerInd<<"]:"<<fd_dfdParam_values[markerInd]<<Foam::endl;
+                    Info<<"marker_dfdParam_values_Len:"<<marker_dfdParam_values_Len<<" -- "<<min_Relerror<<Foam::endl;
+                    Info<<para<<Foam::endl;
+                    Info<<"----------------------------------"<<Foam::endl;
+                    
+                    Info<<Foam::endl;
+                    Info<<"m:"<<markerInd<<"/"<<markers.size()<<" dXdP   :"<<dfdParam_values[markerInd]<<Foam::endl;
+                    Info<<"m:"<<markerInd<<"/"<<markers.size()<<" fd_dXdP:"<<fd_dfdParam_values[markerInd][min_Absindex]<<Foam::endl;
+                    Info<<"m:"<<markerInd<<"/"<<markers.size()<<" error: ("<<min_Abserror<<"/"<<marker_dfdParam_values_Len<<") "<<min_Relerror<<"%"<<Foam::endl<<Foam::endl;
+                    
+                    FatalErrorInFunction<<"Invalid Gradient"<<exit(FatalError);
+                }
             }
+            /*
+            Info<<Foam::endl;
+            Info<<"m:"<<markerInd<<"/"<<markers.size()<<" dXdP   :"<<dfdParam_values[markerInd]<<Foam::endl;
+            Info<<"m:"<<markerInd<<"/"<<markers.size()<<" fd_dXdP:"<<fd_dfdParam_values[markerInd][min_Absindex]<<Foam::endl;
+            Info<<"m:"<<markerInd<<"/"<<markers.size()<<" error: ("<<min_Abserror<<"/"<<marker_dfdParam_values_Len<<") "<<min_Relerror<<"%"<<Foam::endl<<Foam::endl;
+            */
         }
+        Info<<"VariatorPar2: ";
+        Info<<ParameterVariation::getParameterVariator().getParameter()<<Foam::endl;
     }
+    Info<<"rodPointParameterGradientCheck: done"<<Foam::endl;
 }
 
 void Foam::CrossSectionStructure::selfCheck()

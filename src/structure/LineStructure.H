@@ -300,8 +300,7 @@ class Parameter
         
         friend messageStream& operator<< (messageStream &out, const Parameter& p)
         {
-            out<<" --- Parameter --- "<<Foam::endl;
-            out << "valid:"<<p.valid<<" dimension:"<<p.dimension<<" (";
+            out << "Parameter|->| valid:"<<p.valid<<" dimension:"<<p.dimension<<" (";
             if(p.parameterType==Type::Rod)
             {
                 out<<" Rod: ";
@@ -316,7 +315,7 @@ class Parameter
             }
             else
                 out<<" None ";
-            out<<Foam::endl<<" --- --------- --- "<<Foam::endl;
+            out<<") |<-|";
             return out;
         }   
         
@@ -337,13 +336,14 @@ class ParameterVariation
         ParameterVariation(LineStructure* structure, const Parameter& para);
         static ParameterVariation* variator;
         LineStructure* structure;
-        const Parameter& para;
+        const Parameter para;
         const List<scalar> values;
         
     public:
         ~ParameterVariation();
         ParameterVariation(ParameterVariation &other) = delete;
         void operator=(const ParameterVariation &) = delete;
+        const Parameter& getParameter();
 
         static ParameterVariation& getParameterVariator();
         static ParameterVariation& createParameterVariator(LineStructure* structure, const Parameter& para);

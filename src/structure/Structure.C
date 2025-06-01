@@ -2303,7 +2303,7 @@ void Foam::Structure::correctInitialCoordinateSystemState()
     for(label rodNumber=0; rodNumber<nR; rodNumber++)
     {
         Tuple2<bool,Tuple3<vector,vector,vector>>& iniCoord = rodCoordinateSystemIniRotation[rodNumber];
-        //Info<<"iniCoord:"<<iniCoord<<Foam::endl;
+        Info<<"iniCoord:"<<iniCoord<<Foam::endl;
         if(!iniCoord.first())
         {
             iniCoord.first()=true;
@@ -2326,7 +2326,13 @@ void Foam::Structure::correctInitialCoordinateSystemState()
             scalar minPara = Rods[rodNumber]->m_Curve.domainStart();
             vector d1,d2,d3,r;
             rodEval(rodNumber,minPara,d1,d2,d3,r);
-                        
+
+            scalar angle_d1_ini_err = angle(ini_d1,d1);
+            scalar angle_d2_ini_err = angle(ini_d2,d2);
+            scalar angle_d3_ini_err = angle(ini_d3,d3);
+            scalar maxIniErrorAngle = std::max<scalar>(angle_d1_ini_err, std::max<scalar>(angle_d2_ini_err,angle_d3_ini_err));
+            scalar minIniErrorAngle = std::min<scalar>(angle_d1_ini_err, std::min<scalar>(angle_d2_ini_err,angle_d3_ini_err));
+            
             scalar a = angle(ini_d3,d3);
             vector ini_d1_rot,ini_d2_rot,ini_d3_rot;
             if(a==0)
@@ -2363,12 +2369,40 @@ void Foam::Structure::correctInitialCoordinateSystemState()
             vector u_d3 = normalize(d3);
             if(avgAngle!=0)
             {
-                if((u_d3 & cross_d1)<0 && (u_d3 & cross_d2)<0)
+                Rotation corr_R_plus(u_d3,avgAngle);
+                vector d1_corr_plus = corr_R_plus*d1;
+                scalar angle_d1_corr_plus = angle(ini_d1,d1_corr_plus);
+                vector d2_corr_plus = corr_R_plus*d2;
+                scalar angle_d2_corr_plus = angle(ini_d2,d2_corr_plus);
+                vector d3_corr_plus = corr_R_plus*d3;
+                scalar angle_d3_corr_plus = angle(ini_d3,d3_corr_plus);
+                scalar maxErrorAngle_plus = std::max<scalar>(angle_d1_corr_plus,
+                                                             std::max<scalar>(angle_d2_corr_plus,
+                                                                              angle_d3_corr_plus));
+                
+                Rotation corr_R_minus(u_d3,-avgAngle);
+                vector d1_corr_minus = corr_R_minus*d1;
+                scalar angle_d1_corr_minus = angle(ini_d1,d1_corr_minus);
+                vector d2_corr_minus = corr_R_minus*d2;
+                scalar angle_d2_corr_minus = angle(ini_d2,d2_corr_minus);
+                vector d3_corr_minus = corr_R_minus*d3;
+                scalar angle_d3_corr_minus = angle(ini_d3,d3_corr_minus);
+                scalar maxErrorAngle_minus = std::max<scalar>(angle_d1_corr_minus,
+                                                             std::max<scalar>(angle_d2_corr_minus,
+                                                                              angle_d3_corr_minus));
+                
+                Info<<"Corr Coord plus"<<Foam::endl;
+                Info<<"d1:"<<d1_corr_plus<<" d2:"<<d2_corr_plus<<" d3:"<<d3_corr_plus<<Foam::endl;
+                
+                Info<<"Corr Coord minus"<<Foam::endl;
+                Info<<"d1:"<<d1_corr_minus<<" d2:"<<d2_corr_minus<<" d3:"<<d3_corr_minus<<Foam::endl;
+                
+                
+                Info<<"maxErrorAngle_plus:"<<maxErrorAngle_plus<<Foam::endl;
+                Info<<"maxErrorAngle_minus:"<<maxErrorAngle_minus<<Foam::endl;
+                
+                if(maxErrorAngle_plus>maxErrorAngle_minus)
                     avgAngle = -avgAngle;
-                else if((u_d3 & cross_d1)>0 && (u_d3 & cross_d2)>0)
-                {}
-                else
-                    FatalErrorInFunction<<"Sign mismatch"<<exit(FatalError);
             }
             
             Rotation corr_R(u_d3,avgAngle);
@@ -2382,9 +2416,20 @@ void Foam::Structure::correctInitialCoordinateSystemState()
             scalar test_angle_d3 = angle(d3_rot,ini_d3);
             
             scalar maxAngle = std::max(angle_d1,angle_d2);
-            if(test_angle_d1>maxAngle || test_angle_d2>maxAngle || test_angle_d3>maxAngle)
+            if(test_angle_d1>maxIniErrorAngle || test_angle_d2>maxIniErrorAngle || test_angle_d3>maxIniErrorAngle)
+            {
+                Info<<Foam::endl;
+                Info<<"ta1:"<<test_angle_d1<<" ta2:"<<test_angle_d2<<" ta3:"<<test_angle_d3<<" maxIniErrorAngle:"<<maxIniErrorAngle<<Foam::endl;
+                Info<<"corr u:"<<u_d3<<Foam::endl;
+                Info<<"corr Angle:"<<avgAngle<<Foam::endl;
+                Info<<"Base Coord"<<Foam::endl;
+                Info<<"d1:"<<d1<<" d2:"<<d2<<" d3:"<<d3<<Foam::endl;
+                Info<<"Corr Coord"<<Foam::endl;
+                Info<<"d1:"<<d1_rot<<" d2:"<<d2_rot<<" d3:"<<d3_rot<<Foam::endl;
+                Info<<"Ini Coord"<<Foam::endl;
+                Info<<"d1:"<<ini_d1<<" d2:"<<ini_d2<<" d3:"<<ini_d3<<Foam::endl;
                 FatalErrorInFunction<<"Failure in coordinate rotation correction matrix"<<exit(FatalError);
-                
+            }
             rodCoordinateSystemCorrectionAngle[rodNumber] = {true,avgAngle};
         }        
     }

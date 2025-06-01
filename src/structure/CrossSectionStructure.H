@@ -530,7 +530,7 @@ class CrossSectionStructure : public LineStructure
     public:
         void printMarkerStructure() override;
         void parameterGradientCheck() override;
-        void rodPointParameterGradientCheck(std::vector<Parameter> paraList);
+        void rodPointParameterGradientCheck(const std::vector<Parameter>& paraList);
         void selfCheck() override;
 };
 

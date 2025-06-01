@@ -407,7 +407,6 @@ void Foam::LineStructure::setParameterValue
     List<scalar> value
 )
 {
-    Info<<"Set parameters to :"<<value<<Foam::endl;
     if(para.getType()!=Parameter::Type::Rod)
     {
         Info<<"para:"<<para.to_string()<<Foam::nl;

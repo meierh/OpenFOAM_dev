@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
         curveCoeffs[0][3] = vector(40+eps,-10+eps,0+eps);
         Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
                 
-        std::vector<CrossSection> crossSecList = {CrossSection(0.05)};
+        std::vector<CrossSection> crossSecList = {CrossSection(0.05,{0},{0},1)};
         CrossSectionStructure testStructure(mesh,crossSecList,structureDict);
         std::shared_ptr<MeshRefiner> refinement_;
         StaticVelocityPressureAction primalInteraction(mesh,testStructure,U,Uf,*structureDict,refinement_);
@@ -150,8 +150,11 @@ int main(int argc, char *argv[])
         for(CrossSectionCoeffReference item : crossSecCoeffs)
             parameters.push_back(Parameter(item));
         
-        testStructure.rodPointParameterGradientCheck({Parameter({nurbsCoeffs[0]})});
-        //testStructure.rodPointParameterGradientCheck(parameters);
+        //testStructure.rodPointParameterGradientCheck({Parameter({nurbsCoeffs[0]})});
+        testStructure.rodPointParameterGradientCheck(parameters);
+        
+        for(auto& p : parameters)
+            Info<<p<<Foam::endl;
         
         //interaction.deltaFunctionParamGradientCheck({Parameter({nurbsCoeffs[4]})});
         

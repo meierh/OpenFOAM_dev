@@ -10,11 +10,23 @@ Foam::ParameterVariation::ParameterVariation
 structure(structure),
 para(para),
 values(structure->getParameterValue(para))
-{}
+{
+    Info<<"Create Parameter Variation"<<Foam::endl;
+    Info<<para;
+    Info<<"Create Parameter Variation done"<<Foam::endl;
+}
 
 Foam::ParameterVariation::~ParameterVariation()
 {
+    Info<<"Clear Parameter Variation"<<Foam::endl;
+    Info<<para;
     reset();
+    Info<<"Clear Parameter Variation done"<<Foam::endl;
+}
+
+const Foam::Parameter& Foam::ParameterVariation::getParameter()
+{
+    return para;
 }
 
 Foam::ParameterVariation& Foam::ParameterVariation::getParameterVariator()
@@ -33,13 +45,19 @@ Foam::ParameterVariation& Foam::ParameterVariation::createParameterVariator
 )
 {
     if(variator!=nullptr)
+    {
+        Info<<"Remove ";
+        Info<<variator->getParameter()<<Foam::endl;
         delete variator;
+    }
     variator = new ParameterVariation(structure,para);
     return *variator;
 }
 
 void Foam::ParameterVariation::reset()
 {
+    Info<<"Reset parameter";
+    Info<<para<<" from "<<structure->getParameterValue(para)<<" to "<<values<<Foam::endl;
     structure->setParameterValue(para,values);
 }
 
@@ -48,10 +66,9 @@ void Foam::ParameterVariation::vary(scalar epsilon)
     List<scalar> new_values = values;
     for(scalar& val : new_values)
         val += epsilon;
-    Info<<"Vary from "<<structure->getParameterValue(para)<<Foam::endl;
+    
     Info<<para<<Foam::endl;
-    
+    Info<<"Vary from "<<structure->getParameterValue(para)<<" to aim "<<new_values<<Foam::endl;
     structure->setParameterValue(para,new_values);
-    
-    Info<<" to "<<structure->getParameterValue(para)<<Foam::endl;
+    Info<<" and is "<<structure->getParameterValue(para)<<Foam::endl;
 }
