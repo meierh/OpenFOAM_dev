@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
         curveCoeffs[0][3] = vector(40+eps,-10+eps,0+eps);
         Info<<"curveCoeffs:"<<curveCoeffs<<Foam::endl;
                 
-        std::vector<CrossSection> crossSecList = {CrossSection(0.05,{0},{0},1)};
+        std::vector<CrossSection> crossSecList = {CrossSection(0.05,{0.025,0.01},{0.01,0.005},1)};
         CrossSectionStructure testStructure(mesh,crossSecList,structureDict);
         std::shared_ptr<MeshRefiner> refinement_;
         StaticVelocityPressureAction primalInteraction(mesh,testStructure,U,Uf,*structureDict,refinement_);
