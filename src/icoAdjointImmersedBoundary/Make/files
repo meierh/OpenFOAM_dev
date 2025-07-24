@@ -10,5 +10,7 @@ icoAdjointTemperatureOutletBC.C
 objectiveFunctionCreator.C
 icoAdjointImmersedBoundaryPrint.C
 icoFiniteDifferenceImmersedBoundary.C
+icoEvalImmersedBoundary.C
+
 
 LIB = $(FOAM_USER_LIBBIN)/libicoAdjointImmersedBoundary

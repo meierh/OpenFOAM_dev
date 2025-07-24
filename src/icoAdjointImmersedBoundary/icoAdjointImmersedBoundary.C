@@ -560,11 +560,19 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_postSolve
     {
         Info<<"----------------------------------------------"<<Foam::endl;
         singleParameter.second = 0;
+        scalar gradfU = 0;
+        scalar gradfT = 0;
         if(interaction_adj_fU)
-            singleParameter.second += interaction_adj_fU->computeSensitivity(singleParameter.first);
+        {
+            gradfU = interaction_adj_fU->computeSensitivity(singleParameter.first);
+            singleParameter.second += gradfU;
+        }
         if(interaction_adj_fT)
-            singleParameter.second += interaction_adj_fT->computeSensitivity(singleParameter.first);
-        Info<<singleParameter.first.to_string()<<":"<<structure->getParameterValue(singleParameter.first)<<" -- "<<singleParameter.second<<Foam::nl;
+        {
+            gradfT = interaction_adj_fT->computeSensitivity(singleParameter.first);
+            singleParameter.second += gradfT;
+        }
+        Info<<singleParameter.first.to_string()<<":"<<structure->getParameterValue(singleParameter.first)<<" (gradfU:"<<gradfU<<", gradfT:"<<gradfT<<") "<<singleParameter.second<<Foam::nl;
         Info<<"Completed one parameter"<<Foam::endl;
         Info<<"||||||||||||||||||||||||||||||||||||||||||||||"<<Foam::endl;
     }

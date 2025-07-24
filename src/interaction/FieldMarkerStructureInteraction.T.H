@@ -277,12 +277,12 @@ void Foam::FieldMarkerStructureInteraction::markerToField
                         if(modusFieldToMarker==markerMeshType::Uniform)
                             factor = LM::deltaDirac
                             (
-                                position,cellCentre,dilation
+                                position,cellCentre,dilation,markerFuncMethod
                             );
                         else
                             factor = LM::correctedDeltaDirac
                             (
-                                position,cellCentre,dilation,markerKb
+                                position,cellCentre,dilation,markerKb,markerFuncMethod
                             );
                         
                         factor *= volume;

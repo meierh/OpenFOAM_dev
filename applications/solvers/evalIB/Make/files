@@ -1,0 +1,3 @@
+evalIB.C
+
+EXE = $(FOAM_APPBIN)/evalIB

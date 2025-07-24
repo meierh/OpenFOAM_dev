@@ -80,6 +80,7 @@ class FieldMarkerStructureInteraction
             const DynamicList<T>& markerVals
         );
         
+        const MarkerFunc markerFuncMethod;
         const scalar h;
         const markerMeshType modusFieldToMarker;
         const markerMeshType modusMarkerToField;

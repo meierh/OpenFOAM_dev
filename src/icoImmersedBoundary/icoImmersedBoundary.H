@@ -111,6 +111,7 @@ class icoImmersedBoundary : public incompressibleFluid
         const std::unique_ptr<LineStructure>& getStructure() const {return structure;}
         std::unique_ptr<LineStructure>& getStructure() {return structure;}
 
+        std::vector<std::string> parametersToString();
 
     protected:
         Time& time;

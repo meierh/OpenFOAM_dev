@@ -154,12 +154,12 @@ template<typename T> void Foam::SensitivityInteraction::deriveParamMarkerToField
                         scalar factor;
                         if(modusFieldToMarker==markerMeshType::Uniform)
                         {
-                            vector ddeltaDirac_dX = LM::ddeltaDirac_dX(position,cellCentre,dilation);
+                            vector ddeltaDirac_dX = LM::ddeltaDirac_dX(position,cellCentre,dilation,markerFuncMethod);
                             factor = ddeltaDirac_dX & dX_dParam;
                         }
                         else
                         {
-                            vector dcorrectedDeltaDirac_dX = LM::dcorrectedDeltaDirac_dX(position,cellCentre,dilation,markerKb);
+                            vector dcorrectedDeltaDirac_dX = LM::dcorrectedDeltaDirac_dX(position,cellCentre,dilation,markerKb,markerFuncMethod);
                             factor = dcorrectedDeltaDirac_dX & dX_dParam;
                         }
                         

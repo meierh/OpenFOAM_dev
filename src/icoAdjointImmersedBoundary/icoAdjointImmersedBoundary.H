@@ -95,7 +95,7 @@ typedef struct
     std::function<Field<vector>(const icoAdjointVelocityOutletBC&)> dJdu_uOutlet;
     std::function<Field<vector>(const icoAdjointPressureOutletBC&)> dJdu_pOutlet;
     std::function<Field<scalar>(const icoAdjointTemperatureOutletBC&)> dJdT_Outlet;
-    std::function<scalar(const icoAdjointImmersedBoundary&)> J;
+    std::function<scalar(const icoImmersedBoundary&)> J;
     bool empty = true;
 } objectiveFunction;
 
@@ -137,6 +137,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         (
             std::function<void(bool,const Time&, Time&)> writeData = [](bool complete, const Time& runTime, Time& time){runTime.write();}
         );
+        const std::vector<std::pair<Parameter,scalar>>& getParameterGradient(){return parameterGradient;}
 
     protected:
         pimpleAdjIBControl adjPimpleCtlr;

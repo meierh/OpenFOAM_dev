@@ -11,6 +11,7 @@ Foam::FieldMarkerStructureInteraction::FieldMarkerStructureInteraction
 mesh(mesh),
 structure(structure),
 structureDict(structureDict),
+markerFuncMethod(structure.getMarkerFuncMethod()),
 h(std::cbrt(mesh.cells()[0].mag(mesh.points(),mesh.faces()))),
 modusFieldToMarker(modusFieldToMarker),
 modusMarkerToField(modusMarkerToField)

@@ -8,6 +8,7 @@ namespace Foam
 {
 
 enum SystemSolve {Raw,RowAequilibration,ColAequilibration,GeoRescaled,Jacobi};   
+enum MarkerFunc {Tensorproduct, Isotrop};
 
 class Parameter;
 class LineStructure;
@@ -76,12 +77,12 @@ class LagrangianMarker
         inline vector getDilation() const {return dilation;}
         inline const FixedList<scalar,10>& getCorrParaB() const {return b;}
         
-        static scalar deltaDirac(vector X, vector x, scalar h);
-        static scalar deltaDirac(vector X, vector x, vector h);
-        static vector ddeltaDirac_dX(vector X, vector x, vector h);
-        static scalar correctedDeltaDirac(vector X, vector x, scalar h, const FixedList<scalar,10>& b);
-        static scalar correctedDeltaDirac(vector X, vector x, vector h, const FixedList<scalar,10>& b);
-        static vector dcorrectedDeltaDirac_dX(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        static scalar deltaDirac(vector X, vector x, scalar h, MarkerFunc markerFuncMethod);
+        static scalar deltaDirac(vector X, vector x, vector h, MarkerFunc markerFuncMethod);
+        static vector ddeltaDirac_dX(vector X, vector x, vector h, MarkerFunc markerFuncMethod);
+        static scalar correctedDeltaDirac(vector X, vector x, scalar h, const FixedList<scalar,10>& b, MarkerFunc markerFuncMethod);
+        static scalar correctedDeltaDirac(vector X, vector x, vector h, const FixedList<scalar,10>& b, MarkerFunc markerFuncMethod);
+        static vector dcorrectedDeltaDirac_dX(vector X, vector x, vector h, const FixedList<scalar,10>& b, MarkerFunc markerFuncMethod);
         static scalar b_x_X(vector X, vector x, const FixedList<scalar,10>& b);
         static vector db_dX(vector X, vector x, const FixedList<scalar,10>& b);
         static scalar phiFunction(scalar r);
@@ -134,6 +135,8 @@ class LagrangianMarker
         Vector<bool> existingDims;
         void computeSupport(label iterations=2);
         
+        const MarkerFunc markerFuncMethod;
+
         vector h_plus;
         vector h_minus;
         Pair<vector> minMaxNeighbourWidth(const List<Pair<label>>& support) const;
@@ -183,9 +186,9 @@ class LagrangianMarker
         static void checkPhiGradient();
         static void checkbGradient(vector X, vector x, const FixedList<scalar,10>& b);
         void checkbGradientOfMarker() const;
-        static void checkDeltaDiracGradient(vector X, vector x, vector h);
+        static void checkDeltaDiracGradient(vector X, vector x, vector h, MarkerFunc markerFuncMethod);
         void checkDeltaDiracGradientOfMarker() const;
-        static void checkCorrectedDeltaDiracGradient(vector X, vector x, vector h, const FixedList<scalar,10>& b);
+        static void checkCorrectedDeltaDiracGradient(vector X, vector x, vector h, const FixedList<scalar,10>& b,    MarkerFunc markerFuncMethod);
         void checkCorrectedDeltaDiracGradientOfMarker() const;
 };
 #include "LagrangianMarker.T.H"
@@ -444,6 +447,7 @@ class LineStructure : public Structure
             std::function<bool(NurbsCoeffReference)> nurbsCoeffCond = [](NurbsCoeffReference ref){return true;},
             std::function<bool(CrossSectionCoeffReference)> crossSecCoeffCond = [](CrossSectionCoeffReference ref){return true;}
         );
+        virtual std::vector<std::string> parametersToString();
     // ----------------- ---------------------------- -----------------
 
     protected:
@@ -652,6 +656,10 @@ class LineStructure : public Structure
         std::vector<std::unique_ptr<std::list<LagrangianMarker>>> rodMarkersList;
         std::vector<LagrangianMarker*> collectedMarkers;
         
+    public:
+        MarkerFunc getMarkerFuncMethod(){return markerFuncMethod;}
+    protected:
+        MarkerFunc markerFuncMethod = MarkerFunc::Tensorproduct;
         scalar rodPntDistToMarkerCharLen = 1; // rodPntDist / markerCharLen
         
         void readRodPntsToMeshSpacingDict(const IOdictionary& structureDict);       

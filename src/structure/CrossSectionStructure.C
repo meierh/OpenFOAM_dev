@@ -397,6 +397,27 @@ void Foam::CrossSectionStructure::listCoefficients
     }
 }
 
+std::vector<std::string> Foam::CrossSectionStructure::parametersToString()
+{
+    Info<<"Foam::CrossSectionStructure::parametersToString"<<Foam::endl;
+    std::vector<NurbsCoeffReference> nurbsCoeffs;
+    std::vector<CrossSectionCoeffReference> crossSecCoeffs;
+    listCoefficients(nurbsCoeffs,crossSecCoeffs);
+    std::vector<std::string> parameterStrings = LineStructure::parametersToString();
+    for(const CrossSectionCoeffReference& coeff :crossSecCoeffs)
+    {
+        Parameter para(coeff);
+        std::string paraStr = para.to_string();
+        paraStr += ": ";
+        List<scalar> values = getParameterValue(para);
+        std::ostringstream oss;
+        oss << std::setprecision(30) << values[0];
+        paraStr += oss.str();
+        parameterStrings.push_back(paraStr);
+    }
+    return parameterStrings;
+}
+
 std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSectionsFromDict
 (
     const IOdictionary& structureDict
@@ -429,9 +450,8 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
             scalar radius = radiusNumber.scalarToken();
             crossSec.push_back(CrossSection(radius));
         }
-        else if(crossSecTypeStr=="cylinder")
+        else if(crossSecTypeStr=="cylinder" || crossSecTypeStr=="twistedCylinder")
         {
-            /*
             ITstream a0Stream = oneCrossSecDict.lookup("a0");
             token a0Token;
             a0Stream.read(a0Token);
@@ -440,41 +460,123 @@ std::vector<Foam::CrossSection> Foam::CrossSectionStructure::createCrossSections
             scalar a0 = a0Token.scalarToken();
 
             ITstream akStream = oneCrossSecDict.lookup("ak");
-            token akToken;
-            akStream.read(akToken);
-            if(!akToken.isScalar())
-                FatalErrorInFunction<<"Expected scalar but got:"<<akToken<<" at line "<<akToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
-            scalar ak = akToken.scalarToken();
+            std::vector<scalar> a_k;
+            while(akStream.nRemainingTokens()>0)
+            {
+                token akToken;
+                akStream.read(akToken);
+                if(!akToken.isScalar())
+                    FatalErrorInFunction<<"Expected scalar but got:"<<akToken<<" at line "<<akToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+                a_k.push_back(akToken.scalarToken());
+            }
 
             ITstream bkStream = oneCrossSecDict.lookup("bk");
-            token bkToken;
-            bkStream.read(bkToken);
-            if(!bkToken.isScalar())
-                FatalErrorInFunction<<"Expected scalar but got:"<<bkToken<<" at line "<<bkToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
-            scalar bk = bkToken.scalarToken();
-
-            bool phaseExists = false;
-            scalar phase;
-            if(oneCrossSecDict.found("phase"))
+            std::vector<scalar> b_k;
+            while(bkStream.nRemainingTokens()>0)
             {
-                ITstream phaseStream = oneCrossSecDict.lookup("phase");
+                token bkToken;
+                bkStream.read(bkToken);
+                if(!bkToken.isScalar())
+                    FatalErrorInFunction<<"Expected scalar but got:"<<bkToken<<" at line "<<bkToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+                b_k.push_back(bkToken.scalarToken());
+            }
+
+            ITstream phaseStream = oneCrossSecDict.lookup("phase");
+            std::vector<scalar> phase;
+            while(phaseStream.nRemainingTokens()>0)
+            {
                 token phaseToken;
                 phaseStream.read(phaseToken);
                 if(!phaseToken.isScalar())
                     FatalErrorInFunction<<"Expected scalar but got:"<<phaseToken<<" at line "<<phaseToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
-                phase = phaseToken.scalarToken();
+                phase.push_back(phaseToken.scalarToken());
             }
-            */
 
-            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
-        }
-        else if(crossSecTypeStr=="twistedCylinder")
-        {
-            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+            if(crossSecTypeStr=="cylinder")
+            {
+                if(phase.size()!=1)
+                    FatalErrorInFunction<<"Expected only one phase value but got:"<<phaseStream.size()<<exit(FatalError);
+                crossSec.push_back(CrossSection(a0,a_k,b_k,phase[0]));
+            }
+            else if(crossSecTypeStr=="twistedCylinder")
+            {
+                if(phase.size()==0)
+                    FatalErrorInFunction<<"At least one phase value must be given:"<<phase.size()<<exit(FatalError);
+                else if(phase.size()==1)
+                    crossSec.push_back(CrossSection(a0,a_k,b_k,phase[0]));
+                else
+                {
+                    scalar domStart = domainStart(crossSec.size());
+                    scalar domEnd = domainEnd(crossSec.size());
+                    gsNurbs<scalar> phaseNurbs = Structure::createNurbs(domStart,domEnd,1,phase);
+                    crossSec.push_back(CrossSection(a0,a_k,b_k,phaseNurbs));
+                }
+            }
         }
         else if(crossSecTypeStr=="fullyParam")
         {
-            FatalErrorInFunction<<"Not yet implemented"<<exit(FatalError);
+            scalar domStart = domainStart(crossSec.size());
+            scalar domEnd = domainEnd(crossSec.size());
+
+            ITstream a0Stream = oneCrossSecDict.lookup("a0");
+            std::vector<scalar> a_0;
+            while(a0Stream.nRemainingTokens()>0)
+            {
+                token a0Token;
+                a0Stream.read(a0Token);
+                if(!a0Token.isScalar())
+                    FatalErrorInFunction<<"Expected scalar but got:"<<a0Token<<" at line "<<a0Token.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+                a_0.push_back(a0Token.scalarToken());
+            }
+            if(a_0.size()==0)
+                FatalErrorInFunction<<"At least one a_0 value must be given:"<<a_0.size()<<exit(FatalError);
+            else if(a_0.size()==1)
+                a_0.push_back(a_0[0]);
+            gsNurbs<scalar> a_0_nurbs = Structure::createNurbs(domStart,domEnd,1,a_0);
+            std::cout<<a_0_nurbs<<std::endl;
+
+            ITstream akStream = oneCrossSecDict.lookup("ak");
+            std::vector<gsNurbs<scalar>> a_k_nurbs;
+            while(akStream.nRemainingTokens()>0)
+            {
+                List<scalar> values = readList<scalar>(akStream);
+                std::vector<scalar> std_values(values.begin(),values.end());
+                if(std_values.size()==0)
+                    FatalErrorInFunction<<"At least one a_k nurbs value must be given:"<<values.size()<<exit(FatalError);
+                else if(std_values.size()==1)
+                    std_values.push_back(std_values[0]);
+                a_k_nurbs.push_back(Structure::createNurbs(domStart,domEnd,1,std_values));
+            }
+
+            ITstream bkStream = oneCrossSecDict.lookup("bk");
+            std::vector<gsNurbs<scalar>> b_k_nurbs;
+            while(bkStream.nRemainingTokens()>0)
+            {
+                List<scalar> values = readList<scalar>(bkStream);
+                std::vector<scalar> std_values(values.begin(),values.end());
+                if(std_values.size()==0)
+                    FatalErrorInFunction<<"At least one b_k nurbs value must be given:"<<values.size()<<exit(FatalError);
+                else if(std_values.size()==1)
+                    std_values.push_back(std_values[0]);
+                b_k_nurbs.push_back(Structure::createNurbs(domStart,domEnd,1,std_values));
+            }
+
+            ITstream phaseStream = oneCrossSecDict.lookup("phase");
+            std::vector<scalar> phase;
+            while(phaseStream.nRemainingTokens()>0)
+            {
+                token phaseToken;
+                phaseStream.read(phaseToken);
+                if(!phaseToken.isScalar())
+                    FatalErrorInFunction<<"Expected scalar but got:"<<phaseToken<<" at line "<<phaseToken.lineNumber()<<"in dictionary "<<oneCrossSecDict.name()<<exit(FatalError);
+                phase.push_back(phaseToken.scalarToken());
+            }
+            if(phase.size()==0)
+                FatalErrorInFunction<<"At least one phase value must be given:"<<phase.size()<<exit(FatalError);
+            else if(phase.size()==1)
+                phase.push_back(phase[0]);
+            gsNurbs<scalar> phase_nurbs = Structure::createNurbs(domStart,domEnd,1,phase);
+            crossSec.push_back(CrossSection(a_0_nurbs,a_k_nurbs,b_k_nurbs,phase_nurbs));
         }
         else
             FatalErrorInFunction<<"Invalid CrossSection type:"<<crossSecTypeStr<<" -- {circle,cylinder,twistedCylinder,fullyParam}"<<exit(FatalError);

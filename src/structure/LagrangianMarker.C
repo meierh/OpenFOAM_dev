@@ -12,7 +12,8 @@ structure(structure),
 mesh(mesh),
 rodNumber(rodNumber),
 baseRod(baseRod),
-markerParameter(markerParameter)
+markerParameter(markerParameter),
+markerFuncMethod(structure.getMarkerFuncMethod())
 {
     evaluateMarker();
 }
@@ -28,7 +29,8 @@ structure(structure),
 mesh(mesh),
 rodNumber(rodNumber),
 baseRod(baseRod),
-markerParameter(0)
+markerParameter(0),
+markerFuncMethod(structure.getMarkerFuncMethod())
 {}
 
 Foam::vector Foam::LagrangianMarker::getMarkerVelocity() const
@@ -1377,40 +1379,51 @@ Foam::scalar Foam::LagrangianMarker::deltaDirac
 (
     vector X,
     vector x,
-    scalar h
+    scalar h,
+    MarkerFunc markerFuncMethod
 )
 {
-    return deltaDirac(X,x,vector(h,h,h));
+    return deltaDirac(X,x,vector(h,h,h),markerFuncMethod);
 }
 
 Foam::scalar Foam::LagrangianMarker::deltaDirac
 (
     vector X,
     vector x,
-    vector h
+    vector h,
+    MarkerFunc markerFuncMethod
 )
 {
-    /*
-    vector sigma_d;
-    for(label dim=0; dim<3; dim++)
+    scalar deltaDir = 0;
+    switch (markerFuncMethod)
     {
-        scalar X_i_x_i = X[dim]-x[dim];
-        scalar r = X_i_x_i / h[dim];
-        sigma_d[dim] = phiFunction(r);
+        case Tensorproduct:
+        {
+            vector sigma_d;
+            for(label dim=0; dim<3; dim++)
+            {
+                scalar X_i_x_i = X[dim]-x[dim];
+                scalar r = X_i_x_i / h[dim];
+                sigma_d[dim] = phiFunction(r)/h[dim];
+            }
+            deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
+            break;
+        }
+        case Isotrop:
+        {
+            scalar r = 0;
+            for(label dim=0; dim<3; dim++)
+            {
+                scalar X_i_x_i_h = (X[dim]-x[dim])/h[dim];
+                r += X_i_x_i_h*X_i_x_i_h;
+            }
+            r = std::sqrt(r);
+            deltaDir = phiFunction(r);
+            break;
+        }
+        default:
+            FatalErrorInFunction<<"No markerFuncMethod set"<<exit(FatalError);
     }
-    scalar deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
-    deltaDir /= (h[0]*h[1]*h[2]);
-    return deltaDir;
-    */
-    
-    vector sigma_d;
-    for(label dim=0; dim<3; dim++)
-    {
-        scalar X_i_x_i = X[dim]-x[dim];
-        scalar r = X_i_x_i / h[dim];
-        sigma_d[dim] = phiFunction(r)/h[dim];
-    }
-    scalar deltaDir = sigma_d[0]*sigma_d[1]*sigma_d[2];
     return deltaDir;
 }
 
@@ -1418,29 +1431,54 @@ Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
 (
     vector X,
     vector x,
-    vector h
+    vector h,
+    MarkerFunc markerFuncMethod
 )
 {
-    vector X_x = x-X;
-    vector r = X_x;
-    r[0]/=h[0]; r[1]/=h[1]; r[2]/=h[2];
-    
-    scalar deltax = (1/h[0]) * phiFunction(r[0]);
-    scalar deltay = (1/h[1]) * phiFunction(r[1]);
-    scalar deltaz = (1/h[2]) * phiFunction(r[2]);
-    
-    // deltax_dX deltay deltaz
-    vector deltax_dX = 1/(h[0]*h[0]) * dphiFunction_dr(r[0]) * vector(-1,0,0);
-    
-    // deltax deltay_dX deltaz
-    vector deltay_dX = 1/(h[1]*h[1]) * dphiFunction_dr(r[1]) * vector(0,-1,0);
+    vector ddeltaDir_dX = Foam::zero();
+    switch (markerFuncMethod)
+    {
+        case Tensorproduct:
+        {
+            vector X_x = x-X;
+            vector r = X_x;
+            r[0]/=h[0]; r[1]/=h[1]; r[2]/=h[2];
 
-    // deltax deltay deltaz_dX
-    vector deltaz_dX = 1/(h[2]*h[2]) * dphiFunction_dr(r[2]) * vector(0,0,-1);
-    
-    vector ddeltaDir_dX =   deltax_dX * deltay * deltaz
-                          + deltax * deltay_dX * deltaz 
-                          + deltax * deltay * deltaz_dX;
+            scalar deltax = (1/h[0]) * phiFunction(r[0]);
+            scalar deltay = (1/h[1]) * phiFunction(r[1]);
+            scalar deltaz = (1/h[2]) * phiFunction(r[2]);
+
+            // deltax_dX deltay deltaz
+            vector deltax_dX = 1/(h[0]*h[0]) * dphiFunction_dr(r[0]) * vector(-1,0,0);
+
+            // deltax deltay_dX deltaz
+            vector deltay_dX = 1/(h[1]*h[1]) * dphiFunction_dr(r[1]) * vector(0,-1,0);
+
+            // deltax deltay deltaz_dX
+            vector deltaz_dX = 1/(h[2]*h[2]) * dphiFunction_dr(r[2]) * vector(0,0,-1);
+
+            ddeltaDir_dX =   deltax_dX * deltay * deltaz
+                                + deltax * deltay_dX * deltaz
+                                + deltax * deltay * deltaz_dX;
+            break;
+        }
+        case Isotrop:
+        {
+            vector abc = Foam::zero();
+            for(label dim=0; dim<3; dim++)
+            {
+                abc[dim] = (X[dim]-x[dim])/h[dim];
+            }
+            scalar r = std::sqrt( (abc[0]*abc[0])
+                                 +(abc[1]*abc[1])
+                                 +(abc[2]*abc[2]));
+            for(label dim=0; dim<3; dim++)
+                ddeltaDir_dX[dim] = abc[dim]/(r*h[dim]);
+            break;
+        }
+        default:
+            FatalErrorInFunction<<"No markerFuncMethod set"<<exit(FatalError);
+    }
     return ddeltaDir_dX;
 }
 
@@ -1449,10 +1487,11 @@ Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
     vector X,
     vector x,
     scalar h,
-    const FixedList<scalar,10>& b
+    const FixedList<scalar,10>& b,
+    MarkerFunc markerFuncMethod
 )
 {
-    return correctedDeltaDirac(X,x,vector(h,h,h),b);
+    return correctedDeltaDirac(X,x,vector(h,h,h),b,markerFuncMethod);
 }
 
 Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
@@ -1460,10 +1499,11 @@ Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
     vector X,
     vector x,
     vector h,
-    const FixedList<scalar,10>& b
+    const FixedList<scalar,10>& b,
+    MarkerFunc markerFuncMethod
 )
 {
-    return b_x_X(X,x,b)*deltaDirac(X,x,h);
+    return b_x_X(X,x,b)*deltaDirac(X,x,h,markerFuncMethod);
 }
 
 Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
@@ -1471,10 +1511,11 @@ Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
     vector X,
     vector x,
     vector h,
-    const FixedList<scalar,10>& b
+    const FixedList<scalar,10>& b,
+    MarkerFunc markerFuncMethod
 )
 {
-    return db_dX(X,x,b)*deltaDirac(X,x,h) + b_x_X(X,x,b)*ddeltaDirac_dX(X,x,h);
+    return db_dX(X,x,b)*deltaDirac(X,x,h,markerFuncMethod) + b_x_X(X,x,b)*ddeltaDirac_dX(X,x,h,markerFuncMethod);
 }
 
 Foam::scalar Foam::LagrangianMarker::b_x_X
@@ -1562,7 +1603,7 @@ Foam::scalar Foam::LagrangianMarker::correctedDeltaDirac
     vector x
 ) const
 {
-    return correctedDeltaDirac(X,x,dilation,b);
+    return correctedDeltaDirac(X,x,dilation,b,markerFuncMethod);
 }
 
 Foam::scalar Foam::LagrangianMarker::deltaDirac
@@ -1571,7 +1612,7 @@ Foam::scalar Foam::LagrangianMarker::deltaDirac
     vector x
 ) const
 {
-    return deltaDirac(X,x,dilation);
+    return deltaDirac(X,x,dilation,markerFuncMethod);
 }
 
 Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
@@ -1580,7 +1621,7 @@ Foam::vector Foam::LagrangianMarker::dcorrectedDeltaDirac_dX
     vector x
 ) const
 {
-    return dcorrectedDeltaDirac_dX(X,x,dilation,b);
+    return dcorrectedDeltaDirac_dX(X,x,dilation,b,markerFuncMethod);
 }
 
 Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
@@ -1589,7 +1630,7 @@ Foam::vector Foam::LagrangianMarker::ddeltaDirac_dX
     vector x
 ) const
 {
-    return ddeltaDirac_dX(X,x,dilation);
+    return ddeltaDirac_dX(X,x,dilation,markerFuncMethod);
 }
 
 std::unique_ptr<gismo::gsMatrix<Foam::scalar>> Foam::LagrangianMarker::computeCorrectedMomentMatrix() const
@@ -1795,7 +1836,8 @@ void Foam::LagrangianMarker::checkDeltaDiracGradient
 (
     const vector X,
     const vector x,
-    const vector h
+    const vector h,
+    MarkerFunc markerFuncMethod
 )
 {
     /*
@@ -1838,7 +1880,7 @@ void Foam::LagrangianMarker::checkDeltaDiracGradient
     
     std::vector<scalar> epsilonList = {1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12};
 
-    const vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h);
+    const vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h,markerFuncMethod);
     const scalar dDeltaDiracdXLen = std::sqrt(dDeltaDiracdX&dDeltaDiracdX);
     DynamicList<scalar> error;
     for(scalar eps : epsilonList)
@@ -1848,10 +1890,10 @@ void Foam::LagrangianMarker::checkDeltaDiracGradient
         {
             vector X_minus_eps = X;
             X_minus_eps[d]-=eps;
-            scalar f0 = deltaDirac(X_minus_eps,x,h);
+            scalar f0 = deltaDirac(X_minus_eps,x,h,markerFuncMethod);
             vector X_plus_eps = X;
             X_plus_eps[d]+=eps;
-            scalar f1 = deltaDirac(X_plus_eps,x,h);
+            scalar f1 = deltaDirac(X_plus_eps,x,h,markerFuncMethod);
             fd_dDeltaDiracdX[d] = (f1-f0)/(2*eps);
         }
         vector diff = dDeltaDiracdX-fd_dDeltaDiracdX;
@@ -1884,15 +1926,15 @@ void Foam::LagrangianMarker::checkDeltaDiracGradient
             {
                 vector X_minus_eps = X;
                 X_minus_eps[d]-=eps;
-                scalar f0 = deltaDirac(X_minus_eps,x,h);
+                scalar f0 = deltaDirac(X_minus_eps,x,h,markerFuncMethod);
                 vector X_plus_eps = X;
                 X_plus_eps[d]+=eps;
-                scalar f1 = deltaDirac(X_plus_eps,x,h);
+                scalar f1 = deltaDirac(X_plus_eps,x,h,markerFuncMethod);
                 fd_dDeltaDiracdX[d] = (f1-f0)/(2*eps);
                 Info<<"     X_minus_eps:"<<X_minus_eps<<" f0:"<<f0<<Foam::endl;
                 Info<<"     X_plus_eps:"<<X_plus_eps<<" f1:"<<f1<<Foam::endl;
             }
-            vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h);
+            vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h,markerFuncMethod);
             vector diff = dDeltaDiracdX-fd_dDeltaDiracdX;
             scalar abs_error = std::sqrt(diff&diff);
             Info<<"   eps:"<<eps<<" fd_dDDdX:"<<fd_dDeltaDiracdX<<" dDDdX:"<<dDeltaDiracdX<<" abs_error:"<<abs_error<<Foam::endl;
@@ -1911,7 +1953,7 @@ void Foam::LagrangianMarker::checkDeltaDiracGradientOfMarker() const
         scalar cellVolume;
         getCellData(suppCell,cellCentre,cellVolume);
         vector x = cellCentre;
-        checkDeltaDiracGradient(X,x,dilation);        
+        checkDeltaDiracGradient(X,x,dilation,markerFuncMethod);
     }
 }
 
@@ -1920,12 +1962,13 @@ void Foam::LagrangianMarker::checkCorrectedDeltaDiracGradient
     vector X,
     vector x,
     vector h,
-    const FixedList<scalar,10>& b
+    const FixedList<scalar,10>& b,
+    MarkerFunc markerFuncMethod
 )
 {
     std::vector<scalar> epsilonList = {1,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12};
 
-    const vector dCorrectedDeltaDiracdX = dcorrectedDeltaDirac_dX(X,x,h,b);
+    const vector dCorrectedDeltaDiracdX = dcorrectedDeltaDirac_dX(X,x,h,b,markerFuncMethod);
     const scalar dCorrectedDeltaDiracdXLen = std::sqrt(dCorrectedDeltaDiracdX & dCorrectedDeltaDiracdX);
     DynamicList<scalar> error;
     for(scalar eps : epsilonList)
@@ -1935,10 +1978,10 @@ void Foam::LagrangianMarker::checkCorrectedDeltaDiracGradient
         {
             vector X_minus_eps = X;
             X_minus_eps[d]-=eps;
-            scalar f0 = correctedDeltaDirac(X_minus_eps,x,h,b);
+            scalar f0 = correctedDeltaDirac(X_minus_eps,x,h,b,markerFuncMethod);
             vector X_plus_eps = X;
             X_plus_eps[d]+=eps;
-            scalar f1 = correctedDeltaDirac(X_plus_eps,x,h,b);
+            scalar f1 = correctedDeltaDirac(X_plus_eps,x,h,b,markerFuncMethod);
             fd_dCorrectedDeltaDiracdX[d] = (f1-f0)/(2*eps);
         }
         vector diff = dCorrectedDeltaDiracdX-fd_dCorrectedDeltaDiracdX;
@@ -1970,15 +2013,15 @@ void Foam::LagrangianMarker::checkCorrectedDeltaDiracGradient
             {
                 vector X_minus_eps = X;
                 X_minus_eps[d]-=eps;
-                scalar f0 = correctedDeltaDirac(X_minus_eps,x,h,b);
+                scalar f0 = correctedDeltaDirac(X_minus_eps,x,h,b,markerFuncMethod);
                 vector X_plus_eps = X;
                 X_plus_eps[d]+=eps;
-                scalar f1 = correctedDeltaDirac(X_plus_eps,x,h,b);
+                scalar f1 = correctedDeltaDirac(X_plus_eps,x,h,b,markerFuncMethod);
                 fd_dCorrectedDeltaDiracdX[d] = (f1-f0)/(2*eps);
                 Info<<"     X_minus_eps:"<<X_minus_eps<<" f0:"<<f0<<Foam::endl;
                 Info<<"     X_plus_eps:"<<X_plus_eps<<" f1:"<<f1<<Foam::endl;
             }
-            vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h);
+            vector dDeltaDiracdX = ddeltaDirac_dX(X,x,h,markerFuncMethod);
             vector diff = dDeltaDiracdX-fd_dCorrectedDeltaDiracdX;
             scalar abs_error = std::sqrt(diff&diff);
             Info<<"   eps:"<<eps<<" fd_dcDDdX:"<<fd_dCorrectedDeltaDiracdX<<" dcDDdX:"<<dDeltaDiracdX<<" abs_error:"<<abs_error<<Foam::endl;
@@ -1998,6 +2041,6 @@ void Foam::LagrangianMarker::checkCorrectedDeltaDiracGradientOfMarker() const
         scalar cellVolume;
         getCellData(suppCell,cellCentre,cellVolume);
         vector x = cellCentre;
-        checkCorrectedDeltaDiracGradient(X,x,dilation,b);        
+        checkCorrectedDeltaDiracGradient(X,x,dilation,b,markerFuncMethod);
     }
 }

@@ -705,19 +705,16 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
     std::vector<scalar> coefficients
 )
 {
+    if(coefficients.size()<2)
+        FatalErrorInFunction<<"Nurbs need at least two coefficients"<<exit(FatalError);
+
     gsKnotVector<scalar> cKnots(knots,degree);
-    Info<<"Generated gsKnotVector"<<Foam::endl;
     gsMatrix<scalar> cWeight(weights.size(),1);
     for(uint i=0; i<weights.size(); i++)
         cWeight.at(i) = weights[i];
-    Info<<"Generated weights"<<Foam::endl;
     gsMatrix<scalar> cCoeff(coefficients.size(),1);
     for(uint i=0; i<coefficients.size(); i++)
         cCoeff.at(i) = coefficients[i];
-    Info<<"Generated coefficients"<<Foam::endl;
-    std::cout<<"cKnots:"<<cKnots<<std::endl;
-    std::cout<<"cWeight:"<<cWeight<<std::endl;
-    std::cout<<"cCoeff:"<<cCoeff<<std::endl;
     return gsNurbs<scalar>(cKnots,cWeight,cCoeff);
 }
 
@@ -729,6 +726,9 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
     std::vector<vector> coefficients
 )
 {
+    if(coefficients.size()<2)
+        FatalErrorInFunction<<"Nurbs need at least two coefficients"<<exit(FatalError);
+
     gsKnotVector<scalar> cKnots(knots,degree);
     gsMatrix<scalar> cWeight(weights.size(),1);
     for(uint i=0; i<weights.size(); i++)
@@ -752,6 +752,9 @@ gsNurbs<Foam::scalar> Foam::Structure::createNurbs
     std::vector<scalar> coefficients
 )
 {
+    if(coefficients.size()<2)
+        FatalErrorInFunction<<"Nurbs need at least two coefficients"<<exit(FatalError);
+
     std::vector<scalar> knots = computeUniformKnots(degree,coefficients.size(),domainStart,domainEnd);
     std::vector<scalar> weights(coefficients.size());
     std::fill(weights.begin(),weights.end(),1);

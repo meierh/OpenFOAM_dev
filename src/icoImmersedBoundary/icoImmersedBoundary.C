@@ -77,6 +77,15 @@ alpha("alpha",dimensionSet(0,2,-1,0,0,0,0),0)
     create_Analysis();
 }
 
+std::vector<std::string> Foam::solvers::icoImmersedBoundary::parametersToString()
+{
+    if(structure)
+        return structure->parametersToString();
+    else
+        return {};
+}
+
+
 void Foam::solvers::icoImmersedBoundary::create_VelocityForcing()
 {
     if(useStructure)
@@ -710,6 +719,34 @@ void Foam::solvers::icoImmersedBoundary::Solve()
         oneTimestep();
 
         write_Analysis();
+
+        const Foam::objectRegistry& subReg = runTime.subRegistry("region0");
+        for(auto iter=subReg.begin(); iter!=subReg.end(); iter++)
+        {
+            regIOobject* obj = *iter;
+            writeOption opt = obj->writeOpt();
+            if(opt==AUTO_WRITE)
+            {
+                volScalarField* scalarFieldPtr = nullptr;
+                scalarFieldPtr = dynamic_cast<volScalarField*>(obj);
+                volVectorField* vectorFieldPtr = nullptr;
+                vectorFieldPtr = dynamic_cast<volVectorField*>(obj);
+
+                if(scalarFieldPtr!=nullptr)
+                {
+                    for(scalar val : *scalarFieldPtr)
+                        if(std::isnan(val))
+                            Pout<<"     regIOobject:"<<obj->name()<<" is scalarField "<<val<<Foam::endl;
+                }
+                if(vectorFieldPtr!=nullptr)
+                {
+                    for(vector val : *vectorFieldPtr)
+                        if(std::isnan(val[0]) || std::isnan(val[1]) || std::isnan(val[2]))
+                            Pout<<"     regIOobject:"<<obj->name()<<" is vectorField "<<val<<Foam::endl;
+                }
+            }
+        }
+
         runTime.write();
 
         Info<<"ExecutionTime = "<<runTime.elapsedCpuTime()<<" s"<<"  ClockTime = "<<runTime.elapsedClockTime()<<" s"<<nl<< nl;

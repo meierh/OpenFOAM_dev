@@ -14,7 +14,7 @@ class CrossSection
         (
             scalar radius
         );
-        
+
         explicit CrossSection
         (
             scalar a_0,
@@ -84,7 +84,7 @@ class CrossSection
         void setPhaseNurbsCoeff(label derivCoeffNumber, scalar value);
         scalar getFourierCoeffNurbsCoeff(label fourierCoeffNumber, label derivCoeffNumber) const;
         scalar getPhaseNurbsCoeff(label derivCoeffNumber) const;
-                
+
         scalar domainStart() const {return domStart;}
         scalar domainEnd() const {return domEnd;}
         
@@ -236,7 +236,9 @@ class CrossSectionStructure : public LineStructure
             std::vector<CrossSectionCoeffReference>& crossSecCoeffs,
             std::function<bool(NurbsCoeffReference)> nurbsCoeffCond = [](NurbsCoeffReference ref){return true;},
             std::function<bool(CrossSectionCoeffReference)> crossSecCoeffCond = [](CrossSectionCoeffReference ref){return true;}
-        ) override;        
+        ) override;
+
+        virtual std::vector<std::string> parametersToString() override;
     // ----------------- ---------------------------- -----------------
         
     private:

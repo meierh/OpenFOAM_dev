@@ -1,5 +1,6 @@
 #include "LineStructure.H"
 #include <Structure.H>
+#include <string>
 
 Foam::LineStructure::LineStructure
 (
@@ -445,6 +446,27 @@ void Foam::LineStructure::listCoefficients
             }
         }
     }
+}
+
+std::vector<std::string> Foam::LineStructure::parametersToString()
+{
+    Info<<"Foam::LineStructure::parametersToString"<<Foam::endl;
+    std::vector<NurbsCoeffReference> nurbsCoeffs;
+    std::vector<CrossSectionCoeffReference> crossSecCoeffs;
+    listCoefficients(nurbsCoeffs,crossSecCoeffs);
+    std::vector<std::string> parameterStrings;
+    for(const NurbsCoeffReference& coeff :nurbsCoeffs)
+    {
+        Parameter para(coeff);
+        std::string paraStr = para.to_string();
+        paraStr += ": ";
+        List<scalar> values = getParameterValue(para);
+        std::ostringstream oss;
+        oss << std::setprecision(30) << values[0];
+        paraStr += oss.str();
+        parameterStrings.push_back(paraStr);
+    }
+    return parameterStrings;
 }
 
 const Foam::List<std::tuple<Foam::label,Foam::label,Foam::scalar,Foam::scalar,Foam::scalar>>&
@@ -1111,7 +1133,7 @@ std::unique_ptr<Foam::LineStructure::LinearSystem> Foam::LineStructure::computeM
                             scalar weightI = markerI.correctedDeltaDirac(XI,suppCell.first);
                             scalar weightK = LM::correctedDeltaDirac
                             (
-                                XK,suppCell.first,markerKdilation,markerKb
+                                XK,suppCell.first,markerKdilation,markerKb,markerFuncMethod
                             );
                             matrixEntry += weightK*weightI*suppCell.second;
                         }
@@ -1449,6 +1471,23 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     const IOdictionary& structureDict
 )
 {
+    ITstream markerFunctionShapeStream = structureDict.lookup("markerFunctionShape");
+    token markerFunctionShapeToken;
+    markerFunctionShapeStream.read(markerFunctionShapeToken);
+    if(!markerFunctionShapeToken.isWord())
+    {
+        Pout<<"markerFunctionShapeToken:"<<markerFunctionShapeToken<<Foam::endl;
+        Pout<<"markerFunctionShapeToken:"<<markerFunctionShapeToken.typeName()<<Foam::endl;
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/markerFunctionShapeToken -- must be word"<<exit(FatalError);
+    }
+    word markerFunctionShapeWord = markerFunctionShapeToken.wordToken();
+    if(markerFunctionShapeWord=="tensor")
+        markerFuncMethod = MarkerFunc::Tensorproduct;
+    else if(markerFunctionShapeWord=="isotrop")
+        markerFuncMethod = MarkerFunc::Isotrop;
+    else
+        FatalErrorInFunction<<"Invalid entry in constant/structureDict/markerFunctionShape -- must be {tensor,isotrop}"<<exit(FatalError);
+
     ITstream iniSpacingFactorStream = structureDict.lookup("iniPntDistToCellSpacing");
     token iniSpacingFactorToken;
     iniSpacingFactorStream.read(iniSpacingFactorToken);

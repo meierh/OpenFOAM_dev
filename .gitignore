@@ -1,0 +1,6 @@
+**/lnInclude/*
+**/linux64GccDPInt32Opt/*
+*.aux
+*.log
+*.pdf
+*.gz
