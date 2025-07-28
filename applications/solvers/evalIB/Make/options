@@ -33,7 +33,7 @@ EXE_INC = \
     -isystem${WM_THIRD_PARTY_DIR}/SuiteSparse/include \
     -isystem$(WM_THIRD_PARTY_DIR)/gsl-2.8/build/include \
     -I$(WM_PROJECT_USER_DIR)/OpenFOAM_dev/src/icoImmersedBoundary/lnInclude \
-    -std=c++14
+    -std=c++17
 
 EXE_LIBS = \
     -lincompressibleFluid \

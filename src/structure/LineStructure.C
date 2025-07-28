@@ -1484,7 +1484,10 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     if(markerFunctionShapeWord=="tensor")
         markerFuncMethod = MarkerFunc::Tensorproduct;
     else if(markerFunctionShapeWord=="isotrop")
+    {
+        FatalErrorInFunction<<"Not completely implemented"<<exit(FatalError);
         markerFuncMethod = MarkerFunc::Isotrop;
+    }
     else
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/markerFunctionShape -- must be {tensor,isotrop}"<<exit(FatalError);
 

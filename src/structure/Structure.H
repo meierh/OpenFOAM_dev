@@ -148,6 +148,9 @@ Ostream& operator<<(Ostream& os, Rotation const& m);
 vector normalize(vector const& v);
 scalar angle(vector const& v1, vector const& v2);
 
+template<typename T>
+T readFromDictionary(std::string name, const dictionary& dict);
+
 class Structure
 {
     public:

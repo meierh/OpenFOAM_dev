@@ -84,6 +84,7 @@ class icoFiniteDifferenceImmersedBoundary
     
     // High level functions
         void Solve();
+        void SolveEps();
         
     protected:
         argList& args;

@@ -2,6 +2,7 @@
 #define VELOCITYPRESSUREFORCEMARKERINTERACTION_H
 #include "FieldMarkerStructureInteraction.H"
 #include "MeshRefiner.H"
+#include "MarkerFilter.H"
 
 namespace Foam
 {
@@ -58,6 +59,7 @@ class VelocityPressureForceInteraction : public FieldMarkerStructureInteraction
         
         volVectorField& input_U;
         volVectorField& output_Uf;
+        MarkerFilter<vector> filter;
         std::shared_ptr<MeshRefiner> refinement_;
         
         virtual vector getVelocity(const LagrangianMarker* marker) = 0;

@@ -15,6 +15,7 @@ Foam::VelocityPressureForceInteraction::VelocityPressureForceInteraction
 FieldMarkerStructureInteraction(mesh,structure,structureDict,modusFieldToMarker,modusMarkerToField),
 input_U(input_U),
 output_Uf(output_Uf),
+filter(mesh,structure,output_Uf,structureDict,"U"),
 refinement_(refinement_),
 sumMarkerForceFileObject(structureDict),
 sumMarkerMomentFileObject(structureDict),
@@ -34,6 +35,8 @@ detailedMarkerForceFileObject(structureDict)
         interiorForcingActive = false;
     else
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/interiorForcingStream -- must be  {yes,no}"<<exit(FatalError);
+       
+    output_Uf = Foam::zero();
 }
 
 void Foam::VelocityPressureForceInteraction::solve
@@ -118,7 +121,9 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
 
 void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
+    filter.record();
     markerToField<vector>(markerCouplingForce,output_Uf);
+    filter.filter();
 }
 
 void Foam::VelocityPressureForceInteraction::interiorForcing(scalar time,bool reconstruct)

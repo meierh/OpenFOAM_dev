@@ -1,4 +1,32 @@
 template<typename T>
+T readFromDictionary(std::string name, const dictionary& dict)
+{
+    ITstream _stream = dict.lookup(name);
+    token _token;
+    _stream.read(_token);
+    if constexpr(std::is_same<scalar,T>::value)
+    {
+        if(!_token.isScalar())
+            FatalErrorInFunction<<"Invalid entry in "<<dict.name()<<"/"<<name<<" -- must be scalar"<<exit(FatalError);
+        return _token.scalarToken();
+    }
+    else if constexpr(std::is_same<label,T>::value)
+    {
+        if(!_token.isLabel())
+            FatalErrorInFunction<<"Invalid entry in "<<dict.name()<<"/"<<name<<" -- must be label"<<exit(FatalError);
+        return _token.labelToken();
+    }
+    else if constexpr(std::is_same<word,T>::value)
+    {
+        if(!_token.isWord())
+            FatalErrorInFunction<<"Invalid entry in "<<dict.name()<<"/"<<name<<" -- must be word"<<exit(FatalError);
+        return _token.wordToken();
+    }
+    else
+        static_assert(false,"Invalid template type");
+}
+
+template<typename T>
 std::unique_ptr<List<List<T>>> Foam::Structure::broadcastHaloFields
 (
     const Field<T>& fieldData
