@@ -159,8 +159,6 @@ void Foam::MarkerFilter<T>::spatialFilter()
     {
         if(spatialFilterActive)
         {
-            Info<<"spatialFilter"<<Foam::endl;
-            
             std::unique_ptr<List<List<T>>> output_Force_halo_Ptr = structure.broadcastHaloFields(output_Force);
             const List<List<T>>& output_Force_halo = *output_Force_halo_Ptr;       
             const List<List<List<Pair<label>>>>& meshGraph = structure.getMeshGraph();
@@ -256,7 +254,7 @@ void Foam::MarkerFilter<T>::spatialFilter()
                         scalingFactor = smoothLimit(median_Force_abs,cCForce_abs); 
                         break;
                     case LogSmoothLimiting:
-                        scalingFactor = logSmoothLimit(median_Force_abs,cCForce_abs); 
+                        scalingFactor = logSmoothLimit(median_Force_abs,cCForce_abs);
                         break;
                     default:
                         scalingFactor = 0;
@@ -289,9 +287,11 @@ Foam::scalar Foam::MarkerFilter<T>::smoothLimit(scalar referenceForce, scalar ac
 template<typename T>
 Foam::scalar Foam::MarkerFilter<T>::logSmoothLimit(scalar referenceForce, scalar actualForce)
 {
+    if(referenceForce==0)
+        return 1;
     scalar s = actualForce/referenceForce;
     if(s>1)
-    {
+    {       
         return std::log(1+dampingHardness)/std::log(1+dampingHardness*(s/thresholdParameter));
     }
     else
