@@ -79,8 +79,18 @@ structureDict(structureDict)
                             Info<<"thresholdParameter:"<<thresholdParameter<<Foam::endl;
                             Info<<"dampingHardness:"<<dampingHardness<<Foam::endl;
                         }
+                        else if(method=="PotentialLogSmoothLimit")
+                        {
+                            this->method = spatialFilterMethod::PotentialLogSmoothLimit;
+                            this->thresholdParameter = readFromDictionary<scalar>("thresholdFactor",spatialFilterDict);
+                            this->dampingHardness = readFromDictionary<scalar>("dampingHardness",spatialFilterDict);
+                            this->power = readFromDictionary<label>("power",spatialFilterDict);
+                            Info<<"thresholdParameter:"<<thresholdParameter<<Foam::endl;
+                            Info<<"dampingHardness:"<<dampingHardness<<Foam::endl;
+                            Info<<"power:"<<power<<Foam::endl;
+                        }
                         else
-                            FatalErrorInFunction<<"Invalid constant/structureDict/"<<filterName<<"/spatial/method; expected {Clipping,SmoothLimiting,LogSmoothLimiting}"<<exit(FatalError);
+                            FatalErrorInFunction<<"Invalid constant/structureDict/"<<filterName<<"/spatial/method; expected {Clipping,SmoothLimiting,LogSmoothLimiting,PotentialLogSmoothLimit}"<<exit(FatalError);
                         
                     }
                     if(oneFilterTypeKey.match("temporal",false))
@@ -190,7 +200,7 @@ void Foam::MarkerFilter<T>::spatialFilter()
                 }
                 
                 T cCForce = output_Force[cellInd];
-                scalar cCForce_abs;;
+                scalar cCForce_abs;
                 scalar max_Force_abs,min_Force_abs,avg_Force_abs;
                 if constexpr (std::is_same<vector,T>::value)
                 {
@@ -256,6 +266,9 @@ void Foam::MarkerFilter<T>::spatialFilter()
                     case LogSmoothLimiting:
                         scalingFactor = logSmoothLimit(median_Force_abs,cCForce_abs);
                         break;
+                    case PotentialLogSmoothLimit:
+                        scalingFactor = potentialLogSmoothLimit(median_Force_abs,cCForce_abs);
+                        break;
                     default:
                         scalingFactor = 0;
                         FatalErrorInFunction<<"Invalid method"<<exit(FatalError);
@@ -299,11 +312,28 @@ Foam::scalar Foam::MarkerFilter<T>::logSmoothLimit(scalar referenceForce, scalar
 }
 
 template<typename T>
+Foam::scalar Foam::MarkerFilter<T>::potentialLogSmoothLimit(scalar referenceForce, scalar actualForce)
+{
+    if(referenceForce==0)
+        return 1;
+    scalar s = actualForce/referenceForce;
+    if(s>1)
+    {       
+        scalar f = std::log(1+dampingHardness)/std::log(1+dampingHardness*(s/thresholdParameter));
+        for(label p=1; p<power; p++)
+            f *= f;
+        return thresholdParameter + (s-thresholdParameter)*f;
+    }
+    else
+        return 1;
+}
+
+template<typename T>
 void Foam::MarkerFilter<T>::temporalFilter()
 {
     if(temporalFilterActive)
     {
         output_Force = parameter_EMA*output_Force + (1-parameter_EMA)*output_Force_last;
-        Info<<"----------------------------------------------Spatially filtered forcing field"<<Foam::endl;
+        Info<<"----------------------------------------------Temporal filtered forcing field"<<Foam::endl;
     }
 }

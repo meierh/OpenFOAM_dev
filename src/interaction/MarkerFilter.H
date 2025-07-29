@@ -36,7 +36,7 @@ class MarkerFilter
         bool spatialFilterActive = false;
         enum spatialFilterWidth {W1x1=0, W3x3=1, W5x5=2};
         spatialFilterWidth width = W3x3;
-        enum spatialFilterMethod {Clipping, SmoothLimiting, LogSmoothLimiting};
+        enum spatialFilterMethod {Clipping, SmoothLimiting, LogSmoothLimiting, PotentialLogSmoothLimit};
         spatialFilterMethod method = LogSmoothLimiting;
         // Clipping
         scalar clip(scalar referenceForce, scalar actualForce);
@@ -49,6 +49,9 @@ class MarkerFilter
         scalar logSmoothLimit(scalar referenceForce, scalar actualForce);
         scalar thresholdParameter = 4;
         scalar dampingHardness = 6;
+        // PotentialLogSmoothLimiting
+        scalar potentialLogSmoothLimit(scalar referenceForce, scalar actualForce);
+        label power = 4;
         
         void temporalFilter();
         bool temporalFilterActive = false;
