@@ -170,34 +170,20 @@ void Foam::MarkerFilter<T>::spatialFilter()
         if(spatialFilterActive)
         {
             std::unique_ptr<List<List<T>>> output_Force_halo_Ptr = structure.broadcastHaloFields(output_Force);
-            const List<List<T>>& output_Force_halo = *output_Force_halo_Ptr;       
+            const List<List<T>>& output_Force_halo = *output_Force_halo_Ptr;
+
+            if(meshGraphSyncVersion != structure.getMeshGraphVersion())
+            {
+                computeCellNeighbourhood();
+                if(meshGraphSyncVersion > structure.getMeshGraphVersion())
+                    FatalErrorInFunction<<"meshGraphSyncVersion:"<<meshGraphSyncVersion<<" can not be larger than meshGraphVersion:"<<structure.getMeshGraphVersion()<<exit(FatalError);
+                meshGraphSyncVersion = structure.getMeshGraphVersion();
+            }
+
             const List<List<List<Pair<label>>>>& meshGraph = structure.getMeshGraph();
             for(label cellInd = 0; cellInd<output_Force.size(); cellInd++)
             {
-                std::unordered_set<Pair<label>,foamPairHash<label>> cellNeighbourhood;
-                cellNeighbourhood.insert({Pstream::myProcNo(),cellInd});
-                DynamicList<Pair<label>> front;
-                front.append({Pstream::myProcNo(),cellInd});
-                for(label neigIter=0; neigIter<static_cast<int>(width); neigIter++)
-                {
-                    std::unordered_set<Pair<label>,foamPairHash<label>> tmp_front;
-                    for(const Pair<label>& frontCell : front)
-                    {
-                        const List<Pair<label>>& cellNode =  meshGraph[frontCell.first()][frontCell.second()];
-                        for(const Pair<label>& neiCell : cellNode)
-                        {
-                            if(cellNeighbourhood.find(neiCell)!=cellNeighbourhood.end())
-                            {
-                                tmp_front.insert(neiCell);
-                            }
-                        }
-                    }
-                    front.clear();
-                    for(const Pair<label>& p : tmp_front)
-                        front.append(p);
-                    cellNeighbourhood.insert(tmp_front.begin(),tmp_front.end());
-                    tmp_front.clear();
-                }
+                const DynamicList<Pair<label>>& oneCellNeighbourhood = getOneCellNeighbourhood(cellInd);
                 
                 T cCForce = output_Force[cellInd];
                 scalar cCForce_abs;
@@ -216,7 +202,7 @@ void Foam::MarkerFilter<T>::spatialFilter()
                 }
                 avg_Force_abs = Foam::zero();
                 std::vector<scalar> median_Force_abs_list;
-                for(const Pair<label>& neiCell : cellNeighbourhood)
+                for(const Pair<label>& neiCell : oneCellNeighbourhood)
                 {
                     T cellVal = Foam::zero();
                     if(neiCell.first()==Pstream::myProcNo())
@@ -281,6 +267,43 @@ void Foam::MarkerFilter<T>::spatialFilter()
 }
 
 template<typename T>
+void Foam::MarkerFilter<T>::computeCellNeighbourhood()
+{
+    this->cellNeighbourhood.setSize(output_Force.size());
+    const List<List<List<Pair<label>>>>& meshGraph = structure.getMeshGraph();
+    for(label cellInd = 0; cellInd<output_Force.size(); cellInd++)
+    {
+        std::unordered_set<Pair<label>,foamPairHash<label>> cellNeighbourhood;
+        cellNeighbourhood.insert({Pstream::myProcNo(),cellInd});
+        DynamicList<Pair<label>> front;
+        front.append({Pstream::myProcNo(),cellInd});
+        for(label neigIter=0; neigIter<static_cast<int>(width); neigIter++)
+        {
+            std::unordered_set<Pair<label>,foamPairHash<label>> tmp_front;
+            for(const Pair<label>& frontCell : front)
+            {
+                const List<Pair<label>>& cellNode =  meshGraph[frontCell.first()][frontCell.second()];
+                for(const Pair<label>& neiCell : cellNode)
+                {
+                    if(cellNeighbourhood.find(neiCell)!=cellNeighbourhood.end())
+                    {
+                        tmp_front.insert(neiCell);
+                    }
+                }
+            }
+            front.clear();
+            for(const Pair<label>& p : tmp_front)
+                front.append(p);
+            cellNeighbourhood.insert(tmp_front.begin(),tmp_front.end());
+            tmp_front.clear();
+        }
+        this->cellNeighbourhood[cellInd] = DynamicList<Pair<label>>();
+        for(const Pair<label>& neiCell : cellNeighbourhood)
+            this->cellNeighbourhood[cellInd].append(neiCell);
+    }
+}
+
+template<typename T>
 Foam::scalar Foam::MarkerFilter<T>::clip(scalar referenceForce, scalar actualForce)
 {
     scalar clippedForce = std::min<scalar>(actualForce,clipLimitFactor*referenceForce);
@@ -334,6 +357,6 @@ void Foam::MarkerFilter<T>::temporalFilter()
     if(temporalFilterActive)
     {
         output_Force = parameter_EMA*output_Force + (1-parameter_EMA)*output_Force_last;
-        Info<<"----------------------------------------------Temporal filtered forcing field"<<Foam::endl;
+        Info<<"----------------------Temporal filtered forcing field @ "<<compute3dBFrequencyFromEMAParameter(parameter_EMA)<<" Hz / theta : "<<parameter_EMA<<Foam::endl;
     }
 }

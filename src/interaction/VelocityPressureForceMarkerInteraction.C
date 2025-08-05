@@ -50,11 +50,13 @@ void Foam::VelocityPressureForceInteraction::solve
     interpolateFluidVelocityToMarkers();
     computeCouplingForceOnMarkers();
     computeRodForceMoment();
+    filter.record();
     interpolateFluidForceField();
     if(interiorForcingActive)
     {
         interiorForcing(time,reconstructInterior(firstIteration,time,finalIteration));
     }
+    filter.filter();
     
     if(finalIteration)
     {
@@ -123,9 +125,7 @@ void Foam::VelocityPressureForceInteraction::computeCouplingForceOnMarkers()
 void Foam::VelocityPressureForceInteraction::interpolateFluidForceField()
 {
     Info<<"  VelocityPressureForceInteraction::interpolateFluidForceField"<<Foam::endl;
-    filter.record();
     markerToField<vector>(markerCouplingForce,output_Uf);
-    filter.filter();
     Info<<"  VelocityPressureForceInteraction::interpolateFluidForceField done"<<Foam::endl;
 }
 

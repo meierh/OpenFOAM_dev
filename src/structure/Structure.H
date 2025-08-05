@@ -534,6 +534,8 @@ class Structure
         List<List<vector>> globalMeshCentres;
         // [proc] -> cell -> {magnitude}
         List<List<scalar>> globalMeshMagn;
+        //version of globalMeshGraph; is incremented every time generateMeshGraph is called
+        std::uint64_t meshGraphUpdateVersion = 0;
         // Generates : (patchFaceToNeighCellMap)
         void computePatchFaceToCellMap();
         // Generates:(globalMeshGraph,localMeshGraph,globalMeshCentres,globalMeshMagn), Calls:(computePatchFaceToCellMap)
@@ -541,6 +543,7 @@ class Structure
     public:
         const List<List<List<Pair<label>>>>& getMeshGraph() const {return globalMeshGraph;}
         const List<List<Pair<label>>>& getMeshGraph(label proc) const;
+        std::uint64_t getMeshGraphVersion() const {return meshGraphUpdateVersion;}
         inline vector getCellCentre(label proc, label cell) const {return globalMeshCentres[proc][cell];}
         inline scalar getCellVolume(label proc, label cell) const {return globalMeshMagn[proc][cell];}
         /****************************Global(neighbours) mesh data*****************************/

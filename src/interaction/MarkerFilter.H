@@ -38,6 +38,10 @@ class MarkerFilter
         spatialFilterWidth width = W3x3;
         enum spatialFilterMethod {Clipping, SmoothLimiting, LogSmoothLimiting, PotentialLogSmoothLimit};
         spatialFilterMethod method = LogSmoothLimiting;
+        std::uint64_t meshGraphSyncVersion = 0;
+        List<DynamicList<Pair<label>>> cellNeighbourhood;
+        const DynamicList<Pair<label>>& getOneCellNeighbourhood(label cellInd){return cellNeighbourhood[cellInd];}
+        void computeCellNeighbourhood();
         // Clipping
         scalar clip(scalar referenceForce, scalar actualForce);
         scalar clipLimitFactor = 3; // [2-5]

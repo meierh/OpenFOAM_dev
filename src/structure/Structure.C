@@ -2661,6 +2661,8 @@ void Foam::Structure::computePatchFaceToCellMap()
 
 void Foam::Structure::generateMeshGraph()
 {
+    meshGraphUpdateVersion++;
+
     /*
     Barrier(false);
     auto t2 = std::chrono::high_resolution_clock::now();
