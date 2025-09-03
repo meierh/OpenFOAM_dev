@@ -128,12 +128,14 @@ class LagrangianMarker
         scalar markerCharLen;
         
         // Pair<processor,cell ID>
-        const label supportWidth = 2;
+        //const label supportWidth = 2;
         DynamicList<Pair<label>> directSupport;
         DynamicList<Pair<label>> fullSupport;
         SupportType momentsSupportType = SupportType::Full;
         Vector<bool> existingDims;
-        void computeSupport(label iterations=2);
+        void computeDirectSupportAndDims();
+        void computeFullSupport();
+        //void computeSupport(label iterations=2);
         
         const MarkerFunc markerFuncMethod;
 
@@ -657,12 +659,15 @@ class LineStructure : public Structure
         std::vector<LagrangianMarker*> collectedMarkers;
         
     public:
-        MarkerFunc getMarkerFuncMethod(){return markerFuncMethod;}
+        MarkerFunc getMarkerFuncMethod() const {return markerFuncMethod;}
+        scalar getMarkerDilationFactor() const {return markerDilationFactor;}
     protected:
         MarkerFunc markerFuncMethod = MarkerFunc::Tensorproduct;
         scalar rodPntDistToMarkerCharLen = 1; // rodPntDist / markerCharLen
         
-        void readRodPntsToMeshSpacingDict(const IOdictionary& structureDict);       
+        void readRodPntsToMeshSpacingDict(const IOdictionary& structureDict);
+        
+        scalar markerDilationFactor = 1.0;
         
         std::map<scalar,std::vector<LagrangianMarker>> storage;
         /******************Halo markers data************************/

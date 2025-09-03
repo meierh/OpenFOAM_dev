@@ -128,21 +128,23 @@ void Foam::LagrangianMarker::total_print() const
 
 void Foam::LagrangianMarker::evaluateMarker()
 {
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     markerPosition = LineStructure::evaluateRodPos(baseRod,markerParameter);
     markerCell = structure.findCell(markerPosition);
-    computeSupport();
+    computeDirectSupportAndDims();
     Pair<vector> h = minMaxNeighbourWidth(directSupport);
     h_plus = h.first();
     h_minus = h.second();
     dilation = dilationFactors(h);
+    computeFullSupport();
     checkDirectSupport();
     reduceSupport();
     computeCharacLength();
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
 }
 
-void Foam::LagrangianMarker::computeSupport
+void Foam::LagrangianMarker::computeDirectSupportAndDims
 (
-    label iterations
 )
 {
     const cellList& cellList = mesh.cells();
@@ -152,14 +154,12 @@ void Foam::LagrangianMarker::computeSupport
     
     const List<List<Pair<label>>>& localMeshGraph = structure.getMeshGraph(Pstream::myProcNo());
     std::unordered_set<Pair<label>,foamPairHash<label>> direct;
-    std::unordered_set<Pair<label>,foamPairHash<label>> full;
     if(markerCell!=-1)
     {
         if(markerCell<0 || markerCell>=cellList.size())
             FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
                 
         direct.insert({Pstream::myProcNo(),markerCell});
-        full.insert({Pstream::myProcNo(),markerCell});
         DynamicList<Pair<label>> frontNodes;
         if(markerCell<0 || markerCell>=localMeshGraph.size())
         {
@@ -172,55 +172,8 @@ void Foam::LagrangianMarker::computeSupport
             if(edge.first()!=-1 && edge.second()!=-1)
             {
                 direct.insert({edge.first(),edge.second()});
-                full.insert({edge.first(),edge.second()});
                 frontNodes.append({edge.first(),edge.second()});
             }
-        }
-                        
-        for(label iteration=1; iteration<iterations; iteration++)
-        {
-            DynamicList<Pair<label>> newFront;
-            for(const Pair<label>& node : frontNodes)
-            {
-                label proc = node.first();
-                label cellInd = node.second();
-                
-                if(proc!=-1 && cellInd!=-1)
-                {
-                    const List<Pair<label>>* nodeNeighbours;
-                    if(proc==Pstream::myProcNo())
-                    {
-                        nodeNeighbours = &(localMeshGraph[cellInd]);
-                    }
-                    else
-                    {
-                        const List<List<Pair<label>>>& procMeshGraph = structure.getMeshGraph(proc);
-                        /*
-                        const std::unordered_map<label,label>& procHaloCellToIndex = structure.getHaloCellToIndexMap(proc);
-                        auto iter = procHaloCellToIndex.find(cellInd);
-                        if(iter==procHaloCellToIndex.end())
-                            FatalErrorInFunction<<"Support iteration depth mismatch!"<<exit(FatalError);
-                        label procHaloIndex = iter->second;
-                        */
-                        const List<Pair<label>>& cellProcMeshGraph = procMeshGraph[cellInd];
-                        nodeNeighbours = &cellProcMeshGraph;
-                    }
-                                        
-                    for(const Pair<label>& node : *nodeNeighbours)
-                    {
-                        if(node.first()!=-1 && node.second()!=-1)
-                        {
-                            if(full.find(node)==full.end())
-                            {
-                                newFront.append(node);
-                                full.insert(node);
-                            }
-                        }
-                    }
-                }
-            }
-            frontNodes = newFront;
-            newFront.clear();
         }
     }
     
@@ -229,12 +182,6 @@ void Foam::LagrangianMarker::computeSupport
     for(auto iterCells=direct.begin(); iterCells!=direct.end(); iterCells++)
     {
         directSupport.append(*iterCells);
-    }
-    
-    fullSupport.resize(0);
-    for(auto iterCells=full.begin(); iterCells!=full.end(); iterCells++)
-    {
-        fullSupport.append(*iterCells);
     }
     
     List<List<bool>> directionsExist(3,List<bool>(2,false));
@@ -291,10 +238,225 @@ void Foam::LagrangianMarker::computeSupport
         }
     }
         
-    //Info<<"directionsExist:"<<directionsExist<<Foam::endl;
     for(label dim=0; dim<3; dim++)
     {
         existingDims[dim] = directionsExist[dim][0] && directionsExist[dim][1];
+    }
+}
+
+void Foam::LagrangianMarker::computeFullSupport
+(
+)
+{
+    const cellList& cellList = mesh.cells();
+    const faceList& facesList = mesh.faces();
+    const labelList& owners = mesh.owner();
+    const pointField& points = mesh.points();
+    
+    const List<List<Pair<label>>>& localMeshGraph = structure.getMeshGraph(Pstream::myProcNo());
+    std::unordered_set<Pair<label>,foamPairHash<label>> full;
+    std::unordered_set<Pair<label>,foamPairHash<label>> inPriority;
+    std::multimap<scalar,Pair<label>,std::greater<scalar>> neighPriority;
+    if(markerCell!=-1)
+    {
+        Info<<"markerPosition:"<<markerPosition<<Foam::endl;
+        Pair<label> markerBaseCell(Pstream::myProcNo(),markerCell);
+        vector cellCentre;
+        scalar cellVolume;
+        getCellData(markerBaseCell,cellCentre,cellVolume);
+        scalar dd = deltaDirac(markerPosition,cellCentre);
+        neighPriority.insert({dd,markerBaseCell});
+        inPriority.insert(markerBaseCell);
+        for(label iteration=0; iteration<10000; iteration++)
+        {
+            /*
+            Info<<"iteration:"<<iteration<<"               ";
+            for(auto iter=neighPriority.begin(); iter!=neighPriority.end(); iter++)
+                Info<<iter->second<<" ";
+            Info<<Foam::endl;
+            */
+            auto iter = neighPriority.begin();
+            if(iter!=neighPriority.end())
+            {
+                scalar dd = iter->first;
+                Pair<label> node = iter->second;
+                neighPriority.erase(iter);
+                Info<<"i:"<<iteration<<" node:"<<node<<" dd:"<<dd<<"  "<<cellCentre<<Foam::endl;
+                if(dd==0)
+                    break;
+                
+                full.insert(node);
+                
+                label proc = node.first();
+                label cellInd = node.second();
+                const List<Pair<label>>* nodeNeighbours;
+                if(proc==Pstream::myProcNo())
+                {
+                    nodeNeighbours = &(localMeshGraph[cellInd]);
+                }
+                else
+                {
+                    const List<List<Pair<label>>>& procMeshGraph = structure.getMeshGraph(proc);
+                    const List<Pair<label>>& cellProcMeshGraph = procMeshGraph[cellInd];
+                    nodeNeighbours = &cellProcMeshGraph;
+                }
+                for(const Pair<label>& node : *nodeNeighbours)
+                {
+                    label proc = node.first();
+                    label cellInd = node.second();
+                
+                    if(proc!=-1 && cellInd!=-1)
+                    {
+                        if(full.find(node)==full.end() && inPriority.find(node)==inPriority.end())
+                        {
+                            getCellData(node,cellCentre,cellVolume);
+                            dd = deltaDirac(markerPosition,cellCentre);
+                            neighPriority.insert({dd,node});
+                            inPriority.insert(node);
+                            //Info<<"    Add:"<<node<<" "<<dd<<"  "<<cellCentre<<Foam::endl;
+                        }
+                    }
+                }
+            }
+            else
+                break;
+            
+            if(iteration>1000)
+                break;
+        }
+        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
+    }
+    
+    
+    /*
+    if(markerCell!=-1)
+    {
+        vector cellCentre;
+        scalar cellVolume;
+        
+        if(markerCell<0 || markerCell>=cellList.size())
+            FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
+                
+        full.insert({Pstream::myProcNo(),markerCell});
+        DynamicList<Pair<label>> frontNodes;
+        if(markerCell<0 || markerCell>=localMeshGraph.size())
+        {
+            Info<<"markerCell:"<<markerCell<<"/"<<localMeshGraph.size()<<Foam::endl;
+            FatalErrorInFunction<<"Out of range cellInd"<<exit(FatalError);
+        }
+        
+        for(const Pair<label>& edge : localMeshGraph[markerCell])
+        {
+            if(edge.first()!=-1 && edge.second()!=-1)
+            {
+                full.insert({edge.first(),edge.second()});
+                frontNodes.append({edge.first(),edge.second()});
+            }
+        }
+                  
+        DynamicList<DynamicList<Pair<label>>> fronts;
+        for(label iteration=1; true ; iteration++)
+        {
+            DynamicList<Pair<label>> newFront;
+            for(const Pair<label>& node : frontNodes)
+            {
+                label proc = node.first();
+                label cellInd = node.second();
+                
+                if(proc!=-1 && cellInd!=-1)
+                {
+                    const List<Pair<label>>* nodeNeighbours;
+                    if(proc==Pstream::myProcNo())
+                    {
+                        nodeNeighbours = &(localMeshGraph[cellInd]);
+                    }
+                    else
+                    {
+                        const List<List<Pair<label>>>& procMeshGraph = structure.getMeshGraph(proc);
+                        const List<Pair<label>>& cellProcMeshGraph = procMeshGraph[cellInd];
+                        nodeNeighbours = &cellProcMeshGraph;
+                    }
+                                        
+                    for(const Pair<label>& node : *nodeNeighbours)
+                    {
+                        if(node.first()!=-1 && node.second()!=-1)
+                        {
+                            if(full.find(node)==full.end() && discarded.find(node)==discarded.end())
+                            {
+                                getCellData(node,cellCentre,cellVolume);
+                                scalar dd = deltaDirac(markerPosition,cellCentre);
+                                
+                                if(dd>0)
+                                {
+                                    newFront.append(node);
+                                    full.insert(node);
+                                }
+                                else
+                                {
+                                    discarded.insert(node);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            fronts.append(frontNodes);
+            frontNodes = newFront;
+            newFront.clear();
+            
+            if(frontNodes.size()==0)
+                break;          
+            
+            if(iteration>10)
+            {
+                Info<<Foam::endl;
+                Info<<"Dilation:"<<dilation<<Foam::endl;
+                Pair<label> basis(Pstream::myProcNo(),markerCell);
+                vector cellCentre;
+                scalar cellVolume;
+                getCellData(basis,cellCentre,cellVolume);
+                Info<<"BasisCell:"<<basis<<" p:"<<cellCentre<<Foam::endl;
+                Info<<"markerPosition:"<<markerPosition<<Foam::endl;
+                this-> b = {1,1,1,1,1,1,1,1,1,1};
+                
+                
+                std::unordered_set<Pair<label>,foamPairHash<label>> unique;
+                for(label i=0; i<fronts.size()-1; i++)
+                {
+                    Info<<"iteration: "<<i<<Foam::nl;
+                    scalar avgDist = 0;
+                    for(label k=0; k<fronts[i].size(); k++)
+                    {
+                        vector cellCentre;
+                        scalar cellVolume;
+                        getCellData(fronts[i][k],cellCentre,cellVolume);
+                        Info<<fronts[i][k]<<" --:"<<cellCentre;
+                        vector diff = cellCentre-markerPosition;
+                        for(label dim=0; dim<3; dim++)
+                            diff[dim] = std::abs(diff[dim]);
+                        Info<<" <-> "<<diff;
+                        scalar dist = std::sqrt(diff&diff);
+                        avgDist += dist;
+                        Info<<" | "<<dist;
+                        bool outside = false;
+                        for(label dim=0; dim<3; dim++)
+                            if(diff[dim] > 1.5*dilation[dim])
+                                outside = true;
+                        Info<<" outside:"<<outside<<" cdd:"<<correctedDeltaDirac(markerPosition,cellCentre)<<" dd:"<<deltaDirac(markerPosition,cellCentre)<<Foam::endl;
+                    }
+                    avgDist /= fronts[i].size();
+                    Info<<"avgDist:"<<avgDist<<Foam::endl;
+                }
+                FatalErrorInFunction<<"Overloop"<<exit(FatalError);
+            }
+        }
+    }
+    */
+    
+    fullSupport.resize(0);
+    for(auto iterCells=full.begin(); iterCells!=full.end(); iterCells++)
+    {
+        fullSupport.append(*iterCells);
     }
 }
 
@@ -395,7 +557,6 @@ Foam::vector Foam::LagrangianMarker::dilationFactors
     vector minSpan = h.second();
     if(markerCell!=-1)
     {
-        
         scalar maxLen = std::sqrt(maxSpan&maxSpan);
         scalar minLen = std::sqrt(minSpan&minSpan);
         scalar lenFrac = minLen/maxLen;
@@ -408,6 +569,8 @@ Foam::vector Foam::LagrangianMarker::dilationFactors
         dilation = dilation + vector(eps,eps,eps);
         if(dilation[0]==0 || dilation[1]==0 || dilation[2]==0)
             FatalErrorInFunction<<"Invalid dilation"<<exit(FatalError);
+        
+        dilation *= structure.getMarkerDilationFactor();
         return dilation;
     }
     else
@@ -1082,20 +1245,7 @@ void Foam::LagrangianMarker::searchValidConvolutionSetup
 (
     std::unique_ptr<Pair<gismo::gsMatrix<scalar>>>& system
 )
-{   
-    // Try to expand the support
-    /*
-    Pair<vector> newh = minMaxNeighbourWidth(fullSupport);
-    h_plus = newh.first();
-    h_minus = newh.second();
-    dilation = dilationFactors(newh);
-    computeSupport(supportWidth+2);
-    if(checkSolvability(system,existingDims))
-        return;
-    else
-        evaluateMarker();
-    */
-    
+{      
     // Remove dimensions
     Vector<bool> dimensions;
     auto bitAnd = [](Vector<bool> pattern, Vector<bool> directions)

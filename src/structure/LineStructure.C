@@ -1471,6 +1471,7 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     const IOdictionary& structureDict
 )
 {
+    /*
     ITstream markerFunctionShapeStream = structureDict.lookup("markerFunctionShape");
     token markerFunctionShapeToken;
     markerFunctionShapeStream.read(markerFunctionShapeToken);
@@ -1481,6 +1482,8 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/markerFunctionShapeToken -- must be word"<<exit(FatalError);
     }
     word markerFunctionShapeWord = markerFunctionShapeToken.wordToken();
+    */
+    word markerFunctionShapeWord = readFromDictionary<word>("markerFunctionShape",structureDict);
     if(markerFunctionShapeWord=="tensor")
         markerFuncMethod = MarkerFunc::Tensorproduct;
     else if(markerFunctionShapeWord=="isotrop")
@@ -1491,6 +1494,7 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
     else
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/markerFunctionShape -- must be {tensor,isotrop}"<<exit(FatalError);
 
+    /*
     ITstream iniSpacingFactorStream = structureDict.lookup("iniPntDistToCellSpacing");
     token iniSpacingFactorToken;
     iniSpacingFactorStream.read(iniSpacingFactorToken);
@@ -1501,7 +1505,10 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/iniPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
     }
     iniRodPntsDistToMeshSpacing = iniSpacingFactorToken.scalarToken();
+    */
+    iniRodPntsDistToMeshSpacing = readFromDictionary<scalar>("iniPntDistToCellSpacing",structureDict);
     
+    /*
     ITstream refnSpacingFactorStream = structureDict.lookup("refnPntDistToCellSpacing");
     token refnSpacingFactorToken;
     refnSpacingFactorStream.read(refnSpacingFactorToken);
@@ -1512,7 +1519,10 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/refnPntDistToCellSpacing -- must be scalar"<<exit(FatalError);
     }
     refnRodMarkersDistToMeshSpacing = refnSpacingFactorToken.scalarToken();
+    */
+    refnRodMarkersDistToMeshSpacing = readFromDictionary<scalar>("refnPntDistToCellSpacing",structureDict);
     
+    /*
     ITstream pntDistToMarkerCharLenStream = structureDict.lookup("pntDistToMarkerCharLen");
     token pntDistToMarkerCharLenToken;
     pntDistToMarkerCharLenStream.read(pntDistToMarkerCharLenToken);
@@ -1523,10 +1533,14 @@ void Foam::LineStructure::readRodPntsToMeshSpacingDict
         FatalErrorInFunction<<"Invalid entry in constant/structureDict/pntDistToMarkerCharLen -- must be scalar"<<exit(FatalError);
     }
     rodPntDistToMarkerCharLen = pntDistToMarkerCharLenToken.scalarToken();
-    
+    */
+    rodPntDistToMarkerCharLen = readFromDictionary<scalar>("pntDistToMarkerCharLen",structureDict);
+      
     Info<<"iniRodPntsDistToMeshSpacing:"<<iniRodPntsDistToMeshSpacing<<Foam::nl;
     Info<<"refnRodMarkersDistToMeshSpacing:"<<refnRodMarkersDistToMeshSpacing<<Foam::nl;
     Info<<"rodPntDistToMarkerCharLen:"<<rodPntDistToMarkerCharLen<<Foam::nl;
+    
+    markerDilationFactor = readFromDictionary<scalar>("markerDilationFactor",structureDict);
 }
 
 Foam::BoundingBox Foam::LineStructure::computeBox
