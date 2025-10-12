@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
     
     // Instantiate the solver
     Foam::solvers::icoAdjointImmersedBoundary solver(mesh,runTime,{radPara0,radPara1});
+    Info<<"icoAdjointImmersedBoundary created"<<Foam::nl;
     solver.SolveSteadyAdjoint();
     
     Info<<"optimIB done"<<Foam::nl;

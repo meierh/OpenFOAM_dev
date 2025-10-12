@@ -1,5 +1,7 @@
 #include "icoAdjointImmersedBoundary.H"
 
+#include "Pstream.H"
+
 Foam::solvers::icoAdjointImmersedBoundary::icoAdjointImmersedBoundary
 (
     fvMesh& mesh,
@@ -95,6 +97,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::setupAdjoint()
                 solutionStart = SolutionStartType::gradient;
             else
                 FatalErrorInFunction<<"Invalid word in system/fvSolution/solutionStart -- must be {primal,adjoint,gradient}"<<exit(FatalError);
+        }
+        else {
+            FatalErrorInFunction<<"solutionStart not set in system/fvSolution"<<exit(FatalError);
         }
         
         
@@ -321,7 +326,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_preSolve
 {
     initializeInteractions();
     
-    Info<<"J:"<<J(*this)<<Foam::endl;
+    //Info<<"J:"<<J(*this)<<Foam::endl;
     
     Info<<"adj_preSolve  useAdjointTemperature:"<<useAdjointTemperature<<Foam::nl;
     if(useAdjointTemperature)
@@ -370,7 +375,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
     const volVectorField& U(U_);
     volVectorField& adj_U(adj_U_);
     const surfaceScalarField phi = linearInterpolate(U) & mesh.Sf();
-    
+
+    Info<< "phi min/max/sum: " << gMin(phi) << " / " << gMax(phi) << " / " << gSum(phi) << endl;
+
     if(!steadyStateAdjoint)
         FatalErrorInFunction<<"SteadyStateAdjoint false"<<exit(FatalError);
 
@@ -412,14 +419,62 @@ void Foam::solvers::icoAdjointImmersedBoundary::adj_momentumPredictor
 
     if (adjPimpleCtlr.adjMomentumPredictor())
     {
+        Info<< "adj_p_ min/max: " << gMin(adj_p_) << " / " << gMax(adj_p_) << endl;
+        Info<< "adj_UEqn source sum: " << gSum(adj_UEqn.source()) << endl;
+
+        {
+            // sizes check
+            Info << "proc: " << Pstream::myProcNo() << " nCells: " << mesh.nCells()
+                << " source size: " << adj_UEqn.source().size() << nl;
+
+            // per-component min/max
+            for (label c=0; c<3; ++c)
+            {
+                Info << "proc " << Pstream::myProcNo()
+                    << " source comp " << c
+                    << " min/max: "
+                    << gMin(adj_UEqn.source().component(c))
+                    << " / "
+                    << gMax(adj_UEqn.source().component(c))
+                    << nl;
+            }
+
+            // magnitude min/max and index of max
+            scalarField magS = mag(adj_UEqn.source());
+            Info << "proc " << Pstream::myProcNo()
+                << " source mag min/max: " << gMin(magS) << " / " << gMax(magS) << nl;
+
+            scalar maxVal = -GREAT;
+            label maxI = -1;
+
+            forAll(magS, i)
+            {
+                if (magS[i] > maxVal)
+                {
+                    maxVal = magS[i];
+                    maxI = i;
+                }
+            }
+            Info << "proc " << Pstream::myProcNo()
+                << " source max index: " << maxI
+                << " value: " << magS[maxI]
+                << " cellVol: " << mesh.V()[maxI]
+                << " cellCentre: " << mesh.C()[maxI]
+                << nl;
+        }
+
         adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
+            Barrier(true);
         if(useAdjointVelocityForcing)
         {
             interaction_adj_fU->solve(virtualAdjMomentumTimestep);
             //adjUEqn_res = solve(adj_UEqn == -fvc::grad(adj_p_));
+                Barrier(true);
         }
         fvConstraints().constrain(adj_U_);
+            Barrier(true);
     }
+    Barrier(true);
 }
 
 void Foam::solvers::icoAdjointImmersedBoundary::adj_thermophysicalPredictor()
@@ -584,11 +639,13 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
-    Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
+    /*
+    Info<<"--------------------------------------- Solve oneAdjSteadyTimestep ---------------------------------------"<<Foam::nl;
     Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
     Info<<"adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
     adj_preSolve(adjPimpleCtlr);
-    if(solutionStart == SolutionStartType::adjoint)
+    */
+    if(solutionStart == SolutionStartType::adjoint || solutionStart == SolutionStartType::primal)
     {
         Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
         Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
@@ -601,8 +658,9 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
             //adj_fvModels().correct();
             adj_prePredictor();
             adj_momentumPredictor(adjPimpleCtlr);
-
+            Barrier(true);
             adj_thermophysicalPredictor();
+                        Barrier(true);
             adj_pressureCorrector(adjPimpleCtlr);
             
             Info<<"adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
@@ -618,6 +676,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestep
         adj_U_.write();
         adj_p_.write();
     }
+    FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     adj_postSolve(adjPimpleCtlr);
 }
 
@@ -626,7 +685,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestepBase
     pimpleAdjIBControl& adjPimpleCtlr
 )
 {
-    Info<<"--------------------------------------- Solve Adjoint ---------------------------------------"<<Foam::nl;
+    Info<<"--------------------------------------- Solve oneAdjSteadyTimestepBase ---------------------------------------"<<Foam::nl;
     adj_U_ = Foam::zero();
     //adj_phi_ = Foam::zero();
     adj_p_ = Foam::zero();
@@ -724,12 +783,12 @@ void Foam::solvers::icoAdjointImmersedBoundary::oneAdjSteadyTimestepBase
             adj_U.correctBoundaryConditions();
             fvConstraints().constrain(adj_U);
         }
-    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
-    Info<<"|| U: "; printAvg(U_); printMinMax(U_);
-    Info<<"|| phi: "; printAvg(phi_); printMinMax(phi_);    
-    Info<<"|| adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
-    Info<<"|| adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
-    Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+        Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
+        Info<<"|| U: "; printAvg(U_); printMinMax(U_);
+        Info<<"|| phi: "; printAvg(phi_); printMinMax(phi_);
+        Info<<"|| adj_U: "; printAvg(adj_U_); printMinMax(adj_U_);
+        Info<<"|| adj_p: "; printAvg(adj_p_); printMinMax(adj_p_);
+        Info<<"|||||||||||||||||||||||||||||||||||||||||||||"<<Foam::nl;
         
         //time += 1;
         //runTime.write();
@@ -798,6 +857,7 @@ void Foam::solvers::icoAdjointImmersedBoundary::SolveSteadyAdjoint()
 {
     if(solutionStart == SolutionStartType::primal)
     {
+
         SolvePrimal();
     }
     oneAdjSteadyTimestep(adjPimpleCtlr);

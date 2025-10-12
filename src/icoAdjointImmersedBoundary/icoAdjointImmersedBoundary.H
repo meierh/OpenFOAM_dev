@@ -143,7 +143,7 @@ class icoAdjointImmersedBoundary : public icoImmersedBoundary
         pimpleAdjIBControl adjPimpleCtlr;
         bool steadyStateAdjoint;
         void setupAdjoint();
-        enum SolutionStartType {primal,adjoint,gradient};
+        enum SolutionStartType {primal=0,adjoint=1,gradient=2};
         SolutionStartType solutionStart = SolutionStartType::primal;
         
         //Optimization

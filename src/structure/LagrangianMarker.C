@@ -259,7 +259,7 @@ void Foam::LagrangianMarker::computeFullSupport
     std::multimap<scalar,Pair<label>,std::greater<scalar>> neighPriority;
     if(markerCell!=-1)
     {
-        Info<<"markerPosition:"<<markerPosition<<Foam::endl;
+        //Info<<"markerPosition:"<<markerPosition<<Foam::endl;
         Pair<label> markerBaseCell(Pstream::myProcNo(),markerCell);
         vector cellCentre;
         scalar cellVolume;
@@ -267,21 +267,15 @@ void Foam::LagrangianMarker::computeFullSupport
         scalar dd = deltaDirac(markerPosition,cellCentre);
         neighPriority.insert({dd,markerBaseCell});
         inPriority.insert(markerBaseCell);
-        for(label iteration=0; iteration<10000; iteration++)
+        for(label iteration=0; iteration<1000000; iteration++)
         {
-            /*
-            Info<<"iteration:"<<iteration<<"               ";
-            for(auto iter=neighPriority.begin(); iter!=neighPriority.end(); iter++)
-                Info<<iter->second<<" ";
-            Info<<Foam::endl;
-            */
             auto iter = neighPriority.begin();
             if(iter!=neighPriority.end())
             {
                 scalar dd = iter->first;
                 Pair<label> node = iter->second;
                 neighPriority.erase(iter);
-                Info<<"i:"<<iteration<<" node:"<<node<<" dd:"<<dd<<"  "<<cellCentre<<Foam::endl;
+                //Info<<"i:"<<iteration<<" node:"<<node<<" dd:"<<dd<<"  "<<cellCentre<<Foam::endl;
                 if(dd==0)
                     break;
                 
@@ -313,7 +307,6 @@ void Foam::LagrangianMarker::computeFullSupport
                             dd = deltaDirac(markerPosition,cellCentre);
                             neighPriority.insert({dd,node});
                             inPriority.insert(node);
-                            //Info<<"    Add:"<<node<<" "<<dd<<"  "<<cellCentre<<Foam::endl;
                         }
                     }
                 }
@@ -324,134 +317,7 @@ void Foam::LagrangianMarker::computeFullSupport
             if(iteration>1000)
                 break;
         }
-        FatalErrorInFunction<<"Temp stop"<<exit(FatalError);
     }
-    
-    
-    /*
-    if(markerCell!=-1)
-    {
-        vector cellCentre;
-        scalar cellVolume;
-        
-        if(markerCell<0 || markerCell>=cellList.size())
-            FatalErrorInFunction<<"Invalid cell index"<< exit(FatalError);
-                
-        full.insert({Pstream::myProcNo(),markerCell});
-        DynamicList<Pair<label>> frontNodes;
-        if(markerCell<0 || markerCell>=localMeshGraph.size())
-        {
-            Info<<"markerCell:"<<markerCell<<"/"<<localMeshGraph.size()<<Foam::endl;
-            FatalErrorInFunction<<"Out of range cellInd"<<exit(FatalError);
-        }
-        
-        for(const Pair<label>& edge : localMeshGraph[markerCell])
-        {
-            if(edge.first()!=-1 && edge.second()!=-1)
-            {
-                full.insert({edge.first(),edge.second()});
-                frontNodes.append({edge.first(),edge.second()});
-            }
-        }
-                  
-        DynamicList<DynamicList<Pair<label>>> fronts;
-        for(label iteration=1; true ; iteration++)
-        {
-            DynamicList<Pair<label>> newFront;
-            for(const Pair<label>& node : frontNodes)
-            {
-                label proc = node.first();
-                label cellInd = node.second();
-                
-                if(proc!=-1 && cellInd!=-1)
-                {
-                    const List<Pair<label>>* nodeNeighbours;
-                    if(proc==Pstream::myProcNo())
-                    {
-                        nodeNeighbours = &(localMeshGraph[cellInd]);
-                    }
-                    else
-                    {
-                        const List<List<Pair<label>>>& procMeshGraph = structure.getMeshGraph(proc);
-                        const List<Pair<label>>& cellProcMeshGraph = procMeshGraph[cellInd];
-                        nodeNeighbours = &cellProcMeshGraph;
-                    }
-                                        
-                    for(const Pair<label>& node : *nodeNeighbours)
-                    {
-                        if(node.first()!=-1 && node.second()!=-1)
-                        {
-                            if(full.find(node)==full.end() && discarded.find(node)==discarded.end())
-                            {
-                                getCellData(node,cellCentre,cellVolume);
-                                scalar dd = deltaDirac(markerPosition,cellCentre);
-                                
-                                if(dd>0)
-                                {
-                                    newFront.append(node);
-                                    full.insert(node);
-                                }
-                                else
-                                {
-                                    discarded.insert(node);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            fronts.append(frontNodes);
-            frontNodes = newFront;
-            newFront.clear();
-            
-            if(frontNodes.size()==0)
-                break;          
-            
-            if(iteration>10)
-            {
-                Info<<Foam::endl;
-                Info<<"Dilation:"<<dilation<<Foam::endl;
-                Pair<label> basis(Pstream::myProcNo(),markerCell);
-                vector cellCentre;
-                scalar cellVolume;
-                getCellData(basis,cellCentre,cellVolume);
-                Info<<"BasisCell:"<<basis<<" p:"<<cellCentre<<Foam::endl;
-                Info<<"markerPosition:"<<markerPosition<<Foam::endl;
-                this-> b = {1,1,1,1,1,1,1,1,1,1};
-                
-                
-                std::unordered_set<Pair<label>,foamPairHash<label>> unique;
-                for(label i=0; i<fronts.size()-1; i++)
-                {
-                    Info<<"iteration: "<<i<<Foam::nl;
-                    scalar avgDist = 0;
-                    for(label k=0; k<fronts[i].size(); k++)
-                    {
-                        vector cellCentre;
-                        scalar cellVolume;
-                        getCellData(fronts[i][k],cellCentre,cellVolume);
-                        Info<<fronts[i][k]<<" --:"<<cellCentre;
-                        vector diff = cellCentre-markerPosition;
-                        for(label dim=0; dim<3; dim++)
-                            diff[dim] = std::abs(diff[dim]);
-                        Info<<" <-> "<<diff;
-                        scalar dist = std::sqrt(diff&diff);
-                        avgDist += dist;
-                        Info<<" | "<<dist;
-                        bool outside = false;
-                        for(label dim=0; dim<3; dim++)
-                            if(diff[dim] > 1.5*dilation[dim])
-                                outside = true;
-                        Info<<" outside:"<<outside<<" cdd:"<<correctedDeltaDirac(markerPosition,cellCentre)<<" dd:"<<deltaDirac(markerPosition,cellCentre)<<Foam::endl;
-                    }
-                    avgDist /= fronts[i].size();
-                    Info<<"avgDist:"<<avgDist<<Foam::endl;
-                }
-                FatalErrorInFunction<<"Overloop"<<exit(FatalError);
-            }
-        }
-    }
-    */
     
     fullSupport.resize(0);
     for(auto iterCells=full.begin(); iterCells!=full.end(); iterCells++)
